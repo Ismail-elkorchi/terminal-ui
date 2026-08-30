@@ -18,6 +18,7 @@ import {
 } from '../split-pane.ts';
 import {
   drawScrollbars,
+  measuredViewportScrollbarState,
   scrollbarHitTargetsForRenderNode,
   scrollbarsForRenderNode,
   viewportScrollbarState
@@ -107,9 +108,23 @@ export const layoutRenderers = {
   viewport: {
     clipChildren: true,
     measure: layoutMeasurements.viewport,
-    layout: ({ renderNode, bounds, measureChild }) => [
-      viewportChildBounds(renderNode, bounds, measureChild(0))
-    ],
+    layout: ({ renderNode, bounds, measureChild }) => {
+      const scrollbars = scrollbarsForRenderNode(
+        renderNode,
+        bounds,
+        (contentBounds) => measuredViewportScrollbarState(
+          renderNode,
+          contentBounds,
+          measureChild(0, contentBounds),
+        ),
+        'both',
+      );
+      return [viewportChildBounds(
+        renderNode,
+        scrollbars.contentBounds,
+        measureChild(0, scrollbars.contentBounds),
+      )];
+    },
     render: (input) => {
       const viewportBuffer = createFrameBuffer(input.buffer.width, input.buffer.height, {
         widthProfile: input.buffer.widthProfile
@@ -142,11 +157,23 @@ export const layoutRenderers = {
       );
       drawScrollbars(input.buffer, input.renderNode, scrollbars, input.theme);
     },
-    accessibility: ({ renderNode, layoutNode, id }) => ({
-      id,
-      role: 'group',
-      description: viewportAccessibleDescription(renderNode, layoutNode)
-    }),
+    accessibility: ({ renderNode, layoutNode, id }) => {
+      const scrollbars = scrollbarsForRenderNode(
+        renderNode,
+        layoutNode.bounds,
+        (contentBounds) => viewportScrollbarState(renderNode, contentBounds, layoutNode),
+        'both',
+      );
+      return {
+        id,
+        role: 'group',
+        description: viewportAccessibleDescription(
+          renderNode,
+          layoutNode,
+          scrollbars.contentBounds,
+        ),
+      };
+    },
     hitTargets: ({ renderNode, bounds, layoutNode }) => {
       const scrollbars = scrollbarsForRenderNode(
         renderNode,

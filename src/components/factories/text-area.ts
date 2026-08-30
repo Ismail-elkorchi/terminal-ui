@@ -573,6 +573,14 @@ function textAreaGeometry(input: ComponentInput<TextAreaModel>): TextAreaGeometr
     );
     scrollbar = textAreaScrollbar(input, layout, prefixWidth);
   }
+  if (input.model.revealCaret && input.model.scroll !== undefined) {
+    const displayCaret = projectedCaret(display.projection, input.model.caret);
+    const caret = layout.cursorAt(displayCaret.position.offset, displayCaret.position.affinity);
+    const revealed = textAreaCaretScroll(scrollbar, caret.rowIndex, caret.columnCells);
+    if (revealed !== scrollbar.scroll) {
+      scrollbar = textAreaScrollbar(input, layout, prefixWidth, revealed);
+    }
+  }
   return {
     document: display.document,
     projection: display.projection,
@@ -869,8 +877,8 @@ function textAreaScrollbar(
   input: ComponentInput<TextAreaModel>,
   layout: TextAreaDocumentLayout,
   prefixWidth: number,
+  scroll: ScrollState | undefined = input.model.scroll,
 ) {
-  const raw = input.model.scroll;
   return layoutComponentScrollbar({
     bounds: {
       row: input.bounds.row,
@@ -879,15 +887,40 @@ function textAreaScrollbar(
       height: textAreaEditorHeight(input.model, input.bounds.height),
     },
     scroll: {
-      offsetRow: raw?.offsetRow ?? 0,
-      offsetColumn: raw?.offsetColumn ?? 0,
-      followTail: raw?.followTail ?? false,
+      offsetRow: scroll?.offsetRow ?? 0,
+      offsetColumn: scroll?.offsetColumn ?? 0,
+      followTail: scroll?.followTail ?? false,
     },
     contentRows: layout.contentRows,
     contentColumns: layout.contentColumns,
     ...(input.model.scrollbar === undefined ? {} : { options: input.model.scrollbar }),
     defaultAxis: 'both',
   });
+}
+
+function textAreaCaretScroll(
+  scrollbar: ReturnType<typeof layoutComponentScrollbar>,
+  row: number,
+  column: number,
+): ScrollState {
+  let scroll = scrollReducer(scrollbar.scroll, {
+    kind: 'itemIntoView',
+    itemIndex: row,
+    alignment: 'nearest',
+  }, scrollbar.geometry);
+  const viewportColumns = scrollbar.geometry.viewportColumns;
+  const offsetColumn = column < scroll.offsetColumn
+    ? column
+    : column >= scroll.offsetColumn + viewportColumns
+      ? column - viewportColumns + 1
+      : scroll.offsetColumn;
+  if (offsetColumn !== scroll.offsetColumn) {
+    scroll = scrollReducer(scroll, {
+      kind: 'setOffset',
+      columns: offsetColumn,
+    }, scrollbar.geometry);
+  }
+  return scroll;
 }
 
 function textAreaPrefixWidth(

@@ -21,7 +21,7 @@ export interface RenderNodeMeasureInput<
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
   readonly childCount: number;
-  readonly measureChild: (index: number) => Measurement;
+  readonly measureChild: (index: number, constraints?: Rect) => Measurement;
   readonly widthProfile: TextWidthProfile;
 }
 
@@ -34,7 +34,7 @@ export interface RenderNodeLayoutInput<
   readonly viewport: Rect;
   readonly theme: TerminalTheme;
   readonly childCount: number;
-  readonly measureChild: (index: number) => Measurement;
+  readonly measureChild: (index: number, constraints?: Rect) => Measurement;
   readonly widthProfile: TextWidthProfile;
 }
 
@@ -48,7 +48,7 @@ export interface RenderNodePlaceInput<
   readonly theme: TerminalTheme;
   readonly measurement: () => Measurement;
   readonly childCount: number;
-  readonly measureChild: (index: number) => Measurement;
+  readonly measureChild: (index: number, constraints?: Rect) => Measurement;
   readonly widthProfile: TextWidthProfile;
 }
 

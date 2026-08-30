@@ -156,16 +156,20 @@ function childMeasurer(
   bounds: Rect,
   measurements: RenderMeasurementContext,
   depth: number,
-): (index: number) => Measurement {
-  const measured = new Map<number, Measurement>();
-  return (index): Measurement => {
+): (index: number, constraints?: Rect) => Measurement {
+  const measured = new Map<number, Map<string, Measurement>>();
+  return (index, constraints): Measurement => {
     if (!Number.isInteger(index) || index < 0 || index >= children.length) return zeroMeasurement();
-    const cached = measured.get(index);
+    const childBounds = constraints ?? bounds;
+    const key = `${String(childBounds.width)}:${String(childBounds.height)}`;
+    const byConstraint = measured.get(index) ?? new Map<string, Measurement>();
+    measured.set(index, byConstraint);
+    const cached = byConstraint.get(key);
     if (cached !== undefined) return cached;
     const child = children[index];
     if (child === undefined) return zeroMeasurement();
-    const measurement = measurements.measure(child, bounds, depth + 1);
-    measured.set(index, measurement);
+    const measurement = measurements.measure(child, childBounds, depth + 1);
+    byConstraint.set(key, measurement);
     return measurement;
   };
 }

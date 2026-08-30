@@ -41,6 +41,19 @@ test('track helpers split fixed, percent, and fill regions deterministically', (
 
   assert.deepEqual(
     splitTracks(
+      { row: 1, column: 1, width: 140, height: 10 },
+      'horizontal',
+      [{ kind: 'percent', value: 50 }, { kind: 'percent', value: 50 }],
+      { gap: 1 }
+    ),
+    [
+      { row: 1, column: 1, width: 69, height: 10 },
+      { row: 1, column: 71, width: 70, height: 10 }
+    ]
+  );
+
+  assert.deepEqual(
+    splitTracks(
       { row: 1, column: 1, width: 20, height: 5 },
       'horizontal',
       [{ kind: 'content', min: 4 }, { kind: 'fill' }],

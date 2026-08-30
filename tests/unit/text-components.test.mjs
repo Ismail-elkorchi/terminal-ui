@@ -12,7 +12,7 @@ import {
   noColorTheme
 } from '../../dist/theme/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
-import { createCommandSuggestions } from '../../dist/behavior/index.js';
+import { createCommandSuggestions, createScrollState } from '../../dist/behavior/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render-element.js';
 import { activityIndicator,
   commandInput as createCommandInput,
@@ -779,6 +779,28 @@ test('textArea can soft-wrap long logical lines while preserving editor anatomy'
     frame.accessibility.root.description,
     '1 lines. Showing 1-3 of 3 rows. Omitted before: 0. Omitted after: 0. Horizontal offset: 0.'
   );
+});
+
+test('textArea revealCaret keeps a controlled caret inside the visible scroll window', () => {
+  const document = createTextDocument('one\ntwo\nthree\nfour');
+  const frame = renderElementFrame(textArea({
+    id: 'revealed-editor',
+    meta: { accessibleName: 'Revealed editor' },
+    state: {
+      document,
+      caret: textCaretAt(textDocumentText(document).length),
+      scroll: createScrollState(),
+      revealCaret: true,
+    },
+    scrollbar: { visible: 'auto' },
+    onTransition: (transition) => transition,
+  }), { columns: 12, rows: 2 }, { focusPath: ['revealed-editor'] });
+
+  assert.match(renderFramePlain(frame), /three/u);
+  assert.match(renderFramePlain(frame), /four/u);
+  assert.doesNotMatch(renderFramePlain(frame), /one|two/u);
+  assert.deepEqual(cursorPosition(frame.cursor), { row: 2, column: 7 });
+  assert.match(frame.accessibility.root.description, /Showing 3-4 of 4 rows/u);
 });
 
 test('textArea row-offset maps come from decorated terminal layout geometry', () => {

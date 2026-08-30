@@ -391,7 +391,7 @@ test('viewport scrollbar clips child rendering to content bounds', () => {
     id: 'clipped-viewport',
     offset: { column: 0 },
     scrollbar: { axis: 'horizontal' },
-    onScroll: () => undefined
+    onScroll: () => ignoreMessage()
   }), { columns: 4, rows: 2 });
 
   const output = renderFramePlain(frame);
@@ -422,7 +422,7 @@ test('viewport scrollbar replaces redundant clipped-edge indicators', () => {
     id: 'scrollbar-affordance',
     offset: { row: 0, column: 0 },
     scrollbar: { axis: 'vertical' },
-    onScroll: () => undefined
+    onScroll: () => ignoreMessage()
   }), { columns: 8, rows: 2 });
 
   assert.equal(
@@ -436,4 +436,37 @@ test('viewport scrollbar replaces redundant clipped-edge indicators', () => {
     cell.source?.elementKind === 'viewport'
     && cell.source?.partType === 'thumb'
   ));
+});
+
+test('viewport remeasures content after an automatic vertical scrollbar reduces its width', () => {
+  const frame = renderElementFrame(viewport(text({ content: 'one\ntwo\nthree\nfour' }), {
+    id: 'remeasured-viewport',
+    offset: { row: 0, column: 0 },
+    scrollbar: { visible: 'auto' },
+    onScroll: () => ignoreMessage()
+  }), { columns: 8, rows: 2 });
+
+  assert.ok(frame.hitTargets?.some((target) =>
+    target.id === 'remeasured-viewport:scrollbar:vertical:track'
+  ));
+  assert.equal(frame.hitTargets?.some((target) =>
+    target.id === 'remeasured-viewport:scrollbar:horizontal:track'
+  ), false);
+  assert.equal(frame.cells.some((cell) => cell.row === 2 && cell.column === 8), true);
+});
+
+test('viewport accessibility reports the content window left after scrollbar reservation', () => {
+  const frame = renderElementFrame(viewport(text({
+    content: 'abcdefghijklmnopqrst\nsecond line that is long\nthird line that is long'
+  }), {
+    id: 'accessible-viewport',
+    offset: { row: 0, column: 0 },
+    scrollbar: { visible: 'auto' },
+    onScroll: () => ignoreMessage()
+  }), { columns: 8, rows: 3 });
+
+  assert.equal(
+    frame.accessibility.root.description,
+    'Showing rows 1-2 of 3, columns 1-7 of 24.'
+  );
 });

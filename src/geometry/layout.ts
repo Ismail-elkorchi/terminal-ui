@@ -59,9 +59,7 @@ function resolveTrackSizes(
   if (tracks.length === 0) return [];
   const safeTotal = Math.max(0, Math.floor(total));
   const fixed = tracks.map((track) => track.kind === 'fixed' ? Math.max(0, Math.floor(track.cells)) : 0);
-  const percent = tracks.map((track) => track.kind === 'percent'
-    ? Math.max(0, Math.floor(safeTotal * Math.max(0, track.value) / 100))
-    : 0);
+  const percent = percentTrackSizes(safeTotal, tracks);
   const content = tracks.map((track, index) => track.kind === 'content'
     ? measuredContentTrackSize(track, contentSizes[index])
     : 0);
@@ -78,6 +76,37 @@ function resolveTrackSizes(
     return fillSizes[index] ?? 0;
   });
   return sizes.reduce((sum, value) => sum + value, 0) > safeTotal ? fitSizes(sizes, safeTotal) : sizes;
+}
+
+function percentTrackSizes(total: number, tracks: readonly LayoutSize[]): readonly number[] {
+  const entries = tracks.map((track, index) => {
+    const exact = track.kind === 'percent'
+      ? total * Math.max(0, track.value) / 100
+      : 0;
+    const floor = Math.floor(exact);
+    return { index, exact, floor, fraction: exact - floor };
+  });
+  const requestedPercent = tracks.reduce(
+    (sum, track) => sum + (track.kind === 'percent' ? Math.max(0, track.value) : 0),
+    0,
+  );
+  const exactTarget = total * Math.min(100, requestedPercent) / 100;
+  const nearestTarget = Math.round(exactTarget);
+  const target = Math.min(
+    total,
+    Math.abs(exactTarget - nearestTarget) < 1e-9 ? nearestTarget : Math.floor(exactTarget),
+  );
+  const sizes = entries.map((entry) => entry.floor);
+  let remaining = target - sizes.reduce((sum, size) => sum + size, 0);
+  const remainderOrder = entries
+    .filter((entry) => tracks[entry.index]?.kind === 'percent')
+    .sort((left, right) => right.fraction - left.fraction || right.index - left.index);
+  for (const entry of remainderOrder) {
+    if (remaining <= 0) break;
+    sizes[entry.index] = (sizes[entry.index] ?? 0) + 1;
+    remaining -= 1;
+  }
+  return sizes;
 }
 
 function resolveGapSizes(
@@ -105,9 +134,10 @@ function nonFillTrackClaim(
   contentSizes: readonly number[]
 ): number {
   const safeTotal = Math.max(0, Math.floor(total));
+  const percent = percentTrackSizes(safeTotal, tracks);
   return tracks.reduce((sum, track, index) => {
     if (track.kind === 'fixed') return sum + Math.max(0, Math.floor(track.cells));
-    if (track.kind === 'percent') return sum + Math.max(0, Math.floor(safeTotal * Math.max(0, track.value) / 100));
+    if (track.kind === 'percent') return sum + (percent[index] ?? 0);
     if (track.kind === 'content') return sum + measuredContentTrackSize(track, contentSizes[index]);
     return sum;
   }, 0);

@@ -7,9 +7,9 @@ import type {
 } from '../../render-tree/index.ts';
 import { normalizeScrollState, scrollReducer } from '../../../../behavior/scroll.ts';
 import { renderScrollbars, scrollbarLayout } from '../../scrollbar.ts';
-import { viewportVisualState } from './viewport.ts';
+import { viewportMeasurementState, viewportVisualState } from './viewport.ts';
 import type { RenderTarget } from '../../../contracts.ts';
-import type { LayoutNode, Rect } from '../../../contracts.ts';
+import type { LayoutNode, Measurement, Rect } from '../../../contracts.ts';
 import type { RoutedPointerEvent } from '../../../../input/pointer.ts';
 import type { InputEvent } from '../../../../input/index.ts';
 import { ignoreMessage } from '../../../../interaction/message.ts';
@@ -443,6 +443,28 @@ export function viewportScrollbarState(
     offsetRow: state.offsetRow,
     offsetColumn: state.offsetColumn,
     followTail: false
+    }, geometry),
+    ...geometry,
+  };
+}
+
+export function measuredViewportScrollbarState(
+  renderNode: ViewportNode,
+  bounds: Rect,
+  measurement: Measurement,
+): ScrollbarState {
+  const state = viewportMeasurementState(renderNode, bounds, measurement);
+  const geometry = {
+    contentRows: state.contentRows,
+    contentColumns: state.contentColumns,
+    viewportRows: bounds.height,
+    viewportColumns: bounds.width,
+  };
+  return {
+    ...normalizeScrollState({
+      offsetRow: state.offsetRow,
+      offsetColumn: state.offsetColumn,
+      followTail: false,
     }, geometry),
     ...geometry,
   };

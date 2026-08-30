@@ -24,11 +24,15 @@ interface ViewportVisualState {
   readonly clippedRight: boolean;
 }
 
-export function viewportAccessibleDescription(renderNode: ViewportNode, node: LayoutNode): string {
-  const state = viewportVisualState(renderNode, node.bounds, node);
+export function viewportAccessibleDescription(
+  renderNode: ViewportNode,
+  node: LayoutNode,
+  contentBounds: Rect,
+): string {
+  const state = viewportVisualState(renderNode, contentBounds, node);
   if (state.empty) return 'Empty viewport content.';
-  const rowEnd = Math.min(state.contentRows, state.offsetRow + node.bounds.height);
-  const columnEnd = Math.min(state.contentColumns, state.offsetColumn + node.bounds.width);
+  const rowEnd = Math.min(state.contentRows, state.offsetRow + contentBounds.height);
+  const columnEnd = Math.min(state.contentColumns, state.offsetColumn + contentBounds.width);
   return `Showing rows ${String(state.offsetRow + 1)}-${String(rowEnd)} of ${String(state.contentRows)}, columns ${String(state.offsetColumn + 1)}-${String(columnEnd)} of ${String(state.contentColumns)}.`;
 }
 
@@ -52,6 +56,19 @@ export function viewportChildBounds(
     width: state.contentColumns,
     height: state.contentRows
   };
+}
+
+export function viewportMeasurementState(
+  renderNode: ViewportNode,
+  bounds: Rect,
+  content: Measurement,
+): ViewportVisualState {
+  return viewportVisualStateForSize(
+    renderNode,
+    bounds,
+    Math.max(bounds.height, content.preferredHeight),
+    Math.max(bounds.width, content.preferredWidth),
+  );
 }
 
 export function viewportVisualState(

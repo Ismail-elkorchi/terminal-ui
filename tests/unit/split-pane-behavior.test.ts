@@ -96,7 +96,7 @@ void test('resizable split pane routes keyboard and captured pointer drag action
 
   const leadingShare = runtime.state().split.shares[0];
   assert.ok(leadingShare !== undefined);
-  assert.ok(Math.abs(leadingShare - (0.55 + (2 / 18))) < 1e-12);
+  assert.ok(Math.abs(leadingShare - (0.55 + (2 / 19))) < 1e-12);
   assert.equal(runtime.state().split.drag, undefined);
 });
 
