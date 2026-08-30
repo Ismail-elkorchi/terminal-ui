@@ -67,7 +67,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Install virtual display dependencies
-        run: sudo apt-get update && sudo apt-get install --yes fonts-dejavu-core imagemagick libgl1-mesa-dri x11-utils xvfb
+        run: sudo apt-get update && sudo apt-get install --yes fonts-dejavu-core imagemagick libgl1-mesa-dri libxcb-xkb1 x11-utils xvfb
       - name: Install pinned Kitty emulator
         run: |
           node scripts/install-kitty-emulator.mjs "$RUNNER_TEMP/kitty"
