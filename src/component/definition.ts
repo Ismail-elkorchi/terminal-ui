@@ -29,7 +29,11 @@ import type {
   MessageResolution,
   PointerInteractionState
 } from '../interaction/index.ts';
-import type { FocusLifecycleEvent, FocusNavigation } from '../interaction/focus.ts';
+import type {
+  FocusLifecycleEvent,
+  FocusNavigation,
+  FocusTargetLifecycleEvent,
+} from '../interaction/focus.ts';
 import {
   componentElementFromRenderNode,
   markImplementationStructure,
@@ -330,6 +334,11 @@ interface InteractiveDefinition<TModel extends object, TAction, TPart extends st
   readonly onFocus?: (
     this: undefined,
     event: FocusLifecycleEvent,
+    input: ComponentBehaviorInput<TModel>
+  ) => MessageResolution<TAction>;
+  readonly onFocusTarget?: (
+    this: undefined,
+    event: FocusTargetLifecycleEvent,
     input: ComponentBehaviorInput<TModel>
   ) => MessageResolution<TAction>;
   readonly focusNavigation?: (
@@ -1004,6 +1013,19 @@ function createDefinedComponentElement<
               ),
             ),
           }),
+      ...(ownedDefinition.semantics !== 'semantic' || ownedDefinition.onFocusTarget === undefined
+        ? {}
+        : {
+            focusTargetLifecycle: (event: FocusTargetLifecycleEvent) => executeComponentPhase(
+              ownedDefinition.name,
+              instance.id,
+              'focus',
+              () => mapComponentAction(
+                ownedDefinition.onFocusTarget?.call(undefined, event, behavior),
+                toActionMessage,
+              ),
+            ),
+          }),
       ...(focusNavigation === undefined ? {} : { focusNavigation }),
       ...renderNodeInteraction({
         onInput: ownedDefinition.semantics === 'semantic' && ownedDefinition.onInput !== undefined
@@ -1338,6 +1360,7 @@ function compileDefinition<
         || definition.onInput !== undefined
         || definition.onPaste !== undefined
         || definition.onFocus !== undefined
+        || definition.onFocusTarget !== undefined
       )
     })
   });
@@ -1499,6 +1522,7 @@ const optionalComponentDefinitionHooks = [
   'onInput',
   'onPaste',
   'onFocus',
+  'onFocusTarget',
   'focusNavigation',
 ] as const;
 
@@ -1551,6 +1575,7 @@ function assertDefinitionInteraction(
       || value['onInput'] !== undefined
       || value['onPaste'] !== undefined
       || value['onFocus'] !== undefined
+      || value['onFocusTarget'] !== undefined
       || value['focusNavigation'] !== undefined
       || value['sensitiveInput'] === true
     )) {
@@ -1569,6 +1594,7 @@ const decorativeInteractionFields = [
   'onInput',
   'onPaste',
   'onFocus',
+  'onFocusTarget',
   'focusNavigation',
   'focusTargets',
   'hitTargets',
@@ -1603,7 +1629,8 @@ function runtimeDefinition<
         ...(definition.keys === undefined ? [] : ['keyboard' as const]),
         ...(definition.onInput === undefined ? [] : ['input' as const]),
         ...(definition.onPaste === undefined ? [] : ['paste' as const]),
-        ...(definition.onFocus === undefined ? [] : ['focus' as const]),
+        ...(definition.onFocus === undefined && definition.onFocusTarget === undefined
+          ? [] : ['focus' as const]),
         ...(definition.hitTargets === undefined
           ? []
           : ['pointer' as const])

@@ -30,6 +30,9 @@ interface RenderNodeBase<TMessage, TKind extends RenderNodeKind> {
   readonly focusLifecycle?: (
     event: import('../../../interaction/focus.ts').FocusLifecycleEvent
   ) => unknown;
+  readonly focusTargetLifecycle?: (
+    event: import('../../../interaction/focus.ts').FocusTargetLifecycleEvent
+  ) => unknown;
   readonly focusNavigation?: import('../../../interaction/focus.ts').FocusNavigation;
   readonly messageMap?: (message: unknown) => unknown;
   readonly accessibility?: ElementAccessibility;

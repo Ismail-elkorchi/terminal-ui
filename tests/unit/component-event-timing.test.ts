@@ -169,6 +169,71 @@ void test('component focus lifecycle reports enter and leave transitions in orde
   await runtime.dispose();
 });
 
+void test('component focus-target lifecycle reports internal target transitions', async () => {
+  interface Message { readonly event: string }
+  const observed: string[] = [];
+  const targets = defineComponent<Record<never, never>, Record<never, never>, string>({
+    name: 'terminal-ui-tests/components/focus-target-lifecycle',
+    identity: 'required',
+    structure: 'leaf',
+    semantics: 'semantic',
+    accessibleRole: 'group',
+    measure: () => ({ minWidth: 2, minHeight: 1, preferredWidth: 2, preferredHeight: 1 }),
+    render: ({ target, bounds }) => {
+      target.write(bounds.row, bounds.column, [{ text: 'AB' }]);
+    },
+    focusTargets: ({ bounds }) => [
+      { id: 'left', bounds: { ...bounds, width: 1 } },
+      { id: 'right', bounds: { ...bounds, column: bounds.column + 1, width: 1 } },
+    ],
+    onFocus: (event) => `component:${event.kind}`,
+    onFocusTarget: (event) => `target:${event.kind}:${event.targetId}`,
+    accessibility: ({ id, focusedTargetId }) => ({
+      id,
+      role: 'group',
+      children: ['left', 'right'].map((targetId) => ({
+        id: targetId,
+        role: 'button' as const,
+        label: targetId,
+        ...(focusedTargetId === targetId ? { focused: true } : {}),
+      })),
+    }),
+  });
+  const app = defineTui<undefined, Message>({
+    id: 'component-focus-target-lifecycle',
+    init: () => ({ state: undefined }),
+    update: (state, message) => {
+      observed.push(message.event);
+      return { state };
+    },
+    view: () => targets({ id: 'targets', onAction: (event) => ({ event }) }),
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ terminalSize: { columns: 8, rows: 1 } }),
+  });
+
+  await runtime.start();
+  assert.deepEqual(observed, [
+    'component:focusEnter',
+    'target:focusTargetEnter:left',
+  ]);
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'tab',
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard',
+  });
+  assert.deepEqual(observed, [
+    'component:focusEnter',
+    'target:focusTargetEnter:left',
+    'target:focusTargetLeave:left',
+    'target:focusTargetEnter:right',
+  ]);
+  await runtime.dispose();
+});
+
 void test('tabs route delete to the selected close action without selecting twice', async () => {
   interface State {
     readonly selected: string;
