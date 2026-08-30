@@ -117,7 +117,7 @@ export function createTerminalGraphicsCommitter(
             });
           }
           const fresh = active === 'kitty'
-            ? planKitty(frame.graphics, true, capabilities.graphics.cellPixels, budget)
+            ? planKitty(frame.graphics, true, diff, capabilities.graphics.cellPixels, budget)
             : planSixel(frame.graphics, true, diff, capabilities, theme, budget);
           lastBudgetFailure = undefined;
           return Object.freeze({
@@ -128,7 +128,7 @@ export function createTerminalGraphicsCommitter(
         }
         if (active === undefined) return emptyPlan;
         const plan = active === 'kitty'
-          ? planKitty(frame.graphics, false, capabilities.graphics.cellPixels, budget)
+          ? planKitty(frame.graphics, false, diff, capabilities.graphics.cellPixels, budget)
           : planSixel(frame.graphics, false, diff, capabilities, theme, budget);
         lastBudgetFailure = undefined;
         return plan;
@@ -186,6 +186,7 @@ export function createTerminalGraphicsCommitter(
   function planKitty(
     desired: readonly GraphicPlacement[],
     force: boolean,
+    diff: RenderDiff,
     cellPixels: TerminalCapabilityProfile['graphics']['cellPixels'],
     budget: GraphicsBudget,
   ): GraphicsCommitPlan {
@@ -210,6 +211,7 @@ export function createTerminalGraphicsCommitter(
     const pending = changed
       ? desired
       : desired.filter((placement) => !nextPlacements.has(placement.id));
+    const pendingIds = new Set(pending.map((placement) => placement.id));
     let afterCells = '';
     for (const placement of pending) {
       const geometry = resolveGraphicGeometry(placement, cellPixels);
@@ -234,6 +236,13 @@ export function createTerminalGraphicsCommitter(
         imageId: resource.imageId,
         protocolId: placementId,
       });
+    }
+    const cellDamage = diffDamageRects(diff);
+    for (const placement of desired) {
+      if (pendingIds.has(placement.id)) continue;
+      if (cellDamage.some((rect) => rectsIntersect(rect, placement.clip))) {
+        afterCells += blankRect(placement.clip, budget);
+      }
     }
     const references = new Map<string, number>();
     for (const state of nextPlacements.values()) {

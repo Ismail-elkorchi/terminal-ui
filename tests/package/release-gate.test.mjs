@@ -20,6 +20,15 @@ test('CI verifies the complete package on Node 24 across Ubuntu, macOS, and Wind
   assert.doesNotMatch(verification, /- run: npm run (?:build|verify)|- run: npm pack --dry-run/u);
 });
 
+test('CI verifies terminal behavior through the pinned Kitty emulator', () => {
+  const verification = workflowJob(ciWorkflow, 'emulator-kitty');
+
+  assert.match(verification, /runs-on: ubuntu-24\.04/u);
+  assert.match(verification, /node scripts\/install-kitty-emulator\.mjs/u);
+  assert.match(verification, /xvfb-run.*npm run check:emulator:kitty/u);
+  assert.match(verification, /name: kitty-emulator-evidence/u);
+});
+
 test('registry publication is gated by a verified immutable release tag', () => {
   assert.match(publishWorkflow, /^  release:\n    types: \[published\]$/mu);
   assert.doesNotMatch(publishWorkflow, /^  (?:push|pull_request):/mu);
@@ -27,20 +36,24 @@ test('registry publication is gated by a verified immutable release tag', () => 
   assert.match(publishWorkflow, /registry:\n        description: Registry to retry[\s\S]*?options:\n          - npm\n          - jsr/u);
 
   const verification = workflowJob(publishWorkflow, 'verify');
+  const emulatorVerification = workflowJob(publishWorkflow, 'verify-emulator');
   const npmPublication = workflowJob(publishWorkflow, 'publish-npm');
   const jsrPublication = workflowJob(publishWorkflow, 'publish-jsr');
 
   assert.match(verification, /npm run check:release/u);
   assert.match(verification, /npm run check$/mu);
   assert.match(verification, /ref: \$\{\{ env\.RELEASE_TAG \}\}/u);
-  assert.match(npmPublication, /needs: verify/u);
+  assert.match(emulatorVerification, /ref: \$\{\{ env\.RELEASE_TAG \}\}/u);
+  assert.match(emulatorVerification, /node scripts\/install-kitty-emulator\.mjs/u);
+  assert.match(emulatorVerification, /npm run check:emulator:kitty/u);
+  assert.match(npmPublication, /needs: \[verify, verify-emulator\]/u);
   assert.match(npmPublication, /if: github\.event_name == 'release' \|\| inputs\.registry == 'npm'/u);
   assert.match(npmPublication, /runs-on: ubuntu-latest/u);
   assert.match(npmPublication, /id-token: write/u);
   assert.match(npmPublication, /registry-url: https:\/\/registry\.npmjs\.org/u);
   assert.match(npmPublication, /npm publish --access public/u);
   assert.doesNotMatch(npmPublication, /NODE_AUTH_TOKEN|NPM_TOKEN/u);
-  assert.match(jsrPublication, /needs: verify/u);
+  assert.match(jsrPublication, /needs: \[verify, verify-emulator\]/u);
   assert.match(jsrPublication, /if: github\.event_name == 'release' \|\| inputs\.registry == 'jsr'/u);
   assert.match(jsrPublication, /id-token: write/u);
   assert.match(jsrPublication, /npm ci --ignore-scripts/u);

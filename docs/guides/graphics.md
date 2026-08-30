@@ -1,8 +1,10 @@
 # Terminal Graphics
 
 Terminal graphics are a preview API until the checked-in
-[physical-terminal compatibility matrix](./graphics-compatibility.md) is complete. Text fallback remains
-the stable behavior when graphics capability is absent or rejected.
+[compatibility evidence matrix](./graphics-compatibility.md) is complete. The
+matrix distinguishes deterministic protocol tests, real-emulator CI, and
+physical-system results. Text fallback remains the stable behavior when
+graphics capability is absent or rejected.
 
 `terminal-ui` renders owned RGB and RGBA raster resources through the Kitty
 graphics protocol or SIXEL. Graphics remain part of the renderer's frame model;

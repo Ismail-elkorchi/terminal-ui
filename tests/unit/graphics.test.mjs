@@ -379,6 +379,21 @@ test('graphics probing derives Kitty, SIXEL, and cell-pixel evidence only from r
   });
 });
 
+test('graphics probing accepts Kitty primary attributes with a trailing parameter separator', () => {
+  const protocol = createGraphicsResponseProtocol('direct');
+  assert.deepEqual(protocol.classify(encoder.encode('\u001b_Gi=31;OK\u001b\\')), { kind: 'consume' });
+  assert.deepEqual(protocol.classify(encoder.encode('\u001b[6;18;9t')), { kind: 'consume' });
+  assert.deepEqual(protocol.classify(encoder.encode('\u001b[?62;52;c')), {
+    kind: 'matched',
+    value: {
+      kitty: 'supported',
+      sixel: 'unsupported',
+      kittyTransport: 'direct',
+      cellPixels: { width: 9, height: 18 },
+    },
+  });
+});
+
 test('the host graphics probe consumes verified responses and retains unrelated input', async () => {
   const host = createMemoryTerminalHost();
   host.input('before\u001b_Gi=31;OK\u001b\\\u001b[6;18;9t\u001b[?1;2;4cafter');
@@ -396,6 +411,63 @@ test('the host graphics probe consumes verified responses and retains unrelated 
   assert.equal(inputText(before.value?.data) + inputText(after.value?.data), 'beforeafter');
   assert.match(host.output(), /a=q/u);
   assert.match(host.output(), /\u001b\[16t\u001b\[c/u);
+});
+
+test('Kitty planning clears cell damage beneath retained placements', async () => {
+  const resource = rasterImage({ width: 1, height: 1, format: 'rgb8', data: new Uint8Array([255, 0, 0]) });
+  const host = createMemoryTerminalHost({
+    capabilities: {
+      graphics: {
+        kitty: 'supported',
+        sixel: 'unsupported',
+        kittyTransport: 'direct',
+        cellPixels: { width: 1, height: 1 },
+      },
+    },
+  });
+  const capabilities = await host.getCapabilities();
+  const committer = createTerminalGraphicsCommitter('kitty');
+  const render = (fallback, status) => renderElementFrame(row([
+    image({
+      id: 'retained-image',
+      image: resource,
+      label: 'Image',
+      fallback,
+      fit: 'fill',
+      measurement: { minWidth: 2, minHeight: 1, preferredWidth: 2, preferredHeight: 1 },
+    }),
+    text({ id: 'status', content: status }),
+  ], { sizes: [{ kind: 'fixed', cells: 2 }, { kind: 'fixed', cells: 2 }] }), {
+    columns: 4,
+    rows: 1,
+  });
+
+  const initial = render('aa', 'ok');
+  committer.plan(initial, diffFrames(undefined, initial), capabilities, defaultTheme);
+
+  const unrelated = render('aa', 'go');
+  const unrelatedPlan = committer.plan(unrelated, diffFrames(initial, unrelated), capabilities, defaultTheme);
+  assert.equal(unrelatedPlan.afterCells, '');
+
+  const intersecting = render('bb', 'go');
+  const intersectingPlan = committer.plan(
+    intersecting,
+    diffFrames(unrelated, intersecting),
+    capabilities,
+    defaultTheme,
+  );
+  assert.match(intersectingPlan.afterCells, /\u001b\[1;1H  /u);
+  assert.doesNotMatch(intersectingPlan.afterCells, /_Ga=p,/u);
+
+  const rewritePlan = committer.plan(
+    intersecting,
+    diffFrames(undefined, intersecting),
+    capabilities,
+    defaultTheme,
+  );
+  assert.match(rewritePlan.afterCells, /\u001b\[1;1H  /u);
+  assert.doesNotMatch(rewritePlan.afterCells, /_Ga=p,/u);
+  await host.dispose();
 });
 
 test('runtime commits upload and clean up Kitty resources around the cell frame', async () => {

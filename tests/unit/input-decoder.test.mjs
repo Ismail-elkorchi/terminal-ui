@@ -183,6 +183,7 @@ test('stateful input decoder holds an ambiguous Escape prefix across chunks', ()
   const cases = [
     { suffix: '[A', expected: expectedKey('arrowUp', '\u001B[A') },
     { suffix: 'OQ', expected: expectedKey('f2', '\u001BOQ') },
+    { suffix: '[Q', expected: expectedKey('f2', '\u001B[Q') },
     {
       suffix: 'x',
       expected: { ...expectedKey('x', '\u001Bx', { alt: true }), keyCodePoint: 120 }
@@ -445,6 +446,16 @@ test('Kitty keyboard decoder preserves modifiers, event types, and keypad locati
     ...expectedKey('f3', '\u001B[1;1:2R'),
     eventType: 'repeat'
   });
+});
+
+test('Kitty keyboard decoder pairs legacy function-key presses with enhanced releases', () => {
+  assert.deepEqual(decodeInputChunk({ data: '\u001B[Q\u001B[1;1:3Q' }, { keyboard: kittyEvents }), [
+    expectedKey('f2', '\u001B[Q'),
+    {
+      ...expectedKey('f2', '\u001B[1;1:3Q'),
+      eventType: 'release',
+    },
+  ]);
 });
 
 test('Kitty keyboard decoder buffers split reports without changing legacy parsing', () => {

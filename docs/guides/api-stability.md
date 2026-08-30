@@ -15,5 +15,5 @@ labels describe the narrower compatibility intent of individual declarations.
 
 Measured collections, measured windows, `listView()`, and subscription source
 channels are beta. Terminal graphics are experimental until the checked-in
-[compatibility matrix](./graphics-compatibility.md) has physical-terminal
-evidence.
+[compatibility matrix](./graphics-compatibility.md) has the required emulator
+and physical-system evidence.

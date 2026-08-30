@@ -158,6 +158,7 @@
     "check:performance": "node scripts/run-test-lane.mjs performance",
     "check:release": "node scripts/check-release-metadata.mjs",
     "check:runtime": "node scripts/run-test-lane.mjs runtime",
+    "check:emulator:kitty": "npm run build && node scripts/run-kitty-emulator-conformance.mjs",
     "check:security-smoke": "node scripts/run-test-lane.mjs security-smoke",
     "check:test-types": "tsc --project tsconfig.tests.json",
     "check:unit": "node scripts/check-unit.mjs",

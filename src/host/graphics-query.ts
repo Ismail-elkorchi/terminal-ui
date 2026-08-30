@@ -42,7 +42,7 @@ export function createGraphicsResponseProtocol(
           return { kind: 'consume' };
         }
       }
-      const attributes = /^\?([0-9]+(?:;[0-9]+)*)c$/u.exec(body);
+      const attributes = /^\?([0-9]+(?:;[0-9]+)*);?c$/u.exec(body);
       if (attributes === null) return undefined;
       const parameters = attributes[1]?.split(';').map(Number) ?? [];
       const sixel = parameters.includes(4) ? 'supported' : 'unsupported';
