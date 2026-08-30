@@ -34,9 +34,9 @@ export interface LayoutFocusTarget {
   readonly bounds: Rect;
   readonly logicalBounds: Rect;
   readonly layer: Layer;
-  readonly focusable: boolean;
-  readonly revealable: boolean;
-  readonly disabled: boolean;
+  readonly enabled: boolean;
+  readonly hasVisibleGeometry: boolean;
+  readonly hasRevealableGeometry: boolean;
   readonly order?: number;
   readonly scopeId?: string;
   readonly cursor?: CursorPosition;
@@ -46,20 +46,16 @@ export interface RenderNodeFocusTarget<TMessage> extends LayoutFocusTarget {
   readonly renderNode: RenderNode<TMessage>;
 }
 
-export interface RenderNodeLayoutTarget<TMessage> extends LayoutFocusTarget {
+export interface RenderNodeLayoutTarget<TMessage> {
+  readonly path: FocusPath;
+  readonly bounds: Rect;
+  readonly layer: Layer;
   readonly renderNode: RenderNode<TMessage>;
   readonly layoutNode: LayoutNode;
 }
 
 export function collectLayoutFocusTargets(layout: LayoutNode): readonly LayoutFocusTarget[] {
   return collectLayoutTargets(layout, []);
-}
-
-export function collectRenderNodeFocusTargets<TMessage>(
-  renderNode: RenderNode<TMessage>,
-  layout: LayoutNode
-): readonly RenderNodeFocusTarget<TMessage>[] {
-  return collectRenderNodeFocusRegionTargets(renderNode, layout, []).filter((target) => target.focusable);
 }
 
 export function collectRenderNodeLayoutTargets<TMessage>(
@@ -71,7 +67,7 @@ export function collectRenderNodeLayoutTargets<TMessage>(
 
 export function resolveFocusPath(layout: LayoutNode, requested: FocusPath | undefined): FocusPath | undefined {
   const collected = collectLayoutFocusTargets(layout);
-  if (requested !== undefined && scopedFocusTargets(layout, collected, false, true)
+  if (requested !== undefined && scopedFocusTargets(layout, collected, 'enabled')
     .some((target) => focusPathsEqual(target.path, requested))) {
     return requested;
   }
@@ -97,7 +93,7 @@ export function resolveInitialFocusSelector(
 }
 
 export function nextFocusPath(layout: LayoutNode, current: FocusPath | undefined): FocusPath | undefined {
-  const targets = scopedFocusTargets(layout, collectLayoutFocusTargets(layout), true);
+  const targets = scopedFocusTargets(layout, collectLayoutFocusTargets(layout), 'visible-or-revealable');
   if (targets.length === 0) return undefined;
   if (current === undefined) return targets[0]?.path;
   const index = targets.findIndex((target) => focusPathsEqual(target.path, current));
@@ -109,7 +105,7 @@ export function nextFocusPath(layout: LayoutNode, current: FocusPath | undefined
 }
 
 export function previousFocusPath(layout: LayoutNode, current: FocusPath | undefined): FocusPath | undefined {
-  const targets = scopedFocusTargets(layout, collectLayoutFocusTargets(layout), true);
+  const targets = scopedFocusTargets(layout, collectLayoutFocusTargets(layout), 'visible-or-revealable');
   if (targets.length === 0) return undefined;
   if (current === undefined) return targets.at(-1)?.path;
   const index = targets.findIndex((target) => focusPathsEqual(target.path, current));
@@ -128,7 +124,7 @@ export function focusNavigationPath(
   if (current === undefined) return undefined;
   const group = focusNavigationGroupForPath(layout, current);
   if (group === undefined) return undefined;
-  const targets = scopedFocusTargets(layout, collectLayoutFocusTargets(layout), true)
+  const targets = scopedFocusTargets(layout, collectLayoutFocusTargets(layout), 'visible-or-revealable')
     .filter((target) => pathStartsWith(target.path, group.path));
   if (targets.length === 0) return undefined;
   if (key === 'home') return targets[0]?.path;
@@ -148,7 +144,9 @@ export function findAnyLayoutFocusTarget(
 ): LayoutFocusTarget | undefined {
   if (path === undefined) return undefined;
   return collectLayoutFocusTargets(layout)
-    .find((target) => target.focusable && focusPathsEqual(target.path, path));
+    .find((target) => target.enabled
+      && target.hasVisibleGeometry
+      && focusPathsEqual(target.path, path));
 }
 
 export function findRenderNodeFocusTarget<TMessage>(
@@ -160,8 +158,7 @@ export function findRenderNodeFocusTarget<TMessage>(
   return scopedFocusTargets(
     layout,
     collectRenderNodeFocusRegionTargets(renderNode, layout, []),
-    false,
-    true,
+    'enabled',
   )
     .find((target) => focusPathsEqual(target.path, path));
 }
@@ -240,11 +237,10 @@ function collectLayoutTargets(
   const path = layoutFocusPath(parentPath, layout);
   const current = layout.focusTargets.map((target, index): LayoutFocusTarget => {
     const logicalBounds = logicalFocusBounds.get(target) ?? target.bounds;
-    const focusable = !target.disabled && target.bounds.width > 0 && target.bounds.height > 0;
-    const revealable = !target.disabled
-      && revealableAncestor
-      && logicalBounds.width > 0
-      && logicalBounds.height > 0;
+    const enabled = !target.disabled;
+    const hasVisibleGeometry = hasFocusGeometry(target.bounds);
+    const hasRevealableGeometry = revealableAncestor
+      && hasFocusGeometry(logicalBounds);
     return {
       path: targetPath(path, target.id, index, layout.focusTargets.length),
       ...(layout.id === undefined ? {} : { elementId: layout.id }),
@@ -252,9 +248,9 @@ function collectLayoutTargets(
       bounds: target.bounds,
       logicalBounds,
       layer: layout.layer,
-      focusable,
-      revealable,
-      disabled: target.disabled,
+      enabled,
+      hasVisibleGeometry,
+      hasRevealableGeometry,
       ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
       ...(target.order === undefined ? {} : { order: target.order }),
       ...(target.scopeId === undefined ? {} : { scopeId: target.scopeId })
@@ -275,7 +271,7 @@ function collectRenderNodeFocusRegionTargets<TMessage>(
   if (!layout.visible) return [];
   const path = layoutFocusPath(parentPath, layout);
   const current = layout.focusTargets.map((target, index): RenderNodeFocusTarget<TMessage> => {
-    const focusable = !target.disabled && target.bounds.width > 0 && target.bounds.height > 0;
+    const enabled = !target.disabled;
     return {
       path: targetPath(path, target.id, index, layout.focusTargets.length),
       ...(layout.id === undefined ? {} : { elementId: layout.id }),
@@ -283,9 +279,9 @@ function collectRenderNodeFocusRegionTargets<TMessage>(
       bounds: target.bounds,
       logicalBounds: logicalFocusBounds.get(target) ?? target.bounds,
       layer: layout.layer,
-      focusable,
-      revealable: false,
-      disabled: target.disabled,
+      enabled,
+      hasVisibleGeometry: hasFocusGeometry(target.bounds),
+      hasRevealableGeometry: false,
       ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
       ...(target.order === undefined ? {} : { order: target.order }),
       ...(target.scopeId === undefined ? {} : { scopeId: target.scopeId }),
@@ -310,14 +306,8 @@ function collectRenderNodeLayoutTargetsRecursive<TMessage>(
   const path = layoutFocusPath(parentPath, layout);
   const current: RenderNodeLayoutTarget<TMessage> = {
     path,
-    ...(layout.id === undefined ? {} : { elementId: layout.id }),
-    targetId: 'self',
     bounds: layout.bounds,
-    logicalBounds: layout.bounds,
     layer: layout.layer,
-    focusable: layout.focusable,
-    revealable: false,
-    disabled: false,
     renderNode,
     layoutNode: layout
   };
@@ -408,20 +398,19 @@ function collectFocusNavigationGroups(
   ];
 }
 
+type FocusTargetSelection = 'visible' | 'visible-or-revealable' | 'enabled';
+
 function scopedFocusTargets<TTarget extends LayoutFocusTarget>(
   layout: LayoutNode,
   targets: readonly TTarget[],
-  includeRevealable = false,
-  includeClipped = false,
+  selection: FocusTargetSelection = 'visible',
 ): readonly TTarget[] {
-  const enabled = targets.filter((target) => target.focusable
-    || (includeRevealable && target.revealable)
-    || (includeClipped && !target.disabled));
-  if (enabled.length === 0) return [];
+  const selected = targets.filter((target) => focusTargetMatchesSelection(target, selection));
+  if (selected.length === 0) return [];
   const activeScope = activeFocusScope(collectFocusScopes(layout));
   const scoped = activeScope === undefined
-    ? enabled
-    : enabled.filter((target) => pathStartsWith(target.path, activeScope.path));
+    ? selected
+    : selected.filter((target) => pathStartsWith(target.path, activeScope.path));
   if (scoped.length === 0) return [];
   const activeLayer = Math.max(...scoped.map((target) => target.layer.zIndex));
   const layered = scoped.filter((target) => target.layer.zIndex === activeLayer);
@@ -433,6 +422,19 @@ function scopedFocusTargets<TTarget extends LayoutFocusTarget>(
   return preferred <= 0 || preferredTarget === undefined
     ? ordered
     : [preferredTarget, ...ordered.slice(0, preferred), ...ordered.slice(preferred + 1)];
+}
+
+function focusTargetMatchesSelection(target: LayoutFocusTarget, selection: FocusTargetSelection): boolean {
+  if (selection === 'enabled') return target.enabled;
+  if (!target.enabled) return false;
+  if (selection === 'visible-or-revealable') {
+    return target.hasVisibleGeometry || target.hasRevealableGeometry;
+  }
+  return target.hasVisibleGeometry;
+}
+
+function hasFocusGeometry(bounds: Rect): boolean {
+  return bounds.width > 0 && bounds.height > 0;
 }
 
 export function activeFocusScopeRestores(layout: LayoutNode): boolean {

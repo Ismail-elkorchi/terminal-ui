@@ -755,6 +755,6 @@ function cursorForFocusedRenderNode(
   focusPath: FocusPath | undefined
 ): { readonly row: number; readonly column: number } | undefined {
   const target = findRenderNodeFocusTarget(renderNode, layout, focusPath);
-  if (target === undefined) return undefined;
+  if (target?.hasVisibleGeometry !== true) return undefined;
   return target.cursor ?? { row: target.bounds.row, column: target.bounds.column };
 }

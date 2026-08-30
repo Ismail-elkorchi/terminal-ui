@@ -3,6 +3,8 @@ import test from 'node:test';
 import { createTuiRuntime, defineTui, runTui } from '../../dist/tui/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
+import { collectLayoutFocusTargets } from '../../dist/renderer/internal/focus.js';
+import { renderElementInternal } from '../../dist/renderer/internal/render-element.js';
 import {
   componentElement,
   leafComponentDefinition,
@@ -700,31 +702,40 @@ test('dialog owns escape dismissal, initial focus, and focus restoration', async
 });
 
 test('TUI runtime preserves clipped modal focus so Escape can dismiss after a tiny resize', async () => {
+  const view = (state) => overlay([
+    focusInput({ id: 'modal-launcher', state: { value: '', cursor: 0 } }),
+    ...(state.open ? [dialog({
+      id: 'clipped-dialog',
+      title: 'Clipped dialog',
+      modal: true,
+      focusPolicy: {
+        initialFocus: { kind: 'element', elementId: 'third-dialog-field' },
+        returnFocus: 'restore'
+      },
+      dismissal: { dismissOnEscape: true, dismissOnOutsidePress: false },
+      onDismiss: () => ({ kind: 'close' }),
+      slots: {
+        content: column([
+          focusInput({ id: 'first-dialog-field', state: { value: '', cursor: 0 } }),
+          focusInput({ id: 'second-dialog-field', state: { value: '', cursor: 0 } }),
+          focusInput({
+            id: 'third-dialog-field',
+            state: { value: '', cursor: 0 },
+            onTransition: () => ({ kind: 'input', field: 'third-dialog-field' })
+          })
+        ])
+      },
+      width: 24,
+      height: 6
+    })] : [])
+  ]);
   const app = defineTui({
     id: 'clipped-modal-focus',
-    init: () => ({ state: { open: true } }),
-    update: (state, message) => message === 'close'
-      ? { state: { open: false } }
-      : { state },
-    view: (state) => overlay([
-      focusInput({ id: 'modal-launcher', state: { value: '', cursor: 0 } }),
-      ...(state.open ? [dialog({
-        id: 'clipped-dialog',
-        title: 'Clipped dialog',
-        modal: true,
-        focusPolicy: {
-          initialFocus: { kind: 'element', elementId: 'clipped-dialog-field' },
-          returnFocus: 'restore'
-        },
-        dismissal: { dismissOnEscape: true, dismissOnOutsidePress: false },
-        onDismiss: () => 'close',
-        slots: {
-          content: focusInput({ id: 'clipped-dialog-field', state: { value: '', cursor: 0 } })
-        },
-        width: 24,
-        height: 6
-      })] : [])
-    ])
+    init: () => ({ state: { open: true, inputField: undefined } }),
+    update: (state, message) => message.kind === 'close'
+      ? { state: { ...state, open: false } }
+      : { state: { ...state, inputField: message.field } },
+    view
   });
   const runtime = createTuiRuntime({
     app,
@@ -734,16 +745,38 @@ test('TUI runtime preserves clipped modal focus so Escape can dismiss after a ti
 
   await runtime.start();
   const dialogFocus = runtime.frame().focusPath;
-  assert.equal(dialogFocus.at(-1), 'clipped-dialog-field');
+  assert.equal(dialogFocus.at(-1), 'third-dialog-field');
   await runtime.resize({ columns: 12, rows: 3 });
   assert.deepEqual(runtime.frame().focusPath, dialogFocus);
+  assert.equal(runtime.frame().cursor, undefined);
+
+  const tinyRender = renderElementInternal(view(runtime.state()), { columns: 12, rows: 3 }, {
+    focusPath: dialogFocus
+  });
+  const clippedTarget = collectLayoutFocusTargets(tinyRender.layout)
+    .find((target) => target.elementId === 'third-dialog-field');
+  assert.deepEqual(clippedTarget?.bounds, { row: 3, column: 2, width: 0, height: 0 });
+  assert.deepEqual(clippedTarget?.logicalBounds, { row: 3, column: 2, width: 0, height: 0 });
+  assert.equal(clippedTarget?.enabled, true);
+  assert.equal(clippedTarget?.hasVisibleGeometry, false);
+  assert.equal(clippedTarget?.hasRevealableGeometry, false);
+
+  await runtime.handleInput({ kind: 'text', text: 'x', paste: false });
+  assert.equal(runtime.state().inputField, 'third-dialog-field');
+  assert.deepEqual(runtime.frame().focusPath, dialogFocus);
+
+  await runtime.resize({ columns: 40, rows: 10 });
+  assert.deepEqual(runtime.frame().focusPath, dialogFocus);
+  assert.equal(runtime.frame().cursor?.source?.elementId, 'third-dialog-field');
+  await runtime.resize({ columns: 12, rows: 3 });
+  assert.equal(runtime.frame().cursor, undefined);
   await runtime.handleInput({
     kind: 'key', key: 'escape',
     modifiers: { ctrl: false, alt: false, shift: false, meta: false },
     eventType: 'press', location: 'standard'
   });
 
-  assert.deepEqual(runtime.state(), { open: false });
+  assert.deepEqual(runtime.state(), { open: false, inputField: 'third-dialog-field' });
   assert.equal(runtime.frame().focusPath.at(-1), 'modal-launcher');
   await runtime.dispose();
 });
