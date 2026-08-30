@@ -27,6 +27,7 @@ import type { GraphicsProbeFacts } from './capabilities.ts';
 
 const KITTY_KEYBOARD_QUERY = '\u001B[?u\u001B[c';
 const DEFAULT_PROBE_TIMEOUT_MS = 100;
+const DEFAULT_GRAPHICS_PROBE_TIMEOUT_MS = 500;
 const PROBE_TIMER_CLOSED = 'terminal_capability_probe_completed';
 
 export interface TerminalCapabilityDetectorOptions {
@@ -112,7 +113,7 @@ export class TerminalCapabilityDetector {
     ) {
       if (this.#graphicsProbe === undefined) {
         this.#graphicsProbe = this.#runProbeExclusive(
-          () => this.#probeGraphics(options.probeTimeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS, options.signal)
+          () => this.#probeGraphics(options.probeTimeoutMs ?? DEFAULT_GRAPHICS_PROBE_TIMEOUT_MS, options.signal)
         ).finally(() => { this.#graphicsProbe = undefined; });
       }
       await waitForTerminalOperation(
