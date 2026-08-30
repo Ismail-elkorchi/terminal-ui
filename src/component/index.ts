@@ -48,7 +48,11 @@ export type {
   SemanticLeafComponentDefinition,
   SemanticLeafDefinition,
 } from './definition.ts';
-export type { FocusLifecycleEvent, FocusNavigation } from '../interaction/focus.ts';
+export type {
+  FocusLifecycleEvent,
+  FocusNavigation,
+  FocusTargetLifecycleEvent,
+} from '../interaction/focus.ts';
 export type {
   ComponentInspectionRecord,
   ComponentInspectionValue,

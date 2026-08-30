@@ -163,6 +163,12 @@ Semantic leaf definitions that own keyboard, text, paste, or focus behavior
 must also declare `focusTargets()`. Without a logical target, those hooks could
 never receive focused input. Pointer-only leaves may remain unfocusable.
 
+Use `onFocus()` for entry to and exit from the component as a whole. A component
+with several logical focus targets can additionally use `onFocusTarget()` to
+receive `focusTargetEnter` and `focusTargetLeave` events with the exact target
+identifier. Moving between two targets in the same component emits only the
+target lifecycle events; it does not fabricate a component leave and re-entry.
+
 A pointer declaration without `state` always emits its declared pointer
 actions. When `state` is provided, returning `undefined` disables that optional
 controlled channel for the instance; returning a pointer state enables the

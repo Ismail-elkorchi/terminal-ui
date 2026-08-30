@@ -17,6 +17,10 @@ export type FocusLifecycleEvent =
   | { readonly kind: 'focusEnter' }
   | { readonly kind: 'focusLeave' };
 
+export type FocusTargetLifecycleEvent =
+  | { readonly kind: 'focusTargetEnter'; readonly targetId: string }
+  | { readonly kind: 'focusTargetLeave'; readonly targetId: string };
+
 export interface FocusNavigation {
   readonly orientation: 'horizontal' | 'vertical';
 }
