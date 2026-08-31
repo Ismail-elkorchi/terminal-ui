@@ -1,6 +1,7 @@
 from kittens.tui.handler import result_handler
 from kitty.fast_data_types import PRESS, RELEASE, send_mouse_event
 
+# This helper runs inside Kitty and injects real emulator mouse events.
 
 def main(args):
     return None

@@ -1,12 +1,16 @@
 import {
+  encodeKittyDirectPlacement,
   encodeKittyImageDelete,
   encodeKittyImageUpload,
-  encodeKittyPlacement,
   encodeKittyPlacementDelete,
+  encodeKittyUnicodePlaceholder,
+  encodeKittyVirtualPlacement,
   encodeSixelImage,
   resolveGraphicGeometry,
 } from '../protocol/index.ts';
-import type { TerminalGraphicsTransport } from '../protocol/index.ts';
+import type { KittyGraphicsTransport, ResolvedGraphicGeometry } from '../protocol/index.ts';
+import { kittyPlaceholderDimension } from '../protocol/kitty-placeholder-diacritics.ts';
+import { resampleRasterRegion } from '../protocol/raster-resampling.ts';
 import {
   createGraphicsBudget,
   GraphicsBudgetExceededError,
@@ -40,9 +44,7 @@ type PlacementState =
   | {
       readonly protocol: 'kitty';
       readonly placement: GraphicPlacement;
-      readonly resourceKey: string;
-      readonly imageId: number;
-      readonly protocolId: number;
+      readonly renderings: readonly KittyPlacementRendering[];
     }
   | {
       readonly protocol: 'sixel';
@@ -55,6 +57,13 @@ interface KittyImageResource {
   readonly image: RasterImage;
   readonly imageId: number;
   readonly references: number;
+}
+
+interface KittyPlacementRendering {
+  readonly protocolId: number;
+  readonly resourceKey: string;
+  readonly imageId: number;
+  readonly geometry: ResolvedGraphicGeometry;
 }
 
 export interface TerminalGraphicsCommitter {
@@ -76,7 +85,7 @@ export function createTerminalGraphicsCommitter(
 ): TerminalGraphicsCommitter {
   const budgetLimits = resolveGraphicsBudgetLimits(budgetInput);
   let active: 'kitty' | 'sixel' | undefined;
-  let transport: TerminalGraphicsTransport = 'direct';
+  let transport: KittyGraphicsTransport = 'direct';
   let nextImageId = randomProtocolId();
   let nextPlacementId = randomProtocolId();
   const images = new Map<string, KittyImageResource>();
@@ -91,12 +100,12 @@ export function createTerminalGraphicsCommitter(
   return {
     plan(frame, diff, capabilities, theme) {
       const resolved = resolveProtocol(mode, capabilities);
-      const nextRenderProfile = graphicsRenderProfile(resolved, capabilities, theme);
+      const nextRenderProfile = graphicsRenderProfile(resolved, capabilities, theme, frame.height);
       const profileChanged = nextRenderProfile !== renderProfile || !baselineKnown;
       let previousCleanup = '';
       const budget = createGraphicsBudget(budgetLimits);
       try {
-        if (resolved !== undefined) admitGraphicsFrame(frame.graphics, resolved.protocol, capabilities, budget);
+        if (resolved !== undefined) admitGraphicsFrame(frame.graphics, capabilities, budget);
         if (profileChanged) {
           previousCleanup = kittyCleanup(active, transport, images, placements);
           active = resolved?.protocol;
@@ -118,7 +127,7 @@ export function createTerminalGraphicsCommitter(
           }
           const fresh = active === 'kitty'
             ? planKitty(frame.graphics, true, diff, capabilities.graphics.cellPixels, budget)
-            : planSixel(frame.graphics, true, diff, capabilities, theme, budget);
+            : planSixel(frame.graphics, true, diff, capabilities, theme, frame.height, budget);
           lastBudgetFailure = undefined;
           return Object.freeze({
             forceFullRewrite: true,
@@ -129,7 +138,7 @@ export function createTerminalGraphicsCommitter(
         if (active === undefined) return emptyPlan;
         const plan = active === 'kitty'
           ? planKitty(frame.graphics, false, diff, capabilities.graphics.cellPixels, budget)
-          : planSixel(frame.graphics, false, diff, capabilities, theme, budget);
+          : planSixel(frame.graphics, false, diff, capabilities, theme, frame.height, budget);
         lastBudgetFailure = undefined;
         return plan;
       } catch (cause) {
@@ -204,7 +213,9 @@ export function createTerminalGraphicsCommitter(
     if (changed) {
       for (const state of nextPlacements.values()) {
         if (state.protocol !== 'kitty') continue;
-        beforeCells += encodeKittyPlacementDelete(state.imageId, state.protocolId, transport, budget);
+        for (const rendering of state.renderings) {
+          beforeCells += encodeKittyPlacementDelete(rendering.imageId, rendering.protocolId, transport, budget);
+        }
       }
       nextPlacements.clear();
     }
@@ -216,38 +227,58 @@ export function createTerminalGraphicsCommitter(
     for (const placement of pending) {
       const geometry = resolveGraphicGeometry(placement, cellPixels);
       if (geometry === undefined) continue;
-      const resourceKey = imageResourceKey(placement.image);
-      let resource = nextImages.get(resourceKey);
-      if (resource === undefined) {
-        const imageId = candidateImageId;
-        candidateImageId = incrementProtocolId(candidateImageId);
-        resource = { key: resourceKey, image: placement.image, imageId, references: 0 };
-        nextImages.set(resourceKey, resource);
-        afterCells += encodeKittyImageUpload(placement.image, imageId, transport, budget);
-      }
-      const placementId = candidatePlacementId;
-      candidatePlacementId = incrementProtocolId(candidatePlacementId);
       afterCells += blankRect(placement.clip, budget);
-      afterCells += encodeKittyPlacement(resource.imageId, placementId, geometry, transport, budget);
+      const geometries = transport === 'direct' ? [geometry] : tileKittyPlaceholderGeometry(geometry);
+      const renderings: KittyPlacementRendering[] = [];
+      for (const renderingGeometry of geometries) {
+        const { renderedImage, placementGeometry } = resolveKittyRendering(
+          placement.image,
+          renderingGeometry,
+          transport,
+          cellPixels,
+          budget,
+        );
+        const resourceKey = imageResourceKey(renderedImage);
+        let resource = nextImages.get(resourceKey);
+        if (resource === undefined) {
+          const imageId = candidateImageId;
+          candidateImageId = incrementProtocolId(candidateImageId);
+          resource = { key: resourceKey, image: renderedImage, imageId, references: 0 };
+          nextImages.set(resourceKey, resource);
+          afterCells += encodeKittyImageUpload(renderedImage, imageId, transport, budget);
+        }
+        const protocolId = candidatePlacementId;
+        candidatePlacementId = incrementProtocolId(candidatePlacementId);
+        afterCells += transport === 'direct'
+          ? encodeKittyDirectPlacement(resource.imageId, protocolId, placementGeometry, budget)
+          : `${encodeKittyVirtualPlacement(resource.imageId, protocolId, placementGeometry, transport, budget)}${encodeKittyUnicodePlaceholder(resource.imageId, protocolId, placementGeometry, budget)}`;
+        renderings.push({
+          protocolId,
+          resourceKey,
+          imageId: resource.imageId,
+          geometry: placementGeometry,
+        });
+      }
       nextPlacements.set(placement.id, {
         protocol: 'kitty',
         placement,
-        resourceKey,
-        imageId: resource.imageId,
-        protocolId: placementId,
+        renderings: Object.freeze(renderings),
       });
     }
-    const cellDamage = diffDamageRects(diff);
-    for (const placement of desired) {
-      if (pendingIds.has(placement.id)) continue;
-      if (cellDamage.some((rect) => rectsIntersect(rect, placement.clip))) {
-        afterCells += blankRect(placement.clip, budget);
-      }
-    }
+    afterCells += repaintDamagedKittyPlacements(
+      desired,
+      pendingIds,
+      diff,
+      nextPlacements,
+      transport,
+      budget,
+    );
     const references = new Map<string, number>();
     for (const state of nextPlacements.values()) {
       if (state.protocol !== 'kitty') continue;
-      references.set(state.resourceKey, (references.get(state.resourceKey) ?? 0) + 1);
+      for (const rendering of state.renderings) {
+        references.set(rendering.resourceKey, (references.get(rendering.resourceKey) ?? 0) + 1);
+      }
     }
     for (const [key, resource] of [...nextImages]) {
       const count = references.get(key) ?? 0;
@@ -258,6 +289,7 @@ export function createTerminalGraphicsCommitter(
       beforeCells += encodeKittyImageDelete(resource.imageId, transport, budget);
       nextImages.delete(key);
     }
+    budget.admitLiveResources(nextImages.size);
     replaceMap(images, nextImages);
     replaceMap(placements, nextPlacements);
     nextImageId = candidateImageId;
@@ -271,6 +303,7 @@ export function createTerminalGraphicsCommitter(
     diff: RenderDiff,
     capabilities: TerminalCapabilityProfile,
     theme: TerminalTheme,
+    terminalRows: number,
     budget: GraphicsBudget,
   ): GraphicsCommitPlan {
     const prior = [...placements.values()].map((state) => state.placement);
@@ -287,29 +320,33 @@ export function createTerminalGraphicsCommitter(
     const forceFullRewrite = force || (destructiveChange && prior.length > 0);
     const cellPixels = capabilities.graphics.cellPixels;
     if (cellPixels === undefined) return emptyPlan;
+    const visible = desired.flatMap((placement) => {
+      const clipped = clipSixelPlacement(placement, terminalRows);
+      return clipped === undefined ? [] : [clipped];
+    });
     const background = backgroundColor(theme.tokens.colors['app.background']);
     const damage = forceFullRewrite
-      ? desired.map((placement) => placement.clip)
+      ? visible.map((placement) => placement.clip)
       : diffDamageRects(diff);
-    const repaint = repaintPlacements(desired, damage, changedIds);
+    const repaint = repaintPlacements(visible, damage, changedIds);
     if (repaint.length === 0 && changedIds.size === 0 && !destructiveChange) return emptyPlan;
     const nextCache = new Map(sixelCache);
     const desiredEncodingKeys = new Set<string>();
     const geometries = new Map<string, ReturnType<typeof resolveGraphicGeometry>>();
-    for (const placement of desired) {
+    for (const placement of visible) {
       const geometry = resolveGraphicGeometry(placement, cellPixels);
       if (geometry === undefined) continue;
       geometries.set(placement.id, geometry);
-      desiredEncodingKeys.add(sixelEncodingKey(placement, geometry, cellPixels, background, transport));
+      desiredEncodingKeys.add(sixelEncodingKey(placement, geometry, cellPixels, background));
     }
     const output: string[] = [];
     for (const placement of repaint) {
       const geometry = geometries.get(placement.id);
       if (geometry === undefined) continue;
-      const key = sixelEncodingKey(placement, geometry, cellPixels, background, transport);
+      const key = sixelEncodingKey(placement, geometry, cellPixels, background);
       let encoded = nextCache.get(key);
       if (encoded === undefined) {
-        encoded = encodeSixelImage(placement.image, geometry, cellPixels, background, transport, budget);
+        encoded = encodeSixelImage(placement.image, geometry, cellPixels, background, budget);
         nextCache.set(key, encoded);
         sixelEncodes += 1;
       } else {
@@ -329,7 +366,7 @@ export function createTerminalGraphicsCommitter(
       placements.set(placement.id, {
         protocol: 'sixel',
         placement,
-        encodingKey: sixelEncodingKey(placement, geometry, cellPixels, background, transport),
+        encodingKey: sixelEncodingKey(placement, geometry, cellPixels, background),
       });
     }
     replaceMap(sixelCache, nextCache);
@@ -341,20 +378,61 @@ export function createTerminalGraphicsCommitter(
   }
 }
 
+function clipSixelPlacement(placement: GraphicPlacement, terminalRows: number): GraphicPlacement | undefined {
+  const safeBottom = terminalRows;
+  const height = Math.min(placement.clip.row + placement.clip.height, safeBottom) - placement.clip.row;
+  if (height <= 0) return undefined;
+  if (height === placement.clip.height) return placement;
+  return Object.freeze({
+    ...placement,
+    clip: Object.freeze({ ...placement.clip, height }),
+  });
+}
+
+function repaintDamagedKittyPlacements(
+  desired: readonly GraphicPlacement[],
+  pendingIds: ReadonlySet<string>,
+  diff: RenderDiff,
+  current: ReadonlyMap<string, PlacementState>,
+  transport: KittyGraphicsTransport,
+  budget: GraphicsBudget,
+): string {
+  const cellDamage = diffDamageRects(diff);
+  let output = '';
+  for (const placement of desired) {
+    if (pendingIds.has(placement.id)) continue;
+    if (!cellDamage.some((rect) => rectsIntersect(rect, placement.clip))) continue;
+    output += blankRect(placement.clip, budget);
+    if (transport === 'direct') continue;
+    const state = current.get(placement.id);
+    if (state?.protocol !== 'kitty') continue;
+    for (const rendering of state.renderings) {
+      output += encodeKittyUnicodePlaceholder(
+        rendering.imageId,
+        rendering.protocolId,
+        rendering.geometry,
+        budget,
+      );
+    }
+  }
+  return output;
+}
+
 const emptyPlan: GraphicsCommitPlan = Object.freeze({ forceFullRewrite: false, beforeCells: '', afterCells: '' });
 
 function randomProtocolId(): number {
-  return Math.floor(Math.random() * 0xffff_ffff) + 1;
+  return Math.floor(Math.random() * 0xff_ffff) + 1;
 }
 
 function incrementProtocolId(value: number): number {
-  return value === 0xffff_ffff ? 1 : value + 1;
+  return value === 0xff_ffff ? 1 : value + 1;
 }
 
 function graphicsRenderProfile(
   resolved: ReturnType<typeof resolveProtocol>,
   capabilities: TerminalCapabilityProfile,
   theme: TerminalTheme,
+  terminalRows: number,
 ): string | undefined {
   if (resolved === undefined) return undefined;
   const pixels = capabilities.graphics.cellPixels;
@@ -364,16 +442,23 @@ function graphicsRenderProfile(
   const composition = background === undefined
     ? 'transparent'
     : `${String(background.r)}:${String(background.g)}:${String(background.b)}`;
-  return `sixel:${resolved.transport}:${geometry}:${composition}`;
+  return `sixel:${geometry}:${composition}:rows=${String(terminalRows)}`;
 }
 
 function resolveProtocol(
   mode: TerminalGraphicsMode,
   capabilities: TerminalCapabilityProfile,
-): { readonly protocol: 'kitty' | 'sixel'; readonly transport: TerminalGraphicsTransport } | undefined {
+):
+  | { readonly protocol: 'kitty'; readonly transport: KittyGraphicsTransport }
+  | { readonly protocol: 'sixel'; readonly transport: 'direct' }
+  | undefined {
   if (mode === 'none') return undefined;
   const kitty = capabilities.graphics.kitty.support === 'supported'
-    && capabilities.graphics.kitty.availability === 'available';
+    && capabilities.graphics.kitty.availability === 'available'
+    && (
+      capabilities.graphics.kitty.transport !== 'tmux-passthrough'
+      || capabilities.graphics.cellPixels !== undefined
+    );
   const sixel = capabilities.graphics.sixel.support === 'supported'
     && capabilities.graphics.sixel.availability === 'available'
     && capabilities.graphics.cellPixels !== undefined;
@@ -383,24 +468,28 @@ function resolveProtocol(
   }
   if (mode === 'sixel') {
     if (!sixel) throw new Error('SIXEL graphics were required but support or cell pixel geometry is unavailable.');
-    return { protocol: 'sixel', transport: capabilities.graphics.sixel.transport ?? 'direct' };
+    return { protocol: 'sixel', transport: 'direct' };
   }
   if (kitty) return { protocol: 'kitty', transport: capabilities.graphics.kitty.transport ?? 'direct' };
   return sixel
-    ? { protocol: 'sixel', transport: capabilities.graphics.sixel.transport ?? 'direct' }
+    ? { protocol: 'sixel', transport: 'direct' }
     : undefined;
 }
 
 function kittyCleanup(
   active: 'kitty' | 'sixel' | undefined,
-  transport: TerminalGraphicsTransport,
+  transport: KittyGraphicsTransport,
   images: ReadonlyMap<string, KittyImageResource>,
   placements: ReadonlyMap<string, PlacementState>,
 ): string {
   if (active !== 'kitty') return active === 'sixel' && placements.size > 0 ? `${ESC}[2J${ESC}[H` : '';
   return [
     ...[...placements.values()].flatMap((state) => state.protocol === 'kitty'
-      ? [encodeKittyPlacementDelete(state.imageId, state.protocolId, transport)]
+      ? state.renderings.map((rendering) => encodeKittyPlacementDelete(
+          rendering.imageId,
+          rendering.protocolId,
+          transport,
+        ))
       : []),
     ...[...images.values()].map((resource) => encodeKittyImageDelete(resource.imageId, transport)),
   ].join('');
@@ -419,6 +508,52 @@ function blankRect(rect: GraphicPlacement['bounds'], budget: GraphicsBudget): st
   return lines.join('');
 }
 
+function tileKittyPlaceholderGeometry(
+  geometry: ResolvedGraphicGeometry,
+): readonly ResolvedGraphicGeometry[] {
+  const tiles: ResolvedGraphicGeometry[] = [];
+  const destination = geometry.destination;
+  for (let rowOffset = 0; rowOffset < destination.height; rowOffset += kittyPlaceholderDimension) {
+    const height = Math.min(kittyPlaceholderDimension, destination.height - rowOffset);
+    for (let columnOffset = 0; columnOffset < destination.width; columnOffset += kittyPlaceholderDimension) {
+      const width = Math.min(kittyPlaceholderDimension, destination.width - columnOffset);
+      const tileDestination = {
+        row: destination.row + rowOffset,
+        column: destination.column + columnOffset,
+        width,
+        height,
+      };
+      tiles.push(Object.freeze({
+        destination: Object.freeze(tileDestination),
+        source: Object.freeze(cropKittyPlaceholderSource(geometry, tileDestination)),
+      }));
+    }
+  }
+  return Object.freeze(tiles);
+}
+
+function cropKittyPlaceholderSource(
+  geometry: ResolvedGraphicGeometry,
+  tile: ResolvedGraphicGeometry['destination'],
+): ResolvedGraphicGeometry['source'] {
+  const destination = geometry.destination;
+  const source = geometry.source;
+  const left = (tile.column - destination.column) / destination.width;
+  const top = (tile.row - destination.row) / destination.height;
+  const right = (tile.column + tile.width - destination.column) / destination.width;
+  const bottom = (tile.row + tile.height - destination.row) / destination.height;
+  const x = source.x + Math.floor(source.width * left);
+  const y = source.y + Math.floor(source.height * top);
+  const sourceRight = source.x + Math.ceil(source.width * right);
+  const sourceBottom = source.y + Math.ceil(source.height * bottom);
+  return {
+    x,
+    y,
+    width: Math.max(1, sourceRight - x),
+    height: Math.max(1, sourceBottom - y),
+  };
+}
+
 function replaceMap<TKey, TValue>(target: Map<TKey, TValue>, replacement: ReadonlyMap<TKey, TValue>): void {
   target.clear();
   for (const [key, value] of replacement) target.set(key, value);
@@ -426,7 +561,6 @@ function replaceMap<TKey, TValue>(target: Map<TKey, TValue>, replacement: Readon
 
 function admitGraphicsFrame(
   desired: readonly GraphicPlacement[],
-  protocol: 'kitty' | 'sixel',
   capabilities: TerminalCapabilityProfile,
   budget: GraphicsBudget,
 ): void {
@@ -445,9 +579,46 @@ function admitGraphicsFrame(
       }
     }
   }
-  if (protocol === 'kitty') {
-    budget.admitLiveResources(new Set(desired.map((placement) => imageResourceKey(placement.image))).size);
+}
+
+function fittedPlaceholderImage(
+  image: RasterImage,
+  geometry: ResolvedGraphicGeometry,
+  cellPixels: NonNullable<TerminalCapabilityProfile['graphics']['cellPixels']>,
+  budget: GraphicsBudget,
+): RasterImage {
+  const width = geometry.destination.width * cellPixels.width;
+  const height = geometry.destination.height * cellPixels.height;
+  budget.admitFittedPixels(width, height);
+  return resampleRasterRegion(image, geometry.source, width, height, budget.limits);
+}
+
+function resolveKittyRendering(
+  image: RasterImage,
+  geometry: ResolvedGraphicGeometry,
+  transport: KittyGraphicsTransport,
+  cellPixels: TerminalCapabilityProfile['graphics']['cellPixels'],
+  budget: GraphicsBudget,
+): { readonly renderedImage: RasterImage; readonly placementGeometry: ResolvedGraphicGeometry } {
+  if (transport === 'direct') return { renderedImage: image, placementGeometry: geometry };
+  if (cellPixels === undefined) {
+    throw new Error('Kitty Unicode placeholders require verified terminal cell pixel geometry.');
   }
+  const renderedImage = fittedPlaceholderImage(image, geometry, cellPixels, budget);
+  return {
+    renderedImage,
+    placementGeometry: geometryForFittedImage(geometry, renderedImage),
+  };
+}
+
+function geometryForFittedImage(
+  geometry: ResolvedGraphicGeometry,
+  image: RasterImage,
+): ResolvedGraphicGeometry {
+  return Object.freeze({
+    destination: geometry.destination,
+    source: Object.freeze({ x: 0, y: 0, width: image.width, height: image.height }),
+  });
 }
 
 function samePlacement(left: GraphicPlacement, right: GraphicPlacement): boolean {
@@ -494,7 +665,6 @@ function sixelEncodingKey(
   geometry: NonNullable<ReturnType<typeof resolveGraphicGeometry>>,
   cellPixels: NonNullable<TerminalCapabilityProfile['graphics']['cellPixels']>,
   background: ReturnType<typeof backgroundColor>,
-  activeTransport: TerminalGraphicsTransport,
 ): string {
   return [
     imageResourceKey(placement.image),
@@ -504,7 +674,6 @@ function sixelEncodingKey(
     background === undefined
       ? 'transparent'
       : `${String(background.r)}:${String(background.g)}:${String(background.b)}`,
-    activeTransport,
   ].join('|');
 }
 

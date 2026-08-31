@@ -3,8 +3,6 @@ import { createGraphicsBudget } from '../graphics/index.ts';
 import type { RasterImage } from '../graphics/index.ts';
 import type { GraphicsBudget } from '../graphics/index.ts';
 import type { ResolvedGraphicGeometry, TerminalCellPixels } from './graphics-geometry.ts';
-import { wrapGraphicsControl } from './kitty-graphics.ts';
-import type { TerminalGraphicsTransport } from './kitty-graphics.ts';
 
 const ESC = '\u001b';
 const ST = `${ESC}\\`;
@@ -18,7 +16,6 @@ export function encodeSixelImage(
   geometry: ResolvedGraphicGeometry,
   cellPixels: TerminalCellPixels,
   background: RgbColor | undefined,
-  transport: TerminalGraphicsTransport,
   suppliedBudget?: GraphicsBudget,
 ): string {
   const budget = suppliedBudget ?? createGraphicsBudget();
@@ -30,14 +27,15 @@ export function encodeSixelImage(
   const indexes = resampleAndQuantize(image, geometry.source, width, height, background);
   const used = [...new Set(indexes)].filter((index) => index !== transparentIndex)
     .toSorted((left, right) => left - right);
-  const palette = used.map((index) => {
-    const color = cubeColor(index);
-    return `#${String(index)};2;${String(percent(color.r))};${String(percent(color.g))};${String(percent(color.b))}`;
+  const registers = new Map(used.map((cube, register) => [cube, register]));
+  const palette = used.map((cube, register) => {
+    const color = cubeColor(cube);
+    return `#${String(register)};2;${String(percent(color.r))};${String(percent(color.g))};${String(percent(color.b))}`;
   }).join('');
   const move = `${ESC}[${String(geometry.destination.row)};${String(geometry.destination.column)}H`;
   const header = `${move}${ESC}P0;${background === undefined ? '1' : '0'}q"1;1;${String(width)};${String(height)}${palette}`;
   const parts: string[] = [];
-  let directBytes = 0;
+  let encodedBytes = 0;
   append(header);
   for (let top = 0; top < height; top += 6) {
     if (top > 0) append('-');
@@ -45,31 +43,31 @@ export function encodeSixelImage(
     const bandColors = [...new Set(indexes.subarray(top * width, bandEnd))]
       .filter((index) => index !== transparentIndex)
       .toSorted((left, right) => left - right);
-    for (const [colorIndex, color] of bandColors.entries()) {
+    for (const [colorIndex, cube] of bandColors.entries()) {
       if (colorIndex > 0) append('$');
+      const register = registers.get(cube);
+      if (register === undefined) throw new Error('SIXEL color was not admitted to the image palette.');
       const sixels: string[] = [];
       for (let x = 0; x < width; x += 1) {
         let bits = 0;
         for (let bit = 0; bit < 6; bit += 1) {
           const y = top + bit;
-          if (y < height && indexes[y * width + x] === color) bits |= 1 << bit;
+          if (y < height && indexes[y * width + x] === cube) bits |= 1 << bit;
         }
         sixels.push(String.fromCharCode(63 + bits));
       }
-      append(`#${String(color)}${runLengthEncode(sixels)}`);
+      append(`#${String(register)}${runLengthEncode(sixels)}`);
     }
   }
   append(ST);
-  const direct = parts.join('');
-  const encoded = transport === 'direct' ? direct : wrapGraphicsControl(direct.slice(move.length), transport);
-  const output = transport === 'direct' ? encoded : `${move}${encoded}`;
+  const output = parts.join('');
   budget.assertUploadBytes(output.length);
   budget.addCommitBytes(output.length);
   return output;
 
   function append(part: string): void {
-    directBytes += part.length;
-    budget.assertUploadBytes(transport === 'direct' ? directBytes : directBytes + 16);
+    encodedBytes += part.length;
+    budget.assertUploadBytes(encodedBytes);
     parts.push(part);
   }
 }

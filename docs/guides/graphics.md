@@ -74,9 +74,23 @@ guess a composition color. Kitty receives the original RGBA pixels and does
 not need this SIXEL composition policy.
 
 Under tmux, direct probing runs first. If Kitty is not available directly, the
-runtime tries tmux passthrough and records that transport only when the query
-response proves it works. Environment variable names are never treated as
-protocol support.
+runtime passes through only a uniquely identifiable Kitty query and records
+that transport only when the matching Kitty response proves it works. Uploads
+and virtual-placement controls then use passthrough, while ordinary U+10EEEE
+placeholder cells give tmux ownership of placement and redraw. Generic device
+attributes and terminal cell-size queries are never passed through.
+Environment variable names are never treated as protocol support.
+
+SIXEL has no generic passthrough mode. A multiplexer must parse and advertise
+SIXEL itself; current tmux builds do this only when compiled with native SIXEL
+support. The runtime then writes ordinary SIXEL to tmux, which owns clipping,
+redraw, and forwarding to the outer terminal.
+
+Cursor-relative SIXEL advances to the line after an image and scrolls when an
+image reaches the terminal's last row. The runtime therefore keeps the last
+row as a text-only scroll guard for SIXEL. Raster overlays are clipped above
+that row while the ordinary cell frame remains authoritative there. Kitty
+placements do not have this restriction.
 
 The public `graphics` entrypoint contains raster resources and frame-level
 placement types. The `protocol` entrypoint contains the lower-level geometry

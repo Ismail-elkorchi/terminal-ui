@@ -20,13 +20,17 @@ test('CI verifies the complete package on Node 24 across Ubuntu, macOS, and Wind
   assert.doesNotMatch(verification, /- run: npm run (?:build|verify)|- run: npm pack --dry-run/u);
 });
 
-test('CI verifies terminal behavior through the pinned Kitty emulator', () => {
-  const verification = workflowJob(ciWorkflow, 'emulator-kitty');
+test('CI verifies graphics through pinned direct and tmux emulator paths', () => {
+  const verification = workflowJob(ciWorkflow, 'emulator-real');
 
   assert.match(verification, /runs-on: ubuntu-24\.04/u);
+  assertGraphicsEmulatorMatrix(verification);
   assert.match(verification, /node scripts\/install-kitty-emulator\.mjs/u);
-  assert.match(verification, /xvfb-run.*npm run check:emulator:kitty/u);
-  assert.match(verification, /name: kitty-emulator-evidence/u);
+  assert.match(verification, /node scripts\/install-tmux-emulator\.mjs/u);
+  assert.match(verification, /node scripts\/install-xterm-emulator\.mjs/u);
+  assert.match(verification, /xvfb-run.*npm run \$\{\{ matrix\.command \}\}/u);
+  assert.match(verification, /name: real-emulator-evidence-\$\{\{ matrix\.path \}\}/u);
+  assert.match(verification, /path: \.artifacts\/emulator\/\$\{\{ matrix\.path \}\}/u);
 });
 
 test('registry publication is gated by a verified immutable release tag', () => {
@@ -44,8 +48,13 @@ test('registry publication is gated by a verified immutable release tag', () => 
   assert.match(verification, /npm run check$/mu);
   assert.match(verification, /ref: \$\{\{ env\.RELEASE_TAG \}\}/u);
   assert.match(emulatorVerification, /ref: \$\{\{ env\.RELEASE_TAG \}\}/u);
+  assertGraphicsEmulatorMatrix(emulatorVerification);
   assert.match(emulatorVerification, /node scripts\/install-kitty-emulator\.mjs/u);
-  assert.match(emulatorVerification, /npm run check:emulator:kitty/u);
+  assert.match(emulatorVerification, /node scripts\/install-tmux-emulator\.mjs/u);
+  assert.match(emulatorVerification, /node scripts\/install-xterm-emulator\.mjs/u);
+  assert.match(emulatorVerification, /xvfb-run.*npm run \$\{\{ matrix\.command \}\}/u);
+  assert.match(emulatorVerification, /name: real-emulator-evidence-\$\{\{ env\.RELEASE_TAG \}\}-\$\{\{ matrix\.path \}\}/u);
+  assert.match(emulatorVerification, /path: \.artifacts\/emulator\/\$\{\{ matrix\.path \}\}/u);
   assert.match(npmPublication, /needs: \[verify, verify-emulator\]/u);
   assert.match(npmPublication, /if: github\.event_name == 'release' \|\| inputs\.registry == 'npm'/u);
   assert.match(npmPublication, /runs-on: ubuntu-latest/u);
@@ -184,6 +193,22 @@ function workflowJob(source, jobId) {
   const followingJob = lines.slice(start + 1).findIndex((line) => /^  [a-z][a-z0-9-]*:$/u.test(line));
   const end = followingJob === -1 ? lines.length : start + 1 + followingJob;
   return lines.slice(start, end).join('\n');
+}
+
+function assertGraphicsEmulatorMatrix(job) {
+  const paths = [
+    ['kitty-direct', 'check:emulator:kitty'],
+    ['kitty-tmux', 'check:emulator:kitty-tmux'],
+    ['sixel-direct', 'check:emulator:sixel'],
+    ['sixel-tmux', 'check:emulator:sixel-tmux']
+  ];
+
+  for (const [path, command] of paths) {
+    assert.match(job, new RegExp(
+      `^          - path: ${path}\\n(?:            [^\\n]+\\n)*?            command: ${command}$`,
+      'mu',
+    ));
+  }
 }
 
 async function exampleSourceFiles() {

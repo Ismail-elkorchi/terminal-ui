@@ -1,26 +1,22 @@
 import { csiBody } from './terminal-response.ts';
 import type { TerminalResponseClassification, TerminalResponseProtocol } from './terminal-response.ts';
-import { wrapGraphicsControl } from '../protocol/kitty-graphics.ts';
-import type { TerminalCellPixels, TerminalGraphicsTransport } from '../protocol/index.ts';
-import type { GraphicsProbeFacts } from './capabilities.ts';
+import { wrapKittyControl } from '../protocol/kitty-graphics.ts';
+import type { TerminalCellPixels } from '../protocol/index.ts';
+import type { GraphicsProbeFacts, KittyGraphicsProbeFacts } from './capabilities.ts';
 
 const ESC = '\u001b';
 const ST = `${ESC}\\`;
 const QUERY_IMAGE_ID = 31;
 
-export function graphicsQueryRequest(transport: TerminalGraphicsTransport): string {
-  const kitty = `${ESC}_Gi=${String(QUERY_IMAGE_ID)},s=1,v=1,a=q,t=d,f=24;AAAA${ST}`;
-  const cellPixels = `${ESC}[16t`;
-  const deviceAttributes = `${ESC}[c`;
-  if (transport === 'direct') return `${kitty}${cellPixels}${deviceAttributes}`;
-  return [kitty, cellPixels, deviceAttributes]
-    .map((control) => wrapGraphicsControl(control, transport))
-    .join('');
+export function graphicsQueryRequest(): string {
+  return `${kittyQuery()}${ESC}[16t${ESC}[c`;
 }
 
-export function createGraphicsResponseProtocol(
-  transport: TerminalGraphicsTransport,
-): TerminalResponseProtocol<GraphicsProbeFacts> {
+export function kittyPassthroughQueryRequest(): string {
+  return wrapKittyControl(kittyQuery(), 'tmux-passthrough');
+}
+
+export function createGraphicsResponseProtocol(): TerminalResponseProtocol<GraphicsProbeFacts> {
   let kitty: GraphicsProbeFacts['kitty'] = 'unsupported';
   let cellPixels: TerminalCellPixels | undefined;
   return {
@@ -51,13 +47,33 @@ export function createGraphicsResponseProtocol(
         value: Object.freeze({
           kitty,
           sixel,
-          ...(kitty === 'supported' ? { kittyTransport: transport } : {}),
-          ...(sixel === 'supported' ? { sixelTransport: transport } : {}),
+          ...(kitty === 'supported' ? { kittyTransport: 'direct' as const } : {}),
           ...(cellPixels === undefined ? {} : { cellPixels }),
         }),
       };
     },
   };
+}
+
+export function createKittyPassthroughResponseProtocol(): TerminalResponseProtocol<KittyGraphicsProbeFacts> {
+  return {
+    classify(control): TerminalResponseClassification<KittyGraphicsProbeFacts> | undefined {
+      const kitty = parseKittyResponse(control);
+      return kitty === undefined
+        ? undefined
+        : {
+            kind: 'matched',
+            value: Object.freeze({
+              kitty,
+              ...(kitty === 'supported' ? { kittyTransport: 'tmux-passthrough' as const } : {}),
+            }),
+          };
+    },
+  };
+}
+
+function kittyQuery(): string {
+  return `${ESC}_Gi=${String(QUERY_IMAGE_ID)},s=1,v=1,a=q,t=d,f=24;AAAA${ST}`;
 }
 
 function parseKittyResponse(control: Uint8Array): GraphicsProbeFacts['kitty'] | undefined {

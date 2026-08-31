@@ -5,13 +5,19 @@ import { image, text } from '../../dist/components/index.js';
 import { createGraphicsBudget, rasterImage } from '../../dist/graphics/index.js';
 import { overlay, row } from '../../dist/layout/index.js';
 import {
+  encodeKittyDirectPlacement,
   encodeKittyImageUpload,
-  encodeKittyPlacement,
+  encodeKittyUnicodePlaceholder,
+  encodeKittyVirtualPlacement,
   encodeSixelImage,
   resolveGraphicGeometry,
 } from '../../dist/protocol/index.js';
 import { createFrameBuffer, diffFrames, renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
-import { createGraphicsResponseProtocol } from '../../dist/host/graphics-query.js';
+import {
+  createGraphicsResponseProtocol,
+  createKittyPassthroughResponseProtocol,
+  kittyPassthroughQueryRequest,
+} from '../../dist/host/graphics-query.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { createTranscriptRecorder, validateTranscript } from '../../dist/transcript/index.js';
@@ -165,7 +171,7 @@ test('graphic geometry keeps contain aspect and crops clipped destinations', () 
   assert.ok((geometry?.source.width ?? 0) < resource.width);
 });
 
-test('Kitty transport chunks uploads and addresses placements without moving the logical cursor', () => {
+test('Kitty transport chunks uploads and distinguishes direct from tmux-owned placement', () => {
   const resource = rasterImage({ width: 50, height: 30, format: 'rgb8', data: new Uint8Array(4_500) });
   const upload = encodeKittyImageUpload(resource, 7, 'direct');
   assert.match(upload, /i=7/u);
@@ -174,13 +180,32 @@ test('Kitty transport chunks uploads and addresses placements without moving the
   assert.match(upload, /\u001b_Gm=0;/u);
   assert.ok(upload.split('\u001b\\').length >= 3);
 
-  const placement = encodeKittyPlacement(7, 9, {
+  const geometry = {
     destination: { row: 2, column: 3, width: 4, height: 5 },
     source: { x: 0, y: 0, width: 50, height: 30 },
-  }, 'tmux-passthrough');
-  assert.match(placement, /tmux;/u);
-  assert.match(placement, /p=9/u);
-  assert.match(placement, /C=1/u);
+  };
+  const direct = encodeKittyDirectPlacement(7, 9, geometry);
+  assert.doesNotMatch(direct, /tmux;/u);
+  assert.match(direct, /p=9/u);
+  assert.match(direct, /C=1/u);
+
+  const virtual = encodeKittyVirtualPlacement(7, 9, geometry, 'tmux-passthrough');
+  assert.match(virtual, /tmux;/u);
+  assert.match(virtual, /U=1/u);
+  const placeholder = encodeKittyUnicodePlaceholder(7, 9, geometry);
+  assert.match(placeholder, /\u{10eeee}/u);
+  assert.match(placeholder, /\u0305/u);
+  assert.match(placeholder, /\u030d/u);
+  assert.ok(encoder.encode(placeholder).byteLength > placeholder.length);
+  assert.throws(
+    () => encodeKittyUnicodePlaceholder(
+      7,
+      9,
+      geometry,
+      createGraphicsBudget({ encodedBytesPerCommit: placeholder.length }),
+    ),
+    /encodedBytesPerCommit/u,
+  );
 });
 
 test('SIXEL encoding scales pixels, defines a palette, and terminates its DCS', () => {
@@ -196,9 +221,11 @@ test('SIXEL encoding scales pixels, defines a palette, and terminates its DCS', 
   const encoded = encodeSixelImage(resource, {
     destination: { row: 1, column: 1, width: 2, height: 1 },
     source: { x: 0, y: 0, width: 2, height: 2 },
-  }, { width: 2, height: 4 }, { r: 0, g: 0, b: 0 }, 'direct');
+  }, { width: 2, height: 4 }, { r: 0, g: 0, b: 0 });
   assert.match(encoded, /\u001bP0;0q"1;1;4;4/u);
-  assert.match(encoded, /#\d+;2;/u);
+  assert.match(encoded, /#0;2;/u);
+  assert.match(encoded, /#1;2;/u);
+  assert.doesNotMatch(encoded, /#(?:[4-9]|[1-9][0-9]+);2;/u);
   assert.ok(encoded.endsWith('\u001b\\'));
 });
 
@@ -213,7 +240,7 @@ test('SIXEL preserves binary transparency and requires RGB composition for parti
     destination: { row: 1, column: 1, width: 2, height: 1 },
     source: { x: 0, y: 0, width: 2, height: 1 },
   };
-  const encoded = encodeSixelImage(transparent, geometry, { width: 1, height: 1 }, undefined, 'direct');
+  const encoded = encodeSixelImage(transparent, geometry, { width: 1, height: 1 }, undefined);
   assert.match(encoded, /\u001bP0;1q/u);
 
   const translucent = rasterImage({
@@ -226,7 +253,7 @@ test('SIXEL preserves binary transparency and requires RGB composition for parti
     () => encodeSixelImage(translucent, {
       destination: { row: 1, column: 1, width: 1, height: 1 },
       source: { x: 0, y: 0, width: 1, height: 1 },
-    }, { width: 1, height: 1 }, undefined, 'direct'),
+    }, { width: 1, height: 1 }, undefined),
     /explicit RGB app\.background/u,
   );
 });
@@ -238,7 +265,6 @@ test('SIXEL planning ignores unrelated damage and reuses retained encodings for 
       graphics: {
         kitty: 'unsupported',
         sixel: 'supported',
-        sixelTransport: 'direct',
         cellPixels: { width: 1, height: 1 },
       },
     },
@@ -256,7 +282,7 @@ test('SIXEL planning ignores unrelated damage and reuses retained encodings for 
     text({ id: 'status', content: status }),
   ], { sizes: [{ kind: 'fixed', cells: 2 }, { kind: 'fixed', cells: 2 }] }), {
     columns: 4,
-    rows: 1,
+    rows: 2,
   });
 
   const initial = render('A', 'ok');
@@ -290,14 +316,13 @@ test('SIXEL removal and overlap changes clear stale pixels and repaint in frame 
       graphics: {
         kitty: 'unsupported',
         sixel: 'supported',
-        sixelTransport: 'direct',
         cellPixels: { width: 1, height: 1 },
       },
     },
   });
   const capabilities = await host.getCapabilities();
   const committer = createTerminalGraphicsCommitter('sixel');
-  const base = renderElementFrame(text({ content: 'x' }), { columns: 1, rows: 1 });
+  const base = renderElementFrame(text({ content: 'x' }), { columns: 1, rows: 2 });
   const placement = (id, resource) => ({
     id,
     image: resource,
@@ -324,6 +349,84 @@ test('SIXEL removal and overlap changes clear stale pixels and repaint in frame 
   await host.dispose();
 });
 
+test('SIXEL keeps the terminal last row as a text scroll guard', async () => {
+  const resource = rasterImage({
+    width: 1,
+    height: 1,
+    format: 'rgb8',
+    data: new Uint8Array([255, 0, 0]),
+  });
+  const host = createMemoryTerminalHost({
+    terminalSize: { columns: 1, rows: 2 },
+    capabilities: {
+      graphics: {
+        kitty: 'unsupported',
+        sixel: 'supported',
+        cellPixels: { width: 1, height: 6 },
+      },
+    },
+  });
+  const frame = renderElementFrame(image({
+    image: resource,
+    label: 'Image',
+    fallback: 'x',
+    fit: 'fill',
+    measurement: { minWidth: 1, minHeight: 2, preferredWidth: 1, preferredHeight: 2 },
+  }), { columns: 1, rows: 2 });
+  const committer = createTerminalGraphicsCommitter('sixel');
+
+  const plan = committer.plan(
+    frame,
+    diffFrames(undefined, frame),
+    await host.getCapabilities(),
+    defaultTheme,
+  );
+
+  assert.match(plan.afterCells, /"1;1;1;6/u);
+  assert.doesNotMatch(plan.afterCells, /"1;1;1;12/u);
+  assert.equal(renderFramePlain(frame), 'x');
+  await host.dispose();
+});
+
+test('SIXEL invalidates retained images when the scroll guard moves', async () => {
+  const resource = rasterImage({
+    width: 1,
+    height: 1,
+    format: 'rgb8',
+    data: new Uint8Array([255, 0, 0]),
+  });
+  const host = createMemoryTerminalHost({
+    capabilities: {
+      graphics: {
+        kitty: 'unsupported',
+        sixel: 'supported',
+        cellPixels: { width: 1, height: 1 },
+      },
+    },
+  });
+  const base = renderElementFrame(text({ content: 'x' }), { columns: 1, rows: 2 });
+  const placement = {
+    id: 'bottom-adjacent',
+    image: resource,
+    fit: 'fill',
+    bounds: { row: 1, column: 1, width: 1, height: 1 },
+    clip: { row: 1, column: 1, width: 1, height: 1 },
+  };
+  const initial = Object.freeze({ ...base, graphics: [placement] });
+  const committer = createTerminalGraphicsCommitter('sixel');
+  const capabilities = await host.getCapabilities();
+  committer.plan(initial, diffFrames(undefined, initial), capabilities, defaultTheme);
+
+  const oneRowBase = renderElementFrame(text({ content: 'x' }), { columns: 1, rows: 1 });
+  const oneRow = Object.freeze({ ...oneRowBase, graphics: [placement] });
+  const plan = committer.plan(oneRow, diffFrames(undefined, oneRow), capabilities, defaultTheme);
+
+  assert.equal(plan.forceFullRewrite, true);
+  assert.match(plan.beforeCells, /\u001b\[2J/u);
+  assert.equal(plan.afterCells, '');
+  await host.dispose();
+});
+
 test('SIXEL crop, resize, and composition-background changes invalidate retained encodings', async () => {
   const resource = rasterImage({ width: 2, height: 1, format: 'rgb8', data: new Uint8Array(6) });
   const host = createMemoryTerminalHost({
@@ -331,14 +434,13 @@ test('SIXEL crop, resize, and composition-background changes invalidate retained
       graphics: {
         kitty: 'unsupported',
         sixel: 'supported',
-        sixelTransport: 'direct',
         cellPixels: { width: 1, height: 1 },
       },
     },
   });
   const capabilities = await host.getCapabilities();
   const committer = createTerminalGraphicsCommitter('sixel');
-  const base = renderElementFrame(text({ content: 'xx' }), { columns: 2, rows: 1 });
+  const base = renderElementFrame(text({ content: 'xx' }), { columns: 2, rows: 2 });
   const frame = (width) => Object.freeze({
     ...base,
     graphics: [{
@@ -364,7 +466,7 @@ test('SIXEL crop, resize, and composition-background changes invalidate retained
 });
 
 test('graphics probing derives Kitty, SIXEL, and cell-pixel evidence only from responses', () => {
-  const protocol = createGraphicsResponseProtocol('direct');
+  const protocol = createGraphicsResponseProtocol();
   assert.deepEqual(protocol.classify(encoder.encode('\u001b_Gi=31;OK\u001b\\')), { kind: 'consume' });
   assert.deepEqual(protocol.classify(encoder.encode('\u001b[6;18;9t')), { kind: 'consume' });
   assert.deepEqual(protocol.classify(encoder.encode('\u001b[?1;2;4c')), {
@@ -373,14 +475,13 @@ test('graphics probing derives Kitty, SIXEL, and cell-pixel evidence only from r
       kitty: 'supported',
       sixel: 'supported',
       kittyTransport: 'direct',
-      sixelTransport: 'direct',
       cellPixels: { width: 9, height: 18 },
     },
   });
 });
 
 test('graphics probing accepts Kitty primary attributes with a trailing parameter separator', () => {
-  const protocol = createGraphicsResponseProtocol('direct');
+  const protocol = createGraphicsResponseProtocol();
   assert.deepEqual(protocol.classify(encoder.encode('\u001b_Gi=31;OK\u001b\\')), { kind: 'consume' });
   assert.deepEqual(protocol.classify(encoder.encode('\u001b[6;18;9t')), { kind: 'consume' });
   assert.deepEqual(protocol.classify(encoder.encode('\u001b[?62;52;c')), {
@@ -392,6 +493,43 @@ test('graphics probing accepts Kitty primary attributes with a trailing paramete
       cellPixels: { width: 9, height: 18 },
     },
   });
+});
+
+test('tmux Kitty probing completes on its unique response and passes through no generic terminal queries', () => {
+  const request = kittyPassthroughQueryRequest();
+  assert.match(request, /tmux;/u);
+  assert.match(request, /a=q/u);
+  assert.doesNotMatch(request, /\[16t|\[c/u);
+
+  const protocol = createKittyPassthroughResponseProtocol();
+  assert.equal(protocol.classify(encoder.encode('\u001b[?1;2c')), undefined);
+  assert.deepEqual(protocol.classify(encoder.encode('\u001b_Gi=31;OK\u001b\\')), {
+    kind: 'matched',
+    value: { kitty: 'supported', kittyTransport: 'tmux-passthrough' },
+  });
+});
+
+test('the host merges direct tmux geometry with Kitty passthrough evidence without leaking responses', async () => {
+  const host = createMemoryTerminalHost({
+    env: { TMUX: '/tmp/tmux,1,0' },
+  });
+  host.input('before\u001b[6;18;9t\u001b[?1;2c\u001b_Gi=31;OK\u001b\\after');
+
+  const capabilities = await host.getCapabilities({ activeProbes: ['graphics'] });
+  const input = host.stdin.read()[Symbol.asyncIterator]();
+  const before = await input.next();
+  const after = await input.next();
+  await input.return?.();
+
+  assert.equal(capabilities.graphics.kitty.support, 'supported');
+  assert.equal(capabilities.graphics.kitty.transport, 'tmux-passthrough');
+  assert.equal(capabilities.graphics.sixel.support, 'unsupported');
+  assert.deepEqual(capabilities.graphics.cellPixels, { width: 9, height: 18 });
+  assert.equal(inputText(before.value?.data) + inputText(after.value?.data), 'beforeafter');
+  const output = host.output();
+  assert.match(output, /tmux;/u);
+  const passthrough = output.slice(output.indexOf('\u001bPtmux;'));
+  assert.doesNotMatch(passthrough, /\[16t|\[c/u);
 });
 
 test('the host graphics probe consumes verified responses and retains unrelated input', async () => {
@@ -467,6 +605,72 @@ test('Kitty planning clears cell damage beneath retained placements', async () =
   );
   assert.match(rewritePlan.afterCells, /\u001b\[1;1H  /u);
   assert.doesNotMatch(rewritePlan.afterCells, /_Ga=p,/u);
+  await host.dispose();
+});
+
+test('tmux Kitty planning uses virtual placements and repaints Unicode placeholders after cell damage', async () => {
+  const resource = rasterImage({ width: 1, height: 1, format: 'rgb8', data: new Uint8Array([255, 0, 0]) });
+  const host = createMemoryTerminalHost({
+    capabilities: {
+      graphics: {
+        kitty: 'supported',
+        sixel: 'unsupported',
+        kittyTransport: 'tmux-passthrough',
+        cellPixels: { width: 3, height: 4 },
+      },
+    },
+  });
+  const capabilities = await host.getCapabilities();
+  const committer = createTerminalGraphicsCommitter('kitty');
+  const render = (fallback) => renderElementFrame(image({
+    id: 'tmux-image',
+    image: resource,
+    label: 'Image',
+    fallback,
+    fit: 'fill',
+    measurement: { minWidth: 2, minHeight: 1, preferredWidth: 2, preferredHeight: 1 },
+  }), { columns: 2, rows: 1 });
+
+  const initial = render('aa');
+  const initialPlan = committer.plan(initial, diffFrames(undefined, initial), capabilities, defaultTheme);
+  assert.match(initialPlan.afterCells, /tmux;/u);
+  assert.match(initialPlan.afterCells, /s=6,v=4/u);
+  assert.match(initialPlan.afterCells, /U=1/u);
+  assert.match(initialPlan.afterCells, /\u{10eeee}/u);
+  assert.doesNotMatch(initialPlan.afterCells, /C=1/u);
+
+  const damaged = render('bb');
+  const damagedPlan = committer.plan(damaged, diffFrames(initial, damaged), capabilities, defaultTheme);
+  assert.doesNotMatch(damagedPlan.afterCells, /U=1/u);
+  assert.match(damagedPlan.afterCells, /\u{10eeee}/u);
+  await host.dispose();
+});
+
+test('tmux Kitty placeholders tile geometry beyond the protocol coordinate table', async () => {
+  const resource = rasterImage({ width: 1, height: 1, format: 'rgb8', data: new Uint8Array([255, 0, 0]) });
+  const host = createMemoryTerminalHost({
+    terminalSize: { columns: 298, rows: 1 },
+    capabilities: {
+      graphics: {
+        kitty: 'supported',
+        sixel: 'unsupported',
+        kittyTransport: 'tmux-passthrough',
+        cellPixels: { width: 1, height: 1 },
+      },
+    },
+  });
+  const capabilities = await host.getCapabilities();
+  const committer = createTerminalGraphicsCommitter('kitty');
+  const frame = renderElementFrame(image({
+    image: resource,
+    label: 'Wide image',
+    fit: 'fill',
+    measurement: { minWidth: 298, minHeight: 1, preferredWidth: 298, preferredHeight: 1 },
+  }), { columns: 298, rows: 1 });
+
+  const plan = committer.plan(frame, diffFrames(undefined, frame), capabilities, defaultTheme);
+  assert.equal(plan.afterCells.match(/U=1/gu)?.length, 2);
+  assert.equal(plan.afterCells.match(/\u{10eeee}/gu)?.length, 298);
   await host.dispose();
 });
 
@@ -681,7 +885,6 @@ test('malicious terminal cell geometry is rejected before SIXEL allocation', asy
       graphics: {
         kitty: 'unsupported',
         sixel: 'supported',
-        sixelTransport: 'direct',
         cellPixels: { width: 1_000_000, height: 1_000_000 },
       },
     },

@@ -52,9 +52,33 @@ jobs:
       - run: npm run check
 
   verify-emulator:
-    name: verify-release-emulator
+    name: verify-release-emulator-${{ matrix.path }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - path: kitty-direct
+            kitty: true
+            tmux: false
+            xterm: false
+            command: check:emulator:kitty
+          - path: kitty-tmux
+            kitty: true
+            tmux: true
+            xterm: false
+            command: check:emulator:kitty-tmux
+          - path: sixel-direct
+            kitty: false
+            tmux: false
+            xterm: true
+            command: check:emulator:sixel
+          - path: sixel-tmux
+            kitty: false
+            tmux: true
+            xterm: true
+            command: check:emulator:sixel-tmux
     env:
       LIBGL_ALWAYS_SOFTWARE: '1'
     steps:
@@ -67,20 +91,30 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Install virtual display dependencies
-        run: sudo apt-get update && sudo apt-get install --yes fonts-dejavu-core imagemagick libgl1-mesa-dri libxcb-xkb1 x11-utils xvfb
-      - name: Install pinned Kitty emulator
+        run: sudo apt-get update && sudo apt-get install --yes bison build-essential fonts-dejavu-core imagemagick libdbus-1-3 libevent-dev libfontconfig1-dev libgl1-mesa-dri libncurses-dev libutempter-dev libx11-dev libxaw7-dev libxcb-xkb1 libxcursor1 libxext-dev libxft-dev libxinerama-dev libxkbcommon-x11-0 libxkbfile-dev libxmu-dev libxpm-dev libxrender-dev libxt-dev pkg-config x11-utils xdotool xvfb
+      - name: Install pinned emulators and multiplexer
         run: |
-          node scripts/install-kitty-emulator.mjs "$RUNNER_TEMP/kitty"
-          echo "TERMINAL_UI_KITTY=$RUNNER_TEMP/kitty/bin/kitty" >> "$GITHUB_ENV"
-          echo "TERMINAL_UI_KITTEN=$RUNNER_TEMP/kitty/bin/kitten" >> "$GITHUB_ENV"
+          if [[ "${{ matrix.kitty }}" == "true" ]]; then
+            node scripts/install-kitty-emulator.mjs "$RUNNER_TEMP/kitty"
+            echo "TERMINAL_UI_KITTY=$RUNNER_TEMP/kitty/bin/kitty" >> "$GITHUB_ENV"
+            echo "TERMINAL_UI_KITTEN=$RUNNER_TEMP/kitty/bin/kitten" >> "$GITHUB_ENV"
+          fi
+          if [[ "${{ matrix.tmux }}" == "true" ]]; then
+            node scripts/install-tmux-emulator.mjs "$RUNNER_TEMP/tmux"
+            echo "TERMINAL_UI_TMUX=$RUNNER_TEMP/tmux/bin/tmux" >> "$GITHUB_ENV"
+          fi
+          if [[ "${{ matrix.xterm }}" == "true" ]]; then
+            node scripts/install-xterm-emulator.mjs "$RUNNER_TEMP/xterm"
+            echo "TERMINAL_UI_XTERM=$RUNNER_TEMP/xterm/bin/xterm" >> "$GITHUB_ENV"
+          fi
       - name: Run real-emulator conformance
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" npm run check:emulator:kitty
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" npm run ${{ matrix.command }}
       - name: Upload emulator evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: kitty-release-emulator-evidence-${{ env.RELEASE_TAG }}
-          path: .artifacts/emulator/kitty
+          name: real-emulator-evidence-${{ env.RELEASE_TAG }}-${{ matrix.path }}
+          path: .artifacts/emulator/${{ matrix.path }}
           if-no-files-found: error
           retention-days: 30
 

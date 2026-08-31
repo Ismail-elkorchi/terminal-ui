@@ -8,9 +8,14 @@ import process from 'node:process';
 const root = path.resolve(import.meta.dirname, '..');
 const kitty = path.resolve(requiredEnvironmentPath('TERMINAL_UI_KITTY'));
 const kitten = path.resolve(process.env.TERMINAL_UI_KITTEN ?? path.join(path.dirname(kitty), 'kitten'));
-const artifacts = path.resolve(process.env.TERMINAL_UI_EMULATOR_ARTIFACTS ?? path.join(root, '.artifacts', 'emulator', 'kitty'));
+const tmuxMode = process.argv.includes('--tmux');
+const tmux = tmuxMode ? path.resolve(requiredEnvironmentPath('TERMINAL_UI_TMUX')) : undefined;
+const evidenceName = tmuxMode ? 'kitty-tmux' : 'kitty-direct';
+const artifacts = path.resolve(process.env.TERMINAL_UI_EMULATOR_ARTIFACTS ?? path.join(root, '.artifacts', 'emulator', evidenceName));
 const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'terminal-ui-kitty-'));
 const socket = path.join(temporary, 'remote-control');
+const tmuxSocket = path.join(temporary, 'tmux.sock');
+const tmuxConfig = path.join(temporary, 'tmux.conf');
 const reportPath = path.join(temporary, 'report.json');
 const visibleScreenshot = path.join(artifacts, 'graphics-visible.png');
 const hiddenScreenshot = path.join(artifacts, 'graphics-hidden.png');
@@ -21,18 +26,33 @@ await fs.mkdir(artifacts, { recursive: true });
 await clearPreviousArtifacts();
 await assertExecutable(kitty);
 await assertExecutable(kitten);
+if (tmux !== undefined) await assertExecutable(tmux);
 const xwininfo = await findExecutable('xwininfo');
 const imageMagick = await imageMagickCommands();
 const kittyIdentity = (await command(kitty, ['--version'])).trim();
 assert.match(kittyIdentity, /^kitty 0\.48\.2\b/u);
+const tmuxIdentity = tmux === undefined ? undefined : (await command(tmux, ['-V'])).trim();
+if (tmuxIdentity !== undefined) assert.equal(tmuxIdentity, 'tmux 3.7c');
 
 try {
+  if (tmux !== undefined) {
+    await fs.writeFile(tmuxConfig, [
+      'set -g status off',
+      'set -g allow-passthrough on',
+      'set -g default-terminal tmux-256color',
+      "set -as terminal-features ',xterm-kitty:RGB'",
+      '',
+    ].join('\n'), { mode: 0o600 });
+  }
   kittyProcess = launchKitty();
   await waitUntil(async () => await exists(socket), 'Kitty remote-control socket');
   await waitForScreen('TERMINAL_UI_EMULATOR_READY');
 
   const initialScreen = await screenText();
-  assert.match(initialScreen, /GRAPHICS kitty=supported transport=direct/u);
+  assert.match(
+    initialScreen,
+    new RegExp(`GRAPHICS kitty=supported transport=${tmuxMode ? 'tmux-passthrough' : 'direct'}`, 'u'),
+  );
   await saveScreen('initial', initialScreen);
 
   await remote(['send-text', '--match', 'id:-1', '--bracketed-paste', 'disable', 'alpha']);
@@ -43,13 +63,13 @@ try {
   await waitForScreen('alpha-paste');
 
   await remote(['send-key', '--match', 'id:-1', 'f2']);
-  await waitForScreen('KEY press=1 release=1');
+  await waitForScreen(`KEY press=1 release=${tmuxMode ? '0' : '1'}`);
 
   const pointerResult = await remote([
     'kitten',
     '--match',
     'id:-1',
-    path.join(root, 'tests', 'emulator', 'kitty-pointer.py'),
+    path.join(root, 'tests', 'emulator', 'emulator-pointer.py'),
   ]);
   assert.match(pointerResult, /sent/u);
   await waitForScreen('MOUSE left=1 right=1 middle=1');
@@ -76,6 +96,23 @@ try {
   assert.ok(visiblePixels.green.count > 100, 'Kitty did not render the green image region.');
   assert.equal(visiblePixels.lightInsideGraphic, 0, 'Terminal cells were painted over the Kitty image.');
 
+  let refreshedPixels;
+  if (tmux !== undefined) {
+    await command(tmux, ['-S', tmuxSocket, 'refresh-client', '-S']);
+    await command(tmux, [
+      '-S', tmuxSocket,
+      'new-window', '-d', '-n', 'auxiliary',
+      'sh -c "printf TMUX_AUXILIARY; while :; do sleep 60; done"',
+    ]);
+    await command(tmux, ['-S', tmuxSocket, 'select-window', '-t', ':auxiliary']);
+    await waitForScreen('TMUX_AUXILIARY');
+    await command(tmux, ['-S', tmuxSocket, 'select-window', '-t', ':0']);
+    await waitForScreen('TERMINAL_UI_EMULATOR_READY');
+    refreshedPixels = await colorPixelsAfterScreenshot(windowId, path.join(artifacts, 'graphics-refreshed.png'));
+    assert.ok(refreshedPixels.red.count > 100, 'tmux did not preserve the red Kitty placeholder region.');
+    assert.ok(refreshedPixels.green.count > 100, 'tmux did not preserve the green Kitty placeholder region.');
+  }
+
   await remote(['send-key', '--match', 'id:-1', 'f4']);
   await waitForScreen('IMAGE removed');
   await screenshot(windowId, hiddenScreenshot);
@@ -97,14 +134,16 @@ try {
   assertGraphicGeometry(visiblePixels, report.state.graphics.cellPixels);
   await fs.writeFile(path.join(artifacts, 'evidence.json'), `${JSON.stringify({
     emulator: kittyIdentity,
+    multiplexer: tmuxIdentity,
     displayServer: 'x11',
     display: process.env.DISPLAY,
     softwareRendering: process.env.LIBGL_ALWAYS_SOFTWARE === '1',
-    transport: 'direct',
+    transport: tmuxMode ? 'tmux-passthrough-with-placeholders' : 'direct',
     visiblePixels,
+    refreshedPixels,
     hiddenPixels,
   }, undefined, 2)}\n`);
-  console.log('Kitty emulator conformance passed.');
+  console.log(`Kitty ${tmuxMode ? 'through tmux' : 'direct'} emulator conformance passed.`);
 } catch (cause) {
   await saveScreen('failure', await screenText().catch(() => 'Kitty screen unavailable.\n'));
   throw cause;
@@ -114,10 +153,30 @@ try {
     await remote(['close-window', '--match', 'id:-1']).catch(() => undefined);
     await waitForExit(kittyProcess, 2_000).catch(() => kittyProcess.kill('SIGKILL'));
   }
+  if (tmux !== undefined) {
+    await command(tmux, ['-S', tmuxSocket, 'kill-server']).catch(() => undefined);
+  }
   await fs.rm(temporary, { recursive: true, force: true });
 }
 
 function launchKitty() {
+  const probe = [
+    process.execPath,
+    path.join(root, 'tests', 'emulator', 'graphics-probe.mjs'),
+    reportPath,
+    'kitty',
+    '--hold',
+  ];
+  const childCommand = tmux === undefined
+    ? probe
+    : [
+        tmux,
+        '-S', tmuxSocket,
+        '-f', tmuxConfig,
+        'new-session',
+        '-s', 'terminal-ui-conformance',
+        ...probe,
+      ];
   const child = spawn(kitty, [
     '--config',
     'NONE',
@@ -162,9 +221,7 @@ function launchKitty() {
     '--class',
     'terminal-ui-conformance',
     '--hold',
-    process.execPath,
-    path.join(root, 'tests', 'emulator', 'kitty-probe.mjs'),
-    reportPath,
+    ...childCommand,
   ], {
     cwd: root,
     env: cleanEnvironment(),
@@ -226,6 +283,11 @@ async function kittyXWindowId() {
 
 async function screenshot(windowId, target) {
   await command(imageMagick.import.executable, [...imageMagick.import.arguments, '-window', windowId, target]);
+}
+
+async function colorPixelsAfterScreenshot(windowId, target) {
+  await screenshot(windowId, target);
+  return await colorPixels(target);
 }
 
 async function colorPixels(imagePath) {
@@ -315,12 +377,12 @@ function assertProbeReport(report) {
   assert.equal(report.reason, 'emulator-conformance-complete');
   assert.equal(report.state.input.text, 'alpha-paste');
   assert.equal(report.state.keyPresses, 1);
-  assert.equal(report.state.keyReleases, 1);
+  assert.equal(report.state.keyReleases, tmuxMode ? 0 : 1);
   assert.deepEqual(report.state.pointerActivations, { left: 1, middle: 1, right: 1 });
   assert.deepEqual(report.state.terminalSize, { columns: 80, rows: 24 });
   assert.equal(report.state.graphics.kittySupport, 'supported');
   assert.equal(report.state.graphics.kittyAvailability, 'available');
-  assert.equal(report.state.graphics.kittyTransport, 'direct');
+  assert.equal(report.state.graphics.kittyTransport, tmuxMode ? 'tmux-passthrough' : 'direct');
   assert.equal(report.state.imageVisible, false);
   assert.deepEqual(report.diagnostics.filter(({ severity }) => severity === 'error' || severity === 'fatal'), []);
 }
@@ -426,6 +488,7 @@ async function clearPreviousArtifacts() {
     'failure-screen.txt',
     'evidence.json',
     'graphics-hidden.png',
+    'graphics-refreshed.png',
     'graphics-visible.png',
     'initial-screen.txt',
     'kitty.log',

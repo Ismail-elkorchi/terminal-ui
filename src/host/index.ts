@@ -9,7 +9,7 @@ export type {
   TerminalColorCapability,
   TerminalFeatureSupport,
   TerminalGraphicsCapability,
-  TerminalGraphicsProtocolCapability,
+  TerminalKittyGraphicsCapability,
   TerminalUnicodeCapability
 } from './capability-types.ts';
 export { terminalCapabilityNames } from './capability-types.ts';
@@ -68,6 +68,7 @@ export type {
   CapabilityOverrides,
   EnvironmentFacts,
   GraphicsProbeFacts,
+  KittyGraphicsProbeFacts,
   ProtocolProbeFacts,
   TerminalCapabilityConfiguration,
   TerminalCapabilityResolverInput,

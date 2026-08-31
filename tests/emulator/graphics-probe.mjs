@@ -16,8 +16,13 @@ import { textInputReducer, textInputState } from '../../dist/behavior/index.js';
 import { noColorTheme } from '../../dist/theme/index.js';
 
 const reportPath = process.argv[2];
+const graphicsMode = process.argv[3];
+const checkpointPath = process.argv.find((argument) => argument.startsWith('--checkpoint='))?.slice('--checkpoint='.length);
 if (reportPath === undefined || reportPath.trim() === '') {
-  throw new Error('The Kitty emulator probe requires a report path.');
+  throw new Error('The graphics emulator probe requires a report path.');
+}
+if (graphicsMode !== 'kitty' && graphicsMode !== 'sixel') {
+  throw new Error('The graphics emulator probe mode must be kitty or sixel.');
 }
 
 const testImage = rasterImage({
@@ -28,9 +33,9 @@ const testImage = rasterImage({
 });
 
 const probeApp = defineTui({
-  id: 'kitty-emulator-conformance',
-  init: (context) => ({
-    state: {
+  id: 'graphics-emulator-conformance',
+  init: (context) => {
+    const state = {
       input: { text: '', cursor: 0 },
       keyPresses: 0,
       keyReleases: 0,
@@ -38,35 +43,35 @@ const probeApp = defineTui({
       terminalSize: context.terminalSize,
       graphics: graphicsReport(context.capabilities),
       imageVisible: true,
-    },
-    focus: { kind: 'element', elementId: 'emulator-input' },
-  }),
+    };
+    return {
+      state,
+      focus: { kind: 'element', elementId: 'emulator-input' },
+      ...checkpointEffects(state),
+    };
+  },
   update: (state, message) => {
     switch (message.kind) {
       case 'input':
-        return { state: { ...state, input: textInputReducer(state.input, message.transition) } };
+        return checkpointResult({ ...state, input: textInputReducer(state.input, message.transition) });
       case 'key':
-        return {
-          state: {
+        return checkpointResult({
             ...state,
             keyPresses: state.keyPresses + Number(message.eventType === 'press'),
             keyReleases: state.keyReleases + Number(message.eventType === 'release'),
-          },
-        };
+        });
       case 'pointer':
-        return {
-          state: {
+        return checkpointResult({
             ...state,
             pointerActivations: {
               ...state.pointerActivations,
               [message.button]: state.pointerActivations[message.button] + 1,
             },
-          },
-        };
+        });
       case 'resize':
-        return { state: { ...state, terminalSize: message.terminalSize } };
+        return checkpointResult({ ...state, terminalSize: message.terminalSize });
       case 'hideImage':
-        return { state: { ...state, imageVisible: false } };
+        return checkpointResult({ ...state, imageVisible: false });
       case 'exit':
         return { state, exit: { reason: 'emulator-conformance-complete' } };
     }
@@ -102,10 +107,10 @@ const probeApp = defineTui({
     }),
     text({
       id: 'emulator-graphics-state',
-      content: `GRAPHICS kitty=${state.graphics.kittySupport} transport=${state.graphics.kittyTransport ?? 'none'}`,
+      content: `GRAPHICS kitty=${state.graphics.kittySupport} transport=${state.graphics.kittyTransport ?? 'none'} sixel=${state.graphics.sixelSupport}`,
     }),
-    imageRow(state.imageVisible),
     text({ id: 'emulator-help', content: 'F2 events  F4 remove image  F10 exit' }),
+    imageRow(state.imageVisible),
   ], {
     id: 'emulator-root',
     sizes: [
@@ -116,10 +121,10 @@ const probeApp = defineTui({
       { kind: 'fixed', cells: 1 },
       { kind: 'fixed', cells: 1 },
       { kind: 'fixed', cells: 1 },
-      { kind: 'fixed', cells: 6 },
       { kind: 'fill' },
+      { kind: 'fixed', cells: 6 },
     ],
-    meta: { accessibility: { role: 'application', label: 'Kitty emulator conformance probe' } },
+    meta: { accessibility: { role: 'application', label: 'Graphics emulator conformance probe' } },
   }),
   inputBindings: [
     {
@@ -149,7 +154,7 @@ const probeApp = defineTui({
   ],
 });
 
-const exit = await runTui(probeApp, { graphics: 'kitty', theme: noColorTheme });
+const exit = await runTui(probeApp, { graphics: graphicsMode, theme: noColorTheme });
 const report = {
   status: exit.status,
   reason: exit.reason,
@@ -162,7 +167,7 @@ const report = {
 };
 await fs.writeFile(reportPath, `${JSON.stringify(report, undefined, 2)}\n`, { mode: 0o600 });
 process.stdout.write('TERMINAL_UI_RESTORED\n');
-setInterval(() => undefined, 60_000);
+if (process.argv.includes('--hold')) setInterval(() => undefined, 60_000);
 
 function imageRow(visible) {
   return row([
@@ -195,6 +200,27 @@ function graphicsReport(capabilities) {
     kittySupport: capabilities.graphics.kitty.support,
     kittyAvailability: capabilities.graphics.kitty.availability,
     kittyTransport: capabilities.graphics.kitty.transport,
+    sixelSupport: capabilities.graphics.sixel.support,
+    sixelAvailability: capabilities.graphics.sixel.availability,
     cellPixels: capabilities.graphics.cellPixels,
+  };
+}
+
+function checkpointResult(state) {
+  return { state, ...checkpointEffects(state) };
+}
+
+function checkpointEffects(state) {
+  if (checkpointPath === undefined || checkpointPath.trim() === '') return {};
+  return {
+    effects: [{
+      id: 'emulator-checkpoint',
+      concurrency: 'enqueue',
+      async run(context) {
+        context.signal.throwIfAborted();
+        await fs.writeFile(checkpointPath, `${JSON.stringify(state)}\n`, { mode: 0o600 });
+        return { kind: 'none' };
+      },
+    }],
   };
 }

@@ -11,7 +11,7 @@ import type {
   TerminalFeatureSupport,
   TerminalUnicodeCapability
 } from './capability-types.ts';
-import type { TerminalCellPixels, TerminalGraphicsTransport } from '../protocol/index.ts';
+import type { KittyGraphicsTransport, TerminalCellPixels } from '../protocol/index.ts';
 import { defineTextWidthProfile } from '../text/index.ts';
 import type { TextWidthProfile } from '../text/index.ts';
 import { inferControlCapability, protocolFloor } from './protocol-evidence.ts';
@@ -37,9 +37,13 @@ export type ProtocolProbeFacts = Partial<Record<TerminalCapabilityName, Terminal
 export interface GraphicsProbeFacts {
   readonly kitty: TerminalFeatureSupport;
   readonly sixel: TerminalFeatureSupport;
-  readonly kittyTransport?: TerminalGraphicsTransport;
-  readonly sixelTransport?: TerminalGraphicsTransport;
+  readonly kittyTransport?: KittyGraphicsTransport;
   readonly cellPixels?: TerminalCellPixels;
+}
+
+export interface KittyGraphicsProbeFacts {
+  readonly kitty: TerminalFeatureSupport;
+  readonly kittyTransport?: KittyGraphicsTransport;
 }
 
 export interface CapabilityOverride {
@@ -236,7 +240,6 @@ function resolveGraphics(
         input.graphics === undefined ? facts : [...facts, sourceFact('probe', 'sixelGraphics', sixelSupport)],
         'SIXEL graphics support has not been verified.', false,
       ),
-      ...(input.graphics?.sixelTransport === undefined ? {} : { transport: input.graphics.sixelTransport }),
     }),
     ...(input.graphics?.cellPixels === undefined ? {} : {
       cellPixels: Object.freeze({ ...input.graphics.cellPixels }),

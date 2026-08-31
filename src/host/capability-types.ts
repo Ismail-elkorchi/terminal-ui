@@ -1,6 +1,6 @@
 import type { TerminalDiagnostic, TerminalDiagnosticValue } from '../diagnostics.ts';
 import type { TextWidthProfile } from '../text/index.ts';
-import type { TerminalCellPixels, TerminalGraphicsTransport } from '../protocol/index.ts';
+import type { KittyGraphicsTransport, TerminalCellPixels } from '../protocol/index.ts';
 
 export type RuntimeTarget = 'node' | 'deno' | 'bun' | 'memory';
 
@@ -58,13 +58,13 @@ export interface TerminalUnicodeCapability {
   readonly bidi: 'full' | 'stable-fallback';
 }
 
-export interface TerminalGraphicsProtocolCapability extends CapabilitySupport {
-  readonly transport?: TerminalGraphicsTransport;
+export interface TerminalKittyGraphicsCapability extends CapabilitySupport {
+  readonly transport?: KittyGraphicsTransport;
 }
 
 export interface TerminalGraphicsCapability {
-  readonly kitty: TerminalGraphicsProtocolCapability;
-  readonly sixel: TerminalGraphicsProtocolCapability;
+  readonly kitty: TerminalKittyGraphicsCapability;
+  readonly sixel: CapabilitySupport;
   readonly cellPixels?: TerminalCellPixels;
 }
 
