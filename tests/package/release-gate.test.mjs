@@ -28,6 +28,7 @@ test('CI verifies graphics through pinned direct and tmux emulator paths', () =>
   assert.match(verification, /node scripts\/install-kitty-emulator\.mjs/u);
   assert.match(verification, /node scripts\/install-tmux-emulator\.mjs/u);
   assert.match(verification, /node scripts\/install-xterm-emulator\.mjs/u);
+  assert.match(verification, /node scripts\/install-wezterm-emulator\.mjs/u);
   assert.match(verification, /xvfb-run.*npm run \$\{\{ matrix\.command \}\}/u);
   assert.match(verification, /name: real-emulator-evidence-\$\{\{ matrix\.path \}\}/u);
   assert.match(verification, /path: \.artifacts\/emulator\/\$\{\{ matrix\.path \}\}/u);
@@ -52,6 +53,7 @@ test('registry publication is gated by a verified immutable release tag', () => 
   assert.match(emulatorVerification, /node scripts\/install-kitty-emulator\.mjs/u);
   assert.match(emulatorVerification, /node scripts\/install-tmux-emulator\.mjs/u);
   assert.match(emulatorVerification, /node scripts\/install-xterm-emulator\.mjs/u);
+  assert.match(emulatorVerification, /node scripts\/install-wezterm-emulator\.mjs/u);
   assert.match(emulatorVerification, /xvfb-run.*npm run \$\{\{ matrix\.command \}\}/u);
   assert.match(emulatorVerification, /name: real-emulator-evidence-\$\{\{ env\.RELEASE_TAG \}\}-\$\{\{ matrix\.path \}\}/u);
   assert.match(emulatorVerification, /path: \.artifacts\/emulator\/\$\{\{ matrix\.path \}\}/u);
@@ -200,7 +202,8 @@ function assertGraphicsEmulatorMatrix(job) {
     ['kitty-direct', 'check:emulator:kitty'],
     ['kitty-tmux', 'check:emulator:kitty-tmux'],
     ['sixel-direct', 'check:emulator:sixel'],
-    ['sixel-tmux', 'check:emulator:sixel-tmux']
+    ['sixel-tmux', 'check:emulator:sixel-tmux'],
+    ['sixel-wezterm', 'check:emulator:wezterm']
   ];
 
   for (const [path, command] of paths) {

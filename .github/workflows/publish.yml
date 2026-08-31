@@ -63,22 +63,32 @@ jobs:
             kitty: true
             tmux: false
             xterm: false
+            wezterm: false
             command: check:emulator:kitty
           - path: kitty-tmux
             kitty: true
             tmux: true
             xterm: false
+            wezterm: false
             command: check:emulator:kitty-tmux
           - path: sixel-direct
             kitty: false
             tmux: false
             xterm: true
+            wezterm: false
             command: check:emulator:sixel
           - path: sixel-tmux
             kitty: false
             tmux: true
             xterm: true
+            wezterm: false
             command: check:emulator:sixel-tmux
+          - path: sixel-wezterm
+            kitty: false
+            tmux: false
+            xterm: false
+            wezterm: true
+            command: check:emulator:wezterm
     env:
       LIBGL_ALWAYS_SOFTWARE: '1'
     steps:
@@ -91,7 +101,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Install virtual display dependencies
-        run: sudo apt-get update && sudo apt-get install --yes bison build-essential fonts-dejavu-core imagemagick libdbus-1-3 libevent-dev libfontconfig1-dev libgl1-mesa-dri libncurses-dev libutempter-dev libx11-dev libxaw7-dev libxcb-xkb1 libxcursor1 libxext-dev libxft-dev libxinerama-dev libxkbcommon-x11-0 libxkbfile-dev libxmu-dev libxpm-dev libxrender-dev libxt-dev pkg-config x11-utils xdotool xvfb
+        run: sudo apt-get update && sudo apt-get install --yes bison build-essential fonts-dejavu-core imagemagick libdbus-1-3 libegl1 libevent-dev libfontconfig1-dev libgl1-mesa-dri libncurses-dev libutempter-dev libwayland-client0 libx11-dev libxaw7-dev libxcb-xkb1 libxcursor1 libxext-dev libxft-dev libxinerama-dev libxkbcommon-x11-0 libxkbfile-dev libxmu-dev libxpm-dev libxrender-dev libxt-dev pkg-config x11-utils xdotool xvfb
       - name: Install pinned emulators and multiplexer
         run: |
           if [[ "${{ matrix.kitty }}" == "true" ]]; then
@@ -106,6 +116,10 @@ jobs:
           if [[ "${{ matrix.xterm }}" == "true" ]]; then
             node scripts/install-xterm-emulator.mjs "$RUNNER_TEMP/xterm"
             echo "TERMINAL_UI_XTERM=$RUNNER_TEMP/xterm/bin/xterm" >> "$GITHUB_ENV"
+          fi
+          if [[ "${{ matrix.wezterm }}" == "true" ]]; then
+            node scripts/install-wezterm-emulator.mjs "$RUNNER_TEMP/wezterm"
+            echo "TERMINAL_UI_WEZTERM=$RUNNER_TEMP/wezterm/usr/bin/wezterm" >> "$GITHUB_ENV"
           fi
       - name: Run real-emulator conformance
         run: xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" npm run ${{ matrix.command }}

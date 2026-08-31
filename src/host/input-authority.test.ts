@@ -267,10 +267,13 @@ void test('a primary device-attributes fence establishes unsupported Kitty input
     { status: 'unsupported' }
   );
   const replacement = authority.read()[Symbol.asyncIterator]();
-  const first = await replacement.next();
-  const second = await replacement.next();
-  if (first.done || second.done) assert.fail('Expected input surrounding the response fence.');
-  assert.equal(inputText(first.value.data) + inputText(second.value.data), 'beforeafter');
+  let retained = '';
+  while (retained.length < 'beforeafter'.length) {
+    const result = await replacement.next();
+    if (result.done) break;
+    retained += inputText(result.value.data);
+  }
+  assert.equal(retained, 'beforeafter');
   await replacement.return?.();
   await authority.dispose();
 });

@@ -23,10 +23,14 @@ import {
 import type { TerminalModeReports, TerminalModeReportState } from './terminal-mode-query.ts';
 import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
 import {
-  createGraphicsResponseProtocol,
+  cellPixelGeometryQueryRequest,
+  createCellPixelGeometryResponseProtocol,
+  createKittyGraphicsResponseProtocol,
   createKittyPassthroughResponseProtocol,
-  graphicsQueryRequest,
+  createPrimaryDeviceAttributesResponseProtocol,
+  kittyGraphicsQueryRequest,
   kittyPassthroughQueryRequest,
+  primaryDeviceAttributesQueryRequest,
 } from './graphics-query.ts';
 import type { GraphicsProbeFacts, KittyGraphicsProbeFacts } from './capabilities.ts';
 
@@ -188,12 +192,8 @@ export class TerminalCapabilityDetector {
     try {
       const raw = await session.enableRawInput({ signal: controller.signal });
       if (raw.status === 'applied') {
-        result = await this.#queryGraphics(controller.signal);
         const inTmux = this.#options.resolverInput.environment?.variables?.['TMUX'] !== undefined;
-        if (inTmux && result?.kitty !== 'supported') {
-          const passthrough = await this.#queryKittyPassthrough(controller.signal);
-          result = mergeGraphicsProbeFacts(result, passthrough);
-        }
+        result = await this.#queryGraphics(controller.signal, inTmux);
       }
     } catch (cause) {
       failure = cause;
@@ -213,13 +213,51 @@ export class TerminalCapabilityDetector {
     this.#profile = this.#resolve();
   }
 
-  async #queryGraphics(signal: AbortSignal): Promise<GraphicsProbeFacts | undefined> {
+  async #queryGraphics(signal: AbortSignal, inTmux: boolean): Promise<GraphicsProbeFacts | undefined> {
+    const sixel = await this.#queryTerminal(
+      signal,
+      createPrimaryDeviceAttributesResponseProtocol(),
+      primaryDeviceAttributesQueryRequest(),
+    );
+    const cellPixels = await this.#queryTerminal(
+      signal,
+      createCellPixelGeometryResponseProtocol(),
+      cellPixelGeometryQueryRequest(),
+    );
+    const passthrough = inTmux ? await this.#queryKittyPassthrough(signal) : undefined;
+    const directKitty = inTmux
+      ? undefined
+      : await this.#queryTerminal(
+          signal,
+          createKittyGraphicsResponseProtocol(),
+          kittyGraphicsQueryRequest(),
+        );
+    if (sixel === undefined && cellPixels === undefined && passthrough === undefined && directKitty === undefined) {
+      return undefined;
+    }
+    const kittySupport = passthrough?.kitty ?? directKitty ?? 'unsupported';
+    return Object.freeze({
+      kitty: kittySupport,
+      sixel: sixel ?? 'unsupported',
+      ...(kittySupport === 'supported'
+        ? { kittyTransport: passthrough?.kittyTransport ?? 'direct' as const }
+        : {}),
+      ...(cellPixels === undefined ? {} : { cellPixels }),
+    });
+  }
+
+  async #queryTerminal<TValue>(
+    signal: AbortSignal,
+    protocol: import('./terminal-response.ts').TerminalResponseProtocol<TValue>,
+    request: string,
+  ): Promise<TValue | undefined> {
+    if (signal.aborted) return undefined;
     const result = await this.#options.input.queryTerminal({
       signal,
       clock: this.#options.clock,
-      protocol: createGraphicsResponseProtocol(),
+      protocol,
       send: async () => {
-        requireCommittedTerminalWrite(await this.#options.write({ text: graphicsQueryRequest() }, signal));
+        requireCommittedTerminalWrite(await this.#options.write({ text: request }, signal));
       },
     });
     return result.status === 'matched' ? result.value : undefined;
@@ -381,30 +419,6 @@ export class TerminalCapabilityDetector {
       signal === undefined ? {} : { signal }
     );
   }
-}
-
-function mergeGraphicsProbeFacts(
-  direct: GraphicsProbeFacts | undefined,
-  passthrough: KittyGraphicsProbeFacts | undefined,
-): GraphicsProbeFacts | undefined {
-  if (direct === undefined) {
-    return passthrough === undefined
-      ? undefined
-      : Object.freeze({
-          kitty: passthrough.kitty,
-          sixel: 'unsupported',
-          ...(passthrough.kittyTransport === undefined ? {} : { kittyTransport: passthrough.kittyTransport }),
-        });
-  }
-  if (passthrough === undefined) return direct;
-  return Object.freeze({
-    kitty: passthrough.kitty === 'supported' ? 'supported' : direct.kitty,
-    sixel: direct.sixel,
-    ...(passthrough.kitty === 'supported'
-      ? { kittyTransport: passthrough.kittyTransport }
-      : direct.kittyTransport === undefined ? {} : { kittyTransport: direct.kittyTransport }),
-    ...(direct.cellPixels === undefined ? {} : { cellPixels: direct.cellPixels }),
-  });
 }
 
 interface ProbeController {

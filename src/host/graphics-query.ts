@@ -8,48 +8,60 @@ const ESC = '\u001b';
 const ST = `${ESC}\\`;
 const QUERY_IMAGE_ID = 31;
 
-export function graphicsQueryRequest(): string {
-  return `${kittyQuery()}${ESC}[16t${ESC}[c`;
+export function kittyGraphicsQueryRequest(): string {
+  return kittyQuery();
 }
 
 export function kittyPassthroughQueryRequest(): string {
   return wrapKittyControl(kittyQuery(), 'tmux-passthrough');
 }
 
-export function createGraphicsResponseProtocol(): TerminalResponseProtocol<GraphicsProbeFacts> {
-  let kitty: GraphicsProbeFacts['kitty'] = 'unsupported';
-  let cellPixels: TerminalCellPixels | undefined;
+export function cellPixelGeometryQueryRequest(): string {
+  return `${ESC}[16t`;
+}
+
+export function primaryDeviceAttributesQueryRequest(): string {
+  return `${ESC}[c`;
+}
+
+export function createKittyGraphicsResponseProtocol(): TerminalResponseProtocol<GraphicsProbeFacts['kitty']> {
   return {
-    classify(control): TerminalResponseClassification<GraphicsProbeFacts> | undefined {
+    classify(control): TerminalResponseClassification<GraphicsProbeFacts['kitty']> | undefined {
       const kittyResponse = parseKittyResponse(control);
-      if (kittyResponse !== undefined) {
-        kitty = kittyResponse;
-        return { kind: 'consume' };
-      }
+      return kittyResponse === undefined ? undefined : { kind: 'matched', value: kittyResponse };
+    },
+  };
+}
+
+export function createCellPixelGeometryResponseProtocol(): TerminalResponseProtocol<TerminalCellPixels> {
+  return {
+    classify(control): TerminalResponseClassification<TerminalCellPixels> | undefined {
       const csi = csiBody(control);
       if (csi === undefined) return undefined;
       const body = ascii(csi);
       const size = /^6;([1-9][0-9]*);([1-9][0-9]*)t$/u.exec(body);
-      if (size !== null) {
-        const height = Number(size[1]);
-        const width = Number(size[2]);
-        if (Number.isSafeInteger(width) && Number.isSafeInteger(height)) {
-          cellPixels = Object.freeze({ width, height });
-          return { kind: 'consume' };
-        }
-      }
+      if (size === null) return undefined;
+      const height = Number(size[1]);
+      const width = Number(size[2]);
+      return Number.isSafeInteger(width) && Number.isSafeInteger(height)
+        ? { kind: 'matched', value: Object.freeze({ width, height }) }
+        : undefined;
+    },
+  };
+}
+
+export function createPrimaryDeviceAttributesResponseProtocol(): TerminalResponseProtocol<GraphicsProbeFacts['sixel']> {
+  return {
+    classify(control): TerminalResponseClassification<GraphicsProbeFacts['sixel']> | undefined {
+      const csi = csiBody(control);
+      if (csi === undefined) return undefined;
+      const body = ascii(csi);
       const attributes = /^\?([0-9]+(?:;[0-9]+)*);?c$/u.exec(body);
       if (attributes === null) return undefined;
       const parameters = attributes[1]?.split(';').map(Number) ?? [];
-      const sixel = parameters.includes(4) ? 'supported' : 'unsupported';
       return {
         kind: 'matched',
-        value: Object.freeze({
-          kitty,
-          sixel,
-          ...(kitty === 'supported' ? { kittyTransport: 'direct' as const } : {}),
-          ...(cellPixels === undefined ? {} : { cellPixels }),
-        }),
+        value: parameters.includes(4) ? 'supported' : 'unsupported',
       };
     },
   };

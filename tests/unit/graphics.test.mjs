@@ -14,7 +14,9 @@ import {
 } from '../../dist/protocol/index.js';
 import { createFrameBuffer, diffFrames, renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
 import {
-  createGraphicsResponseProtocol,
+  createCellPixelGeometryResponseProtocol,
+  createKittyGraphicsResponseProtocol,
+  createPrimaryDeviceAttributesResponseProtocol,
   createKittyPassthroughResponseProtocol,
   kittyPassthroughQueryRequest,
 } from '../../dist/host/graphics-query.js';
@@ -465,33 +467,25 @@ test('SIXEL crop, resize, and composition-background changes invalidate retained
   await host.dispose();
 });
 
-test('graphics probing derives Kitty, SIXEL, and cell-pixel evidence only from responses', () => {
-  const protocol = createGraphicsResponseProtocol();
-  assert.deepEqual(protocol.classify(encoder.encode('\u001b_Gi=31;OK\u001b\\')), { kind: 'consume' });
-  assert.deepEqual(protocol.classify(encoder.encode('\u001b[6;18;9t')), { kind: 'consume' });
-  assert.deepEqual(protocol.classify(encoder.encode('\u001b[?1;2;4c')), {
+test('graphics probing derives independent Kitty, SIXEL, and cell-pixel evidence', () => {
+  assert.deepEqual(createKittyGraphicsResponseProtocol().classify(encoder.encode('\u001b_Gi=31;OK\u001b\\')), {
     kind: 'matched',
-    value: {
-      kitty: 'supported',
-      sixel: 'supported',
-      kittyTransport: 'direct',
-      cellPixels: { width: 9, height: 18 },
-    },
+    value: 'supported',
+  });
+  assert.deepEqual(createCellPixelGeometryResponseProtocol().classify(encoder.encode('\u001b[6;18;9t')), {
+    kind: 'matched',
+    value: { width: 9, height: 18 },
+  });
+  assert.deepEqual(createPrimaryDeviceAttributesResponseProtocol().classify(encoder.encode('\u001b[?1;2;4c')), {
+    kind: 'matched',
+    value: 'supported',
   });
 });
 
 test('graphics probing accepts Kitty primary attributes with a trailing parameter separator', () => {
-  const protocol = createGraphicsResponseProtocol();
-  assert.deepEqual(protocol.classify(encoder.encode('\u001b_Gi=31;OK\u001b\\')), { kind: 'consume' });
-  assert.deepEqual(protocol.classify(encoder.encode('\u001b[6;18;9t')), { kind: 'consume' });
-  assert.deepEqual(protocol.classify(encoder.encode('\u001b[?62;52;c')), {
+  assert.deepEqual(createPrimaryDeviceAttributesResponseProtocol().classify(encoder.encode('\u001b[?62;52;c')), {
     kind: 'matched',
-    value: {
-      kitty: 'supported',
-      sixel: 'unsupported',
-      kittyTransport: 'direct',
-      cellPixels: { width: 9, height: 18 },
-    },
+    value: 'unsupported',
   });
 });
 
@@ -517,15 +511,14 @@ test('the host merges direct tmux geometry with Kitty passthrough evidence witho
 
   const capabilities = await host.getCapabilities({ activeProbes: ['graphics'] });
   const input = host.stdin.read()[Symbol.asyncIterator]();
-  const before = await input.next();
-  const after = await input.next();
+  const retainedInput = await readInputText(input, 'beforeafter'.length);
   await input.return?.();
 
   assert.equal(capabilities.graphics.kitty.support, 'supported');
   assert.equal(capabilities.graphics.kitty.transport, 'tmux-passthrough');
   assert.equal(capabilities.graphics.sixel.support, 'unsupported');
   assert.deepEqual(capabilities.graphics.cellPixels, { width: 9, height: 18 });
-  assert.equal(inputText(before.value?.data) + inputText(after.value?.data), 'beforeafter');
+  assert.equal(retainedInput, 'beforeafter');
   const output = host.output();
   assert.match(output, /tmux;/u);
   const passthrough = output.slice(output.indexOf('\u001bPtmux;'));
@@ -538,17 +531,17 @@ test('the host graphics probe consumes verified responses and retains unrelated 
 
   const capabilities = await host.getCapabilities({ activeProbes: ['graphics'] });
   const input = host.stdin.read()[Symbol.asyncIterator]();
-  const before = await input.next();
-  const after = await input.next();
+  const retainedInput = await readInputText(input, 'beforeafter'.length);
   await input.return?.();
 
   assert.equal(capabilities.graphics.kitty.support, 'supported');
   assert.equal(capabilities.graphics.kitty.transport, 'direct');
   assert.equal(capabilities.graphics.sixel.support, 'supported');
   assert.deepEqual(capabilities.graphics.cellPixels, { width: 9, height: 18 });
-  assert.equal(inputText(before.value?.data) + inputText(after.value?.data), 'beforeafter');
+  assert.equal(retainedInput, 'beforeafter');
   assert.match(host.output(), /a=q/u);
-  assert.match(host.output(), /\u001b\[16t\u001b\[c/u);
+  assert.match(host.output(), /\u001b\[16t/u);
+  assert.match(host.output(), /\u001b\[c/u);
 });
 
 test('Kitty planning clears cell damage beneath retained placements', async () => {
@@ -936,4 +929,14 @@ test('transcripts retain graphic metadata without raster bytes', () => {
 function inputText(value) {
   if (value === undefined) return '';
   return typeof value === 'string' ? value : new TextDecoder().decode(value);
+}
+
+async function readInputText(iterator, expectedLength) {
+  let text = '';
+  while (text.length < expectedLength) {
+    const result = await iterator.next();
+    if (result.done) break;
+    text += inputText(result.value?.data);
+  }
+  return text;
 }

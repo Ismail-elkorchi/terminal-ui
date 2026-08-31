@@ -8,19 +8,15 @@ import process from 'node:process';
 import { measureGraphicsProbe } from './graphics-probe-pixels.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
-const xterm = path.resolve(requiredEnvironmentPath('TERMINAL_UI_XTERM'));
-const tmuxMode = process.argv.includes('--tmux');
-const tmux = tmuxMode ? path.resolve(requiredEnvironmentPath('TERMINAL_UI_TMUX')) : undefined;
-const evidenceName = tmuxMode ? 'sixel-tmux' : 'sixel-direct';
+const wezterm = path.resolve(requiredEnvironmentPath('TERMINAL_UI_WEZTERM'));
 const artifacts = path.resolve(
   process.env.TERMINAL_UI_EMULATOR_ARTIFACTS
-    ?? path.join(root, '.artifacts', 'emulator', evidenceName),
+    ?? path.join(root, '.artifacts', 'emulator', 'sixel-wezterm'),
 );
-const temporary = await fs.mkdtemp(path.join(os.tmpdir(), `terminal-ui-${evidenceName}-`));
+const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'terminal-ui-wezterm-conformance-'));
+const configPath = path.join(temporary, 'wezterm.lua');
 const reportPath = path.join(temporary, 'report.json');
 const checkpointPath = path.join(temporary, 'checkpoint.json');
-const tmuxSocket = path.join(temporary, 'tmux.sock');
-const tmuxConfig = path.join(temporary, 'tmux.conf');
 const visibleScreenshot = path.join(artifacts, 'graphics-visible.png');
 const hiddenScreenshot = path.join(artifacts, 'graphics-hidden.png');
 const processLog = [];
@@ -28,33 +24,20 @@ let emulatorProcess;
 
 await fs.mkdir(artifacts, { recursive: true });
 await clearPreviousArtifacts();
-await assertExecutable(xterm);
-if (tmux !== undefined) await assertExecutable(tmux);
+await fs.access(wezterm, fs.constants.X_OK);
 const xdotool = await findExecutable('xdotool');
 const xwininfo = await findExecutable('xwininfo');
 const imageMagick = await imageMagickCommands();
-const xtermIdentity = (await command(xterm, ['-version'])).trim();
-assert.match(xtermIdentity, /XTerm\(411\)/u);
-const tmuxIdentity = tmux === undefined ? undefined : (await command(tmux, ['-V'])).trim();
-if (tmuxIdentity !== undefined) assert.equal(tmuxIdentity, 'tmux 3.7c');
+const identity = (await command(wezterm, ['--version'])).trim();
+assert.equal(identity, 'wezterm 20240203-110809-5046fc22');
 
 try {
-  if (tmux !== undefined) {
-    await fs.writeFile(tmuxConfig, [
-      'set -g status off',
-      'set -g allow-passthrough off',
-      'set -g default-terminal tmux-256color',
-      "set -as terminal-features ',xterm*:RGB'",
-      '',
-    ].join('\n'), { mode: 0o600 });
-  }
-  emulatorProcess = launchXterm();
-  const windowId = await waitForXtermWindow();
+  await fs.writeFile(configPath, weztermConfig(), { mode: 0o600 });
+  emulatorProcess = launchWezTerm();
+  const windowId = await waitForWindow();
   await waitForCheckpoint((state) => state.graphics.sixelSupport === 'supported', 'SIXEL capability');
 
   const initial = await checkpoint();
-  assert.equal(initial.graphics.kittySupport, 'unsupported');
-  assert.equal(initial.graphics.sixelSupport, 'supported');
   assert.equal(initial.graphics.sixelAvailability, 'available');
   assert.equal(typeof initial.graphics.cellPixels, 'object');
 
@@ -64,86 +47,58 @@ try {
 
   await screenshot(windowId, visibleScreenshot);
   const visiblePixels = await colorPixels(visibleScreenshot);
-  assert.ok(visiblePixels.red.count > 100, 'xterm did not render the red SIXEL image region.');
-  assert.ok(visiblePixels.green.count > 100, 'xterm did not render the green SIXEL image region.');
+  assert.ok(visiblePixels.red.count > 100, 'WezTerm did not render the red SIXEL image region.');
+  assert.ok(visiblePixels.green.count > 100, 'WezTerm did not render the green SIXEL image region.');
   assertGraphicGeometry(visiblePixels, initial.graphics.cellPixels, 12, 5);
-  assertGraphicAboveScrollBoundary(visiblePixels, initial.graphics.cellPixels, initial.terminalSize.rows);
 
-  if (tmux !== undefined) {
-    await command(tmux, ['-S', tmuxSocket, 'refresh-client', '-S']);
-    await waitUntil(async () => (await colorPixelsAfterScreenshot(windowId, 'graphics-refreshed.png')).probe.count > 100,
-      'tmux SIXEL redraw');
-  }
-
-  await command(xdotool, ['key', '--window', windowId, 'F4']);
+  await command(xdotool, ['type', '--window', windowId, '--delay', '1', '!']);
   await waitForCheckpoint((state) => state.imageVisible === false, 'image removal');
   await screenshot(windowId, hiddenScreenshot);
   const hiddenPixels = await colorPixels(hiddenScreenshot, visiblePixels.probe);
-  assert.ok(hiddenPixels.red.count < 10, 'xterm retained red SIXEL pixels after image removal.');
-  assert.ok(hiddenPixels.green.count < 10, 'xterm retained green SIXEL pixels after image removal.');
-  assert.ok(hiddenPixels.probe.count < 10, 'xterm retained SIXEL probe pixels after image removal.');
+  assert.ok(hiddenPixels.probe.count < 10, 'WezTerm retained SIXEL probe pixels after image removal.');
 
-  await command(xdotool, ['key', '--window', windowId, 'F10']);
+  await command(xdotool, ['type', '--window', windowId, '--delay', '1', '~']);
   await waitUntil(async () => await exists(reportPath), 'probe report');
   const report = JSON.parse(await fs.readFile(reportPath, 'utf8'));
-  await fs.writeFile(path.join(artifacts, 'report.json'), `${JSON.stringify(report, undefined, 2)}\n`);
   assertProbeReport(report);
+  await fs.writeFile(path.join(artifacts, 'report.json'), `${JSON.stringify(report, undefined, 2)}\n`);
   await fs.writeFile(path.join(artifacts, 'evidence.json'), `${JSON.stringify({
-    emulator: xtermIdentity,
-    multiplexer: tmuxIdentity,
+    emulator: identity,
     displayServer: 'x11',
     display: process.env.DISPLAY,
     softwareRendering: process.env.LIBGL_ALWAYS_SOFTWARE === '1',
     protocol: 'sixel',
-    path: tmuxMode ? 'tmux-native' : 'direct',
+    path: 'direct',
     visiblePixels,
     hiddenPixels,
   }, undefined, 2)}\n`);
-  console.log(`SIXEL ${tmuxMode ? 'through tmux' : 'direct'} emulator conformance passed.`);
+  console.log('WezTerm direct SIXEL emulator conformance passed.');
 } finally {
-  await fs.writeFile(path.join(artifacts, 'emulator.log'), processLog.join(''));
+  if (await exists(checkpointPath)) {
+    await fs.copyFile(checkpointPath, path.join(artifacts, 'last-checkpoint.json'));
+  }
+  await fs.writeFile(path.join(artifacts, 'wezterm.log'), processLog.join(''));
   if (emulatorProcess !== undefined && emulatorProcess.exitCode === null) {
     emulatorProcess.kill('SIGTERM');
     await waitForExit(emulatorProcess, 2_000).catch(() => emulatorProcess.kill('SIGKILL'));
   }
-  if (tmux !== undefined) {
-    await command(tmux, ['-S', tmuxSocket, 'kill-server']).catch(() => undefined);
-  }
   await fs.rm(temporary, { recursive: true, force: true });
 }
 
-function launchXterm() {
-  const probe = [
+function launchWezTerm() {
+  const child = spawn(wezterm, [
+    '--config-file', configPath,
+    'start',
+    '--always-new-process',
+    '--class', 'terminal-ui-wezterm-conformance',
+    '--',
     process.execPath,
     path.join(root, 'tests', 'emulator', 'graphics-probe.mjs'),
     reportPath,
     'sixel',
     `--checkpoint=${checkpointPath}`,
+    '--known-alternate-screen',
     '--hold',
-  ];
-  const childCommand = tmux === undefined
-    ? probe
-    : [
-        tmux,
-        '-S', tmuxSocket,
-        '-f', tmuxConfig,
-        'new-session',
-        '-s', 'terminal-ui-conformance',
-        ...probe,
-      ];
-  const child = spawn(xterm, [
-    '-class', 'terminal-ui-sixel-conformance',
-    '-title', 'terminal-ui-sixel-conformance',
-    '-geometry', '80x24',
-    '-fa', 'DejaVu Sans Mono',
-    '-fs', '12',
-    '-bg', 'black',
-    '-fg', 'white',
-    '-xrm', '*decTerminalID: 340',
-    '-xrm', '*cursorBlink: false',
-    '-hold',
-    '-e',
-    ...childCommand,
   ], {
     cwd: root,
     env: cleanEnvironment(),
@@ -157,12 +112,32 @@ function launchXterm() {
   return child;
 }
 
-async function waitForXtermWindow() {
+function weztermConfig() {
+  return [
+    "local wezterm = require 'wezterm'",
+    'return {',
+    "  front_end = 'Software',",
+    "  font = wezterm.font('DejaVu Sans Mono'),",
+    '  font_size = 12,',
+    '  initial_cols = 80,',
+    '  initial_rows = 24,',
+    '  enable_tab_bar = false,',
+    "  window_decorations = 'NONE',",
+    '  check_for_updates = false,',
+    '  enable_kitty_keyboard = true,',
+    "  colors = { foreground = '#ffffff', background = '#000000' },",
+    '  window_padding = { left = 0, right = 0, top = 0, bottom = 0 },',
+    '}',
+    '',
+  ].join('\n');
+}
+
+async function waitForWindow() {
   return await waitUntil(async () => {
     const tree = await command(xwininfo, ['-root', '-tree']);
-    const line = tree.split('\n').find((candidate) => candidate.includes('"terminal-ui-sixel-conformance":'));
+    const line = tree.split('\n').find((candidate) => candidate.includes('terminal-ui-wezterm-conformance'));
     return /^\s*(0x[0-9a-f]+)\s/iu.exec(line ?? '')?.[1];
-  }, 'xterm X11 window');
+  }, 'WezTerm X11 window');
 }
 
 async function checkpoint() {
@@ -175,12 +150,6 @@ async function waitForCheckpoint(predicate, label) {
 
 async function screenshot(windowId, target) {
   await command(imageMagick.import.executable, [...imageMagick.import.arguments, '-window', windowId, target]);
-}
-
-async function colorPixelsAfterScreenshot(windowId, name) {
-  const target = path.join(artifacts, name);
-  await screenshot(windowId, target);
-  return await colorPixels(target);
 }
 
 async function colorPixels(imagePath, bounds) {
@@ -199,29 +168,14 @@ async function colorPixels(imagePath, bounds) {
     '-depth', '8',
     'rgb:-',
   ]);
-  assert.equal(pixels.byteLength, width * height * 3);
-  return {
-    width,
-    height,
-    ...measureGraphicsProbe(pixels, width, height, bounds),
-  };
+  return { width, height, ...measureGraphicsProbe(pixels, width, height, bounds) };
 }
 
 function assertGraphicGeometry(pixels, cellPixels, columns, rows) {
-  assert.ok(pixels.probe.count > 0);
   const renderedWidth = pixels.probe.maxX - pixels.probe.minX + 1;
   const renderedHeight = pixels.probe.maxY - pixels.probe.minY + 1;
   assert.ok(Math.abs(renderedWidth - cellPixels.width * columns) <= 2, `Graphic width ${String(renderedWidth)} did not match ${String(columns)} cells.`);
   assert.ok(Math.abs(renderedHeight - cellPixels.height * rows) <= 2, `Graphic height ${String(renderedHeight)} did not match ${String(rows)} cells.`);
-}
-
-function assertGraphicAboveScrollBoundary(pixels, cellPixels, rows) {
-  const verticalBorder = Math.max(0, Math.floor((pixels.height - rows * cellPixels.height) / 2));
-  const expectedBottom = verticalBorder + (rows - 1) * cellPixels.height - 1;
-  assert.ok(
-    Math.abs(pixels.probe.maxY - expectedBottom) <= 3,
-    `SIXEL graphic ended at pixel ${String(pixels.probe.maxY)} instead of the safe scroll boundary ${String(expectedBottom)}.`,
-  );
 }
 
 function assertProbeReport(report) {
@@ -239,7 +193,8 @@ async function waitUntil(predicate, label, timeoutMs = 20_000) {
   let lastFailure;
   while (Date.now() < deadline) {
     if (emulatorProcess !== undefined && emulatorProcess.exitCode !== null) {
-      throw new Error(`xterm exited before ${label}; see ${path.join(artifacts, 'emulator.log')}.`);
+      const failure = await exists(reportPath) ? await fs.readFile(reportPath, 'utf8') : 'No probe report was produced.';
+      throw new Error(`WezTerm exited before ${label}: ${failure.trim()}`);
     }
     try {
       const result = await predicate();
@@ -256,7 +211,7 @@ async function waitForExit(child, timeoutMs) {
   if (child.exitCode !== null) return;
   await Promise.race([
     new Promise((resolve) => child.once('exit', resolve)),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('xterm did not exit.')), timeoutMs)),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('WezTerm did not exit.')), timeoutMs)),
   ]);
 }
 
@@ -305,6 +260,7 @@ function cleanEnvironment() {
     ...inherited.flatMap((name) => process.env[name] === undefined ? [] : [[name, process.env[name]]]),
     ['LC_ALL', 'C.UTF-8'],
     ['LANG', 'C.UTF-8'],
+    ['WAYLAND_DISPLAY', ''],
   ]);
 }
 
@@ -337,10 +293,6 @@ async function findExecutable(name, required = true) {
   }
   if (required) throw new Error(`Required executable is not on PATH: ${name}`);
   return undefined;
-}
-
-async function assertExecutable(filePath) {
-  await fs.access(filePath, fs.constants.X_OK);
 }
 
 async function exists(filePath) {

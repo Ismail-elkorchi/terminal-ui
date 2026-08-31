@@ -246,13 +246,12 @@ test('active Kitty discovery consumes only its split response and replays unrela
     probeTimeoutMs: 10
   });
   const input = host.stdin.read()[Symbol.asyncIterator]();
-  const first = await input.next();
-  const second = await input.next();
+  const retainedInput = await readInputText(input, 'beforeafter'.length);
   await input.return?.();
 
   assert.equal(capabilities.keyboardProtocol.support, 'supported');
   assert.equal(capabilities.keyboardProtocol.facts.at(-1)?.kind, 'probe');
-  assert.equal(inputText(first.value?.data) + inputText(second.value?.data), 'beforeafter');
+  assert.equal(retainedInput, 'beforeafter');
   assert.equal(host.output(), '\u001B[?u\u001B[c');
   assert.equal(host.restores().at(-1)?.status, 'restored');
 });
@@ -369,12 +368,11 @@ test('active Kitty discovery uses primary device attributes as an unsupported fe
     probeTimeoutMs: 10
   });
   const input = host.stdin.read()[Symbol.asyncIterator]();
-  const first = await input.next();
-  const second = await input.next();
+  const retainedInput = await readInputText(input, 'beforeafter'.length);
   await input.return?.();
 
   assert.equal(capabilities.keyboardProtocol.support, 'unsupported');
-  assert.equal(inputText(first.value?.data) + inputText(second.value?.data), 'beforeafter');
+  assert.equal(retainedInput, 'beforeafter');
   assert.equal(host.output(), '\u001B[?u\u001B[c');
 });
 
@@ -490,14 +488,13 @@ test('terminal mode discovery observes outer state and enables only safely owned
   const capabilities = await host.getCapabilities({ activeProbes: ['terminalModes'] });
   const session = await host.beginSession({ id: 'observed-modes' });
   const input = host.stdin.read()[Symbol.asyncIterator]();
-  const replayedBefore = await input.next();
-  const replayedAfter = await input.next();
+  const retainedInput = await readInputText(input, 'beforeafter'.length);
   await input.return?.();
 
   assert.equal(capabilities.synchronizedOutput.support, 'supported');
   assert.equal(capabilities.unicodeGraphemeMode.support, 'supported');
   assert.equal(capabilities.mouseReporting.support, 'supported');
-  assert.equal(inputText(replayedBefore.value?.data) + inputText(replayedAfter.value?.data), 'beforeafter');
+  assert.equal(retainedInput, 'beforeafter');
   assert.equal(session.initialState.cursorVisible, false);
   assert.equal(session.initialState.alternateScreen, true);
   assert.equal(session.initialState.bracketedPaste, true);
@@ -1907,6 +1904,16 @@ async function readInputChunks(host) {
 
 function inputText(data) {
   return typeof data === 'string' ? data : new TextDecoder().decode(data);
+}
+
+async function readInputText(iterator, expectedLength) {
+  let text = '';
+  while (text.length < expectedLength) {
+    const result = await iterator.next();
+    if (result.done) break;
+    text += inputText(result.value?.data);
+  }
+  return text;
 }
 
 function withoutProvenance(state) {

@@ -139,8 +139,10 @@ export class TerminalInputAuthority implements TerminalInput {
           }
           if (search.kind === 'matched' || search.kind === 'fence') {
             consumed.push({ start: search.start, end: search.end });
-            for (const part of bytePartsExcluding(retained, consumed)) this.#replayBytes(part);
-            this.#replayBytes(bytes.subarray(retainedLength));
+            this.#prependReplayBytes([
+              ...bytePartsExcluding(retained, consumed),
+              bytes.subarray(retainedLength),
+            ]);
             cleanupState.bufferedInputHandled = true;
             return search.kind === 'matched'
               ? { status: 'matched', value: search.value }
@@ -153,8 +155,10 @@ export class TerminalInputAuthority implements TerminalInput {
         nextRead = this.#next(transaction.signal, owner);
       }
       if (signalAborted(transaction.signal)) return { status: 'cancelled' };
-      this.#replayBytes(bytesExcluding(buffered.subarray(0, byteCount), consumed));
-      if (overflow !== undefined) this.#replayBytes(overflow);
+      this.#prependReplayBytes([
+        bytesExcluding(buffered.subarray(0, byteCount), consumed),
+        ...(overflow === undefined ? [] : [overflow]),
+      ]);
       cleanupState.bufferedInputHandled = true;
       return { status: 'inconclusive' };
     } catch (cause) {
@@ -164,11 +168,15 @@ export class TerminalInputAuthority implements TerminalInput {
       if (!cleanupState.bufferedInputHandled) {
         if (signalAborted(transaction.signal)) {
           this.#startLateProbeFilter(transaction.clock, transaction.protocol);
-          this.#replayFilteredProbeBytes(bytesExcluding(buffered.subarray(0, byteCount), consumed));
-          if (overflow !== undefined) this.#replayFilteredProbeBytes(overflow);
+          this.#prependReplayBytes([
+            this.#filterProbeBytes(bytesExcluding(buffered.subarray(0, byteCount), consumed)),
+            ...(overflow === undefined ? [] : [this.#filterProbeBytes(overflow)]),
+          ]);
         } else {
-          this.#replayBytes(bytesExcluding(buffered.subarray(0, byteCount), consumed));
-          if (overflow !== undefined) this.#replayBytes(overflow);
+          this.#prependReplayBytes([
+            bytesExcluding(buffered.subarray(0, byteCount), consumed),
+            ...(overflow === undefined ? [] : [overflow]),
+          ]);
         }
       }
       this.#releaseReader(owner);
@@ -327,8 +335,9 @@ export class TerminalInputAuthority implements TerminalInput {
     if (bytes.byteLength > 0) this.#replay.push({ data: bytes.slice() });
   }
 
-  #replayFilteredProbeBytes(bytes: Uint8Array): void {
-    this.#replayBytes(this.#filterProbeBytes(bytes));
+  #prependReplayBytes(parts: readonly Uint8Array[]): void {
+    const bytes = concatenateBytes(...parts);
+    if (bytes.byteLength > 0) this.#replay.unshift({ data: bytes });
   }
 
   #filterProbeChunk(chunk: TerminalInputChunk): TerminalInputChunk | undefined {

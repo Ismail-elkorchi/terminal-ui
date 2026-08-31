@@ -13,16 +13,18 @@ import {
   textInput,
 } from '../../dist/index.js';
 import { textInputReducer, textInputState } from '../../dist/behavior/index.js';
+import { createNodeTerminalHost } from '../../dist/host/index.js';
 import { noColorTheme } from '../../dist/theme/index.js';
 
 const reportPath = process.argv[2];
 const graphicsMode = process.argv[3];
 const checkpointPath = process.argv.find((argument) => argument.startsWith('--checkpoint='))?.slice('--checkpoint='.length);
+const knownAlternateScreen = process.argv.includes('--known-alternate-screen');
 if (reportPath === undefined || reportPath.trim() === '') {
   throw new Error('The graphics emulator probe requires a report path.');
 }
-if (graphicsMode !== 'kitty' && graphicsMode !== 'sixel') {
-  throw new Error('The graphics emulator probe mode must be kitty or sixel.');
+if (graphicsMode !== 'auto' && graphicsMode !== 'kitty' && graphicsMode !== 'sixel') {
+  throw new Error('The graphics emulator probe mode must be auto, kitty, or sixel.');
 }
 
 const testImage = rasterImage({
@@ -146,15 +148,58 @@ const probeApp = defineTui({
       message: { kind: 'hideImage' },
     },
     {
+      id: 'hide-image-text',
+      phase: 'beforeFocus',
+      triggers: [{ kind: 'text', text: '!' }],
+      message: { kind: 'hideImage' },
+    },
+    {
       id: 'exit',
       phase: 'beforeFocus',
       triggers: [{ kind: 'key', key: 'f10' }],
       message: { kind: 'exit' },
     },
+    {
+      id: 'exit-text',
+      phase: 'beforeFocus',
+      triggers: [{ kind: 'text', text: '~' }],
+      message: { kind: 'exit' },
+    },
   ],
 });
 
-const exit = await runTui(probeApp, { graphics: graphicsMode, theme: noColorTheme });
+let exit;
+const host = knownAlternateScreen
+  ? createNodeTerminalHost({ capabilities: { overrides: { alternateScreen: true } } })
+  : undefined;
+try {
+  exit = await runTui(probeApp, {
+    graphics: graphicsMode,
+    theme: noColorTheme,
+    ...(host === undefined ? {} : { host }),
+  });
+} catch (cause) {
+  await fs.writeFile(reportPath, `${JSON.stringify({
+    status: 'failed',
+    error: {
+      name: cause instanceof Error ? cause.name : 'Error',
+      message: cause instanceof Error ? cause.message : String(cause),
+      stack: cause instanceof Error ? cause.stack : undefined,
+      diagnostics: cause !== null && typeof cause === 'object' && 'exit' in cause
+        ? cause.exit?.diagnostics?.map(({ diagnostic }) => ({
+            code: diagnostic.code,
+            message: diagnostic.message,
+            cause: diagnostic.cause instanceof Error
+              ? { name: diagnostic.cause.name, message: diagnostic.cause.message }
+              : diagnostic.cause,
+          }))
+        : undefined,
+    },
+  }, undefined, 2)}\n`, { mode: 0o600 });
+  throw cause;
+} finally {
+  await host?.dispose();
+}
 const report = {
   status: exit.status,
   reason: exit.reason,

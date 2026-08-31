@@ -5,6 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
+import { countPixelsInBounds, measureGraphicsProbe } from './graphics-probe-pixels.mjs';
+
 const root = path.resolve(import.meta.dirname, '..');
 const kitty = path.resolve(requiredEnvironmentPath('TERMINAL_UI_KITTY'));
 const kitten = path.resolve(process.env.TERMINAL_UI_KITTEN ?? path.join(path.dirname(kitty), 'kitten'));
@@ -116,10 +118,10 @@ try {
   await remote(['send-key', '--match', 'id:-1', 'f4']);
   await waitForScreen('IMAGE removed');
   await screenshot(windowId, hiddenScreenshot);
-  const hiddenPixels = await colorPixels(hiddenScreenshot);
+  const hiddenPixels = await colorPixels(hiddenScreenshot, visiblePixels.probe);
   assert.ok(hiddenPixels.red.count < 10, 'Kitty retained red graphics pixels after image removal.');
   assert.ok(hiddenPixels.green.count < 10, 'Kitty retained green graphics pixels after image removal.');
-  assert.ok(hiddenPixels.graphic.count < 10, 'Kitty retained saturated graphics pixels after image removal.');
+  assert.ok(hiddenPixels.probe.count < 10, 'Kitty retained graphics probe pixels after image removal.');
 
   await remote(['send-key', '--match', 'id:-1', 'f10']);
   await waitUntil(async () => await exists(reportPath), 'probe report');
@@ -290,7 +292,7 @@ async function colorPixelsAfterScreenshot(windowId, target) {
   return await colorPixels(target);
 }
 
-async function colorPixels(imagePath) {
+async function colorPixels(imagePath, bounds) {
   const dimensions = (await command(imageMagick.identify.executable, [
     ...imageMagick.identify.arguments,
     '-format',
@@ -311,63 +313,26 @@ async function colorPixels(imagePath) {
     'rgb:-',
   ]);
   assert.equal(pixels.byteLength, width * height * 3);
-  const graphic = matchingPixels(
-    pixels,
-    width,
-    (red, green, blue) => blue < 40 && Math.max(red, green) > 120 && Math.abs(red - green) > 10,
-  );
+  const measured = measureGraphicsProbe(pixels, width, height, bounds);
   return {
     width,
     height,
-    red: matchingPixels(pixels, width, (red, green, blue) => red > 180 && green < 80 && blue < 80),
-    green: matchingPixels(pixels, width, (red, green, blue) => green > 180 && red < 80 && blue < 80),
-    graphic,
-    lightInsideGraphic: matchingPixelsInBounds(
+    ...measured,
+    lightInsideGraphic: countPixelsInBounds(
       pixels,
       width,
-      graphic,
+      height,
+      bounds ?? measured.probe,
       (red, green, blue) => red > 160 && green > 160 && blue > 160,
     ),
   };
 }
 
-function matchingPixels(pixels, width, matches) {
-  let count = 0;
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxX = -1;
-  let maxY = -1;
-  for (let offset = 0; offset < pixels.length; offset += 3) {
-    if (!matches(pixels[offset], pixels[offset + 1], pixels[offset + 2])) continue;
-    const pixel = offset / 3;
-    const x = pixel % width;
-    const y = Math.floor(pixel / width);
-    count += 1;
-    minX = Math.min(minX, x);
-    minY = Math.min(minY, y);
-    maxX = Math.max(maxX, x);
-    maxY = Math.max(maxY, y);
-  }
-  return count === 0 ? { count } : { count, minX, minY, maxX, maxY };
-}
-
-function matchingPixelsInBounds(pixels, width, bounds, matches) {
-  if (bounds.count === 0) return 0;
-  let count = 0;
-  for (let y = bounds.minY; y <= bounds.maxY; y += 1) {
-    for (let x = bounds.minX; x <= bounds.maxX; x += 1) {
-      const offset = (y * width + x) * 3;
-      if (matches(pixels[offset], pixels[offset + 1], pixels[offset + 2])) count += 1;
-    }
-  }
-  return count;
-}
-
 function assertGraphicGeometry(pixels, cellPixels) {
   assert.equal(typeof cellPixels, 'object', 'Kitty did not report terminal cell pixel geometry.');
-  assert.ok(pixels.graphic.count > 0);
-  const renderedWidth = pixels.graphic.maxX - pixels.graphic.minX + 1;
-  const renderedHeight = pixels.graphic.maxY - pixels.graphic.minY + 1;
+  assert.ok(pixels.probe.count > 0);
+  const renderedWidth = pixels.probe.maxX - pixels.probe.minX + 1;
+  const renderedHeight = pixels.probe.maxY - pixels.probe.minY + 1;
   assert.ok(Math.abs(renderedWidth - cellPixels.width * 12) <= 2, `Graphic width ${String(renderedWidth)} did not match 12 cells.`);
   assert.ok(Math.abs(renderedHeight - cellPixels.height * 6) <= 2, `Graphic height ${String(renderedHeight)} did not match 6 cells.`);
 }

@@ -9,15 +9,17 @@ and physical systems are separate evidence classes.
 | --- | --- | --- | --- |
 | Kitty, direct | Complete | Kitty 0.48.2 on Xvfb | Pending |
 | Kitty through tmux | Complete | Kitty 0.48.2 + tmux 3.7c on Xvfb | Pending |
-| SIXEL, direct | Complete | xterm 411 on Xvfb | Pending |
+| SIXEL, direct | Complete | xterm 411 and WezTerm 20240203-110809-5046fc22 on Xvfb | Pending |
 | SIXEL through tmux | Complete | xterm 411 + tmux 3.7c native SIXEL on Xvfb | Pending |
 | Plain-cell fallback | Complete | Kitty and xterm lanes | Not protocol-dependent |
 
 The required Linux emulator job downloads official archives with pinned
 SHA-256 checksums. It builds tmux 3.7c with native SIXEL support and xterm 411
-with SIXEL enabled, and runs Kitty 0.48.2 from its pinned release binary.
-All four paths execute a real terminal-ui application under Xvfb with software
-rendering.
+with SIXEL enabled, and runs Kitty 0.48.2 and WezTerm
+20240203-110809-5046fc22 from pinned release binaries. The four protocol and
+transport paths execute a real terminal-ui application under Xvfb with
+software rendering; the direct SIXEL path is interpreted independently by
+both xterm and WezTerm.
 
 The Kitty lanes verify:
 
@@ -49,6 +51,14 @@ the bottom screen edge, verify that the raster stops above terminal-ui's
 text-only SIXEL scroll guard without scrolling the frame, compare emulator
 pixels with reported cell geometry, and verify that removal leaves no stale
 raster pixels.
+
+The WezTerm lane verifies the direct SIXEL path through a separately
+implemented parser and renderer. WezTerm's stable build supports alternate
+screen operation but reports it as unavailable through the mode-report query,
+so the conformance host supplies that known host fact explicitly; graphics
+support and cell geometry remain actively negotiated. The lane verifies raw
+text input, graphics negotiation, cell-relative image geometry, and bounded
+cleanup.
 
 These jobs are real emulator implementations, unlike the controlled-stream PTY
 harness. Xvfb still cannot prove physical font rendering, DPI scaling, GPU and
