@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { measureGraphicsProbe } from '../../scripts/graphics-probe-pixels.mjs';
+import {
+  graphicsProbeResidueRatio,
+  isGraphicsProbeCleared,
+  measureGraphicsProbe,
+} from '../../scripts/graphics-probe-pixels.mjs';
 
 test('graphics probe geometry is the union of the known red and green regions', () => {
   const pixels = screenshot(8, 5, [
@@ -32,6 +36,24 @@ test('graphics probe cleanup examines only the previously occupied rectangle', (
     green: { count: 0 },
     probe: { count: 0 },
   });
+});
+
+test('graphics cleanup distinguishes tiny text antialiasing from a retained probe half', () => {
+  const visible = measureGraphicsProbe(screenshot(200, 100, [
+    { x: 0, y: 0, width: 100, height: 100, color: [255, 0, 0] },
+    { x: 100, y: 0, width: 100, height: 100, color: [0, 255, 0] },
+  ]), 200, 100);
+  const textAntialiasing = measureGraphicsProbe(screenshot(200, 100, [
+    { x: 20, y: 20, width: 1, height: 12, color: [180, 150, 0] },
+  ]), 200, 100, visible.probe);
+  const retainedHalf = measureGraphicsProbe(screenshot(200, 100, [
+    { x: 0, y: 0, width: 100, height: 100, color: [255, 0, 0] },
+  ]), 200, 100, visible.probe);
+
+  assert.ok(graphicsProbeResidueRatio(visible, textAntialiasing) < 0.005);
+  assert.equal(graphicsProbeResidueRatio(visible, retainedHalf), 1);
+  assert.equal(isGraphicsProbeCleared(visible, textAntialiasing), true);
+  assert.equal(isGraphicsProbeCleared(visible, retainedHalf), false);
 });
 
 function screenshot(width, height, regions) {

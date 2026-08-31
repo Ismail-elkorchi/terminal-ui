@@ -25,6 +25,18 @@ export function countPixelsInBounds(pixels, width, height, bounds, matches) {
   return count;
 }
 
+export function graphicsProbeResidueRatio(visible, hidden) {
+  assert.ok(visible.red.count > 0 && visible.green.count > 0, 'Visible graphics evidence must contain both probe regions.');
+  return Math.max(
+    hidden.red.count / visible.red.count,
+    hidden.green.count / visible.green.count,
+  );
+}
+
+export function isGraphicsProbeCleared(visible, hidden) {
+  return graphicsProbeResidueRatio(visible, hidden) <= 0.005;
+}
+
 function measurementRegion(width, height, bounds) {
   if (bounds === undefined) {
     return { minX: 0, minY: 0, maxX: width - 1, maxY: height - 1 };

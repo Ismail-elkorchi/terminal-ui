@@ -5,7 +5,11 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
-import { countPixelsInBounds, measureGraphicsProbe } from './graphics-probe-pixels.mjs';
+import {
+  countPixelsInBounds,
+  isGraphicsProbeCleared,
+  measureGraphicsProbe,
+} from './graphics-probe-pixels.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const kitty = path.resolve(requiredEnvironmentPath('TERMINAL_UI_KITTY'));
@@ -117,11 +121,11 @@ try {
 
   await remote(['send-key', '--match', 'id:-1', 'f4']);
   await waitForScreen('IMAGE removed');
-  await screenshot(windowId, hiddenScreenshot);
-  const hiddenPixels = await colorPixels(hiddenScreenshot, visiblePixels.probe);
-  assert.ok(hiddenPixels.red.count < 10, 'Kitty retained red graphics pixels after image removal.');
-  assert.ok(hiddenPixels.green.count < 10, 'Kitty retained green graphics pixels after image removal.');
-  assert.ok(hiddenPixels.probe.count < 10, 'Kitty retained graphics probe pixels after image removal.');
+  const hiddenPixels = await waitUntil(async () => {
+    await screenshot(windowId, hiddenScreenshot);
+    const candidate = await colorPixels(hiddenScreenshot, visiblePixels.probe);
+    return isGraphicsProbeCleared(visiblePixels, candidate) ? candidate : undefined;
+  }, 'Kitty graphics cleanup');
 
   await remote(['send-key', '--match', 'id:-1', 'f10']);
   await waitUntil(async () => await exists(reportPath), 'probe report');

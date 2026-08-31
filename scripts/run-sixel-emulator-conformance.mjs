@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
-import { measureGraphicsProbe } from './graphics-probe-pixels.mjs';
+import { isGraphicsProbeCleared, measureGraphicsProbe } from './graphics-probe-pixels.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const xterm = path.resolve(requiredEnvironmentPath('TERMINAL_UI_XTERM'));
@@ -62,10 +62,11 @@ try {
   await command(xdotool, ['type', '--window', windowId, '--delay', '1', 'alpha']);
   await waitForCheckpoint((state) => state.input.text === 'alpha', 'typed input');
 
-  await screenshot(windowId, visibleScreenshot);
-  const visiblePixels = await colorPixels(visibleScreenshot);
-  assert.ok(visiblePixels.red.count > 100, 'xterm did not render the red SIXEL image region.');
-  assert.ok(visiblePixels.green.count > 100, 'xterm did not render the green SIXEL image region.');
+  const visiblePixels = await waitUntil(async () => {
+    await screenshot(windowId, visibleScreenshot);
+    const candidate = await colorPixels(visibleScreenshot);
+    return candidate.red.count > 100 && candidate.green.count > 100 ? candidate : undefined;
+  }, 'painted SIXEL image');
   assertGraphicGeometry(visiblePixels, initial.graphics.cellPixels, 12, 5);
   assertGraphicAboveScrollBoundary(visiblePixels, initial.graphics.cellPixels, initial.terminalSize.rows);
 
@@ -77,11 +78,11 @@ try {
 
   await command(xdotool, ['key', '--window', windowId, 'F4']);
   await waitForCheckpoint((state) => state.imageVisible === false, 'image removal');
-  await screenshot(windowId, hiddenScreenshot);
-  const hiddenPixels = await colorPixels(hiddenScreenshot, visiblePixels.probe);
-  assert.ok(hiddenPixels.red.count < 10, 'xterm retained red SIXEL pixels after image removal.');
-  assert.ok(hiddenPixels.green.count < 10, 'xterm retained green SIXEL pixels after image removal.');
-  assert.ok(hiddenPixels.probe.count < 10, 'xterm retained SIXEL probe pixels after image removal.');
+  const hiddenPixels = await waitUntil(async () => {
+    await screenshot(windowId, hiddenScreenshot);
+    const candidate = await colorPixels(hiddenScreenshot, visiblePixels.probe);
+    return isGraphicsProbeCleared(visiblePixels, candidate) ? candidate : undefined;
+  }, 'SIXEL image cleanup');
 
   await command(xdotool, ['key', '--window', windowId, 'F10']);
   await waitUntil(async () => await exists(reportPath), 'probe report');
