@@ -42,7 +42,8 @@ export function viewportChildBounds(
   content: Measurement
 ): Rect {
   const contentRows = Math.max(bounds.height, content.preferredHeight);
-  const contentColumns = Math.max(bounds.width, content.preferredWidth);
+  const contentColumns = renderNode.props.constrainWidth === true
+    ? bounds.width : Math.max(bounds.width, content.preferredWidth);
   const state = viewportVisualStateForSize(
     renderNode,
     bounds,
@@ -67,7 +68,7 @@ export function viewportMeasurementState(
     renderNode,
     bounds,
     Math.max(bounds.height, content.preferredHeight),
-    Math.max(bounds.width, content.preferredWidth),
+    renderNode.props.constrainWidth === true ? bounds.width : Math.max(bounds.width, content.preferredWidth),
   );
 }
 

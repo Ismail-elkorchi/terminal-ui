@@ -55,12 +55,28 @@ interface RenderNodeScrollbarPlan {
 
 type RenderNodeScrollbarStateFactory = (bounds: Rect) => ScrollbarState;
 
+const resolvedViewportScrollbars = new WeakMap<ViewportNode['props'], {
+  readonly bounds: Rect;
+  readonly plan: RenderNodeScrollbarPlan;
+}>();
+
+export function retainViewportScrollbarPlan<TMessage>(
+  node: RenderNodeOfKind<TMessage, 'viewport'>,
+  bounds: Rect,
+  plan: RenderNodeScrollbarPlan,
+): RenderNodeOfKind<TMessage, 'viewport'> {
+  resolvedViewportScrollbars.set(node.props, { bounds, plan });
+  return node;
+}
+
 export function scrollbarsForRenderNode(
   renderNode: ScrollableNode,
   bounds: Rect,
   stateForBounds: RenderNodeScrollbarStateFactory,
   fallbackAxis: NonNullable<ScrollbarOptions['axis']>
 ): RenderNodeScrollbarPlan {
+  const resolved = resolvedViewportScrollbars.get(renderNode.props);
+  if (resolved !== undefined && rectsEqual(resolved.bounds, bounds)) return resolved.plan;
   const initialState = stateForBounds(bounds);
   const options = scrollbarOptionsProp(renderNode, fallbackAxis);
   if (options === undefined) {

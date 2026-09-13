@@ -118,10 +118,11 @@ export type TextEditOperation =
   | { readonly kind: 'moveWordRight'; readonly extendSelection?: boolean }
   | { readonly kind: 'moveHome'; readonly extendSelection?: boolean }
   | { readonly kind: 'moveEnd'; readonly extendSelection?: boolean }
+  | { readonly kind: 'moveDocumentStart'; readonly extendSelection?: boolean }
+  | { readonly kind: 'moveDocumentEnd'; readonly extendSelection?: boolean }
+  | { readonly kind: 'moveTo'; readonly caret: TextCaret; readonly extendSelection?: boolean }
   | { readonly kind: 'moveLineUp'; readonly extendSelection?: boolean }
   | { readonly kind: 'moveLineDown'; readonly extendSelection?: boolean }
-  | { readonly kind: 'movePageUp'; readonly extendSelection?: boolean }
-  | { readonly kind: 'movePageDown'; readonly extendSelection?: boolean }
   | { readonly kind: 'selectAll' }
   | { readonly kind: 'replaceSelection'; readonly text: string };
 

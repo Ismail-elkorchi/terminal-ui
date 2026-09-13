@@ -22,7 +22,6 @@ import type {
 } from './types.ts';
 import type { TextDocument } from './document.ts';
 
-const PAGE_LINE_DELTA = 10;
 const documentLineIndexes = new WeakMap<TextDocument, Map<string, {
   readonly text: string;
   readonly index: ReturnType<typeof createTerminalTextIndex>;
@@ -143,10 +142,15 @@ export function editTextDocument(
       return moveByLine(state, caret, selection, -1, operation.extendSelection);
     case 'moveLineDown':
       return moveByLine(state, caret, selection, 1, operation.extendSelection);
-    case 'movePageUp':
-      return moveByLine(state, caret, selection, -PAGE_LINE_DELTA, operation.extendSelection);
-    case 'movePageDown':
-      return moveByLine(state, caret, selection, PAGE_LINE_DELTA, operation.extendSelection);
+    case 'moveDocumentStart':
+      return move(state, caret, selection, 0, 'downstream', operation.extendSelection);
+    case 'moveDocumentEnd':
+      return move(state, caret, selection, textDocumentLength(state.document), 'upstream', operation.extendSelection);
+    case 'moveTo': {
+      const target = normalizeTextCaret(state.document, operation.caret);
+      return move(state, caret, selection, target.position.offset, target.position.affinity,
+        operation.extendSelection, target.preferredColumnCells);
+    }
     case 'selectAll': {
       const length = textDocumentLength(state.document);
       if (length === 0) return unchanged(state, caret, selection);

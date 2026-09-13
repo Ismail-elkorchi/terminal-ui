@@ -15,14 +15,17 @@ import type {
 } from '../dialog.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 
-interface DialogBaseOptions extends LayoutFlowOptions {
+interface DialogBaseOptions<
+  TContent extends Element<ComponentMessage>,
+  TActions extends Element<ComponentMessage> | undefined,
+> extends LayoutFlowOptions {
   readonly id: string;
   readonly border?: BorderOptions;
   readonly width?: number;
   readonly height?: number;
   readonly slots: {
-    readonly content: Element<ComponentMessage>;
-    readonly actions?: Element<ComponentMessage>;
+    readonly content: TContent;
+    readonly actions?: TActions;
   };
   readonly styles?: ElementStyles<DialogStylePart>;
   readonly meta?: {
@@ -55,7 +58,11 @@ interface DismissibleDialog<TMessage extends ComponentMessage> {
   readonly onDismiss: (event: DialogDismissEvent) => MessageResolution<TMessage>;
 }
 
-export type DialogOptions<TMessage extends ComponentMessage = never> = DialogBaseOptions
+export type DialogOptions<
+  TMessage extends ComponentMessage = never,
+  TContent extends Element<ComponentMessage> = Element<ComponentMessage>,
+  TActions extends Element<ComponentMessage> | undefined = Element<ComponentMessage> | undefined,
+> = DialogBaseOptions<TContent, TActions>
   & DialogName
   & DialogModality
   & (PassiveDialog | DismissibleDialog<TMessage>);

@@ -493,6 +493,7 @@ function terminalState() {
     mouseReporting: { tracking: 'none', encoding: 'default' },
     focusReporting: false,
     unicodeGraphemeMode: false,
+    metaSendsEscape: false,
     keyboardProfile: { kind: 'legacy' },
     cursorVisible: true,
     provenance: {
@@ -502,6 +503,7 @@ function terminalState() {
       mouseReporting: 'assumed',
       focusReporting: 'assumed',
       unicodeGraphemeMode: 'assumed',
+      metaSendsEscape: 'assumed',
       keyboardProfile: 'assumed',
       cursorVisible: 'assumed'
     }

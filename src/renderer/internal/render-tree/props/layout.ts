@@ -14,6 +14,8 @@ export interface MeasuredColumnRenderEntry {
   readonly rowOffset: number;
   readonly clippedRowsBefore: number;
   readonly rows: number;
+  readonly measurementHeight?: number;
+  readonly sourceIndex?: number;
 }
 
 export interface MeasuredColumnRenderProps {

@@ -5,7 +5,7 @@ import { defaultTextWidthProfile } from '../text/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
 import type { LayoutNode } from './contracts.ts';
 import { toRenderNode } from './internal/render-tree/element.ts';
-import { layoutRenderNode } from './internal/render-tree-layout.ts';
+import { layoutRenderTree } from './internal/render-tree-layout.ts';
 import { createRenderBudget } from './render-budget.ts';
 import type { RenderBudgetLimits } from './render-budget.ts';
 
@@ -18,11 +18,11 @@ export function layoutElement(
   widthProfile: TextWidthProfile = defaultTextWidthProfile,
   limits?: Partial<RenderBudgetLimits>,
 ): LayoutNode {
-  return layoutRenderNode(
+  return layoutRenderTree(
     toRenderNode(element),
     terminalSizeOrBounds,
     themeInput,
     widthProfile,
     createRenderBudget(limits),
-  );
+  ).layout;
 }

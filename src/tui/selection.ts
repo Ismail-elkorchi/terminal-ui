@@ -106,7 +106,7 @@ function decodeSelectedText(value: unknown): SelectedText | undefined {
   if (value['label'] !== undefined && typeof value['label'] !== 'string') {
     throw new TypeError('Selected text label must be a string.');
   }
-  const text = sanitizeTerminalText(value['text']).text;
+  const text = value['text'];
   if (text.length === 0) return undefined;
   return Object.freeze({
     sourceId: value['sourceId'],

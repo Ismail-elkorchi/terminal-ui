@@ -119,6 +119,14 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
       requiresSessionOperation: true,
       facts: [hostFact('supportsTerminalProtocols', input.host.supportsTerminalProtocols), ...environmentFacts(input.environment, ['KITTY_WINDOW_ID', 'TERM'])]
     }),
+    metaSendsEscape: resolveCapability(input, 'metaSendsEscape', {
+      support: 'unknown',
+      availability: interactiveAvailability,
+      unavailable: 'Host cannot negotiate Meta-as-Escape input.',
+      unknown: 'Meta-as-Escape support is unverified; legacy Meta input may be indistinguishable from Unicode text.',
+      requiresSessionOperation: true,
+      facts: [hostFact('supportsTerminalProtocols', input.host.supportsTerminalProtocols)]
+    }),
     bracketedPaste: resolveCapability(input, 'bracketedPaste', protocolBasis(
       controlSupport(input, 'bracketedPaste'),
       interactiveAvailability,
@@ -259,7 +267,7 @@ function resolveCapability(
   const override = input.overrides?.[name];
   const probe = input.probes?.[name];
   const support = override === undefined
-    ? probe ?? basis.support
+    ? probe === undefined || probe === 'unknown' ? basis.support : probe
     : typeof override === 'boolean' ? supportFromBoolean(override) : override.support;
   const facts = [
     ...basis.facts,

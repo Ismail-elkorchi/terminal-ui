@@ -348,7 +348,7 @@ test('word editing uses Unicode word boundaries for punctuation and multilingual
   );
 });
 
-test('text document editing handles multiline inserts and line/page movement', () => {
+test('text document editing handles multiline inserts and line/document movement', () => {
   const pasted = editTextDocument({
     document: createTextDocument('alpha'),
     caret: textCaretAt(5)
@@ -378,8 +378,8 @@ test('text document editing handles multiline inserts and line/page movement', (
   const page = editTextDocument({
     document: createTextDocument(twelveLines),
     caret: textCaretAt('line0'.length)
-  }, { kind: 'movePageDown' });
-  assert.equal(page.caret.position.offset, twelveLines.indexOf('line10') + 'line1'.length);
+  }, { kind: 'moveDocumentEnd' });
+  assert.equal(page.caret.position.offset, twelveLines.length);
 });
 
 test('text wrapping can preserve word boundaries within cell width', () => {

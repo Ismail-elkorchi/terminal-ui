@@ -106,6 +106,7 @@ function sessionPolicyWithKeyboard(profile: ReturnType<typeof kittyKeyboardProfi
     bracketedPaste: 'disabled' as const,
     focusReporting: 'disabled' as const,
     unicodeGraphemeMode: 'disabled' as const,
+    metaSendsEscape: 'disabled' as const,
     keyboard: { profile, requirement: 'disabled' as const },
     cursorVisibility: { visibility: 'unchanged' as const, requirement: 'disabled' as const },
     mouseReporting: { mode: 'none' as const, requirement: 'disabled' as const }

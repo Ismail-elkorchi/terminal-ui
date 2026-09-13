@@ -144,6 +144,7 @@ function resolveTuiSessionPolicy(value: unknown): SessionProtocolPolicy {
     rawInput: protocolRequirement(policy['rawInput'], 'rawInput'),
     bracketedPaste: protocolRequirement(policy['bracketedPaste'], 'bracketedPaste'),
     focusReporting: protocolRequirement(policy['focusReporting'], 'focusReporting'),
+    metaSendsEscape: protocolRequirement(policy['metaSendsEscape'], 'metaSendsEscape'),
     unicodeGraphemeMode: protocolRequirement(policy['unicodeGraphemeMode'], 'unicodeGraphemeMode'),
     keyboard: Object.freeze({
       profile: keyboardProfile,

@@ -1,7 +1,9 @@
-import { text } from '@ismail-elkorchi/terminal-ui/components';
+import { button, text } from '@ismail-elkorchi/terminal-ui/components';
+import type { Element } from '@ismail-elkorchi/terminal-ui';
 import {
   column,
   grid,
+  measuredViewport,
   responsive,
   type LayoutSize
 } from '@ismail-elkorchi/terminal-ui/layout';
@@ -22,3 +24,12 @@ const invalidSize: LayoutSize = { kind: 'fixed', cells: '1' };
 
 void selected;
 void invalidSize;
+
+const measured: Element<'press' | 'scroll'> = measuredViewport([
+  button({ id: 'entry', label: 'Entry', onPress: () => 'press' as const }),
+], { id: 'viewport', onScroll: () => 'scroll' as const });
+void measured;
+// @ts-expect-error measured viewports are vertically constrained
+measuredViewport([], { id: 'horizontal', onScroll: () => 'scroll', scrollbar: { axis: 'horizontal' } });
+// @ts-expect-error measured viewports do not accept caller-predicted row metadata
+measuredViewport([{ id: 'entry', rows: 2, value: 'Text' }], { id: 'rows', onScroll: () => 'scroll' });

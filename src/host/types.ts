@@ -140,6 +140,7 @@ export interface TerminalSession {
   enableBracketedPaste(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
   enableMouseReporting(mode?: MouseReportingMode, context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
   enableFocusReporting(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
+  enableMetaSendsEscape(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
   enableUnicodeGraphemeMode(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
   enableKeyboardProfile(
     profile: TerminalKeyboardProfile,
@@ -178,6 +179,7 @@ export interface TerminalStateSnapshot {
   readonly bracketedPaste: boolean;
   readonly mouseReporting: MouseReportingState;
   readonly focusReporting: boolean;
+  readonly metaSendsEscape: boolean;
   readonly unicodeGraphemeMode: boolean;
   readonly keyboardProfile: TerminalKeyboardProfile;
   readonly cursorVisible: boolean;
@@ -197,6 +199,7 @@ export interface TerminalStateProvenanceSnapshot {
   readonly bracketedPaste: TerminalStateKnowledge;
   readonly mouseReporting: TerminalStateKnowledge;
   readonly focusReporting: TerminalStateKnowledge;
+  readonly metaSendsEscape: TerminalStateKnowledge;
   readonly unicodeGraphemeMode: TerminalStateKnowledge;
   readonly keyboardProfile: TerminalStateKnowledge;
   readonly cursorVisible: TerminalStateKnowledge;
@@ -210,6 +213,7 @@ export type TerminalStateChange =
   | { readonly kind: 'bracketedPaste'; readonly state: boolean }
   | { readonly kind: 'mouseReporting'; readonly state: MouseReportingState }
   | { readonly kind: 'focusReporting'; readonly state: boolean }
+  | { readonly kind: 'metaSendsEscape'; readonly state: boolean }
   | { readonly kind: 'unicodeGraphemeMode'; readonly state: boolean }
   | { readonly kind: 'keyboardProfile'; readonly state: TerminalKeyboardProfile }
   | { readonly kind: 'cursorVisible'; readonly state: boolean };

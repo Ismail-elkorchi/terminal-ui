@@ -26,14 +26,20 @@ import { markTransparentFocusLayout } from './focus-identity.ts';
 import { renderNodeFactoryName } from './render-tree/node.ts';
 import { createRenderBudget } from '../render-budget.ts';
 import type { RenderBudget } from '../render-budget.ts';
+import { resolveMeasuredViewport } from './measured-viewport.ts';
 
-export function layoutRenderNode(
-  renderNode: RenderNode,
+interface LaidOutRenderNode<TMessage = unknown> {
+  readonly node: RenderNode<TMessage>;
+  readonly layout: LayoutNode;
+}
+
+export function layoutRenderTree<TMessage>(
+  renderNode: RenderNode<TMessage>,
   terminalSizeOrBounds: TerminalSize | Rect,
   themeInput?: TerminalTheme | TerminalThemeDefinition,
   widthProfile: TextWidthProfile = defaultTextWidthProfile,
   budget: RenderBudget = createRenderBudget(),
-): LayoutNode {
+): LaidOutRenderNode<TMessage> {
   const theme = themeForLayout(themeInput);
   const bounds = 'columns' in terminalSizeOrBounds
     ? { row: 1, column: 1, width: terminalSizeOrBounds.columns, height: terminalSizeOrBounds.rows }
@@ -43,8 +49,8 @@ export function layoutRenderNode(
   return layoutNode(renderNode, viewportBounds, viewportBounds, theme, widthProfile, measurements, budget, 0, 0, 0, [], false);
 }
 
-function layoutNode(
-  renderNode: RenderNode,
+function layoutNode<TMessage>(
+  renderNode: RenderNode<TMessage>,
   bounds: Rect,
   viewport: Rect,
   theme: TerminalTheme,
@@ -56,8 +62,11 @@ function layoutNode(
   parentZIndex: number,
   parentIdentity: readonly string[],
   ancestorInert: boolean
-): LayoutNode {
+): LaidOutRenderNode<TMessage> {
   budget.visitNode(depth);
+  if (renderNode.kind === 'viewport' && renderNode.props.measured === true) {
+    renderNode = resolveMeasuredViewport(renderNode, bounds, measurements, depth);
+  }
   const children = renderNode.children ?? [];
   const measureChild = (index: number): import('../contracts.ts').Measurement => {
     const child = children[index];
@@ -103,9 +112,9 @@ function layoutNode(
     const identified = renderNode.transparentFocusIdentity === true
       ? markTransparentFocusLayout(layout)
       : layout;
-    return renderNode.kind === 'overlay'
+    return { node: renderNode, layout: renderNode.kind === 'overlay'
       ? markPaintOrderedFocusChildren(identified)
-      : identified;
+      : identified };
   }
   const childBounds = boundsForChildren(renderNode, placedBounds, viewport, measurements, depth);
   const focusTargets = (inert
@@ -128,6 +137,20 @@ function layoutNode(
   const childViewport = renderNodeClipsChildren(renderNode)
     ? intersectRects(placedBounds, viewport) ?? emptyRect(placedBounds)
     : viewport;
+  const laidOutChildren = children.map((child, index) => layoutNode(
+    child,
+    childBounds[index] ?? emptyRect(placedBounds),
+    childViewport,
+    theme,
+    widthProfile,
+    measurements,
+    budget,
+    depth + 1,
+    renderNode.kind === 'measuredColumn' ? renderNode.props.entries[index]?.sourceIndex ?? index : index,
+    zIndex,
+    identityPath,
+    inert,
+  ));
   const layout: LayoutNode = {
     ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
     identity,
@@ -141,21 +164,7 @@ function layoutNode(
     ...(focusScope === undefined ? {} : { focusScope }),
     ...(renderNode.focusNavigation === undefined ? {} : { focusNavigation: renderNode.focusNavigation }),
     focusTargets,
-    children: (renderNode.children ?? [])
-      .map((child, index) => layoutNode(
-        child,
-        childBounds[index] ?? emptyRect(placedBounds),
-        childViewport,
-        theme,
-        widthProfile,
-        measurements,
-        budget,
-        depth + 1,
-        index,
-        zIndex,
-        identityPath,
-        inert
-      ))
+    children: laidOutChildren.map((child) => child.layout),
   };
   const revealable = renderNode.kind === 'viewport'
     && typeof renderNode.props.toScrollMessage === 'function'
@@ -164,9 +173,12 @@ function layoutNode(
   const identified = renderNode.transparentFocusIdentity === true
     ? markTransparentFocusLayout(revealable)
     : revealable;
-  return renderNode.kind === 'overlay'
-    ? markPaintOrderedFocusChildren(identified)
-    : identified;
+  return {
+    node: laidOutChildren.every((child, index) => child.node === children[index])
+      ? renderNode
+      : { ...renderNode, children: laidOutChildren.map((child) => child.node) },
+    layout: renderNode.kind === 'overlay' ? markPaintOrderedFocusChildren(identified) : identified,
+  };
 }
 
 function encodedIdentityPath(path: readonly string[]): string {

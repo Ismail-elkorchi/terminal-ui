@@ -236,19 +236,9 @@ test('flow and anchored layouts reject invalid runtime geometry options', () => 
 });
 
 test('measuredViewport remains a semantic-neutral controlled windowing layout', () => {
-  const window = measuredWindow(createMeasuredCollection([
-      { id: 'one', value: 'one', rows: 1 },
-      { id: 'two', value: 'two', rows: 1 },
-      { id: 'three', value: 'three', rows: 1 },
-      { id: 'four', value: 'four', rows: 1 }
-    ]), {
-    viewportRows: 2,
-    offsetRow: 2
-  });
   const frame = renderElementFrame(measuredViewport(
-    window,
-    (entry) => text({ content: entry.item.value, id: entry.item.id }),
-    { id: 'measured-window', onScroll: () => ignoreMessage() }
+    ['one', 'two', 'three', 'four'].map((content) => text({ content, id: content })),
+    { id: 'measured-window', offset: { row: 2 }, onScroll: () => ignoreMessage() }
   ), { columns: 8, rows: 2 });
 
   assert.equal(renderFramePlain(frame), 'three\nfour');

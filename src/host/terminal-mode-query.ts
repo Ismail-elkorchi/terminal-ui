@@ -11,6 +11,7 @@ export const queriedPrivateModes = Object.freeze([
   1003,
   1004,
   1006,
+  1036,
   1049,
   2004,
   2026,

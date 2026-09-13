@@ -24,6 +24,12 @@ import {
 import { decodeMeasurement } from '../measurement-validation.ts';
 import { emptyRect, intersectRects } from './rect.ts';
 import { scopedFrameSource } from './scoped-render-target.ts';
+import { textWidthProfileKey } from '../../text/index.ts';
+
+const retainedMeasurements = new WeakMap<RenderNode, {
+  readonly theme: TerminalTheme;
+  readonly constraints: Map<string, Measurement>;
+}>();
 
 function rendererForRenderNode<TMessage>(renderNode: RenderNode<TMessage>): RenderNodeRenderer<TMessage> {
   if (renderNode.kind === 'component') return renderNode.definition.renderer;
@@ -116,6 +122,17 @@ export function createRenderMeasurementContext(
       const cached = byConstraint.get(key);
       if (cached !== undefined) return cached;
       budget?.measureNode(depth);
+      let retained = retainedMeasurements.get(renderNode);
+      if (retained?.theme !== theme) {
+        retained = { theme, constraints: new Map() };
+        retainedMeasurements.set(renderNode, retained);
+      }
+      const retainedKey = `${textWidthProfileKey(widthProfile)}:${key}`;
+      const previous = retained.constraints.get(retainedKey);
+      if (previous !== undefined) {
+        byConstraint.set(key, previous);
+        return previous;
+      }
       const measurement = measureRenderNode(renderNode, {
         row: 1,
         column: 1,
@@ -123,6 +140,11 @@ export function createRenderMeasurementContext(
         height: bounds.height
       }, context, depth);
       byConstraint.set(key, measurement);
+      if (retained.constraints.size >= 4) {
+        const oldest = retained.constraints.keys().next().value;
+        if (oldest !== undefined) retained.constraints.delete(oldest);
+      }
+      retained.constraints.set(retainedKey, measurement);
       return measurement;
     }
   };
@@ -157,20 +179,11 @@ function childMeasurer(
   measurements: RenderMeasurementContext,
   depth: number,
 ): (index: number, constraints?: Rect) => Measurement {
-  const measured = new Map<number, Map<string, Measurement>>();
   return (index, constraints): Measurement => {
     if (!Number.isInteger(index) || index < 0 || index >= children.length) return zeroMeasurement();
-    const childBounds = constraints ?? bounds;
-    const key = `${String(childBounds.width)}:${String(childBounds.height)}`;
-    const byConstraint = measured.get(index) ?? new Map<string, Measurement>();
-    measured.set(index, byConstraint);
-    const cached = byConstraint.get(key);
-    if (cached !== undefined) return cached;
     const child = children[index];
     if (child === undefined) return zeroMeasurement();
-    const measurement = measurements.measure(child, childBounds, depth + 1);
-    byConstraint.set(key, measurement);
-    return measurement;
+    return measurements.measure(child, constraints ?? bounds, depth + 1);
   };
 }
 

@@ -10,6 +10,7 @@ const terminalCapabilityNameValues = [
   'textAttributes',
   'hyperlinks',
   'keyboardProtocol',
+  'metaSendsEscape',
   'bracketedPaste',
   'mouseReporting',
   'alternateScreen',

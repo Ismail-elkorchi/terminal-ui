@@ -23,7 +23,7 @@ import {
 } from '../frame-buffer.ts';
 import { applyCursorStyle } from './cursor-style.ts';
 import { applyFramePasses, boxDrawingJoinPass } from '../frame-passes/index.ts';
-import { layoutRenderNode } from './render-tree-layout.ts';
+import { layoutRenderTree } from './render-tree-layout.ts';
 import {
   accountAccessibleTree,
   accessibleNode,
@@ -114,11 +114,11 @@ export function renderElementInternal<TMessage>(
     ...(options.widthProfile === undefined ? {} : { widthProfile: options.widthProfile })
   });
   const { theme, widthProfile } = environment;
-  const layout = measureRenderStage(options.instrumentation, 'layout', () =>
-    layoutRenderNode(renderNode, terminalSize, theme, widthProfile, budget)
+  const resolved = measureRenderStage(options.instrumentation, 'layout', () =>
+    layoutRenderTree(renderNode, terminalSize, theme, widthProfile, budget)
   );
   recordRenderWork(options.instrumentation, { kind: 'render_nodes', count: budget.nodeCount() });
-  return materializeRenderNode(renderNode, environment.terminalSize, theme, widthProfile, layout, budget, options);
+  return materializeRenderNode(resolved.node, environment.terminalSize, theme, widthProfile, resolved.layout, budget, options);
 }
 
 /** Repaints a previous render tree when only focus-dependent output changed. */

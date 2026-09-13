@@ -194,6 +194,7 @@ export class TerminalStateAuthority {
       this.#modeReports = Object.freeze({ ...reports });
       this.observeBooleanMode('cursorVisible', reports[25]);
       this.observeBooleanMode('focusReporting', reports[1004]);
+      this.observeBooleanMode('metaSendsEscape', reports[1036]);
       this.observeBooleanMode('alternateScreen', reports[1049]);
       this.observeBooleanMode('bracketedPaste', reports[2004]);
       this.observeBooleanMode('unicodeGraphemeMode', reports[2027]);
@@ -636,6 +637,9 @@ export class TerminalStateAuthority {
       case 'focusReporting':
         await (operation.state ? protocol.enableFocusReporting() : protocol.disableFocusReporting());
         break;
+      case 'metaSendsEscape':
+        await (operation.state ? protocol.enableMetaSendsEscape() : protocol.disableMetaSendsEscape());
+        break;
       case 'unicodeGraphemeMode':
         await (operation.state ? protocol.enableUnicodeGraphemeMode() : protocol.disableUnicodeGraphemeMode());
         break;
@@ -676,7 +680,7 @@ export class TerminalStateAuthority {
   }
 
   private observeBooleanMode(
-    kind: Extract<TerminalStateKey, 'alternateScreen' | 'bracketedPaste' | 'cursorVisible' | 'focusReporting' | 'unicodeGraphemeMode'>,
+    kind: Extract<TerminalStateKey, 'alternateScreen' | 'bracketedPaste' | 'cursorVisible' | 'focusReporting' | 'metaSendsEscape' | 'unicodeGraphemeMode'>,
     report: TerminalModeReportState | undefined
   ): void {
     const enabled = modeIsSet(report);
@@ -713,6 +717,7 @@ export class TerminalStateAuthority {
       'bracketedPaste',
       'mouseReporting',
       'focusReporting',
+      'metaSendsEscape',
       'unicodeGraphemeMode',
       'cursorVisible'
     ] as const;
@@ -903,6 +908,11 @@ class TerminalSessionLease implements TerminalSession {
       this.protocol(operationContext).enableUnicodeGraphemeMode(), context);
   }
 
+  enableMetaSendsEscape(context: TerminalOperationContext = {}): Promise<TerminalOperationOutcome> {
+    return this.mutate('metaSendsEscape', true, (operationContext) =>
+      this.protocol(operationContext).enableMetaSendsEscape(), context);
+  }
+
   async enableKeyboardProfile(
     profile: TerminalKeyboardProfile,
     context: TerminalOperationContext = {}
@@ -1048,6 +1058,7 @@ function initialTerminalState(
     bracketedPaste: explicit.bracketedPaste ?? false,
     mouseReporting: explicit.mouseReporting ?? Object.freeze({ tracking: 'none', encoding: 'default' }),
     focusReporting: explicit.focusReporting ?? false,
+    metaSendsEscape: explicit.metaSendsEscape ?? false,
     unicodeGraphemeMode: explicit.unicodeGraphemeMode ?? false,
     keyboardProfile: explicit.keyboardProfile ?? LEGACY_KEYBOARD_PROFILE,
     cursorVisible: explicit.cursorVisible ?? true
@@ -1058,6 +1069,7 @@ function initialTerminalState(
     bracketedPaste: initialKnowledge(explicit, 'bracketedPaste'),
     mouseReporting: initialKnowledge(explicit, 'mouseReporting'),
     focusReporting: initialKnowledge(explicit, 'focusReporting'),
+    metaSendsEscape: initialKnowledge(explicit, 'metaSendsEscape'),
     unicodeGraphemeMode: initialKnowledge(explicit, 'unicodeGraphemeMode'),
     keyboardProfile: initialKnowledge(explicit, 'keyboardProfile'),
     cursorVisible: initialKnowledge(explicit, 'cursorVisible')
@@ -1082,6 +1094,7 @@ function decodeInitialTerminalState(initial: unknown): TerminalInitialState {
   const alternateScreen = optionalInitialBoolean(supplied['alternateScreen'], 'alternateScreen');
   const bracketedPaste = optionalInitialBoolean(supplied['bracketedPaste'], 'bracketedPaste');
   const focusReporting = optionalInitialBoolean(supplied['focusReporting'], 'focusReporting');
+  const metaSendsEscape = optionalInitialBoolean(supplied['metaSendsEscape'], 'metaSendsEscape');
   const unicodeGraphemeMode = optionalInitialBoolean(
     supplied['unicodeGraphemeMode'],
     'unicodeGraphemeMode',
@@ -1094,6 +1107,7 @@ function decodeInitialTerminalState(initial: unknown): TerminalInitialState {
     ...(alternateScreen === undefined ? {} : { alternateScreen }),
     ...(bracketedPaste === undefined ? {} : { bracketedPaste }),
     ...(focusReporting === undefined ? {} : { focusReporting }),
+    ...(metaSendsEscape === undefined ? {} : { metaSendsEscape }),
     ...(unicodeGraphemeMode === undefined
       ? {}
       : { unicodeGraphemeMode }),
@@ -1193,6 +1207,7 @@ function requestedPrivateModes(
     case 'bracketedPaste': return [[2004, change.state]];
     case 'cursorVisible': return [[25, change.state]];
     case 'focusReporting': return [[1004, change.state]];
+    case 'metaSendsEscape': return [[1036, change.state]];
     case 'unicodeGraphemeMode': return [[2027, change.state]];
     case 'mouseReporting': {
       const mouse = change.state;
@@ -1230,6 +1245,7 @@ function capabilityForState(kind: TerminalStateKey): TerminalCapabilityName {
     case 'bracketedPaste': return 'bracketedPaste';
     case 'mouseReporting': return 'mouseReporting';
     case 'focusReporting': return 'focusReporting';
+    case 'metaSendsEscape': return 'metaSendsEscape';
     case 'unicodeGraphemeMode': return 'unicodeGraphemeMode';
     case 'keyboardProfile': return 'keyboardProtocol';
     case 'cursorVisible': return 'cursorVisibility';

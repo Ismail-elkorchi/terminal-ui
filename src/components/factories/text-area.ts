@@ -170,12 +170,13 @@ const instantiateTextArea = defineComponent<
   },
   measure: measureTextArea,
   render: paintTextArea,
-  keys: ({ readOnly }) => ({
+  keys: (input) => ({
     triggers: [
-      ...textEditingTriggers(readOnly, true),
-      ...(readOnly ? [] : textAreaHistoryTriggers())
+      ...textEditingTriggers(input.readOnly, true),
+      ...textAreaPageTriggers(input),
+      ...(input.readOnly ? [] : textAreaHistoryTriggers())
     ],
-    ...(readOnly ? {} : {
+    ...(input.readOnly ? {} : {
       enter: () => ({ kind: 'edit' as const, operation: { kind: 'insert' as const, text: '\n' } }),
     }),
   }),
@@ -590,6 +591,44 @@ function textAreaGeometry(input: ComponentInput<TextAreaModel>): TextAreaGeometr
     layout,
     scrollbar,
   };
+}
+
+function textAreaPageTriggers(input: ComponentInput<TextAreaModel>) {
+  return (['pageUp', 'pageDown'] as const).flatMap((key) =>
+    ([false, true] as const).flatMap((shift) =>
+      (['press', 'repeat'] as const).map((eventType) => ({
+        trigger: { kind: 'key' as const, key, modifiers: { shift }, eventType },
+        onKey: () => {
+          const geometry = textAreaGeometry(input);
+          const caret = projectedCaret(geometry.projection, input.model.caret);
+          const current = geometry.layout.cursorAt(caret.position.offset, caret.position.affinity);
+          const preferredColumnCells = caret.preferredColumnCells ?? current.columnCells;
+          const delta = Math.max(1, geometry.scrollbar.contentBounds.height) * (key === 'pageUp' ? -1 : 1);
+          const row = Math.max(0, Math.min(geometry.layout.contentRows - 1, current.rowIndex + delta));
+          const line = geometry.layout.lineAtRow(row);
+          if (line === undefined) return ignoreMessage();
+          const local = line.index.graphemeIndexToCodeUnitOffset(
+            line.index.visualColumnToGraphemeIndex(preferredColumnCells),
+          );
+          const affinity = local === line.text.length ? 'upstream' as const : 'downstream' as const;
+          return {
+            kind: 'edit' as const,
+            operation: {
+              kind: 'moveTo' as const,
+              caret: {
+                position: {
+                  offset: geometry.projection.sourceOffsetAtDisplayOffset(line.start + local, affinity),
+                  affinity,
+                },
+                preferredColumnCells,
+              },
+              extendSelection: shift,
+            },
+          };
+        },
+      })),
+    ),
+  );
 }
 
 function paintTextArea(input: ComponentRenderInput<TextAreaModel, TextAreaStylePart>): void {

@@ -763,6 +763,7 @@ test('terminal sessions restore state in protocol-safe order', async () => {
     mouseReporting: { tracking: 'none', encoding: 'default' },
     focusReporting: false,
     unicodeGraphemeMode: false,
+    metaSendsEscape: false,
     keyboardProfile: LEGACY_KEYBOARD_PROFILE,
     cursorVisible: true
   };
@@ -807,6 +808,7 @@ test('session protocol policies plan and apply only requested operations', async
     bracketedPaste: 'disabled',
     focusReporting: 'disabled',
     unicodeGraphemeMode: 'disabled',
+    metaSendsEscape: 'disabled',
     keyboard: { profile: LEGACY_KEYBOARD_PROFILE, requirement: 'disabled' },
     cursorVisibility: { visibility: 'hide', requirement: 'disabled' },
     mouseReporting: { mode: 'drag', requirement: 'optional' }
@@ -815,7 +817,7 @@ test('session protocol policies plan and apply only requested operations', async
   const plan = createSessionProtocolPlan(policy);
   const result = await applySessionProtocolPolicy(session, policy);
 
-  assert.equal(plan.length, 8);
+  assert.equal(plan.length, 9);
   assert.equal(result.status, 'ready');
   assert.deepEqual(result.applied.map((item) => item.kind), [
     'rawInput',
@@ -828,6 +830,7 @@ test('session protocol policies plan and apply only requested operations', async
     'alternateScreen',
     'bracketedPaste',
     'unicodeGraphemeMode',
+    'metaSendsEscape',
     'focusReporting',
     'cursorVisibility'
   ]);
@@ -847,6 +850,7 @@ test('disabled keyboard enhancement still owns a legacy frame on the alternate s
     bracketedPaste: 'disabled',
     focusReporting: 'disabled',
     unicodeGraphemeMode: 'disabled',
+    metaSendsEscape: 'disabled',
     keyboard: { profile: kittyEvents, requirement: 'disabled' },
     cursorVisibility: { visibility: 'unchanged', requirement: 'disabled' },
     mouseReporting: { mode: 'none', requirement: 'disabled' }
@@ -874,6 +878,7 @@ test('session protocol policies fail only required unavailable operations', asyn
     bracketedPaste: 'disabled',
     focusReporting: 'disabled',
     unicodeGraphemeMode: 'disabled',
+    metaSendsEscape: 'disabled',
     keyboard: { profile: LEGACY_KEYBOARD_PROFILE, requirement: 'disabled' },
     cursorVisibility: { visibility: 'hide', requirement: 'disabled' },
     mouseReporting: { mode: 'none', requirement: 'disabled' }
@@ -889,6 +894,7 @@ test('session protocol policies fail only required unavailable operations', asyn
     'bracketedPaste',
     'rawInput',
     'unicodeGraphemeMode',
+    'metaSendsEscape',
     'mouseReporting',
     'focusReporting',
     'cursorVisibility'
@@ -908,6 +914,7 @@ test('session protocol diagnostics preserve requested operation and mouse mode',
     bracketedPaste: 'disabled',
     focusReporting: 'disabled',
     unicodeGraphemeMode: 'disabled',
+    metaSendsEscape: 'disabled',
     keyboard: { profile: LEGACY_KEYBOARD_PROFILE, requirement: 'disabled' },
     cursorVisibility: { visibility: 'hide', requirement: 'disabled' },
     mouseReporting: { mode: 'drag', requirement: 'optional' }
@@ -923,6 +930,7 @@ test('session protocol diagnostics preserve requested operation and mouse mode',
     'bracketedPaste',
     'rawInput',
     'unicodeGraphemeMode',
+    'metaSendsEscape',
     'mouseReporting',
     'focusReporting',
     'cursorVisibility'
@@ -945,6 +953,7 @@ test('session setup rejects an inherited active mouse encoding the decoder canno
     bracketedPaste: 'disabled',
     focusReporting: 'disabled',
     unicodeGraphemeMode: 'disabled',
+    metaSendsEscape: 'disabled',
     keyboard: { profile: LEGACY_KEYBOARD_PROFILE, requirement: 'disabled' },
     cursorVisibility: { visibility: 'unchanged', requirement: 'disabled' },
     mouseReporting: { mode: 'none', requirement: 'disabled' }
@@ -1201,6 +1210,7 @@ test('session policy enables and restores a supported Kitty keyboard profile', a
     bracketedPaste: 'disabled',
     focusReporting: 'disabled',
     unicodeGraphemeMode: 'disabled',
+    metaSendsEscape: 'disabled',
     keyboard: { profile: kittyEvents, requirement: 'required' },
     cursorVisibility: { visibility: 'unchanged', requirement: 'disabled' },
     mouseReporting: { mode: 'none', requirement: 'disabled' }
@@ -1318,6 +1328,7 @@ test('session setup uses the authoritative profile restored after Kitty verifica
     bracketedPaste: 'disabled',
     focusReporting: 'disabled',
     unicodeGraphemeMode: 'disabled',
+    metaSendsEscape: 'disabled',
     keyboard: { profile: kittyEvents, requirement: 'optional' },
     cursorVisibility: { visibility: 'unchanged', requirement: 'disabled' },
     mouseReporting: { mode: 'none', requirement: 'disabled' }

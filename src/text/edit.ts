@@ -20,8 +20,6 @@ import type {
   TextSelection
 } from './types.ts';
 
-const PAGE_LINE_DELTA = 10;
-
 export function editTextBuffer(
   buffer: TextEditBuffer,
   operation: TextEditOperation,
@@ -114,10 +112,12 @@ export function editTextBuffer(
       return moveTo(buffer.text, cursor, selection, lineOffsetByDelta(buffer.text, cursor, -1), operation.extendSelection);
     case 'moveLineDown':
       return moveTo(buffer.text, cursor, selection, lineOffsetByDelta(buffer.text, cursor, 1), operation.extendSelection);
-    case 'movePageUp':
-      return moveTo(buffer.text, cursor, selection, lineOffsetByDelta(buffer.text, cursor, -PAGE_LINE_DELTA), operation.extendSelection);
-    case 'movePageDown':
-      return moveTo(buffer.text, cursor, selection, lineOffsetByDelta(buffer.text, cursor, PAGE_LINE_DELTA), operation.extendSelection);
+    case 'moveDocumentStart':
+      return moveTo(buffer.text, cursor, selection, 0, operation.extendSelection);
+    case 'moveDocumentEnd':
+      return moveTo(buffer.text, cursor, selection, buffer.text.length, operation.extendSelection);
+    case 'moveTo':
+      return moveTo(buffer.text, cursor, selection, operation.caret.position.offset, operation.extendSelection);
     case 'selectAll': {
       const normalized = normalizeTextSelection(buffer.text, { startOffset: 0, endOffsetExclusive: buffer.text.length });
       return {

@@ -374,6 +374,7 @@ export class TerminalCapabilityDetector {
   #recordModeProbe(reports: TerminalModeReports): void {
     this.#probeFacts.cursorVisibility = modeSupport(reports[25]);
     this.#probeFacts.focusReporting = modeSupport(reports[1004]);
+    this.#probeFacts.metaSendsEscape = modeSupport(reports[1036]);
     this.#probeFacts.alternateScreen = modeSupport(reports[1049]);
     this.#probeFacts.bracketedPaste = modeSupport(reports[2004]);
     this.#probeFacts.mouseReporting = mouseModeSupport(reports);

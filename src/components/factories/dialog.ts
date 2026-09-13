@@ -203,9 +203,7 @@ export function dialog<
   const TActions extends Element<ComponentMessage> | undefined = undefined,
   const TMessage extends ComponentMessage = never,
 >(
-  options: Omit<DialogOptions<TMessage>, 'slots'> & {
-    readonly slots: { readonly content: TContent; readonly actions?: TActions };
-  },
+  options: DialogOptions<TMessage, TContent, TActions>,
 ): Element<ElementMessage<TContent> | ElementMessage<NonNullable<TActions>> | TMessage> {
   if (options.dismissal === undefined) {
     const ignoreDismissal = (): MessageResolution<TMessage> => ignoreMessage();

@@ -43,17 +43,26 @@ test('clipboard OSC 52 Base64 output covers complete UTF-8 byte groups and paddi
   }
 });
 
-test('clipboard limits apply to sanitized UTF-8 bytes before Base64 encoding', () => {
+test('clipboard limits apply to exact UTF-8 bytes before Base64 encoding', () => {
   const exact = createClipboardWriteSequence('界🙂', { allowed: true, maxBytes: 7 });
   const oversized = createClipboardWriteSequence('界🙂', { allowed: true, maxBytes: 6 });
-  const sanitized = createClipboardWriteSequence('\u001B[31mf', { allowed: true, maxBytes: 1 });
+  const control = createClipboardWriteSequence('\u001B[31mf', { allowed: true, maxBytes: 1 });
 
   assert.equal(exact.status, 'encoded');
   assert.equal(exact.byteLength, 7);
   assert.equal(oversized.status, 'rejected');
   assert.equal(oversized.diagnostic.data?.byteLength, 7);
-  assert.equal(sanitized.status, 'encoded');
-  assert.equal(sanitized.sequence, '\u001B]52;c;Zg==\u0007');
+  assert.equal(control.status, 'rejected');
+  assert.equal(control.diagnostic.data.byteLength, 6);
+});
+
+test('clipboard transports exact source and rejects unpaired surrogates', () => {
+  const source = 'a\t文\r\nb e\u0301 🙂\u001b[31m\u0000\u0007';
+  const result = createClipboardWriteSequence(source, { allowed: true });
+  assert.equal(result.status, 'encoded');
+  assert.equal(Buffer.from(result.sequence.slice(7, -1), 'base64').toString('utf8'), source);
+  assert.equal(result.byteLength, Buffer.byteLength(source));
+  assert.equal(createClipboardWriteSequence('\ud800', { allowed: true }).status, 'rejected');
 });
 
 test('clipboard limits must be finite non-negative safe integers', () => {

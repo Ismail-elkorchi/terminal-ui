@@ -42,6 +42,8 @@ export interface TerminalProtocolWriter {
   setMouseReporting(state: MouseReportingState): Promise<void>;
   enableFocusReporting(): Promise<void>;
   disableFocusReporting(): Promise<void>;
+  enableMetaSendsEscape(): Promise<void>;
+  disableMetaSendsEscape(): Promise<void>;
   enableUnicodeGraphemeMode(): Promise<void>;
   disableUnicodeGraphemeMode(): Promise<void>;
   pushKeyboardProfile(profile: TerminalKeyboardProfile): Promise<void>;
@@ -75,6 +77,8 @@ export function createProtocolWriter(sink: TerminalProtocolSink): TerminalProtoc
     setMouseReporting: async (state) => sink.write(mouseReportingSequence(decodeMouseReportingState(state))),
     enableFocusReporting: async () => sink.write('\u001B[?1004h'),
     disableFocusReporting: async () => sink.write('\u001B[?1004l'),
+    enableMetaSendsEscape: async () => sink.write('\u001B[?1036h'),
+    disableMetaSendsEscape: async () => sink.write('\u001B[?1036l'),
     enableUnicodeGraphemeMode: async () => sink.write('\u001B[?2027h'),
     disableUnicodeGraphemeMode: async () => sink.write('\u001B[?2027l'),
     pushKeyboardProfile: async (profile) => {

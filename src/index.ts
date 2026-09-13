@@ -118,6 +118,8 @@ export type {
   ResponsiveVariants,
   RowOptions,
   ScrollableViewportOptions,
+  MeasuredViewportOptions,
+  MeasuredViewportLayout,
   SplitPaneTransition,
   SplitPaneOptions,
   SurfaceOptions,

@@ -52,6 +52,7 @@ export async function restoreTuiSession(
       bracketedPaste: 'indeterminate' as const,
       mouseReporting: 'indeterminate' as const,
       focusReporting: 'indeterminate' as const,
+      metaSendsEscape: 'indeterminate' as const,
       unicodeGraphemeMode: 'indeterminate' as const,
       keyboardProfile: 'indeterminate' as const,
       cursorVisible: 'indeterminate' as const

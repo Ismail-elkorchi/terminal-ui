@@ -40,12 +40,6 @@ export function editPromptBufferForEvent(state: PromptTextBufferState, event: In
     case 'end':
       state.buffer = editTextBuffer(state.buffer, { kind: 'moveEnd', extendSelection: event.modifiers.shift });
       return true;
-    case 'pageUp':
-      state.buffer = editTextBuffer(state.buffer, { kind: 'movePageUp', extendSelection: event.modifiers.shift });
-      return true;
-    case 'pageDown':
-      state.buffer = editTextBuffer(state.buffer, { kind: 'movePageDown', extendSelection: event.modifiers.shift });
-      return true;
     case 'space':
       state.buffer = editTextBuffer(state.buffer, { kind: 'insert', text: ' ' });
       return true;

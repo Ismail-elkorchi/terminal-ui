@@ -27,12 +27,12 @@ export function textEditingTriggers(
     bindings.push(
       repeatingMovement('arrowUp', 'moveLineUp'),
       repeatingMovement('arrowDown', 'moveLineDown'),
-      repeatingMovement('pageUp', 'movePageUp'),
-      repeatingMovement('pageDown', 'movePageDown'),
       movement('arrowUp', 'moveLineUp', { shift: true }),
       movement('arrowDown', 'moveLineDown', { shift: true }),
-      movement('pageUp', 'movePageUp', { shift: true }),
-      movement('pageDown', 'movePageDown', { shift: true })
+      key('home', { ctrl: true }, { kind: 'moveDocumentStart' }),
+      key('end', { ctrl: true }, { kind: 'moveDocumentEnd' }),
+      key('home', { ctrl: true, shift: true }, { kind: 'moveDocumentStart', extendSelection: true }),
+      key('end', { ctrl: true, shift: true }, { kind: 'moveDocumentEnd', extendSelection: true })
     );
   }
   if (!readOnly) {
@@ -50,8 +50,8 @@ export function textEditingTriggers(
 }
 
 function repeatingMovement(
-  keyName: 'arrowLeft' | 'arrowRight' | 'arrowUp' | 'arrowDown' | 'pageUp' | 'pageDown' | 'home' | 'end',
-  kind: 'moveLeft' | 'moveRight' | 'moveLineUp' | 'moveLineDown' | 'movePageUp' | 'movePageDown' | 'moveHome' | 'moveEnd'
+  keyName: 'arrowLeft' | 'arrowRight' | 'arrowUp' | 'arrowDown' | 'home' | 'end',
+  kind: 'moveLeft' | 'moveRight' | 'moveLineUp' | 'moveLineDown' | 'moveHome' | 'moveEnd'
 ): ElementKeyTriggerBinding<TextEditingTransition> {
   return repeatingEdit(keyName, { kind });
 }
@@ -73,28 +73,11 @@ function repeat(
 }
 
 function movement(
-  keyName: 'arrowLeft' | 'arrowRight' | 'arrowUp' | 'arrowDown' | 'pageUp' | 'pageDown' | 'home' | 'end',
-  kind: Extract<TextEditOperation, { readonly extendSelection?: boolean }>['kind'],
+  keyName: 'arrowLeft' | 'arrowRight' | 'arrowUp' | 'arrowDown' | 'home' | 'end',
+  kind: Exclude<Extract<TextEditOperation, { readonly extendSelection?: boolean }>['kind'], 'moveTo'>,
   modifiers: { readonly shift: true }
 ): ElementKeyTriggerBinding<TextEditingTransition> {
-  return key(keyName, modifiers, selectedMovement(kind));
-}
-
-function selectedMovement(
-  kind: Extract<TextEditOperation, { readonly extendSelection?: boolean }>['kind']
-): TextEditOperation {
-  switch (kind) {
-    case 'moveLeft': return { kind: 'moveLeft', extendSelection: true };
-    case 'moveRight': return { kind: 'moveRight', extendSelection: true };
-    case 'moveWordLeft': return { kind: 'moveWordLeft', extendSelection: true };
-    case 'moveWordRight': return { kind: 'moveWordRight', extendSelection: true };
-    case 'moveHome': return { kind: 'moveHome', extendSelection: true };
-    case 'moveEnd': return { kind: 'moveEnd', extendSelection: true };
-    case 'moveLineUp': return { kind: 'moveLineUp', extendSelection: true };
-    case 'moveLineDown': return { kind: 'moveLineDown', extendSelection: true };
-    case 'movePageUp': return { kind: 'movePageUp', extendSelection: true };
-    case 'movePageDown': return { kind: 'movePageDown', extendSelection: true };
-  }
+  return key(keyName, modifiers, { kind, extendSelection: true });
 }
 
 function wordMovement(
@@ -128,7 +111,7 @@ function key(
 }
 
 function trigger(
-  keyName: 'a' | 'arrowLeft' | 'arrowRight' | 'arrowUp' | 'arrowDown' | 'pageUp' | 'pageDown' | 'home' | 'end' | 'backspace' | 'delete',
+  keyName: 'a' | 'arrowLeft' | 'arrowRight' | 'arrowUp' | 'arrowDown' | 'home' | 'end' | 'backspace' | 'delete',
   modifiers: { readonly ctrl?: boolean; readonly alt?: boolean; readonly shift?: boolean }
 ) {
   return { kind: 'key' as const, key: keyName, modifiers };

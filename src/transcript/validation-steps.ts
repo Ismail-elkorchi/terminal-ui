@@ -39,11 +39,11 @@ const restoreResultFields = new Set([
 ]);
 const terminalStateFields = new Set([
   'rawInput', 'alternateScreen', 'bracketedPaste', 'mouseReporting', 'focusReporting',
-  'unicodeGraphemeMode', 'keyboardProfile', 'cursorVisible', 'provenance',
+  'unicodeGraphemeMode', 'metaSendsEscape', 'keyboardProfile', 'cursorVisible', 'provenance',
 ]);
 const terminalStateProvenanceFields = new Set([
   'rawInput', 'alternateScreen', 'bracketedPaste', 'mouseReporting', 'focusReporting',
-  'unicodeGraphemeMode', 'keyboardProfile', 'cursorVisible',
+  'unicodeGraphemeMode', 'metaSendsEscape', 'keyboardProfile', 'cursorVisible',
 ]);
 const terminalStateChangeFields = new Set(['kind', 'state']);
 const terminalRestoreCompletionFields = new Set(['kind', 'state', 'assurance']);
@@ -432,6 +432,7 @@ function terminalStateSnapshotIssue(
     return 'terminal state requires mouseReporting.';
   }
   if (typeof typed.focusReporting !== 'boolean') return 'terminal state requires focusReporting.';
+  if (typeof typed.metaSendsEscape !== 'boolean') return 'terminal state requires metaSendsEscape.';
   if (typeof typed.unicodeGraphemeMode !== 'boolean') return 'terminal state requires unicodeGraphemeMode.';
   const keyboardProfileIssue = terminalKeyboardProfileIssue(typed.keyboardProfile, adoptions);
   if (keyboardProfileIssue !== undefined) return `terminal state keyboardProfile: ${keyboardProfileIssue}`;
@@ -441,7 +442,7 @@ function terminalStateSnapshotIssue(
   if (provenanceField !== undefined) {
     return `terminal state provenance contains unsupported field: ${provenanceField}.`;
   }
-  for (const key of ['rawInput', 'alternateScreen', 'bracketedPaste', 'mouseReporting', 'focusReporting', 'unicodeGraphemeMode', 'keyboardProfile', 'cursorVisible'] as const) {
+  for (const key of ['rawInput', 'alternateScreen', 'bracketedPaste', 'mouseReporting', 'focusReporting', 'metaSendsEscape', 'unicodeGraphemeMode', 'keyboardProfile', 'cursorVisible'] as const) {
     if (!isStringMember(typed.provenance[key], ['observed', 'explicit', 'library_known', 'assumed', 'indeterminate'] as const)) {
       return `terminal state provenance requires ${key}.`;
     }
@@ -457,6 +458,7 @@ function terminalStateSnapshotIssue(
     bracketedPaste: typed.bracketedPaste,
     mouseReporting: decodedMouseReportingState(typed.mouseReporting),
     focusReporting: typed.focusReporting,
+    metaSendsEscape: typed.metaSendsEscape,
     unicodeGraphemeMode: typed.unicodeGraphemeMode,
     keyboardProfile,
     cursorVisible: typed.cursorVisible,
@@ -466,6 +468,7 @@ function terminalStateSnapshotIssue(
       bracketedPaste: typed.provenance.bracketedPaste,
       mouseReporting: typed.provenance.mouseReporting,
       focusReporting: typed.provenance.focusReporting,
+      metaSendsEscape: typed.provenance.metaSendsEscape,
       unicodeGraphemeMode: typed.provenance.unicodeGraphemeMode,
       keyboardProfile: typed.provenance.keyboardProfile,
       cursorVisible: typed.provenance.cursorVisible
@@ -495,6 +498,7 @@ function terminalStateChangeIssue(
     case 'bracketedPaste':
     case 'focusReporting':
     case 'unicodeGraphemeMode':
+    case 'metaSendsEscape':
     case 'cursorVisible':
       if (typeof typed.state !== 'boolean') return `${typed.kind} requires a boolean state.`;
       change = Object.freeze({ kind: typed.kind, state: typed.state });

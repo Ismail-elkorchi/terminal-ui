@@ -27,6 +27,8 @@ export type {
   SurfaceStylePart,
   SurfaceOptions,
   ScrollableViewportOptions,
+  MeasuredViewportOptions,
+  MeasuredViewportLayout,
   ViewportOffset,
   ViewportOptions
 } from './options.ts';

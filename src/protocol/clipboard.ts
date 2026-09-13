@@ -1,6 +1,5 @@
 import { Buffer } from 'node:buffer';
 import { diagnostic } from '../diagnostics.ts';
-import { sanitizeTerminalText } from '../text/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalProtocolSink } from './types.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
@@ -69,22 +68,30 @@ export function createClipboardWriteSequence(
   const writePolicy = decodeClipboardWritePolicy(policy);
   const maxBytes = writePolicy.maxBytes ?? 1_000_000;
   if (!writePolicy.allowed) return clipboardDenied();
-  const sanitized = sanitizeTerminalText(text).text;
-  const bytes = new TextEncoder().encode(sanitized);
-  if (bytes.byteLength > maxBytes) {
+  if (!text.isWellFormed()) {
+    return {
+      status: 'rejected',
+      diagnostic: diagnostic('HOST_CAPABILITY_UNAVAILABLE', 'Clipboard payload must be well-formed Unicode.', {
+        severity: 'warning',
+        target: 'clipboard'
+      })
+    };
+  }
+  const byteLength = Buffer.byteLength(text, 'utf8');
+  if (byteLength > maxBytes) {
     return {
       status: 'rejected',
       diagnostic: diagnostic('HOST_CAPABILITY_UNAVAILABLE', 'Clipboard payload exceeds configured policy.', {
         severity: 'warning',
         target: 'clipboard',
-        data: { byteLength: bytes.byteLength, maxBytes }
+        data: { byteLength, maxBytes }
       })
     };
   }
   return {
     status: 'encoded',
-    sequence: `\u001B]52;c;${base64(bytes)}\u0007`,
-    byteLength: bytes.byteLength
+    sequence: `\u001B]52;c;${Buffer.from(text, 'utf8').toString('base64')}\u0007`,
+    byteLength
   };
 }
 
@@ -111,8 +118,4 @@ function clipboardDenied(): ClipboardWriteRejection {
       target: 'clipboard'
     })
   };
-}
-
-function base64(bytes: Uint8Array): string {
-  return Buffer.from(bytes).toString('base64');
 }

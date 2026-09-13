@@ -182,10 +182,15 @@ export function renderNodeLayoutKeyChainForFocus<TMessage>(
   layout: LayoutNode,
   path: FocusPath | undefined
 ): readonly RenderNodeLayoutTarget<TMessage>[] {
-  if (path === undefined || findRenderNodeFocusTarget(renderNode, layout, path) === undefined) return [];
+  const scope = activeFocusScope(collectFocusScopes(layout));
+  const targetPath = findRenderNodeFocusTarget(renderNode, layout, path) === undefined
+    ? scope?.path
+    : path;
+  if (targetPath === undefined) return [];
   const seen = new Set<RenderNode<TMessage>>();
   return collectRenderNodeLayoutTargets(renderNode, layout)
-    .filter((target) => pathStartsWith(path, target.path))
+    .filter((target) => pathStartsWith(targetPath, target.path)
+      && (scope === undefined || pathStartsWith(target.path, scope.path)))
     .toSorted((left, right) => right.path.length - left.path.length)
     .filter((target) => {
       if (seen.has(target.renderNode)) return false;

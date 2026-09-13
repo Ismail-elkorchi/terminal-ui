@@ -35,16 +35,20 @@ export const layoutMeasurements = {
       children.reduce((maximum, child) => Math.max(maximum, child.minHeight), 0)
     );
   },
-  measuredColumn: ({ renderNode, childCount, measureChild }) => {
-    const children = childMeasurements(childCount, measureChild);
+  measuredColumn: ({ renderNode, bounds, measureChild }) => {
+    const children = renderNode.props.entries.map((entry, index) => measureChild(index, {
+      ...bounds,
+      height: entry.measurementHeight ?? bounds.height,
+    }));
     const preferredWidth = children.reduce(
       (largest, child) => Math.max(largest, child.preferredWidth),
       0
     );
     return measureSize(preferredWidth, renderNode.props.totalRows);
   },
-  viewport: ({ childCount, measureChild }) =>
-    combineMeasurementsOverlay(childMeasurements(childCount, measureChild)),
+  viewport: ({ renderNode, childCount, measureChild }) => renderNode.props.measured === true
+    ? combineMeasurementsVertically(childMeasurements(childCount, measureChild))
+    : combineMeasurementsOverlay(childMeasurements(childCount, measureChild)),
   grid: ({ childCount, measureChild }) => combineMeasurementsOverlay(childMeasurements(childCount, measureChild)),
   splitPane: ({ childCount, measureChild }) => combineMeasurementsOverlay(childMeasurements(childCount, measureChild)),
 } satisfies StructuralMeasurementMap<'row' | 'column' | 'flow' | 'measuredColumn' | 'viewport' | 'grid' | 'splitPane'>;

@@ -155,6 +155,7 @@ test('selection interaction does not write clipboard output when selection is mi
 });
 
 test('effect context exposes runtime-owned clipboard output without exposing the host', async () => {
+  const source = 'a\t文\r\ne\u0301\u001b[31m';
   const host = createMemoryTerminalHost({ supportsClipboardWrite: true });
   const app = defineTui({
     id: 'clipboard-effect',
@@ -167,7 +168,7 @@ test('effect context exposes runtime-owned clipboard output without exposing the
           assert.equal('host' in context, false);
           const result = await context.copySelectedText({
             policy: { allowed: true },
-            selection: { sourceId: 'field', text: 'effect copy' },
+            selection: { sourceId: 'field', text: source },
           });
           return { kind: 'message', message: result.status };
         },
@@ -183,7 +184,8 @@ test('effect context exposes runtime-owned clipboard output without exposing the
   }
 
   assert.equal(runtime.state(), 'copied');
-  assert.equal(host.output().includes('\u001B]52;c;ZWZmZWN0IGNvcHk=\u0007'), true);
+  const payload = host.output().match(/\u001b\]52;c;([^\u0007]*)\u0007/u)?.[1];
+  assert.equal(Buffer.from(payload, 'base64').toString('utf8'), source);
   await runtime.dispose();
 });
 

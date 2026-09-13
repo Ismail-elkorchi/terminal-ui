@@ -917,6 +917,7 @@ test('runTui exposes setup diagnostics to app views', async () => {
       bracketedPaste: 'disabled',
       focusReporting: 'disabled',
       unicodeGraphemeMode: 'disabled',
+      metaSendsEscape: 'disabled',
       keyboard: { profile: { kind: 'legacy' }, requirement: 'disabled' },
       cursorVisibility: { visibility: 'hide', requirement: 'disabled' },
       mouseReporting: { mode: 'none', requirement: 'disabled' }
@@ -955,6 +956,7 @@ test('runTui decodes input protocols inherited from the outer terminal session',
       bracketedPaste: 'disabled',
       focusReporting: 'disabled',
       unicodeGraphemeMode: 'disabled',
+      metaSendsEscape: 'disabled',
       keyboard: { profile: { kind: 'legacy' }, requirement: 'disabled' },
       cursorVisibility: { visibility: 'unchanged', requirement: 'disabled' },
       mouseReporting: { mode: 'none', requirement: 'disabled' }
@@ -994,6 +996,7 @@ test('runTui decodes legacy input when optional Kitty setup was not applied', as
       bracketedPaste: 'disabled',
       focusReporting: 'disabled',
       unicodeGraphemeMode: 'disabled',
+      metaSendsEscape: 'disabled',
       keyboard: { profile: kittyKeyboardProfile(3), requirement: 'optional' },
       cursorVisibility: { visibility: 'unchanged', requirement: 'disabled' },
       mouseReporting: { mode: 'none', requirement: 'disabled' }

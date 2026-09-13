@@ -102,6 +102,16 @@ export interface ScrollableViewportOptions<TMessage = never>
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
+export interface MeasuredViewportOptions<TMessage = never>
+  extends Omit<ScrollableViewportOptions<TMessage>, 'offset' | 'scrollbar'> {
+  readonly offset?: { readonly row?: number };
+  readonly followTail?: boolean;
+  readonly anchor?: import('../interaction/scroll.ts').MeasuredViewportAnchor;
+  /** Receives derived geometry; must not dispatch updates during layout. */
+  readonly onLayout?: (layout: import('../interaction/scroll.ts').MeasuredViewportLayout) => void;
+  readonly scrollbar?: Omit<ScrollbarOptions, 'axis'> & { readonly axis?: 'vertical' };
+}
+
 export interface SurfaceOptions extends ElementOptions<SurfaceStylePart>, Omit<LayoutFlowOptions, 'gap'> {
   readonly title?: BorderTitle;
   readonly appearance?: SurfaceAppearance;
@@ -132,3 +142,5 @@ export interface PortalOptions<TMessage = never> extends StructuralElementOption
   readonly fit?: AnchoredSurfaceFit;
   readonly onOutsidePress?: () => TMessage;
 }
+
+export type { MeasuredViewportLayout } from '../interaction/scroll.ts';

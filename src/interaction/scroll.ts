@@ -65,3 +65,21 @@ export interface ScrollVisibleWindow {
   readonly startIndex: number;
   readonly endIndexExclusive: number;
 }
+
+/** An entry-relative position preserved when preceding content changes. */
+export interface MeasuredViewportAnchor {
+  readonly itemId: string;
+  readonly rowWithinItem: number;
+  readonly viewportRow: number;
+}
+
+/** Geometry produced by layout; callbacks must not dispatch during layout. */
+export interface MeasuredViewportLayout {
+  readonly entries: readonly {
+    readonly id: string;
+    readonly rowOffset: number;
+    readonly rows: number;
+  }[];
+  readonly geometry: ScrollGeometry;
+  readonly scroll: ScrollState;
+}

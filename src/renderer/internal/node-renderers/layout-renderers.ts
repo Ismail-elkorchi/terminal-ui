@@ -87,7 +87,10 @@ export const layoutRenderers = {
     clipChildren: true,
     measure: layoutMeasurements.measuredColumn,
     layout: ({ renderNode, bounds, measureChild }) => renderNode.props.entries.map((entry, index) => {
-      const measuredRows = measureChild(index).preferredHeight;
+      const measuredRows = measureChild(index, {
+        ...bounds,
+        height: entry.measurementHeight ?? bounds.height,
+      }).preferredHeight;
       if (measuredRows !== entry.rows) {
         throw new RangeError(
           `measuredColumn() entry ${String(index)} declares ${String(entry.rows)} rows but its element measures ${String(measuredRows)}.`

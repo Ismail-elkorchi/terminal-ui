@@ -20,6 +20,7 @@ export interface SessionProtocolPolicy {
   readonly rawInput: ProtocolRequirement;
   readonly bracketedPaste: ProtocolRequirement;
   readonly focusReporting: ProtocolRequirement;
+  readonly metaSendsEscape: ProtocolRequirement;
   readonly unicodeGraphemeMode: ProtocolRequirement;
   readonly keyboard: {
     readonly profile: TerminalKeyboardProfile;
@@ -54,7 +55,7 @@ export type SessionProtocolOperation =
     };
 
 interface EnableSessionProtocolOperation {
-  readonly kind: 'alternateScreen' | 'rawInput' | 'bracketedPaste' | 'focusReporting' | 'unicodeGraphemeMode';
+  readonly kind: 'alternateScreen' | 'rawInput' | 'bracketedPaste' | 'focusReporting' | 'metaSendsEscape' | 'unicodeGraphemeMode';
   readonly requirement: ProtocolRequirement;
   readonly target: true;
 }
@@ -76,6 +77,7 @@ export const defaultSessionProtocolPolicy: SessionProtocolPolicy = Object.freeze
   rawInput: 'required',
   bracketedPaste: 'optional',
   focusReporting: 'optional',
+  metaSendsEscape: 'optional',
   unicodeGraphemeMode: 'optional',
   keyboard: Object.freeze({
     profile: kittyKeyboardProfile(
@@ -95,6 +97,7 @@ export function createSessionProtocolPlan(
     { kind: 'bracketedPaste', requirement: policy.bracketedPaste, target: true },
     { kind: 'rawInput', requirement: policy.rawInput, target: true },
     { kind: 'unicodeGraphemeMode', requirement: policy.unicodeGraphemeMode, target: true },
+    { kind: 'metaSendsEscape', requirement: policy.metaSendsEscape, target: true },
     {
       kind: 'keyboardProfile',
       requirement: policy.keyboard.requirement,
@@ -189,6 +192,8 @@ async function applyOperation(
       return session.enableBracketedPaste(context);
     case 'focusReporting':
       return session.enableFocusReporting(context);
+    case 'metaSendsEscape':
+      return session.enableMetaSendsEscape(context);
     case 'unicodeGraphemeMode':
       return session.enableUnicodeGraphemeMode(context);
     case 'keyboardProfile':

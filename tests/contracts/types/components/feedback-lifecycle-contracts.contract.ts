@@ -29,6 +29,7 @@ notificationHistory({
 dialog({
   slots: { content: text({ content: 'Body' }) },
   id: 'dialog',
+  title: 'Dialog',
   modal: true,
   focusPolicy: { initialFocus: { kind: 'element', elementId: 'confirm' }, returnFocus: 'restore' },
   dismissal: {
@@ -54,6 +55,12 @@ statusBar({});
 notificationHistory({ id: 'invalid-history', items: [], scroll: createScrollState() });
 // @ts-expect-error dialog modal policy is required
 dialog({ slots: { content: text({ content: 'Body' }) }, id: 'implicit-dialog' });
+// @ts-expect-error modal dialogs require an explicit focus policy
+dialog({ id: 'loading', title: 'Loading', modal: true, slots: { content: text({ content: 'Loading' }) } });
+// @ts-expect-error nonmodal dialogs cannot contain a modal focus policy
+dialog({ id: 'nonmodal', title: 'Nonmodal', modal: false, focusPolicy: { returnFocus: 'restore' }, slots: { content: text({ content: 'Body' }) } });
+// @ts-expect-error dialogs require an accessible name or title
+dialog({ id: 'unnamed', modal: false, slots: { content: text({ content: 'Body' }) } });
 progressBar({
   id: 'contradictory-progress',
   // @ts-expect-error indeterminate progress cannot carry determinate values
