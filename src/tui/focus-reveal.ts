@@ -1,11 +1,10 @@
 import { scrollReducer } from '../behavior/scroll.ts';
-import { focusPathsEqual } from '../interaction/focus.ts';
 import type { FocusPath } from '../interaction/focus.ts';
 import { isIgnoredMessage } from '../interaction/message.ts';
 import type { ScrollGeometry, ScrollState } from '../interaction/scroll.ts';
 import {
-  collectLayoutFocusTargets,
-  collectRenderNodeLayoutTargets,
+  layoutFocusTargetForPath,
+  renderNodeLayoutAncestorsForFocus,
 } from '../renderer/internal/focus.ts';
 import {
   scrollbarsForRenderNode,
@@ -21,15 +20,13 @@ export function focusRevealMessages<TMessage>(
   focusPath: FocusPath | undefined,
 ): readonly TMessage[] {
   if (focusPath === undefined) return [];
-  const target = collectLayoutFocusTargets(layout)
-    .find((candidate) => focusPathsEqual(candidate.path, focusPath));
+  const target = layoutFocusTargetForPath(layout, focusPath);
   if (target === undefined) return [];
-  const viewports = collectRenderNodeLayoutTargets(renderNode, layout)
+  const viewports = renderNodeLayoutAncestorsForFocus(renderNode, layout, focusPath)
     .filter((candidate): candidate is typeof candidate & {
       readonly renderNode: RenderNodeOfKind<TMessage, 'viewport'>;
     } => candidate.renderNode.kind === 'viewport'
-      && typeof candidate.renderNode.props.toScrollMessage === 'function'
-      && pathStartsWith(focusPath, candidate.path))
+      && typeof candidate.renderNode.props.toScrollMessage === 'function')
     .toSorted((left, right) => right.path.length - left.path.length);
   const messages: TMessage[] = [];
   let revealBounds = target.logicalBounds;
@@ -96,9 +93,4 @@ function revealedOffset(
   const targetEnd = targetStart + targetSize;
   const viewportEnd = viewportStart + viewportSize;
   return targetEnd > viewportEnd ? offset + targetEnd - viewportEnd : offset;
-}
-
-function pathStartsWith(path: FocusPath, prefix: FocusPath): boolean {
-  return path.length >= prefix.length
-    && prefix.every((segment, index) => path[index] === segment);
 }

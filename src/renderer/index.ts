@@ -55,6 +55,8 @@ export type {
   RenderStage,
   RenderStageMeasurement,
   RenderTarget,
+  FrameRenderTarget,
+  ComponentRenderTarget,
   RenderTargetCell,
   RenderWorkInstrumentation,
   RenderWorkKind,
@@ -90,7 +92,7 @@ export {
   transformCanvasRect,
   verticalAxis
 } from './canvas2d/index.ts';
-export { createClippedCanvas2D as createLocalCanvas2D } from './canvas2d/canvas2d.ts';
+export { createComponentCanvas2D } from './canvas2d/canvas2d.ts';
 export type {
   AreaSeriesOptions,
   AxisLine,

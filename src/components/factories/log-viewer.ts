@@ -151,27 +151,9 @@ const baseDefinition = {
   accessibility: logViewerAccessibility,
 };
 
-const passiveLogViewer = defineComponent<
-  LogViewerComponentOptions,
-  LogViewerModel,
-  never,
-  LogViewerStylePart,
-  readonly [],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['focused', 'hovered', 'active', 'selected', 'disabled']
->({ ...baseDefinition, createModel: createLogViewerModel });
+const passiveLogViewer = defineComponent<LogViewerComponentOptions>()({ ...baseDefinition, createModel: createLogViewerModel });
 
-const activeLogViewer = defineComponent<
-  LogViewerComponentOptions,
-  LogViewerModel,
-  LogViewerComponentAction,
-  LogViewerStylePart,
-  readonly [],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['focused', 'hovered', 'active', 'selected', 'disabled']
->({
+const activeLogViewer = defineComponent<LogViewerComponentOptions, LogViewerComponentAction>()({
   ...baseDefinition,
   createModel: createLogViewerModel,
   keys: ({ model }) => {
@@ -286,7 +268,7 @@ function measureLogViewer(input: ComponentMeasureInput<LogViewerModel>) {
   };
 }
 
-function renderLogViewer(input: ComponentRenderInput<LogViewerModel, LogViewerStylePart>): void {
+function renderLogViewer(input: ComponentRenderInput<LogViewerModel, LogViewerStylePart>): undefined {
   const window = logViewerWindow(input, true);
   for (const [row, visible] of window.rows.entries()) {
     input.target.write(row, 0, visible.spans);

@@ -90,8 +90,7 @@ global cascade.
 
 For renderer-facing behavior, see
 [Rendering internals](./rendering-internals.md). For state and slot guidance,
-see [Building polished components](./building-polished-components.md).
+see [Component definitions](./component-definitions.md).
 
-Executable example:
-
-- `examples/testing/harness.mjs`
+See the executable [testing harness example](../../examples/testing/harness.mjs)
+for a rendered theme snapshot.

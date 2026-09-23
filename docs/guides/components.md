@@ -26,62 +26,62 @@ constructors for its component family. The
 `/components` entrypoint is the complete catalog when that distinction is not
 useful to the consumer.
 
-| Component | Role | Not |
-| --- | --- | --- |
-| `text()` | Static sanitized text with an optional semantic text role. | A text editor, input, or rich styling container. |
-| `richText()` | Styled caller-supplied inline content with optional links and accessible symbol fallbacks. | A document model, markdown renderer, or source-metadata escape hatch. |
-| `image()` | Accessible raster placement with Kitty/SIXEL negotiation and a text fallback. | Image decoding, loading, caching, or application resource policy. |
-| `link()` | Focusable navigation or resource reference with a typed activation event. | A button styled like a link. |
-| `toolbar()` | Semantic wrapper for a caller-owned row, column, or other layout of related controls. | A geometry policy, menu, or form. |
-| `toggleButton()` | Pressed/unpressed action control with the same label, adornment, tone, and density options as a button. | A checkbox or persistent switch setting. |
-| `textArea()` | Caller-controlled multi-line editable text surface with cursor, keyboard/pointer selection, bounded undo history, context-menu events, gutter, wrapping, and scroll state. | Syntax services, file ownership, or application persistence. |
-| `textInput()` | Caller-controlled single-line editable value with cursor, placeholder, validation, and pointer-to-text support. | A command picker, number parser, or multi-line editor. |
-| `passwordInput()` | Caller-controlled single-line secret entry that masks rendered content, accessibility output, and TUI transcripts. | Secret storage, validation, or authentication by itself. |
-| `numberInput()` | Single numeric field with optional step controls and validation display. | A slider, range selector, or numeric domain model. |
-| `tabs()` | Tab header plus selected-panel layout with semantic selection, close, and navigation interactions. | Navigation routing, persistence, or hidden panel state. |
-| `dialog()` | Centered surface with explicit modal focus policy, semantic dismissal, and an optional action area. | A general overlay system, route, or storage for open/closed state. |
-| `canvas()` | Safe drawing component with explicit measurement and semantic label or decorative metadata. | Raw ANSI output or an imperative terminal API. |
-| `form()` | Semantic grouping of related controls with the form accessibility role. | Retaining values, performing validation, or submitting by itself. |
-| `field()` | Label and help grouping around field content. | A second authority for required, validation, or disabled state. |
-| `label()` | Visible control label linked to a target control by ID. | Generic metadata or key/value text; use `text()` for that content. |
-| `button()` | Discrete action trigger with visual state and caller-provided message. | A toggle, menu item, or navigation link. |
-| `checkbox()` | Boolean checked/unchecked control. | Multi-choice selection or a switch animation. |
-| `switchControl()` | Boolean on/off control with switch semantics and visual anatomy. | A multi-choice control or status indicator. |
-| `slider()` | Single numeric value on a track. | Progress display or range selection. |
-| `rangeSlider()` | Two numeric endpoints with a caller-controlled active handle on one track. | Two unrelated sliders or a progress meter. |
-| `checkboxGroup()` | Multiple independent choices with an active item and committed multi-selection. | A tree, table, or form validator. |
-| `radioGroup()` | One committed choice with selection following the active item. | A menu or arbitrary command list. |
-| `combobox()` | Form value popup with independent active option, committed selection, and an autocomplete mode using the shared editable-text contract. | A command menu or context menu. |
-| `colorSwatchPicker()` | Compact caller-controlled color choice with semantic navigation and selection actions. | A full color-management tool. |
-| `calendar()` | Compact caller-controlled date choice control. | Calendar scheduling or date arithmetic. |
-| `menu()` | Inline command/action list with semantic navigation, activation, hierarchy, and scroll actions. | A form value selector or searchable command surface. |
-| `menuBar()` | Horizontal top-level command headings with controlled active position and hierarchical menu navigation. | An application toolbar or routing. |
-| `contextMenu()` | Controlled contextual command surface anchored to a target or cursor. | Global navigation, a form selector, or persistent sidebar. |
-| `menuTrigger()` | Controlled action trigger for a menu, with separate open, active-item, activation, dismissal, and popup-scroll state. | A validated form value control; use `combobox()` for that. |
-| `searchPicker()` | Searchable bounded picker for commands or data entries. | A shell, command parser, or application command registry. |
-| `commandInput()` | Single-line command entry with history hooks and compact, expanded, or anchored-popup suggestions. | A general message composer, transcript, event log, or command execution engine. |
-| `list()` | Passive ordered or unordered semantic list. | A keyboard-managed selector; use `listbox()` for that. |
-| `listView()` | Variable-height arbitrary-element collection with independent active item and selection policy. | A fixed-row option selector or virtual data store. |
-| `listbox()` | Fixed-row option collection with stable IDs, filtering, active-item navigation, and explicit selection policy. | Passive sequential content or arbitrary nested controls. |
-| `table()` | Passive structured rows and columns with optional controlled scrolling and sorting state. | A keyboard-managed grid. |
-| `dataGrid()` | Row- or cell-navigation grid with explicit active position, selection policy, sorting, resizing, and scrolling. | A spreadsheet engine or database. |
-| `tree()` | Expandable immutable hierarchy with caller-owned disclosure, active position, selection, filtering, loading, and scrolling state. | A filesystem API or data-loading state machine. |
-| `pagination()` | Page navigation control paired with caller-controlled paging state. | Data loading or page storage. |
-| `logViewer()` | Append-heavy structured log viewer with severity, timestamps, metadata, search, pointer selection, context-menu events, and follow-tail actions. | Terminal scrollback, a command input, or a session transcript. |
-| `disclosure()` | One caller-controlled expandable section composed from an arbitrary child element. | Durable expansion storage, heterogeneous feed policy, or data loading. |
-| `statusBar()` | Passive leading, centered, and trailing text/status items under constrained width. | A command bar, menu bar, or interactive layout frame. |
-| `helpBar()` | Grouped keybinding hints with deterministic constrained-width layout. | Keybinding registration or command routing. |
-| `activityIndicator()` | Compact caller-driven running or settled process state. | Scheduling, hidden timers, or progress measurement. |
-| `progressBar()` | Determinate or indeterminate progress display. | Editable range input or status record. |
-| `notificationRegion()` | Bounded live notifications with optional explicit dismissal actions. | A global toast manager, durable notification storage, or expiry policy. |
-| `notificationHistory()` | Controlled navigable history of completed notifications. | Durable history storage or notification lifecycle policy. |
-| `tooltip()` | Trigger-bound contextual explanation with controlled visibility and shared popup dismissal state. | A general popover or overlay lifecycle manager. |
-| `divider()` | Visual separation and section rhythm. | Layout spacing by itself. |
-| `sparkline()` | Tiny trend visualization. | Full chart with axes, legend, or interaction. |
-| `barChart()` | Compact categorical bars with stable-ID selection and activation actions. | Table replacement or arbitrary canvas drawing. |
-| `chart()` | Bounded multi-series chart with sampling, axes, semantic selection, and keyboard window navigation. | A charting application or data analytics engine. |
-| `meter()` | Compact scalar meter. | Progress workflow or editable value input. |
-| `heatmap()` | Grid of values with value-scale coloring and semantic cell and viewport navigation. | Spreadsheet, calendar, or matrix editor. |
+| Component | Use it for |
+| --- | --- |
+| `text()` | Static sanitized text with an optional semantic text role. |
+| `richText()` | Styled caller-supplied inline content with optional links and accessible symbol fallbacks. |
+| `image()` | Accessible raster placement with Kitty/SIXEL negotiation and a text fallback. |
+| `link()` | Focusable navigation or resource reference with a typed activation event. |
+| `toolbar()` | Semantic wrapper for a caller-owned row, column, or other layout of related controls. |
+| `toggleButton()` | Pressed/unpressed action control with the same label, adornment, tone, and density options as a button. |
+| `textArea()` | Caller-controlled multi-line editable text surface with cursor, keyboard/pointer selection, bounded undo history, context-menu events, gutter, wrapping, and scroll state. |
+| `textInput()` | Caller-controlled single-line editable value with cursor, placeholder, validation, and pointer-to-text support. |
+| `passwordInput()` | Caller-controlled single-line secret entry that masks rendered content, accessibility output, and TUI transcripts. |
+| `numberInput()` | Single numeric field with optional step controls and validation display. |
+| `tabs()` | Tab header plus selected-panel layout with semantic selection, close, and navigation interactions. |
+| `dialog()` | Centered surface with explicit modal focus policy, semantic dismissal, and an optional action area. |
+| `canvas()` | Safe drawing component with explicit measurement and semantic label or decorative metadata. |
+| `form()` | Semantic grouping of related controls with the form accessibility role. |
+| `field()` | Label and help grouping around field content. |
+| `label()` | Visible control label linked to a target control by ID. |
+| `button()` | Discrete action trigger with visual state and caller-provided message. |
+| `checkbox()` | Boolean checked/unchecked control. |
+| `switchControl()` | Boolean on/off control with switch semantics and visual anatomy. |
+| `slider()` | Single numeric value on a track. |
+| `rangeSlider()` | Two numeric endpoints with a caller-controlled active handle on one track. |
+| `checkboxGroup()` | Multiple independent choices with an active item and committed multi-selection. |
+| `radioGroup()` | One committed choice with selection following the active item. |
+| `combobox()` | Form value popup with independent active option, committed selection, and an autocomplete mode using the shared editable-text contract. |
+| `colorSwatchPicker()` | Compact caller-controlled color choice with semantic navigation and selection actions. |
+| `calendar()` | Compact caller-controlled date choice control. |
+| `menu()` | Inline command/action list with semantic navigation, activation, hierarchy, and scroll actions. |
+| `menuBar()` | Horizontal top-level command headings with controlled active position and hierarchical menu navigation. |
+| `contextMenu()` | Controlled contextual command surface anchored to a target or cursor. |
+| `menuTrigger()` | Controlled action trigger for a menu, with separate open, active-item, activation, dismissal, and popup-scroll state. |
+| `searchPicker()` | Searchable bounded picker for commands or data entries. |
+| `commandInput()` | Single-line command entry with history hooks and compact, expanded, or anchored-popup suggestions. |
+| `list()` | Passive ordered or unordered semantic list. |
+| `listView()` | Variable-height arbitrary-element collection with independent active item and selection policy. |
+| `listbox()` | Fixed-row option collection with stable IDs, filtering, active-item navigation, and explicit selection policy. |
+| `table()` | Passive structured rows and columns with optional controlled scrolling and sorting state. |
+| `dataGrid()` | Row- or cell-navigation grid with explicit active position, selection policy, sorting, resizing, and scrolling. |
+| `tree()` | Expandable immutable hierarchy with caller-owned disclosure, active position, selection, filtering, loading, and scrolling state. |
+| `pagination()` | Page navigation control paired with caller-controlled paging state. |
+| `logViewer()` | Append-heavy structured log viewer with severity, timestamps, metadata, search, pointer selection, context-menu events, and follow-tail actions. |
+| `disclosure()` | One caller-controlled expandable section composed from an arbitrary child element. |
+| `statusBar()` | Passive leading, centered, and trailing text/status items under constrained width. |
+| `helpBar()` | Grouped keybinding hints with deterministic constrained-width layout. |
+| `activityIndicator()` | Compact caller-driven running or settled process state. |
+| `progressBar()` | Determinate or indeterminate progress display. |
+| `notificationRegion()` | Bounded live notifications with optional explicit dismissal actions. |
+| `notificationHistory()` | Controlled navigable history of completed notifications. |
+| `tooltip()` | Trigger-bound contextual explanation with controlled visibility and shared popup dismissal state. |
+| `divider()` | Visual separation and section rhythm. |
+| `sparkline()` | Tiny trend visualization. |
+| `barChart()` | Compact categorical bars with stable-ID selection and activation actions. |
+| `chart()` | Bounded multi-series chart with sampling, axes, semantic selection, and keyboard window navigation. |
+| `meter()` | Compact scalar meter. |
+| `heatmap()` | Grid of values with value-scale coloring and semantic cell and viewport navigation. |
 
 ## Inline hyperlinks and interactive links
 
@@ -159,8 +159,8 @@ labels and descriptions through declared component fields; they cannot replace
 required roles, relationships, or state through metadata. A decorative
 definition is statically and dynamically barred from interaction.
 
-`meta.focus` can disable focus traversal, set focus order, or contain focus
-inside a subtree. A modal `dialog()` requires an explicit `focusPolicy` for its
+`meta.focus` can disable focus traversal or set focus order where a component
+declares that capability. A modal `dialog()` requires an explicit `focusPolicy` for its
 initial target and focus-return behavior; a non-modal dialog does not create a
 focus scope. Without an explicit width or height, a dialog uses its measured
 content size and remains centered. Padding is inside its border. Modal dialogs
@@ -182,7 +182,7 @@ state is active. Components expose only states they can render, including
 styling remains owned by the component-specific field and part that carries
 that meaning.
 
-The generated [component styling anatomy](../api/reference.md#component-styling-anatomy)
+The generated [component styling anatomy](../api/reference.md#component-styling)
 lists the exact parts and visual states accepted by every built-in factory.
 `inspectElement()` exposes the same available contract separately from the
 overrides configured on one element instance.

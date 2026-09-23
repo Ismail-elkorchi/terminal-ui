@@ -3,6 +3,24 @@ import { eastAsianAmbiguousRanges, eastAsianWideRanges } from './unicode-width-d
 import { defaultTextWidthProfile, textWidthProfileKey } from './width-profile.ts';
 
 const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
+/** A boundary-only query. Intl.Segments.containing resolves the exact Unicode
+ * grapheme at an offset without allocating or measuring the rest of the text. */
+export function graphemeAt(text: string, offset: number): { readonly startOffset: number; readonly endOffsetExclusive: number } | undefined {
+  if (offset < 0 || offset >= text.length) return undefined;
+  const segment = graphemeSegmenter.segment(text).containing(offset);
+  return segment === undefined ? undefined : {
+    startOffset: segment.index,
+    endOffsetExclusive: segment.index + segment.segment.length
+  };
+}
+
+export function graphemeBoundaryOffsets(text: string): readonly number[] {
+  const offsets: number[] = [];
+  for (const segment of graphemeSegmenter.segment(text)) offsets.push(segment.index);
+  offsets.push(text.length);
+  return offsets;
+}
 const defaultWordLocale = 'en';
 const wordSegmenterCacheLimit = 32;
 const wordSegmenters = new Map<string, Intl.Segmenter>();

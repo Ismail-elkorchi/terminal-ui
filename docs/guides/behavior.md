@@ -55,6 +55,25 @@ derived from their richer behavior state. A range slider accepts one grouped
 state because its active handle and ordered endpoints form one valid
 interaction value.
 
+A single-line text input uses the same `TextEditBuffer` in the component and
+reducer. Cursor and selection offsets are UTF-16 code-unit offsets aligned to
+grapheme boundaries:
+
+```ts
+import { textInput } from '@ismail-elkorchi/terminal-ui/components';
+import { textInputReducer } from '@ismail-elkorchi/terminal-ui/behavior';
+import type { TextEditBuffer } from '@ismail-elkorchi/terminal-ui/text';
+
+const state: TextEditBuffer = { text: '', cursor: 0 };
+const element = textInput({
+  id: 'name', meta: { accessibleName: 'Name' }, state,
+  onTransition: (transition) => transition
+});
+const next = textInputReducer(state, { kind: 'edit', operation: { kind: 'insert', text: 'A' } });
+void element;
+void next;
+```
+
 ```ts
 import {
   commandInput
@@ -160,8 +179,7 @@ import {
 } from '@ismail-elkorchi/terminal-ui/components';
 import {
   treeReducer,
-  createTreeSource,
-  createTreeView
+  createTreeSource
 } from '@ismail-elkorchi/terminal-ui/behavior';
 
 const nodes: readonly TreeNode[] = [
@@ -173,14 +191,14 @@ type TreeState = UnscrolledTreeState;
 
 function updateTree(state: TreeState, message: Message): TreeState {
   return treeReducer(state, message.transition, {
-    view: createTreeView(treeSource, state)
+    source: treeSource
   });
 }
 
 function treeView(state: TreeState) {
   return tree({
     id: 'navigation',
-    view: createTreeView(treeSource, state),
+    source: treeSource,
     state,
     onTransition: (transition): Message => ({ kind: 'tree', transition })
   });

@@ -16,21 +16,21 @@ the returned factory supplies current input, declared state capabilities, and
 an action mapper.
 
 ```ts
-import { defineSemanticLeafComponent } from '@ismail-elkorchi/terminal-ui/component';
+import { defineComponent } from '@ismail-elkorchi/terminal-ui/component';
 import { measureTextCells } from '@ismail-elkorchi/terminal-ui/text';
 
 interface BadgeOptions {
   readonly label: string;
 }
 
-const badge = defineSemanticLeafComponent<BadgeOptions, BadgeOptions>({
+const badge = defineComponent<BadgeOptions>()({
   name: 'example-app/components/badge',
-  identity: 'required',
+  identity: 'optional',
+  structure: 'leaf',
+  semantics: 'semantic',
   accessibleRole: 'status',
-  createModel(value) {
-    if (typeof value.label !== 'string') throw new TypeError('badge requires a string label');
-    return { label: value.label };
-  },
+  parts: ['value'],
+  metadata: ['styles'],
   measure: ({ model, widthProfile }) => {
     const width = measureTextCells(model.label, { widthProfile }).cells;
     return {
@@ -50,14 +50,14 @@ const badge = defineSemanticLeafComponent<BadgeOptions, BadgeOptions>({
   })
 });
 
-const ready = badge({ id: 'build-status', label: 'Ready' });
+const ready = badge({ label: 'Ready', styles: { parts: { value: { bold: true } } } });
 ```
 
-`defineSemanticLeafComponent()` and `defineDecorativeLeafComponent()` only
-supply the invariant leaf structure fields. They use the same component kernel,
-model construction, constrained measurement, inspection, and hook-result boundaries as
-`defineComponent()`. Use `defineComponent()` directly for composite or composed
-components.
+The first call declares the option type; the definition infers identity,
+parts, states, metadata, and slots from its literal fields. Omit
+`createModel()` when options already are the component model. Add it when the
+component must validate or normalize domain input. `defineSemanticLeafComponent()`
+and `defineDecorativeLeafComponent()` remain shorter direct paths for leaves.
 
 The optional `parts` and `visualStates` arrays declare the exact local styling
 contract. `style()` rejects undeclared slots at runtime, while TypeScript
@@ -72,6 +72,8 @@ before or after its children.
 
 ```ts
 import { defineComponent } from '@ismail-elkorchi/terminal-ui/component';
+import { text } from '@ismail-elkorchi/terminal-ui/components';
+import { renderElementSnapshot } from '@ismail-elkorchi/terminal-ui/testing';
 
 const stack = defineComponent({
   name: 'example-app/components/stack',
@@ -94,20 +96,19 @@ const stack = defineComponent({
       preferredHeight: children.reduce((sum, child) => sum + child.preferredHeight, 0)
     };
   },
-  layout: ({ bounds, slots }) => ({
-    content: Array.from(
+  layout: ({ bounds, slots }) => {
+    let row = 0;
+    return { content: Array.from(
       { length: slots.count('content') },
       (_unused, index) => {
-        const offset = Math.min(index, bounds.height);
-        return {
-          row: offset,
-          column: 0,
-          width: bounds.width,
-          height: index < bounds.height ? 1 : 0
-        };
+        const preferred = slots.measure('content', index).preferredHeight;
+        const height = Math.max(0, Math.min(bounds.height - row, preferred));
+        const result = { row, column: 0, width: bounds.width, height };
+        row += height;
+        return result;
       }
-    )
-  }),
+    ) };
+  },
   accessibility: ({ id, children }) => ({
     id,
     role: 'group',
@@ -115,6 +116,15 @@ const stack = defineComponent({
     children
   })
 });
+
+const snapshot = renderElementSnapshot({
+  element: stack({
+    id: 'example-stack',
+    slots: { content: [text({ content: 'one\ntwo' }), text({ content: 'three\nfour' })] }
+  }),
+  terminalSize: { columns: 12, rows: 4 }
+});
+console.log(snapshot.plainTextFrame);
 ```
 
 Child rectangles must stay inside the allocated component rectangle. Use
@@ -171,10 +181,9 @@ identifier. `onFocusTarget()` requires that the same definition declare
 components. Moving between two targets in the same component emits only the
 target lifecycle events; it does not fabricate a component leave and re-entry.
 
-A pointer declaration without `state` always emits its declared pointer
-actions. When `state` is provided, returning `undefined` disables that optional
-controlled channel for the instance; returning a pointer state enables the
-hover and press lifecycle on its clickable targets.
+Pointer targets declare accepted actions and map routed events to component
+actions. The renderer owns transient hover and press feedback; a component can
+read that state while painting without duplicating it in application state.
 
 Shared state uses independent boolean capabilities rather than one overloaded
 status value:
@@ -253,5 +262,9 @@ Test the contract visible to callers:
 - high-contrast and no-color output where relevant.
 
 For frame construction and diffing, see
-[Rendering internals](./rendering-internals.md). For component conventions, see
-[Building polished components](./building-polished-components.md).
+[Rendering internals](./rendering-internals.md).
+
+For a reusable component, test an empty or one-cell allocation, wide Unicode,
+clipped content, focus and pointer targets, accessibility, and no-color output.
+Keep stable part names separate from visual states. Use theme tokens and
+top-level `styles` for local overrides; draw only through the provided target.

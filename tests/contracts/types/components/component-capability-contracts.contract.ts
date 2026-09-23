@@ -39,7 +39,7 @@ commandInput({
 });
 textInput<{ readonly kind: 'query'; readonly action: import('@ismail-elkorchi/terminal-ui/components').TextInputTransition }>({
   id: 'query',
-  state: { value: 'term', cursor: 0 },
+  state: { text: 'term', cursor: 0 },
   onTransition: (action) => ({ kind: 'query' as const, action }),
   styles: {
       parts: { value: { bold: true }, cursor: { underline: true } },
@@ -90,9 +90,8 @@ const invalidDisabledEditor: TextAreaOptions = {
   onPress: () => ({ kind: 'edit' })
 };
 void invalidDisabledEditor;
-// @ts-expect-error disabled editors cannot expose unreachable handlers
 textArea({
-  id: 'invalid-disabled-editor',
+  id: 'disabled-editor-with-retained-handler',
   state: { document: createTextDocument('locked'), caret: textCaretAt(0) },
   disabled: true,
   onTransition: () => ({ kind: 'edit' })
@@ -101,7 +100,7 @@ textArea({
 text({ content: 'Passive', keys: { enter: () => ({ kind: 'invalid' }) } });
 textInput({
   id: 'invalid-style',
-  state: { value: '', cursor: 0 },
+  state: { text: '', cursor: 0 },
   onTransition: () => {
     throw new Error('type-only contract');
   },

@@ -10,8 +10,9 @@ import type {
   TerminalSize
 } from '../host/index.ts';
 import type { InputEvent, RecordedInputEvent } from '../input/index.ts';
-import type { FrameDescriptor, RenderDiffDescriptor } from '../renderer/index.ts';
+import type { Frame, FrameDescriptor, RenderDiffDescriptor } from '../renderer/index.ts';
 import type { ThemeColorToken } from '../theme/index.ts';
+import type { TuiApp, TuiRuntime } from '../tui/types.ts';
 import type {
   InteractionResult,
   TranscriptRecorder,
@@ -22,13 +23,21 @@ export interface TerminalHarnessOptions {
   readonly terminalSize?: TerminalSize;
 }
 
+/** Memory-host test session. `runApp` owns runtime startup and disposal; injected events settle before returning. */
 export interface TerminalHarness extends TranscriptReplayTarget {
   readonly host: MemoryTerminalHost;
   readonly clock: ControlledTerminalClock;
   readonly transcript: TranscriptRecorder;
   input(event: RecordedInputEvent | string): Promise<void>;
   resize(terminalSize: TerminalSize): Promise<void>;
+  /** Waits for the next app frame published after this call. Requires an attached app. */
+  nextCommit(): Promise<Frame>;
   run<T>(operation: (host: TerminalHost) => Promise<T>): Promise<T>;
+  /** Starts the app, invokes the callback after its first frame, and disposes it on every exit path. */
+  runApp<TState, TMessage, TResult>(
+    app: TuiApp<TState, TMessage>,
+    operation: (runtime: TuiRuntime<TState, TMessage>) => Promise<TResult>,
+  ): Promise<TResult>;
   snapshot(): AccessibleSnapshot;
   frames(): readonly FrameDescriptor[];
   diffs(): readonly RenderDiffDescriptor[];
@@ -52,6 +61,13 @@ export interface PtyTerminalHarness extends TranscriptReplayTarget {
   readonly transcript: TranscriptRecorder;
   input(event: RecordedInputEvent | string): Promise<void>;
   resize(terminalSize: TerminalSize): Promise<void>;
+  /** Waits for the next frame published by the attached app. */
+  nextCommit(): Promise<Frame>;
+  /** Starts an app, invokes the callback after its first frame, and always disposes it. */
+  runApp<TState, TMessage, TResult>(
+    app: TuiApp<TState, TMessage>,
+    operation: (runtime: TuiRuntime<TState, TMessage>) => Promise<TResult>,
+  ): Promise<TResult>;
   closeInput(): void;
   snapshot(): AccessibleSnapshot;
   frames(): readonly FrameDescriptor[];
@@ -71,13 +87,14 @@ export type InteractionStep =
   | { readonly kind: 'paste'; readonly text: string }
   | { readonly kind: 'resize'; readonly terminalSize: TerminalSize }
   | { readonly kind: 'wait'; readonly ms: number }
+  | { readonly kind: 'waitForCommit'; readonly ms: number }
   | { readonly kind: 'assertSnapshot'; readonly assertion: SnapshotAssertion }
   | { readonly kind: 'assertFocus'; readonly assertion: FocusAssertion }
   | { readonly kind: 'assertSelected'; readonly assertion: SelectedAssertion }
   | { readonly kind: 'assertVisibleText'; readonly assertion: VisibleTextAssertion }
   | { readonly kind: 'assertHitTarget'; readonly assertion: HitTargetAssertion }
   | { readonly kind: 'assertOutput'; readonly includes?: string; readonly excludes?: string }
-  | { readonly kind: 'assertRestore' }
+  | { readonly kind: 'assertRestore'; readonly phase?: 'checkpoint' | 'shutdown' }
   | { readonly kind: 'assertNoSecretLeak'; readonly secret: string };
 
 export interface SnapshotAssertion {

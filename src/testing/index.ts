@@ -31,5 +31,5 @@ export {
   assertTerminalRestored,
   assertVisibleText
 } from './assertions.ts';
-export { replayTranscript, runInteractionScript } from './script.ts';
+export { InteractionScriptError, replayTranscript, runInteractionScript } from './script.ts';
 export { keyInput, pasteInput, pointerInput, wheelInput } from './input-events.ts';

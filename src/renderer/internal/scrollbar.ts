@@ -6,8 +6,6 @@ import type { Rect } from '../contracts.ts';
 import type { FrameCellSource } from '../../visual/render-content.ts';
 import type { TerminalStyle } from '../../visual/render-content.ts';
 import type {
-  ScrollbarInteractionTransition,
-  ScrollbarInteractionState,
   ScrollbarOptions,
   ScrollbarState,
   ScrollbarVisualState
@@ -15,8 +13,6 @@ import type {
 import { oneCellGlyph } from '../../text/index.ts';
 
 export type {
-  ScrollbarInteractionTransition,
-  ScrollbarInteractionState,
   ScrollbarOptions,
   ScrollbarState,
   ScrollbarVisualState
@@ -132,45 +128,6 @@ export function renderScrollbars(
   if (layout.horizontalTrack !== undefined) {
     renderHorizontalScrollbar(buffer, layout.horizontalTrack, theme, options);
   }
-}
-
-export function scrollbarInteractionReducer(
-  state: ScrollbarInteractionState,
-  transition: ScrollbarInteractionTransition
-): ScrollbarInteractionState {
-  if (transition.kind === 'reset') return {};
-  const event = transition.event;
-  switch (event.kind) {
-    case 'enter':
-    case 'hover':
-      return event.targetId === undefined ? state : preserveScrollbarInteractionState(state, { ...state, hoveredTargetId: event.targetId });
-    case 'leave':
-      return event.targetId !== undefined && state.hoveredTargetId === event.targetId
-        ? preserveScrollbarInteractionState(state, removeInteractionField(state, 'hoveredTargetId'))
-        : state;
-    case 'pointerDown':
-    case 'dragStart':
-    case 'drag': {
-      const activeTargetId = event.capturedTargetId ?? event.targetId;
-      return activeTargetId === undefined
-        ? state
-        : preserveScrollbarInteractionState(state, { ...state, activeTargetId });
-    }
-    case 'pointerUp':
-    case 'dragEnd':
-      return preserveScrollbarInteractionState(state, removeInteractionField(state, 'activeTargetId'));
-    default:
-      return state;
-  }
-}
-
-export function scrollbarVisualStateForTarget(
-  state: ScrollbarInteractionState,
-  targetId: string
-): ScrollbarVisualState | undefined {
-  if (state.activeTargetId === targetId) return 'active';
-  if (state.hoveredTargetId === targetId) return 'hover';
-  return undefined;
 }
 
 function renderVerticalScrollbar(
@@ -306,25 +263,5 @@ function normalizeRect(bounds: Rect): Rect {
     column: Math.max(1, Math.floor(bounds.column)),
     width: Math.max(0, Math.floor(bounds.width)),
     height: Math.max(0, Math.floor(bounds.height))
-  };
-}
-
-function preserveScrollbarInteractionState(
-  previous: ScrollbarInteractionState,
-  next: ScrollbarInteractionState
-): ScrollbarInteractionState {
-  return previous.hoveredTargetId === next.hoveredTargetId
-    && previous.activeTargetId === next.activeTargetId
-    ? previous
-    : next;
-}
-
-function removeInteractionField(
-  state: ScrollbarInteractionState,
-  field: keyof ScrollbarInteractionState
-): ScrollbarInteractionState {
-  return {
-    ...(field === 'hoveredTargetId' ? {} : state.hoveredTargetId === undefined ? {} : { hoveredTargetId: state.hoveredTargetId }),
-    ...(field === 'activeTargetId' ? {} : state.activeTargetId === undefined ? {} : { activeTargetId: state.activeTargetId })
   };
 }

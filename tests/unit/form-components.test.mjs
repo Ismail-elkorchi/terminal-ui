@@ -53,7 +53,7 @@ test('form components render settings and setup-wizard shapes with scoped state'
     field({
       control: textInput({ meta: { accessibleName: "Text input" },
       id: 'name-input',
-      state: { value: '', cursor: 0 },
+      state: { text: '', cursor: 0 },
       onTransition: (action) => action,
       placeholder: 'Project name',
       required: true,
@@ -398,7 +398,7 @@ test('form fields expose label required description and validation source anatom
     field({
       control: textInput({ meta: { accessibleName: "Text input" },
       id: 'name-input',
-      state: { value: '', cursor: 0 },
+      state: { text: '', cursor: 0 },
       onTransition: (action) => action,
       placeholder: 'Project name',
       required: true,
@@ -442,7 +442,7 @@ test('form accessibility exposes labels, values, validation, required, disabled,
     field({
       control: textInput({ meta: { accessibleName: "Text input" },
       id: 'email',
-      state: { value: 'user@example.test', cursor: 0 },
+      state: { text: 'user@example.test', cursor: 0 },
       onTransition: (action) => action,
       required: true
       }),
@@ -503,7 +503,7 @@ test('control labels create a structural accessible-name relationship', () => {
     label({ id: 'email-label', forId: 'email-input', text: 'Email' }),
     textInput({ meta: { accessibleName: "Text input" },
       id: 'email-input',
-      state: { value: 'user@example.test', cursor: 0 },
+      state: { text: 'user@example.test', cursor: 0 },
       onTransition: (action) => action
     })
   ] },
@@ -539,7 +539,7 @@ test('form controls emit submit and cancel messages while app state owns values'
     view: (state) => form({ meta: { accessibleName: "Form" }, slots: { content: [
       textInput({ meta: { accessibleName: "Text input" },
         id: 'query',
-        state: { value: state.result, cursor: 0 },
+        state: { text: state.result, cursor: 0 },
         onTransition: (action) => ({
           kind: action.kind === 'edit' && action.operation.kind === 'insert'
             ? `typed:${action.operation.text}`

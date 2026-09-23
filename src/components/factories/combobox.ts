@@ -26,7 +26,8 @@ import { allowsComponentAction } from '../internal/action-capability.ts';
 import { inspectTextValue, inspectValidation } from '../internal/inspection.ts';
 import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
-import { assertOptionalCallback, assertOptionalEnum, assertRequiredCallback, isNonArrayObject } from '../../foundation/validation.ts';
+import { assertOptionalCallback, assertOptionalEnum, assertRequiredPropertyCallback,
+  isNonArrayObject } from '../../foundation/validation.ts';
 import type {
   ComboboxState,
   AutocompleteComboboxView,
@@ -94,17 +95,7 @@ type ComboboxComponentAction =
   | { readonly kind: 'commit'; readonly event: ComboboxCommitEvent }
   | { readonly kind: 'contextMenu'; readonly event: TextContextMenuEvent };
 
-const instantiateCombobox = defineComponent<
-  ComboboxModel,
-  ComboboxModel,
-  ComboboxComponentAction,
-  ComboboxStylePart,
-  readonly ['disabled', 'busy', 'readOnly', 'inert'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  typeof comboboxSlots,
-  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy', 'readOnly']
->({
+const instantiateCombobox = defineComponent<ComboboxModel, ComboboxComponentAction>()({
   name: 'terminal-ui/components/combobox',
   identity: 'required',
   structure: 'composite',
@@ -421,15 +412,19 @@ function createSelectCombobox<TValue, TMessage extends ComponentMessage>(
     ...model,
     id: options.id,
     ...(options.styles === undefined ? {} : { styles: options.styles }),
+    ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+    ...(options.inert === undefined ? {} : { inert: options.inert }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
-  if (options.disabled === true) return instantiateCombobox({ ...common, disabled: true });
+  assertOptionalCallback(options.onCommit, 'combobox onCommit');
+  assertOptionalCallback(options.onContextMenu, 'combobox onContextMenu');
+  if (options.disabled === true && options.onTransition === undefined) return instantiateCombobox({ ...common, disabled: true });
   const shared = {
     ...common,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
   };
-  if (options.inert === true) return instantiateCombobox({ ...shared, inert: true });
-  assertRequiredCallback(options.onTransition, 'combobox onTransition');
+  if (options.inert === true && options.onTransition === undefined) return instantiateCombobox({ ...shared, inert: true });
+  assertRequiredPropertyCallback(options, 'onTransition', 'combobox onTransition');
   assertOptionalCallback(options.onCommit, 'combobox onCommit');
   return instantiateCombobox({
     ...shared,
@@ -450,12 +445,16 @@ function createAutocompleteCombobox<TValue, TMessage extends ComponentMessage>(
     ...model,
     id: options.id,
     ...(options.styles === undefined ? {} : { styles: options.styles }),
+    ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+    ...(options.inert === undefined ? {} : { inert: options.inert }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
-  if (options.disabled === true) return instantiateCombobox({ ...common, disabled: true });
+  assertOptionalCallback(options.onCommit, 'combobox onCommit');
+  assertOptionalCallback(options.onContextMenu, 'combobox onContextMenu');
+  if (options.disabled === true && options.onTransition === undefined) return instantiateCombobox({ ...common, disabled: true });
   const shared = { ...common, ...(options.busy === undefined ? {} : { busy: options.busy }) };
-  if (options.inert === true) return instantiateCombobox({ ...shared, inert: true });
-  assertRequiredCallback(options.onTransition, 'combobox onTransition');
+  if (options.inert === true && options.onTransition === undefined) return instantiateCombobox({ ...shared, inert: true });
+  assertRequiredPropertyCallback(options, 'onTransition', 'combobox onTransition');
   assertOptionalCallback(options.onCommit, 'combobox onCommit');
   return instantiateCombobox({
     ...shared,

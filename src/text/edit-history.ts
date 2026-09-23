@@ -1,4 +1,5 @@
 import { editTextBuffer } from './edit.ts';
+import { sameTextSelection } from './comparison.ts';
 import {
   breakEditHistoryGroup,
   createBoundedEditHistory,
@@ -104,13 +105,5 @@ function textEditBufferBytes(buffer: TextEditBuffer): number {
 function sameBuffer(left: TextEditBuffer, right: TextEditBuffer): boolean {
   return left.text === right.text
     && left.cursor === right.cursor
-    && sameSelection(left.selection, right.selection);
-}
-
-function sameSelection(
-  left: TextEditBuffer['selection'],
-  right: TextEditBuffer['selection']
-): boolean {
-  if (left === undefined || right === undefined) return left === right;
-  return left.startOffset === right.startOffset && left.endOffsetExclusive === right.endOffsetExclusive;
+    && sameTextSelection(left.selection, right.selection);
 }

@@ -28,7 +28,7 @@ import type { CollectionQuery, CompiledCollectionQuery } from '../text/query.ts'
 export interface TreeReducerOptions<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
 > {
-  readonly view: TreeView<TMetadata>;
+  readonly source: TreeSource<TMetadata>;
   readonly navigation?: NavigationPolicy;
   readonly pageSize?: number;
 }
@@ -41,6 +41,7 @@ interface TreeSourceData<TMetadata extends Readonly<Record<string, unknown>>> {
 
 const treeSources = new WeakMap<TreeSource, TreeSourceData<Readonly<Record<string, unknown>>>>();
 const treeViews = new WeakSet<TreeView>();
+const retainedTreeViews = new WeakMap<TreeSource, Map<string, TreeView>>();
 
 export function createTreeSource<
   TMetadata extends Readonly<Record<string, unknown>>,
@@ -75,7 +76,12 @@ export function createTreeView<
   source: TreeSource<TMetadata>,
   state: TreeState,
 ): TreeView<TMetadata> {
-  const rows = visibleTreeRows(source, state);
+  const query = compileCollectionQuery(state.query ?? { text: '', mode: 'contains' });
+  const key = treeProjectionKey(state, query);
+  let byState = retainedTreeViews.get(source);
+  const cached = byState?.get(key) as TreeView<TMetadata> | undefined;
+  if (cached !== undefined) return cached;
+  const rows = visibleTreeRows(source, { ...state, query });
   const collection = createTreeCollectionFromRows(rows);
   const interactionIndex = createCollectionInteractionIndex(collection.items
     .filter((item) => item.row.node.disabled !== true && item.row.lazyPlaceholder !== true)
@@ -87,7 +93,31 @@ export function createTreeView<
     interactionIndex,
   });
   treeViews.add(view);
+  if (byState === undefined) {
+    byState = new Map();
+    retainedTreeViews.set(source, byState);
+  }
+  byState.set(key, view);
+  let retainedRows = [...byState.values()].reduce((count, retained) => count + retained.collection.items.length, 0);
+  while (byState.size > 1 && (byState.size > 8 || retainedRows > 8_192)) {
+    const oldest = byState.entries().next().value;
+    if (oldest === undefined) break;
+    byState.delete(oldest[0]);
+    retainedRows -= oldest[1].collection.items.length;
+  }
   return view;
+}
+
+function treeProjectionKey(state: TreeState, query: CompiledCollectionQuery): string {
+  return JSON.stringify([
+    [...state.expandedIds].sort(),
+    query.text,
+    query.mode,
+    query.caseSensitive,
+    Object.entries(state.loadStatusById ?? {})
+      .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+      .map(([id, status]) => [id, status.kind, 'message' in status ? status.message : undefined]),
+  ]);
 }
 
 export function isTreeView(value: unknown): value is TreeView {
@@ -119,13 +149,11 @@ export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>
     const query = compileCollectionQuery(transition.query);
     return query.text.length === 0 ? withoutQuery(state) : { ...state, query };
   }
-  if (!isTreeView(options.view)) {
-    throw new TypeError('treeReducer view must be created with createTreeView().');
-  }
-  if (isDisclosure(transition)) return reduceDisclosure(state, transition, options.view.source);
-  const collection = options.view.collection;
+  const view = createTreeView(options.source, state);
+  if (isDisclosure(transition)) return reduceDisclosure(state, transition, options.source);
+  const collection = view.collection;
   const interaction = collectionInteractionReducer(state, transition, {
-    index: options.view.interactionIndex,
+    index: view.interactionIndex,
     ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
   });
   const itemIndex = interaction.activeId === undefined

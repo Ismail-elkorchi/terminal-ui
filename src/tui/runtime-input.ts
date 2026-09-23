@@ -1,6 +1,7 @@
 import { matchesInputTrigger } from '../input/index.ts';
 import type { InputEvent } from '../input/index.ts';
 import type { FocusPath } from '../interaction/focus.ts';
+import { focusPathsEqual } from '../interaction/focus.ts';
 import { ignoreMessage, isIgnoredMessage } from '../interaction/message.ts';
 import type { MessageResolution } from '../interaction/message.ts';
 import {
@@ -28,6 +29,17 @@ interface RuntimeInputMessageInput<TState, TMessage> {
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
 }
+
+interface KeyMapCacheEntry {
+  readonly layoutNode: LayoutNode;
+  readonly renderNodePath: FocusPath;
+  readonly focusPath: FocusPath | undefined;
+  readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
+  readonly value: unknown;
+}
+
+const keyMapCache = new WeakMap<object, KeyMapCacheEntry>();
 
 export function resolveRuntimeInputMessage<TState, TMessage>(
   input: RuntimeInputMessageInput<TState, TMessage>
@@ -120,27 +132,6 @@ export function resolveRuntimeInputMessage<TState, TMessage>(
   return ignoreMessage();
 }
 
-export function inputEventContainsSensitiveText(event: InputEvent): boolean {
-  if (event.kind === 'text' || event.kind === 'paste') return event.text.length > 0;
-  if (event.kind !== 'key' || event.eventType === 'release') return false;
-  if (event.committedText?.length) return true;
-  if (
-    event.modifiers.ctrl
-    || event.modifiers.alt
-    || event.modifiers.meta
-    || event.modifiers.super === true
-    || event.modifiers.hyper === true
-  ) return false;
-  return event.keyCodePoint !== undefined
-    || /^[a-z0-9]$/u.test(event.key)
-    || event.key === 'space';
-}
-
-export function redactSensitiveInputEvent(event: InputEvent): InputEvent {
-  if (event.kind === 'paste') return { ...event, text: '[redacted]' };
-  return { kind: 'text', text: '[redacted]', paste: false };
-}
-
 function committedTextInputEvent(
   event: InputEvent
 ): Extract<InputEvent, { readonly kind: 'text' }> | undefined {
@@ -197,8 +188,16 @@ export function resolvedRenderNodeKeyMap<TMessage>(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
 ) {
+  const cached = keyMapCache.get(renderNode);
+  if (cached?.layoutNode === layoutNode
+    && focusPathsEqual(cached.renderNodePath, renderNodePath)
+    && focusPathsEqual(cached.focusPath, focusPath)
+    && cached.theme === theme
+    && cached.widthProfile === widthProfile) {
+    return cached.value as typeof renderNode.keyMap;
+  }
   const focusedTargetId = focusedTargetIdForLayoutNode(layoutNode, renderNodePath, focusPath);
-  return renderNode.kind === 'component' && renderNode.definition.renderer.keyMap !== undefined
+  const value = renderNode.kind === 'component' && renderNode.definition.renderer.keyMap !== undefined
     ? renderNode.definition.renderer.keyMap({
         renderNode,
         layoutNode,
@@ -208,6 +207,15 @@ export function resolvedRenderNodeKeyMap<TMessage>(
         ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
       })
     : renderNode.keyMap;
+  keyMapCache.set(renderNode, {
+    layoutNode,
+    renderNodePath,
+    focusPath,
+    theme,
+    widthProfile,
+    value,
+  });
+  return value;
 }
 
 function hasNoKeyModifiers(event: Extract<InputEvent, { readonly kind: 'key' }>): boolean {

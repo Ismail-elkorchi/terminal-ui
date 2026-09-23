@@ -7,7 +7,6 @@ import {
   createLogHistory,
   createSearchPickerIndex,
   createTreeSource,
-  createTreeView,
 } from '../../dist/behavior/index.js';
 import {
   asciiSymbols,
@@ -21,9 +20,7 @@ import {
 } from '../../dist/renderer/index.js';
 import {
   renderScrollbars,
-  scrollbarInteractionReducer,
   scrollbarLayout,
-  scrollbarVisualStateForTarget
 } from '../../dist/renderer/internal/scrollbar.js';
 import {
   menu,
@@ -146,36 +143,6 @@ test('scrollbar visualState controls active and hover thumb styling', () => {
   assert.equal(hoverThumb?.source?.interactionState, 'hovered');
 });
 
-test('scrollbar interaction reducer maps pointer lifecycle to caller-controlled visual state', () => {
-  let state = scrollbarInteractionReducer({}, pointerAction({
-    kind: 'enter',
-    targetId: 'editor:scrollbar:vertical:thumb'
-  }));
-
-  assert.equal(scrollbarVisualStateForTarget(state, 'editor:scrollbar:vertical:thumb'), 'hover');
-  assert.equal(scrollbarVisualStateForTarget(state, 'editor:scrollbar:vertical:track'), undefined);
-
-  state = scrollbarInteractionReducer(state, pointerAction({
-    kind: 'pointerDown',
-    targetId: 'editor:scrollbar:vertical:thumb',
-    capturedTargetId: 'editor:scrollbar:vertical:thumb'
-  }));
-  assert.equal(scrollbarVisualStateForTarget(state, 'editor:scrollbar:vertical:thumb'), 'active');
-
-  state = scrollbarInteractionReducer(state, pointerAction({
-    kind: 'dragEnd',
-    targetId: 'editor:scrollbar:vertical:thumb',
-    capturedTargetId: 'editor:scrollbar:vertical:thumb'
-  }));
-  assert.equal(scrollbarVisualStateForTarget(state, 'editor:scrollbar:vertical:thumb'), 'hover');
-
-  state = scrollbarInteractionReducer(state, pointerAction({
-    kind: 'leave',
-    targetId: 'editor:scrollbar:vertical:thumb'
-  }));
-  assert.equal(scrollbarVisualStateForTarget(state, 'editor:scrollbar:vertical:thumb'), undefined);
-});
-
 test('scrollbar visibility modes control whether edge tracks reserve space', () => {
   const bounds = { row: 1, column: 1, width: 8, height: 4 };
   const fullyVisibleState = { offsetRow: 0, offsetColumn: 0, contentRows: 4, contentColumns: 8 };
@@ -188,33 +155,6 @@ test('scrollbar visibility modes control whether edge tracks reserve space', () 
   );
   assert.equal(scrollbarLayout(bounds, overflowingState, { axis: 'vertical', visible: 'never' }).verticalTrack, undefined);
 });
-
-function pointerAction(event) {
-  return {
-    kind: 'pointer',
-    event: {
-      source: 'mouse',
-      row: 1,
-      column: 1,
-      button: 'left',
-      modifiers: { shift: false, alt: false, ctrl: false },
-      deltaRows: 0,
-      deltaColumns: 0,
-      raw: {
-        kind: 'mouse',
-        sequence: '',
-        encoding: 'sgr',
-        action: event.kind === 'leave' ? 'move' : 'press',
-        button: 'left',
-        row: 1,
-        column: 1,
-        rawCode: 0,
-        modifiers: { shift: false, alt: false, ctrl: false }
-      },
-      ...event
-    }
-  };
-}
 
 test('scrollbars render ASCII and Unicode symbol sets through theme data', () => {
   const layout = scrollbarLayout(
@@ -350,7 +290,7 @@ test('tree scrollbar follows explicit tree scroll state', () => {
   const source = createTreeSource(nodes);
   const frame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
     id: 'tree',
-    view: createTreeView(source, treeState),
+    source: source,
     state: treeState,
     scrollbar: {},
     onTransition: () => ignoreMessage()

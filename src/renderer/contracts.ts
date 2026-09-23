@@ -68,16 +68,30 @@ export interface RenderTargetCell {
   readonly continuation?: boolean;
 }
 
+/** Write-only drawing surface. Use `coordinateSpace` to distinguish frame and component coordinates. */
 export interface RenderTarget {
+  readonly coordinateSpace?: 'frame' | 'component';
   readonly width: number;
   readonly height: number;
   readonly widthProfile: TextWidthProfile;
+  /** Writes sanitized spans at the target's row and column, clipped to its bounds. */
   write(row: number, column: number, spans: readonly RenderSpan[]): void;
   writeLine(row: number, column: number, line: RenderLine): void;
   writeBlock(row: number, column: number, block: RenderBlock): void;
   writeCell(cell: RenderTargetCell): void;
   placeGraphic(placement: GraphicPlacementInput): void;
+  /** Clears the supplied rectangle, or this target's allocation when omitted. */
   clear(rect?: Rect): void;
+}
+
+/** One-based terminal frame coordinates. */
+export interface FrameRenderTarget extends RenderTarget {
+  readonly coordinateSpace: 'frame';
+}
+
+/** Zero-based coordinates local to a component. */
+export interface ComponentRenderTarget extends RenderTarget {
+  readonly coordinateSpace: 'component';
 }
 
 export interface RenderStyleInput<TPart extends string> {
@@ -122,7 +136,9 @@ export interface StrokeFillOptions {
   readonly fill?: RenderSpan;
 }
 
+/** Bounded cell drawing. x/y are zero-based inside bounds; Braille coordinates are 2×4 subcells per cell. */
 export interface Canvas2D {
+  /** Frozen allocation in the target's coordinate space; drawing methods use its local origin. */
   readonly bounds: Rect;
   readonly widthProfile: TextWidthProfile;
   point(x: number, y: number, span: RenderSpan): void;
@@ -136,12 +152,15 @@ export interface Canvas2D {
   ellipse(center: CanvasPoint, radiusX: number, radiusY: number, options: StrokeFillOptions): void;
   arc(center: CanvasPoint, radius: number, startAngle: number, endAngle: number, options: StrokeFillOptions): void;
   fillPolygon(points: readonly CanvasPoint[], span: RenderSpan): void;
+  /** Writes sanitized spans and clips partial visibility by complete display cells. */
   text(x: number, y: number, spans: readonly RenderSpan[]): void;
   brailleSubcell(columnSubcell: number, rowSubcell: number, style?: TerminalStyle): void;
+  /** Clears only this canvas allocation, or its intersection with the supplied local rectangle. */
   clear(bounds?: CanvasPoint & { readonly width: number; readonly height: number }): void;
   translate(dx: number, dy: number): void;
   scale(x: number, y: number): void;
-  withTransform(transform: CanvasTransformInput, draw: (canvas: Canvas2D) => void): void;
+  /** Runs a synchronous drawing scope. The scoped canvas cannot be used after the callback returns. */
+  withTransform(transform: CanvasTransformInput, draw: (canvas: Canvas2D) => undefined): void;
 }
 
 export interface CanvasPainterInput {
@@ -152,7 +171,7 @@ export interface CanvasPainterInput {
   readonly frameSource: (input?: FrameSourceInput) => FrameCellSource;
 }
 
-export type CanvasPainter = (input: CanvasPainterInput) => void;
+export type CanvasPainter = (input: CanvasPainterInput) => undefined;
 
 export type RenderNodeKind =
   | 'column'
@@ -204,16 +223,28 @@ export interface LayoutNode {
 export type RenderWorkKind =
   | 'normalized_records'
   | 'query_candidates'
-  | 'render_nodes'
-  | 'measured_nodes'
-  | 'rendered_nodes'
-  | 'composed_cells'
+  | 'layout_nodes'
+  | 'unique_nodes'
+  | 'measurement_calls'
+  | 'measurement_misses'
+  | 'render_hooks'
+  | 'focus_target_visits'
+  | 'region_target_visits'
+  | 'target_index_entries'
+  | 'frame_index_builds'
+  | 'buffer_segmentations'
+  | 'buffer_segmented_code_units'
+  | 'region_allocations'
+  | 'interval_operations'
+  | 'cell_transfer_calls'
+  | 'accessibility_hooks'
+  | 'region_cells'
   | 'snapshot_rows'
   | 'snapshot_cells'
-  | 'emitted_cells'
-  | 'hit_target_candidates'
+  | 'diff_output_cells'
+  | 'hit_targets'
   | 'diff_rows'
-  | 'diff_cells'
+  | 'cell_comparisons'
   | 'diff_operations'
   | 'encoded_bytes';
 

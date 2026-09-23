@@ -13,7 +13,7 @@ import type { RenderNode } from './render-tree/index.ts';
 import type { RenderBudget } from '../render-budget.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type { RenderNodeLayoutTarget } from './focus.ts';
-import type { LayoutNode, Rect, RenderFocusRelation } from '../contracts.ts';
+import type { LayoutNode, Rect, RenderFocusRelation, RenderInstrumentation } from '../contracts.ts';
 import type { FocusTarget, HitTarget, Measurement } from '../contracts.ts';
 import type { RenderNodeRenderer, RenderNodeRenderInput } from './render-tree/renderer.ts';
 import type { RenderNodeOfKind } from './render-tree/types.ts';
@@ -110,12 +110,14 @@ export function createRenderMeasurementContext(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
   budget?: RenderBudget,
+  instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
 ): RenderMeasurementContext {
   const cache = new WeakMap<RenderNode, Map<string, Measurement>>();
   const context: RenderMeasurementContext = {
     theme,
     widthProfile,
     measure(renderNode, bounds, depth = 0) {
+      instrumentation?.recordWork?.({ kind: 'measurement_calls', count: 1 });
       const key = `${String(bounds.width)}:${String(bounds.height)}`;
       const byConstraint = cache.get(renderNode) ?? new Map<string, Measurement>();
       cache.set(renderNode, byConstraint);
@@ -133,6 +135,7 @@ export function createRenderMeasurementContext(
         byConstraint.set(key, previous);
         return previous;
       }
+      instrumentation?.recordWork?.({ kind: 'measurement_misses', count: 1 });
       const measurement = measureRenderNode(renderNode, {
         row: 1,
         column: 1,
@@ -189,9 +192,12 @@ function childMeasurer(
 
 export function renderRenderNode(
   renderNode: RenderNode,
-  input: Omit<RenderNodeRenderInput, 'renderNode'>
+  input: Omit<RenderNodeRenderInput, 'renderNode'>,
+  instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
 ): void {
-  rendererForRenderNode(renderNode).render({ ...input, renderNode: renderNode });
+  const renderer = rendererForRenderNode(renderNode);
+  instrumentation?.recordWork?.({ kind: 'render_hooks', count: 1 });
+  renderer.render({ ...input, renderNode: renderNode });
 }
 
 export function accessibilityForRenderNode(
@@ -204,12 +210,14 @@ export function accessibilityForRenderNode(
   children: readonly AccessibleNode[],
   accessibleNodes: ReadonlyMap<RenderNode, AccessibleNode>,
   theme: TerminalTheme,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
 ): AccessibleNode {
   const renderer = rendererForRenderNode(renderNode);
   if (renderer.accessibility === undefined) {
     throw new Error(`RenderNode "${id}" must provide accessibility or be marked decorative.`);
   }
+  instrumentation?.recordWork?.({ kind: 'accessibility_hooks', count: 1 });
   const accessible = renderer.accessibility({
     renderNode: renderNode,
     layoutNode: node,

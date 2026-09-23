@@ -2,6 +2,7 @@ import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { RenderNodeOfKind } from './render-tree/index.ts';
 import type { Rect } from '../contracts.ts';
 import { layoutBoxBounds, layoutPaddingBounds } from '../../geometry/layout.ts';
+import { intersectRects } from '../../geometry/rect.ts';
 import { layoutFlowOptions } from './node-renderers/support/layout.ts';
 import { surfaceChildContentBounds } from './surface.ts';
 type SurfaceNode = RenderNodeOfKind<unknown, 'surface'>;
@@ -63,14 +64,4 @@ export function overlayAccessibleBase(id: string, focused: boolean): AccessibleN
     role: 'group',
     ...(focused ? { focused } : {})
   };
-}
-
-function intersectRects(left: Rect, right: Rect): Rect | undefined {
-  const row = Math.max(left.row, right.row);
-  const column = Math.max(left.column, right.column);
-  const bottom = Math.min(left.row + left.height, right.row + right.height);
-  const endColumn = Math.min(left.column + left.width, right.column + right.width);
-  const width = Math.max(0, endColumn - column);
-  const height = Math.max(0, bottom - row);
-  return width === 0 || height === 0 ? undefined : { row, column, width, height };
 }

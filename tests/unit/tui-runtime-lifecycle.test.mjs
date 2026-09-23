@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import process from 'node:process';
 import test from 'node:test';
 import { createTuiRuntime, defineTui, runTui, TuiRunError } from '../../dist/tui/index.js';
+import { tuiRuntimeRunner } from '../../dist/tui/runtime.js';
 import { diagnostic } from '../../dist/diagnostics.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { kittyKeyboardProfile } from '../../dist/protocol/index.js';
@@ -43,7 +44,7 @@ test('runTui emits deterministic transcripts when enabled', async () => {
     update: (_state, message) => ({ state: { submitted: message.submitted }, exit: {} }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'transcript-field',
-      state: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
+      state: { text: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
       onSubmit: submitMessage({ submitted: true })
     })
   });
@@ -69,7 +70,7 @@ test('runTui fails and records final diagnostics when terminal restoration is un
     update: () => ({ state: { done: true }, exit: {} }),
     view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'failed-restoration-input',
-      state: { value: '', cursor: 0 },
+      state: { text: '', cursor: 0 },
       onSubmit: submitMessage({ kind: 'exit' })
     })
   });
@@ -133,7 +134,7 @@ test('TUI runtime requires explicit startup before operational methods', async (
     assert.rejects(runtime.handleInputChunk({ data: 'x' }), /runtime is created/u),
     assert.rejects(runtime.flushInput(), /runtime is created/u)
   ]);
-  assert.throws(() => runtime.resetInput(), /runtime is created/u);
+  await assert.rejects(tuiRuntimeRunner(runtime).resetInput(), /runtime is created/u);
   assert.throws(() => runtime.nextChange(), /runtime is created/u);
 
   await runtime.start();
@@ -273,7 +274,7 @@ test('runTui retires partially acquired input resources when initial next throws
     update: (state) => ({ state }),
     view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'synchronous-input-startup-failure-field',
-      state: { value: 'ready', cursor: 0 }
+      state: { text: 'ready', cursor: 0 }
     })
   });
   const host = createMemoryTerminalHost();
@@ -352,7 +353,7 @@ test('runTui reserves restoration time after a hanging exit handler', async () =
     update: () => ({ state: { done: true }, exit: {} }),
     view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'bounded-exit-field',
-      state: { value: '', cursor: 0 },
+      state: { text: '', cursor: 0 },
       onSubmit: submitMessage({ kind: 'exit' })
     }),
     onExit: () => {
@@ -383,7 +384,7 @@ test('runTui bounds an input iterator whose return operation never settles', asy
     update: () => ({ state: { done: true }, exit: {} }),
     view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'bounded-input-retirement-field',
-      state: { value: '', cursor: 0 },
+      state: { text: '', cursor: 0 },
       onSubmit: submitMessage({ kind: 'exit' })
     })
   });
@@ -438,7 +439,7 @@ test('runTui recovery bypasses a borrowed host restore blocked inside its state 
     update: () => ({ state: { done: true }, exit: {} }),
     view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'bounded-restore-field',
-      state: { value: '', cursor: 0 },
+      state: { text: '', cursor: 0 },
       onSubmit: submitMessage({ kind: 'exit' })
     })
   });
@@ -476,7 +477,7 @@ test('runTui bounds an output flush that ignores cancellation', async () => {
     update: () => ({ state: { done: true }, exit: {} }),
     view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'bounded-flush-field',
-      state: { value: '', cursor: 0 },
+      state: { text: '', cursor: 0 },
       onSubmit: submitMessage({ kind: 'exit' })
     })
   });
@@ -520,7 +521,7 @@ test('runTui restores after non-cooperative effect cleanup times out', async () 
       : { state, exit: {} },
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'bounded-effect-field',
-      state: { value: '', cursor: 0 },
+      state: { text: '', cursor: 0 },
       onSubmit: submitMessage({ kind: state.running ? 'exit' : 'start' })
     }),
     onExit: () => {
@@ -559,7 +560,7 @@ test('runTui restores after non-cooperative source cleanup times out', async () 
     }],
     view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'bounded-source-field',
-      state: { value: '', cursor: 0 },
+      state: { text: '', cursor: 0 },
       onSubmit: submitMessage({ kind: 'exit' })
     }),
     onExit: () => {
@@ -690,7 +691,7 @@ test('runTui bounds a hanging source disposer and reports restoration truthfully
     }],
     view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'bounded-disposer-field',
-      state: { value: '', cursor: 0 },
+      state: { text: '', cursor: 0 },
       onSubmit: submitMessage({ kind: 'exit' })
     })
   });
@@ -716,7 +717,7 @@ test('interrupts preempt a hanging dispatch and report unconfirmed restoration w
     update: (state) => ({ state: { count: state.count + 1 } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'interrupt-hanging-field',
-      state: { value: String(state.count), cursor: 0 },
+      state: { text: String(state.count), cursor: 0 },
       onSubmit: submitMessage({ kind: 'increment' })
     })
   });
@@ -815,7 +816,7 @@ test('runTui releases borrowed full-TTY input for the next consumer', async () =
     update: () => ({ state: { done: true }, exit: {} }),
     view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'borrowed-input-release-field',
-      state: { value: '', cursor: 0 },
+      state: { text: '', cursor: 0 },
       onSubmit: submitMessage({ kind: 'exit' })
     })
   });
@@ -940,7 +941,7 @@ test('runTui decodes input protocols inherited from the outer terminal session',
     update: (state, action) => ({ state: textInputReducer(state, action) }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'inherited-paste-field',
-      state: { value: state.text, cursor: state.cursor },
+      state: { text: state.text, cursor: state.cursor },
       onTransition: (action) => action
     })
   });
@@ -1012,7 +1013,7 @@ test('runTui restores terminal protocols on successful exit', async () => {
     id: 'restored-success',
     init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
-    view: () => textInput({ meta: { accessibleName: "Text input" }, id: 'field', state: { value: 'ready', cursor: 0 } })
+    view: () => textInput({ meta: { accessibleName: "Text input" }, id: 'field', state: { text: 'ready', cursor: 0 } })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 16, rows: 3 } });
   harness.host.endInput();
@@ -1049,7 +1050,7 @@ test('runTui processes host input chunks until the app exits', async () => {
     update: (_state, message) => ({ state: { submitted: message.submitted }, exit: {} }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'submit-field',
-      state: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
+      state: { text: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
       onSubmit: submitMessage({ submitted: true })
     })
   });
@@ -1117,7 +1118,7 @@ test('TUI effects can suspend the terminal for an external operation and resume 
     },
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'suspension-input',
-      state: { value: state.phase, cursor: 0 },
+      state: { text: state.phase, cursor: 0 },
       onSubmit: submitMessage({ kind: 'start' })
     })
   });
@@ -1192,7 +1193,7 @@ test('effect cancellation cannot cancel terminal reacquisition after release', a
     },
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'cancelled-suspension-field',
-      state: { value: state.phase, cursor: 0 },
+      state: { text: state.phase, cursor: 0 },
       onSubmit: submitMessage({ kind: 'start' })
     })
   });
@@ -1232,7 +1233,7 @@ test('failure to reacquire terminal ownership after suspension terminates the ru
         },
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'terminal-suspension-recovery-failure-field',
-      state: { value: state.phase, cursor: 0 },
+      state: { text: state.phase, cursor: 0 },
       onSubmit: submitMessage({ kind: 'start' })
     })
   });
@@ -1295,7 +1296,7 @@ test('failed suspension restoration terminates without redrawing or resuming inp
         },
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'terminal-suspension-initial-restore-failure-field',
-      state: { value: state.phase, cursor: 0 },
+      state: { text: state.phase, cursor: 0 },
       onSubmit: submitMessage({ kind: 'start' })
     })
   });
@@ -1346,7 +1347,7 @@ test('exiting during terminal suspension preserves input acquired by the externa
     },
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'suspended-external-input-field',
-      state: { value: state.phase, cursor: 0 },
+      state: { text: state.phase, cursor: 0 },
       onSubmit: submitMessage({ kind: 'start' })
     })
   });
@@ -1409,7 +1410,7 @@ test('cancelled terminal suspension cannot open a replacement session after runT
     },
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'cancelled-late-terminal-resume-field',
-      state: { value: state.phase, cursor: 0 },
+      state: { text: state.phase, cursor: 0 },
       onSubmit: submitMessage({ kind: 'start' })
     })
   });
@@ -1447,7 +1448,7 @@ test('runTui preserves sanitized completed exit reasons', async () => {
     }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'reason-field',
-      state: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
+      state: { text: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
       onSubmit: submitMessage({ submitted: true })
     })
   });
@@ -1468,7 +1469,7 @@ test('runTui lets apps own escape and ctrlC key bindings', async () => {
     update: (_state, message) => ({ state: { active: message.active }, exit: {} }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'exit-field',
-      state: { value: state.active, cursor: 0 }
+      state: { text: state.active, cursor: 0 }
     }),
     inputBindings: [
       {
@@ -1512,7 +1513,7 @@ test('runTui re-renders when the host emits resize signals', async () => {
     update: (_state, message) => ({ state: { done: message.done }, exit: {} }),
     view: (_state, context) => textInput({ meta: { accessibleName: "Text input" },
       id: 'resize-field',
-      state: { value: `columns:${context.terminalSize.columns}`, cursor: 0 },
+      state: { text: `columns:${context.terminalSize.columns}`, cursor: 0 },
       onSubmit: submitMessage({ done: true })
     })
   });
@@ -1541,7 +1542,7 @@ test('runTui coalesces resize storms to one active and one latest commit', async
     update: (_state, message) => ({ state: { done: message.done }, exit: message.done ? {} : undefined }),
     view: (_state, context) => textInput({ meta: { accessibleName: "Text input" },
       id: 'resize-storm-field',
-      state: { value: `columns:${context.terminalSize.columns}`, cursor: 0 },
+      state: { text: `columns:${context.terminalSize.columns}`, cursor: 0 },
       onSubmit: submitMessage({ done: true })
     })
   });
@@ -1602,7 +1603,7 @@ test('runTui exits and restores when the host emits interruption signals', async
     id: 'run-loop-signal',
     init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
-    view: () => textInput({ meta: { accessibleName: "Text input" }, id: 'signal-field', state: { value: 'ready', cursor: 0 } })
+    view: () => textInput({ meta: { accessibleName: "Text input" }, id: 'signal-field', state: { text: 'ready', cursor: 0 } })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const running = runTui(app, { host: harness.host });
@@ -1623,7 +1624,7 @@ test('runTui restores terminal protocols after initialization failure', async ()
       throw new Error('boom');
     },
     update: (state) => ({ state }),
-    view: () => textInput({ meta: { accessibleName: "Text input" }, id: 'field', state: { value: 'unused', cursor: 0 } })
+    view: () => textInput({ meta: { accessibleName: "Text input" }, id: 'field', state: { text: 'unused', cursor: 0 } })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 16, rows: 3 } });
   const exit = await errorExit(runTui(app, { host: harness.host }));
@@ -1658,7 +1659,7 @@ test('TUI runtime rejects operations after disposal and keeps disposal idempoten
   await assert.rejects(runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' }), /runtime is disposed/u);
   await assert.rejects(runtime.handleInputChunk({ data: 'x' }), /runtime is disposed/u);
   await assert.rejects(runtime.flushInput(), /runtime is disposed/u);
-  assert.throws(() => runtime.resetInput(), /runtime is disposed/u);
+  await assert.rejects(tuiRuntimeRunner(runtime).resetInput(), /runtime is disposed/u);
   assert.throws(() => runtime.nextChange(), /runtime is disposed/u);
 });
 
@@ -1831,7 +1832,7 @@ test('runTui restores terminal state after runtime and exit-handler cleanup fail
     onExit() {
       throw new Error('exit cleanup failed');
     },
-    view: () => textInput({ meta: { accessibleName: "Text input" }, id: 'cleanup-submit', state: { value: '', cursor: 0 }, onSubmit: submitMessage({ kind: 'submit' }) })
+    view: () => textInput({ meta: { accessibleName: "Text input" }, id: 'cleanup-submit', state: { text: '', cursor: 0 }, onSubmit: submitMessage({ kind: 'submit' }) })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
   harness.input('\r');

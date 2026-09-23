@@ -14,8 +14,12 @@ Create a raster resource once and retain it outside the application view:
 
 ```ts
 import { image, rasterImage } from '@ismail-elkorchi/terminal-ui';
+import { renderElementSnapshot } from '@ismail-elkorchi/terminal-ui/testing';
 
 const pixels = new Uint8Array(64 * 32 * 4);
+for (let index = 0; index < pixels.length; index += 4) {
+  pixels.set([40, 140, 220, 255], index);
+}
 const preview = rasterImage({
   width: 64,
   height: 32,
@@ -35,14 +39,50 @@ const element = image({
     preferredHeight: 10
   }
 });
+
+const fallback = renderElementSnapshot({
+  element,
+  terminalSize: { columns: 32, rows: 3 }
+});
+console.log(fallback.plainTextFrame);
 ```
 
 `rasterImage()` checks the dimensions and exact byte length, copies the pixel
 buffer, and returns an immutable, nominal raster resource. Its SHA-256 content
 identity is retained as metadata when frames are serialized into transcripts.
-Retain that resource;
-constructing an equivalent resource during every view call creates a new image
-and requires another terminal upload.
+Retain that resource. Reconstructing it during every view call repeats the
+pixel copy and content hash. Equivalent resources share a content identity,
+so reconstruction does not by itself force another Kitty upload.
+
+For cell drawing without a raster protocol, use `canvas()`:
+
+```ts
+import { canvas } from '@ismail-elkorchi/terminal-ui/components';
+import { renderElementSnapshot } from '@ismail-elkorchi/terminal-ui/testing';
+
+const drawing = canvas({
+  decorative: true,
+  measurement: { minWidth: 8, minHeight: 2, preferredWidth: 8, preferredHeight: 2 },
+  painter: ({ canvas: surface }) => {
+    surface.rect({ x: 0, y: 0, width: 8, height: 2 }, { fill: { text: '.' } });
+    surface.text(1, 0, [{ text: 'Ready' }]);
+  }
+});
+
+const snapshot = renderElementSnapshot({
+  element: drawing,
+  terminalSize: { columns: 8, rows: 2 }
+});
+console.log(snapshot.plainTextFrame);
+```
+
+`Canvas2D` writes terminal cells and clips to its allocation. `rasterImage()`
+stores pixels for Kitty or SIXEL; `image()` supplies a text fallback when those
+protocols are unavailable. Set `graphics: 'auto'` on `runTui()` when raster
+placement is desired.
+The runnable [graphics TUI example](../../examples/tui/graphics.ts) enables
+`graphics: 'auto'` and keeps the text fallback visible when no raster protocol
+is available.
 
 `image()` always renders its plain terminal fallback into the cell frame. When
 a verified graphics protocol is active, the runtime clears only the visible
@@ -108,6 +148,4 @@ Protocol references:
 - [Kitty terminal graphics protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/)
 - [XTerm control sequences, including SIXEL and terminal cell-size reports](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html)
 
-Executable example:
-
-- `examples/tui/graphics.ts`
+Executable example: [graphics app](../../examples/tui/graphics.ts).

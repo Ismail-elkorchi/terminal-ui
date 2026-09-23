@@ -14,7 +14,7 @@ import type {
   ComponentRenderInput,
 } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
-import { assertOptionalCallback, assertRequiredCallback } from '../../foundation/validation.ts';
+import { assertOptionalCallback, assertRequiredPropertyCallback } from '../../foundation/validation.ts';
 import type { LayoutFlowOptions, Rect } from '../../geometry/types.ts';
 import {
   layoutContentBounds,
@@ -86,17 +86,7 @@ type TabsComponentAction =
   | { readonly kind: 'transition'; readonly transition: TabsTransition }
   | { readonly kind: 'close'; readonly event: TabCloseEvent };
 
-const instantiateTabs = defineComponent<
-  TabsOwnOptions,
-  TabsModel,
-  TabsComponentAction,
-  TabsStylePart,
-  readonly ['disabled', 'busy', 'inert'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  typeof tabsSlots,
-  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy']
->({
+const instantiateTabs = defineComponent<TabsOwnOptions, TabsComponentAction>()({
   name: 'terminal-ui/components/tabs',
   identity: 'required',
   structure: 'composite',
@@ -262,6 +252,8 @@ export const tabs: TabsFactory = <
     ...(options.justify === undefined ? {} : { justify: options.justify }),
     ...(options.overflow === undefined ? {} : { overflow: options.overflow }),
     ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+    ...(options.inert === undefined ? {} : { inert: options.inert }),
     ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
     tabs: items.map((item) => ({
@@ -275,13 +267,14 @@ export const tabs: TabsFactory = <
     })),
     slots: { panels: items.map((item) => item.panel) },
   };
-  if (options.disabled === true) return instantiateTabs({
+  assertOptionalCallback(options.onClose, 'tabs onClose');
+  if (options.disabled === true && options.onTransition === undefined) return instantiateTabs({
     ...shared,
     disabled: true,
     ...(options.inert === undefined ? {} : { inert: options.inert }),
   });
-  if (options.inert === true) return instantiateTabs({ ...shared, inert: true });
-  assertRequiredCallback(options.onTransition, 'tabs onTransition');
+  if (options.inert === true && options.onTransition === undefined) return instantiateTabs({ ...shared, inert: true });
+  assertRequiredPropertyCallback(options, 'onTransition', 'tabs onTransition');
   assertOptionalCallback(options.onClose, 'tabs onClose');
   return instantiateTabs({
     ...shared,

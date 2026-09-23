@@ -1,4 +1,4 @@
-import type { ElementTextRole, ElementVisualState } from '../element/metadata.ts';
+import type { ElementVisualState } from '../element/metadata.ts';
 import type { ThemeColorToken } from '../theme/index.ts';
 import type { RenderNode } from './internal/render-tree/index.ts';
 import type { TerminalStyle } from '../visual/render-content.ts';
@@ -30,28 +30,6 @@ export function renderNodeStyle(renderNode: RenderNode, part: string, state?: El
     part,
     ...(state === undefined || state === 'default' ? {} : { states: [state] })
   });
-}
-
-export function defaultStyleForTextRole(role: ElementTextRole): TerminalStyle | undefined {
-  switch (role) {
-    case 'title':
-      return themeStyle('surface.title', { bold: true });
-    case 'caption':
-    case 'metadata':
-      return themeStyle('text.muted', { dim: true });
-    case 'heading':
-      return themeStyle('text.strong', { bold: true });
-    case 'body':
-      return themeStyle('text.default');
-    case 'metric':
-      return themeStyle('accent.primary', { bold: true });
-    case 'badge':
-      return {
-        fg: { kind: 'theme', token: 'badge.foreground' },
-        bg: { kind: 'theme', token: 'badge.background' },
-        bold: true
-      };
-  }
 }
 
 export function defaultStyleForState(state: ElementVisualState): TerminalStyle | undefined {

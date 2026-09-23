@@ -22,6 +22,7 @@ import {
 } from '../../dist/host/graphics-query.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
+import { tuiRuntimeRunner } from '../../dist/tui/runtime.js';
 import { createTranscriptRecorder, validateTranscript } from '../../dist/transcript/index.js';
 import { createTerminalGraphicsCommitter } from '../../dist/tui/graphics-committer.js';
 import { defaultTheme, defineTheme } from '../../dist/theme/index.js';
@@ -692,9 +693,9 @@ test('runtime commits upload and clean up Kitty resources around the cell frame'
   assert.match(host.output(), /_Ga=p,/u);
   const firstImageId = /_Ga=t,[^;]*i=([0-9]+)/u.exec(host.output())?.[1];
   assert.notEqual(firstImageId, undefined);
-  await runtime.suspendOutput();
+  await tuiRuntimeRunner(runtime).suspendOutput();
   assert.match(host.output(), new RegExp(`_Ga=d,d=i,i=${firstImageId},p=[0-9]+,q=2`, 'u'));
-  runtime.resumeOutput();
+  await tuiRuntimeRunner(runtime).resumeOutput();
   await runtime.redraw();
   assert.equal(host.output().match(/_Ga=t,/gu)?.length, 2);
   await runtime.dispose();
@@ -820,7 +821,7 @@ test('runtime replaces graphics when terminal cell geometry changes', async () =
   const runtime = createTuiRuntime({ app, host, graphics: 'kitty' });
 
   await runtime.start();
-  runtime.replaceTerminalProfile({ capabilities: await replacementHost.getCapabilities() });
+  await tuiRuntimeRunner(runtime).replaceTerminalProfile({ capabilities: await replacementHost.getCapabilities() });
   await runtime.redraw();
 
   assert.equal(host.output().match(/_Ga=t,/gu)?.length, 2);

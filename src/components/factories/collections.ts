@@ -14,7 +14,7 @@ import type { ComponentMessage } from '../../component/index.ts';
 import type { Element, ElementMessage } from '../../element/index.ts';
 import { isRegisteredElement } from '../../element/registry.ts';
 import type { Rect } from '../../geometry/types.ts';
-import { assertOptionalCallback, assertRequiredCallback } from '../../foundation/validation.ts';
+import { assertOptionalCallback, assertRequiredPropertyCallback } from '../../foundation/validation.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
@@ -23,6 +23,7 @@ import { measureTextCells, oneCellGlyph, sanitizeTerminalText } from '../../text
 import type { TextWidthProfile } from '../../text/index.ts';
 import {
   decodeSelectionState,
+  selectionContains,
   type SelectionState,
 } from '../../interaction/collection-interaction.ts';
 import type {
@@ -32,7 +33,6 @@ import type {
 import type { ListViewItemContent, SemanticListItem } from '../list-item.ts';
 import { isMeasuredWindow } from '../../collection/measured-window-operations.ts';
 import type { MeasuredWindow } from '../../collection/measured-window.ts';
-import type { ListViewStylePart, SemanticListStylePart } from '../style-parts.ts';
 import type {
   ListOptions,
   ListViewOptions,
@@ -58,16 +58,7 @@ const listSlots = {
 
 const listLayouts = new WeakMap<SemanticListModel, readonly Rect[]>();
 
-const instantiateList = defineComponent<
-  { readonly items: readonly SemanticListItemModel[]; readonly ordered?: boolean },
-  SemanticListModel,
-  never,
-  SemanticListStylePart,
-  readonly [],
-  'optional',
-  readonly ['layer', 'styles'],
-  typeof listSlots
->({
+const instantiateList = defineComponent<{ readonly items: readonly SemanticListItemModel[]; readonly ordered?: boolean }>()({
   name: 'terminal-ui/components/list',
   identity: 'optional',
   structure: 'composite',
@@ -201,17 +192,7 @@ interface ListViewLayout {
 
 const listViewLayouts = new WeakMap<ListViewModel, ListViewLayout>();
 
-const instantiateListView = defineComponent<
-  ListViewModel,
-  ListViewModel,
-  ListViewComponentAction,
-  ListViewStylePart,
-  readonly ['disabled', 'busy', 'inert'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  typeof listSlots,
-  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy']
->({
+const instantiateListView = defineComponent<ListViewModel, ListViewComponentAction>()({
   name: 'terminal-ui/components/list-view',
   identity: 'required',
   structure: 'composite',
@@ -505,19 +486,8 @@ export function listView<
   });
   const scroll = decodeComponentScrollState(options.state.scroll, 'listView scroll');
   const scrollbar = decodeComponentScrollbarOptions(options.scrollbar, 'listView scrollbar');
-  if (scrollbar?.axis !== undefined && scrollbar.axis !== 'vertical') {
-    throw new TypeError('listView scrollbar axis must be vertical.');
-  }
   const scrollPolicy = decodeComponentScrollPolicy(options.scrollPolicy, 'listView scrollPolicy');
-  if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
-    throw new TypeError('listView scrollbar and scrollPolicy require scroll state.');
-  }
-  if (scroll === undefined && window.offsetRow !== 0) {
-    throw new TypeError('An unscrolled listView requires a measured window at offset row zero.');
-  }
-  if (scroll !== undefined && scroll.offsetRow !== window.offsetRow) {
-    throw new TypeError('listView scroll offset must equal its measured window offset.');
-  }
+  assertListViewScrollConsistency(scroll, scrollbar, scrollPolicy, window.offsetRow);
   const model: ListViewModel = {
     items: items.map(({
       id,
@@ -549,17 +519,20 @@ export function listView<
     ...model,
     id: options.id,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+    ...(options.inert === undefined ? {} : { inert: options.inert }),
     ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
     slots: { items: items.map((item) => item.content) },
   };
-  if (options.disabled === true) return instantiateListView({
+  assertOptionalCallback(options.onActivate, 'collections onActivate');
+  if (options.disabled === true && options.onTransition === undefined) return instantiateListView({
     ...shared,
     disabled: true,
     ...(options.inert === undefined ? {} : { inert: options.inert }),
   });
-  if (options.inert === true) return instantiateListView({ ...shared, inert: true });
-  assertRequiredCallback(options.onTransition, 'listView onTransition');
+  if (options.inert === true && options.onTransition === undefined) return instantiateListView({ ...shared, inert: true });
+  assertRequiredPropertyCallback(options, 'onTransition', 'listView onTransition');
   assertOptionalCallback(options.onActivate, 'listView onActivate');
   return instantiateListView({
     ...shared,
@@ -571,6 +544,26 @@ export function listView<
         : options.onTransition(action.transition);
     },
   });
+}
+
+function assertListViewScrollConsistency(
+  scroll: ScrollState | undefined,
+  scrollbar: ScrollbarOptions | undefined,
+  scrollPolicy: ScrollPolicy | undefined,
+  windowOffsetRow: number,
+): void {
+  if (scrollbar?.axis !== undefined && scrollbar.axis !== 'vertical') {
+    throw new TypeError('listView scrollbar axis must be vertical.');
+  }
+  if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
+    throw new TypeError('listView scrollbar and scrollPolicy require scroll state.');
+  }
+  if (scroll === undefined && windowOffsetRow !== 0) {
+    throw new TypeError('An unscrolled listView requires a measured window at offset row zero.');
+  }
+  if (scroll !== undefined && scroll.offsetRow !== windowOffsetRow) {
+    throw new TypeError('listView scroll offset must equal its measured window offset.');
+  }
 }
 
 function isScrollableListViewOptions<
@@ -670,12 +663,6 @@ function normalizeListViewScroll(scroll: ScrollState | undefined, totalRows: num
       viewportRows: bounds.height,
       viewportColumns: bounds.width,
     });
-}
-
-function selectionContains(selection: SelectionState, id: string): boolean {
-  return selection.mode === 'single'
-    ? selection.selectedId === id
-    : selection.mode === 'multiple' && selection.selectedIds.includes(id);
 }
 
 function transition(transition: ListViewTransition): ListViewComponentAction {

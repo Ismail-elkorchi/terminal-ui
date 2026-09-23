@@ -6,7 +6,6 @@ import {
   createLogHistory,
   createSearchPickerIndex,
   createTreeSource,
-  createTreeView,
 } from '../../dist/behavior/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
 
@@ -156,7 +155,7 @@ function tree(options) {
   const source = createTreeSource(nodes);
   return createTree({ meta: { accessibleName: "Tree" },
     state,
-    view: createTreeView(source, state),
+    source: source,
     onTransition: noMessage,
     ...rest
   });
@@ -193,7 +192,7 @@ test('button and text input use user style slots', () => {
 }), { columns: 12, rows: 1 });
   const inputFrame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'styled-input',
-    state: { value: 'abc', cursor: 0 },
+    state: { text: 'abc', cursor: 0 },
     styles: {
             parts: { value: tokenStyle('status.warning') },
             states: { focused: { root: tokenStyle('status.warning') } }
@@ -269,7 +268,7 @@ test('ghost buttons inherit their surface until focus makes them visible', () =>
 test('text entry frames use shared border, focus, and error styles', () => {
   const inputFrame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'query',
-    state: { value: 'abc', cursor: 0 },
+    state: { text: 'abc', cursor: 0 },
     styles: {
             parts: { border: tokenStyle('status.info') },
             states: { focused: { root: tokenStyle('status.success') } }
@@ -424,7 +423,7 @@ test('default interactive component anatomy uses theme tokens instead of termina
 }), { columns: 16, rows: 1 }, { focusPath: ['none'] });
   const inputFrame = renderElementFrame(textInput({
     id: 'query',
-    state: { value: 'find', cursor: 0 },
+    state: { text: 'find', cursor: 0 },
     meta: { accessibleName: "Text input",
         focus: { disabled: true }
     }
@@ -681,7 +680,7 @@ test('structural text roles use shared visual grammar', () => {
 });
 
 test('layout surfaces do not inherit component focus state', () => {
-  const focusedFrame = renderElementFrame(surface(textInput({ meta: { accessibleName: "Text input" }, id: 'pane-field', state: { value: 'Pane', cursor: 0 } }), {
+  const focusedFrame = renderElementFrame(surface(textInput({ meta: { accessibleName: "Text input" }, id: 'pane-field', state: { text: 'Pane', cursor: 0 } }), {
     id: 'focus-surface',
     appearance: 'bar'
   }), { columns: 10, rows: 1 }, { focusPath: ['focus-surface', 'pane-field'], theme: defaultTheme });

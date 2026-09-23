@@ -15,7 +15,7 @@ import type { RangeSliderTransition, RangeSliderHandle } from '../../behavior/ra
 import type { SliderStylePart } from '../style-parts.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
 import type { RangeSliderOptions, SliderOptions } from '../options/forms.ts';
-import { assertTransitionCallback } from './form-control-helpers.ts';
+import { assertTransitionCallback, withoutTransitionCallback } from './form-control-helpers.ts';
 import {
   cleanString,
   controlSpan,
@@ -50,16 +50,7 @@ type SliderFactory = <const TMessage extends ComponentMessage = never>(
   options: SliderOptions<TMessage>,
 ) => Element<TMessage>;
 
-const instantiateSlider = defineComponent<
-  SliderComponentOptions,
-  SliderModel,
-  SliderTransition,
-  SliderStylePart,
-  readonly ['disabled'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['focused', 'disabled']
->({
+const instantiateSlider = defineComponent<SliderComponentOptions, SliderTransition>()({
   name: 'terminal-ui/components/slider',
   identity: 'required',
   structure: 'leaf',
@@ -67,7 +58,7 @@ const instantiateSlider = defineComponent<
   accessibleRole: 'slider',
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
-  parts: ['label', 'track', 'handle', 'value', 'error'],
+  parts: ['label', 'track', 'fill', 'handle', 'value', 'error'],
   visualStates: ['focused', 'disabled'],
   createModel(value) {
     const common = createNumericSliderModel(value, 'slider');
@@ -102,8 +93,9 @@ const instantiateSlider = defineComponent<
 });
 
 export const slider: SliderFactory = (options) => {
-  if (options.disabled === true) {
-    return instantiateSlider(options);
+  if (options.disabled === true && options.onTransition === undefined) {
+    const rest = withoutTransitionCallback(options);
+    return instantiateSlider({ ...rest, disabled: true });
   }
   assertTransitionCallback(options, 'slider');
   const { onTransition, ...rest } = options;
@@ -123,16 +115,7 @@ type RangeSliderFactory = <const TMessage extends ComponentMessage = never>(
   options: RangeSliderOptions<TMessage>,
 ) => Element<TMessage>;
 
-const instantiateRangeSlider = defineComponent<
-  RangeSliderComponentOptions,
-  RangeModel,
-  RangeSliderTransition,
-  SliderStylePart,
-  readonly ['disabled'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['focused', 'active', 'disabled']
->({
+const instantiateRangeSlider = defineComponent<RangeSliderComponentOptions, RangeSliderTransition>()({
   name: 'terminal-ui/components/range-slider',
   identity: 'required',
   structure: 'leaf',
@@ -140,7 +123,7 @@ const instantiateRangeSlider = defineComponent<
   accessibleRole: 'group',
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
-  parts: ['label', 'track', 'handle', 'value', 'error'],
+  parts: ['label', 'track', 'fill', 'handle', 'value', 'error'],
   visualStates: ['focused', 'active', 'disabled'],
   createModel: createRangeSliderModel,
   measure: (input) => measureLines(rangeLines(input, false), input),
@@ -199,8 +182,9 @@ const instantiateRangeSlider = defineComponent<
 });
 
 export const rangeSlider: RangeSliderFactory = (options) => {
-  if (options.disabled === true) {
-    return instantiateRangeSlider(options);
+  if (options.disabled === true && options.onTransition === undefined) {
+    const rest = withoutTransitionCallback(options);
+    return instantiateRangeSlider({ ...rest, disabled: true });
   }
   assertTransitionCallback(options, 'rangeSlider');
   const { onTransition, ...rest } = options;

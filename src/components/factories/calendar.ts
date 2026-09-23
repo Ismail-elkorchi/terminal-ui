@@ -15,7 +15,7 @@ import { decodeCalendarDate } from '../../behavior/calendar.ts';
 import type { CalendarStylePart } from '../style-parts.ts';
 import type { RenderSpan } from '../../visual/render-content.ts';
 import type { CalendarOptions } from '../options/forms.ts';
-import { assertTransitionCallback } from './form-control-helpers.ts';
+import { assertTransitionCallback, withoutTransitionCallback } from './form-control-helpers.ts';
 import {
   assertUnique,
   cleanString,
@@ -46,16 +46,7 @@ type CalendarFactory = <const TMessage extends ComponentMessage = never>(
   options: CalendarOptions<TMessage>,
 ) => Element<TMessage>;
 
-const instantiateCalendar = defineComponent<
-  Omit<CalendarOptions<ComponentMessage>, 'id' | 'disabled' | 'onTransition' | 'styles' | 'meta'>,
-  CalendarModel,
-  CalendarTransition,
-  CalendarStylePart,
-  readonly ['disabled'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['focused', 'selected', 'disabled']
->({
+const instantiateCalendar = defineComponent<Omit<CalendarOptions<ComponentMessage>, 'id' | 'disabled' | 'onTransition' | 'styles' | 'meta'>, CalendarTransition>()({
   name: 'terminal-ui/components/calendar',
   identity: 'required',
   structure: 'leaf',
@@ -122,8 +113,9 @@ const instantiateCalendar = defineComponent<
 });
 
 export const calendar: CalendarFactory = (options) => {
-  if (options.disabled === true) {
-    return instantiateCalendar(options);
+  if (options.disabled === true && options.onTransition === undefined) {
+    const rest = withoutTransitionCallback(options);
+    return instantiateCalendar({ ...rest, disabled: true });
   }
   assertTransitionCallback(options, 'calendar');
   const { onTransition, ...rest } = options;

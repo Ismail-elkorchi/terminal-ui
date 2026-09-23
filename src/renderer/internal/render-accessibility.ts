@@ -13,7 +13,7 @@ import type { AccessibilityOptions, AccessibleNode } from '../../accessibility/i
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNode } from './render-tree/index.ts';
 import type { FocusPath } from './focus.ts';
-import type { LayoutNode } from '../contracts.ts';
+import type { LayoutNode, RenderInstrumentation } from '../contracts.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import { intersectRects } from './rect.ts';
 import { isDecorativeAccessibility } from './decorative.ts';
@@ -31,6 +31,7 @@ export function accessibleNode(
   accessibleNodes = new Map<RenderNode, AccessibleNode>(),
   budget?: RenderBudget,
   depth = 0,
+  instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
 ): AccessibleNode | undefined {
   if (node.inert) return undefined;
   const id = renderNode.id ?? `anonymous:${node.layer.id}`;
@@ -52,6 +53,7 @@ export function accessibleNode(
     accessibleNodes,
     budget,
     depth,
+    instrumentation,
   ) ?? [];
   const focus = renderFocusRelation(focusPath, path);
   const focusedTargetId = focusedTargetIdForLayoutNode(node, path, focusPath);
@@ -65,7 +67,8 @@ export function accessibleNode(
     renderedChildren,
     accessibleNodes,
     theme,
-    widthProfile
+    widthProfile,
+    instrumentation,
   );
   const children = base.children ?? (renderedChildren.length === 0 ? undefined : renderedChildren);
   const result = mergeAccessibleNode(withScope(base, renderNode), renderNode.accessibility, children);
@@ -84,6 +87,59 @@ export function accessibleNode(
   }
   accessibleNodes.set(renderNode, result);
   return result;
+}
+
+export function accessibleSourceForTarget(
+  root: AccessibleNode,
+  rendered: ReadonlyMap<RenderNode, AccessibleNode>,
+  target: string | undefined,
+): string | undefined {
+  if (target === undefined) return undefined;
+  const owners = new Map<string, { readonly name: string; readonly id: string }>();
+  for (const [renderNode, node] of rendered) {
+    if (renderNode.kind === 'component') {
+      owners.set(node.id, { name: renderNodeFactoryName(renderNode), id: renderNode.id ?? node.id });
+    }
+  }
+  const pending = [{ node: root, owner: undefined as { readonly name: string; readonly id: string } | undefined }];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (current === undefined) continue;
+    const owner = owners.get(current.node.id) ?? current.owner;
+    if (current.node.id === target) {
+      return owner === undefined ? undefined
+        : `component ${JSON.stringify(owner.name)} (instance ${JSON.stringify(owner.id)})`;
+    }
+    for (const child of current.node.children ?? []) pending.push({ node: child, owner });
+  }
+  return undefined;
+}
+
+export class AccessibleRelationshipError extends Error {
+  readonly target: string;
+
+  constructor(message: string, target: string) {
+    super(message);
+    this.target = target;
+  }
+}
+
+function relationshipError(root: AccessibleNode, target: string, message: string): AccessibleRelationshipError {
+  const pending = [{ node: root, path: [root.id] }];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (current === undefined) continue;
+    if (current.node.id === target) {
+      return new AccessibleRelationshipError(
+        `${message} Node ${JSON.stringify(target)} at ${current.path.map((id) => JSON.stringify(id)).join(' / ')}.`,
+        target,
+      );
+    }
+    for (const child of current.node.children ?? []) {
+      pending.push({ node: child, path: [...current.path, child.id] });
+    }
+  }
+  return new AccessibleRelationshipError(message, target);
 }
 
 function accessibleDescendantIds(children: readonly AccessibleNode[]): ReadonlySet<string> {
@@ -109,23 +165,24 @@ export function withControlLabelRelationships(
   const labelsByTarget = new Map<string, string>();
   for (const { labelId, targetId } of labels) {
     if (!accessibleNodes.has(labelId)) {
-      throw new Error(`Control label "${labelId}" is not present in the accessibility tree.`);
+      throw relationshipError(root, labelId, `Control label "${labelId}" is not present in the accessibility tree.`);
     }
     const target = accessibleNodes.get(targetId);
     if (target === undefined) {
-      throw new Error(`Control label "${labelId}" targets missing accessible control "${targetId}".`);
+      throw relationshipError(root, labelId, `Control label "${labelId}" targets missing accessible control "${targetId}".`);
     }
     if (targetId === labelId) {
-      throw new Error(`Control label "${labelId}" cannot label itself.`);
+      throw relationshipError(root, labelId, `Control label "${labelId}" cannot label itself.`);
     }
     if (target.labelledBy !== undefined && target.labelledBy !== labelId) {
-      throw new Error(
+      throw relationshipError(root, targetId,
         `Accessible control "${targetId}" already has labelledBy "${target.labelledBy}".`
       );
     }
     const existing = labelsByTarget.get(targetId);
     if (existing !== undefined) {
-      throw new Error(`Accessible control "${targetId}" has multiple labels: "${existing}" and "${labelId}".`);
+      throw relationshipError(root, targetId,
+        `Accessible control "${targetId}" has multiple labels: "${existing}" and "${labelId}".`);
     }
     labelsByTarget.set(targetId, labelId);
   }
@@ -230,6 +287,7 @@ function accessibleChildren(
   accessibleNodes: Map<RenderNode, AccessibleNode>,
   budget: RenderBudget | undefined,
   depth: number,
+  instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
 ): readonly AccessibleNode[] | undefined {
   const children = renderNode.children ?? [];
   if (children.length === 0) return undefined;
@@ -249,6 +307,7 @@ function accessibleChildren(
       accessibleNodes,
       budget,
       depth + 1,
+      instrumentation,
     );
     return accessible === undefined ? [] : [accessible];
   });

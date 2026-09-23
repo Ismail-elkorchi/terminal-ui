@@ -15,32 +15,24 @@ export interface RuntimeReduction<TState, TMessage> {
   readonly messages: readonly PendingTuiMessage<TMessage>[];
   readonly cancelEffects: readonly string[];
   readonly effects: readonly TuiEffect<TMessage>[];
+  readonly effectOrigins: readonly boolean[];
   readonly focus?: InitialFocusSelector;
   readonly exitReason?: string;
 }
 
-export function createRuntimeStore<TState, TMessage>(
+export function createRuntimeReducer<TState, TMessage>(
   update: TuiUpdate<TState, TMessage>,
   messageDispatched: () => void
 ) {
-  let current: RuntimeStateSlot<TState> = { kind: 'empty' };
-  let stateVersion = 0;
-
-  const store = {
-    initialize(state: TState) {
-      current = { kind: 'ready', value: state };
-    },
-    hasState: () => current.kind === 'ready',
-    state: committedState,
-    version: () => stateVersion,
-    reduce(messages: readonly PendingTuiMessage<TMessage>[], context: TuiContext) {
-      let state = committedState();
+  const reducer = {
+    reduce(state: TState, stateVersion: number, messages: readonly PendingTuiMessage<TMessage>[], context: TuiContext) {
       let nextStateVersion = stateVersion;
       let exitReason: string | undefined;
       let focus: InitialFocusSelector | undefined;
       const applied: PendingTuiMessage<TMessage>[] = [];
       const cancelEffects = new Set<string>();
       const effects: TuiEffect<TMessage>[] = [];
+      const effectOrigins: boolean[] = [];
       for (const item of messages) {
         if (exitReason !== undefined) break;
         messageDispatched();
@@ -48,6 +40,9 @@ export function createRuntimeStore<TState, TMessage>(
         applied.push(item);
         for (const id of result.cancelEffects ?? []) cancelEffects.add(id);
         effects.push(...(result.effects ?? []));
+        for (let index = 0; index < (result.effects?.length ?? 0); index += 1) {
+          effectOrigins.push(item.redacted === true);
+        }
         if (result.focus !== undefined) focus = result.focus;
         if (!Object.is(result.state, state)) nextStateVersion += 1;
         state = result.state;
@@ -59,23 +54,11 @@ export function createRuntimeStore<TState, TMessage>(
         messages: applied,
         cancelEffects: [...cancelEffects],
         effects,
+        effectOrigins,
         ...(focus === undefined ? {} : { focus }),
         ...(exitReason === undefined ? {} : { exitReason })
       };
-    },
-    commit(reduction: RuntimeReduction<TState, TMessage>) {
-      current = { kind: 'ready', value: reduction.state };
-      stateVersion = reduction.stateVersion;
     }
   };
-  return store;
-
-  function committedState(): TState {
-    if (current.kind === 'empty') throw new Error('TUI runtime does not have state.');
-    return current.value;
-  }
+  return reducer;
 }
-
-type RuntimeStateSlot<TState> =
-  | { readonly kind: 'empty' }
-  | { readonly kind: 'ready'; readonly value: TState };

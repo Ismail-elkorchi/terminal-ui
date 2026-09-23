@@ -245,6 +245,7 @@ export type TuiRunResult<TState> = Exclude<
 export interface TuiRuntimeOptions<TState, TMessage> {
   readonly app: TuiApp<TState, TMessage>;
   readonly host: TerminalHost;
+  readonly instrumentation?: import('../renderer/contracts.ts').RenderInstrumentation;
   readonly graphics?: TerminalGraphicsMode;
   readonly graphicsBudget?: Partial<GraphicsBudgetLimits>;
   readonly initialFocus?: InitialFocusSelector;
@@ -285,23 +286,28 @@ export interface TuiLifecyclePolicy {
   readonly hostDisposalTimeoutMs?: number;
 }
 
+/** Owns one serialized application session and publishes state, frame, focus, and output together. */
 export interface TuiRuntime<TState, TMessage> {
+  /** Initializes the app and publishes its first frame before resolving. */
   start(): Promise<Frame>;
+  /** Reduces one message and waits for its accepted frame/output commit. */
   dispatch(message: TMessage): Promise<TState>;
+  /** Reduces a message batch in order through the same transaction queue. */
   dispatchMany(messages: readonly TMessage[]): Promise<TState>;
   copySelectedText(
     input: import('./selection.ts').CopySelectedTextInput,
   ): Promise<import('./selection.ts').CopySelectedTextResult>;
   resize(terminalSize: TerminalSize): Promise<Frame>;
+  /** Routes one decoded event against the committed interaction snapshot. */
   handleInput(event: InputEvent): Promise<TuiInputResult<TState>>;
   handleInputChunk(chunk: TerminalInputChunk): Promise<TuiInputBatchResult<TState>>;
+  /** Drains buffered input boundaries and waits for their commits. */
   flushInput(): Promise<readonly TuiInputResult<TState>[]>;
-  replaceTerminalProfile(options: InputPipelineOptions & { readonly capabilities: TerminalCapabilityProfile }): void;
-  resetInput(): void;
-  suspendOutput(): Promise<void>;
-  resumeOutput(): void;
+  /** Rebuilds the view and frame even when state identity is unchanged. */
   redraw(): Promise<Frame>;
+  /** Waits for the next committed frame or exit; aborting cancels only this waiter. */
   nextChange(signal?: AbortSignal): Promise<TuiRuntimeChange<TState>>;
+  /** Cancels owned work and releases the runtime. Subsequent input is rejected. */
   dispose(options?: TuiRuntimeDisposeOptions): Promise<void>;
   state(): TState;
   frame(): Frame | undefined;

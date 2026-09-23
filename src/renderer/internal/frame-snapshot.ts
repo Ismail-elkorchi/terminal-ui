@@ -77,18 +77,3 @@ export function snapshotRow(
 ): FrameSnapshotRowIndex | undefined {
   return metadata.rowIndexes.find((entry) => entry.row === row);
 }
-
-export function sameSnapshotContents(
-  left: FrameSnapshotMetadata,
-  right: FrameSnapshotMetadata,
-): boolean {
-  if (left.fingerprint !== right.fingerprint) return false;
-  const rows = new Set([
-    ...left.rowIndexes.map((entry) => entry.row),
-    ...right.rowIndexes.map((entry) => entry.row),
-  ]);
-  for (const row of rows) {
-    if (!sameSnapshotRow(snapshotRow(left, row), snapshotRow(right, row))) return false;
-  }
-  return true;
-}

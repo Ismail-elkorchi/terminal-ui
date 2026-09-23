@@ -13,18 +13,13 @@ import type {
   ElementStyles,
   ElementVisualState,
 } from '../element/metadata.ts';
-import { elementStateFields } from '../element/metadata.ts';
 import { decodeComponentSemanticInspection } from '../element/semantic-inspection.ts';
-import { decodeElementStyles } from '../element/styles.ts';
 import type { ComponentSemanticInspection } from '../element/inspection.ts';
 import { renderNodeId } from '../foundation/identity.ts';
 import {
-  findUnsupportedField,
-  isNonArrayObject,
-  isStringMember
+  isNonArrayObject
 } from '../foundation/validation.ts';
 import type { Rect } from '../geometry/types.ts';
-import { sanitizeTerminalText } from '../text/index.ts';
 import type {
   MessageResolution,
   PointerInteractionState
@@ -38,7 +33,6 @@ import {
   componentElementFromRenderNode,
   markImplementationStructure,
   mapElementMessages,
-  resolveRenderNodeStyle,
   renderNodeInteraction,
   toRenderNode,
   toMappedRenderNodes,
@@ -47,7 +41,6 @@ import {
 import type {
   RenderNode,
   RenderNodeOfKind,
-  RenderNodeRenderer,
   RuntimeComponentDefinition
 } from '../renderer/internal/render-tree/component-node.ts';
 import type {
@@ -57,22 +50,20 @@ import type {
   RenderFocusRelation,
   FrameSourceInput,
   RenderStyleInput,
-  RenderTarget
+  ComponentRenderTarget
 } from '../renderer/contracts.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { TextWidthProfile } from '../text/index.ts';
 import type { TerminalStyle } from '../visual/render-content.ts';
 import type { FrameCellSource } from '../visual/frame-source.ts';
-import { renderNodeFrameSource } from '../visual/frame-source.ts';
 import {
   executeComponentPhase,
   type ComponentDefinitionName
 } from './execution-error.ts';
 import { mapComponentAction, type ComponentMessage } from './message.ts';
-import {
-  mappedKeyBindings,
-  decodeComponentHitTargets
-} from './action-routing.ts';
+import { assertDefinition } from './definition-validation.ts';
+import { adaptDefinition } from './definition-adapter.ts';
+import { extractComponentOptions, normalizeComponentState, decodeFocusScope, decodeElementLayer } from './instance-validation.ts';
 
 export {
   ComponentExecutionError,
@@ -175,6 +166,7 @@ export interface ComponentInteractionInput<
   readonly frameSource: (input?: ComponentFrameSourceInput) => FrameCellSource;
 }
 
+/** Measures preferred and minimum cell sizes before layout; constraints bound available space. */
 export interface ComponentMeasureInput<
   TModel extends object,
   TSlots extends ComponentSlotShape = ComponentSlotShape
@@ -215,11 +207,12 @@ export interface ComponentCapturedMessageInput<TModel extends object>
   readonly message: unknown;
 }
 
+/** Input to a synchronous render hook. `target` uses zero-based local cells and is valid only during this call. */
 export interface ComponentRenderInput<
   TModel extends object,
   TPart extends string = string
 > extends ComponentInteractionInput<TModel, TPart> {
-  readonly target: RenderTarget;
+  readonly target: ComponentRenderTarget;
   readonly focus: RenderFocusRelation;
   readonly focusedTargetId?: string;
 }
@@ -427,7 +420,7 @@ export type SemanticLeafComponentDefinition<
     readonly render: (
       this: undefined,
       input: ComponentRenderInput<TModel, TPart>
-    ) => void;
+    ) => undefined;
   };
 
 export type DecorativeLeafComponentDefinition<
@@ -453,7 +446,7 @@ export type DecorativeLeafComponentDefinition<
     readonly render: (
       this: undefined,
       input: ComponentRenderInput<TModel, TPart>
-    ) => void;
+    ) => undefined;
   };
 
 /** A semantic leaf definition with invariant structure fields supplied by the authoring helper. */
@@ -527,11 +520,11 @@ export type SemanticCompositeComponentDefinition<
     readonly renderBeforeChildren?: (
       this: undefined,
       input: ComponentRenderInput<TModel, TPart>
-    ) => void;
+    ) => undefined;
     readonly renderAfterChildren?: (
       this: undefined,
       input: ComponentRenderInput<TModel, TPart>
-    ) => void;
+    ) => undefined;
   };
 
 export type SemanticComposedComponentDefinition<
@@ -670,10 +663,10 @@ type StateOptions<TStates extends readonly ComponentStateCapability[]> = Readonl
 type AvailableActionState<TStates extends readonly ComponentStateCapability[]> =
   Omit<StateOptions<TStates>, 'disabled' | 'inert'>
   & ('disabled' extends TStates[number]
-      ? { readonly disabled?: false }
+      ? { readonly disabled?: boolean }
       : Record<never, never>)
   & ('inert' extends TStates[number]
-      ? { readonly inert?: false }
+      ? { readonly inert?: boolean }
       : Record<never, never>);
 
 type UnavailableActionState<TStates extends readonly ComponentStateCapability[]> =
@@ -686,7 +679,7 @@ type UnavailableActionState<TStates extends readonly ComponentStateCapability[]>
   | ('inert' extends TStates[number]
       ? Omit<StateOptions<TStates>, 'disabled' | 'inert'> & {
           readonly inert: true;
-          readonly disabled?: false;
+          readonly disabled?: boolean;
         }
       : never);
 
@@ -701,12 +694,16 @@ type StatefulActionOptions<
 > = [TAction] extends [never]
   ? StateOptions<TStates> & { readonly onAction?: never }
   : 'disabled' extends TStates[number]
-    ? (UnavailableActionState<TStates> & { readonly onAction?: never })
+    ? (UnavailableActionState<TStates> & {
+        readonly onAction?: (action: TAction) => MessageResolution<TMessage>;
+      })
       | (AvailableActionState<TStates> & {
           readonly onAction: (action: TAction) => MessageResolution<TMessage>;
         })
     : 'inert' extends TStates[number]
-      ? (UnavailableActionState<TStates> & { readonly onAction?: never })
+      ? (UnavailableActionState<TStates> & {
+          readonly onAction?: (action: TAction) => MessageResolution<TMessage>;
+        })
         | (AvailableActionState<TStates> & {
             readonly onAction: (action: TAction) => MessageResolution<TMessage>;
           })
@@ -841,6 +838,43 @@ type CallerSlotsOption<
     ? { readonly slots?: TValues }
     : { readonly slots: TValues };
 
+/** Second stage of `defineComponent<Props, Action>()`; infers model and declared capabilities from the definition. */
+export interface StagedComponentFactory<TOptions extends object, TAction> {
+  <
+    TModel extends object = TOptions,
+    const TPart extends string = never,
+    const TStates extends readonly ComponentStateCapability[] = readonly [],
+    TIdentity extends ComponentIdentity = 'required',
+    const TMetadata extends readonly ComponentMetadataCapability[] = readonly [],
+    const TVisualStates extends readonly ComponentVisualState[] = readonly [],
+  >(
+    definition: SemanticLeafComponentDefinition<TOptions, TModel, TAction, TPart, TStates, TIdentity, TMetadata, TVisualStates>
+  ): SemanticLeafComponentFactory<TOptions, TAction, TPart, TStates, TIdentity, TMetadata, TVisualStates>;
+  <
+    TModel extends object = TOptions,
+    const TPart extends string = never,
+    TIdentity extends ComponentIdentity = 'optional',
+    const TMetadata extends readonly Extract<ComponentMetadataCapability, 'layer' | 'styles'>[] = readonly [],
+    const TVisualStates extends readonly ComponentVisualState[] = readonly [],
+  >(
+    definition: DecorativeLeafComponentDefinition<TOptions, TModel, TPart, TIdentity, TMetadata, TVisualStates>
+  ): DecorativeLeafComponentFactory<TOptions, TPart, TIdentity, TMetadata, TVisualStates>;
+  <
+    TModel extends object = TOptions,
+    const TPart extends string = never,
+    const TStates extends readonly ComponentStateCapability[] = readonly [],
+    TIdentity extends ComponentIdentity = 'required',
+    const TMetadata extends readonly ComponentMetadataCapability[] = readonly [],
+    const TSlots extends ComponentSlotsDefinition = Readonly<Record<never, never>>,
+    const TVisualStates extends readonly ComponentVisualState[] = readonly [],
+  >(
+    definition: SemanticCompositeComponentDefinition<TOptions, TModel, TAction, TPart, TStates, TIdentity, TMetadata, TSlots, TVisualStates>
+      | SemanticComposedComponentDefinition<TOptions, TModel, TAction, TPart, TStates, TIdentity, TMetadata, TSlots, TVisualStates>
+  ): SemanticCompositeComponentFactory<TOptions, TAction, TPart, TStates, TIdentity, TMetadata, TSlots, TVisualStates>;
+}
+
+/** Declare component options and actions, then infer capabilities from the definition. */
+export function defineComponent<TOptions extends object, TAction = never>(): StagedComponentFactory<TOptions, TAction>;
 export function defineComponent<
   TOptions extends object = Readonly<Record<never, never>>,
   TModel extends object = TOptions,
@@ -907,8 +941,9 @@ export function defineComponent<
   TSlots extends ComponentSlotsDefinition,
   TVisualStates extends readonly ComponentVisualState[]
 >(
-  definition: unknown
+  definition?: unknown
 ): unknown {
+  if (arguments.length === 0) return defineComponent;
   assertDefinition(definition);
   const suppliedDefinition = definition as ComponentDefinition<
     TOptions,
@@ -963,7 +998,7 @@ function createDefinedComponentElement<
     const instance = extractComponentOptions(value, contract);
     const state = ownedDefinition.semantics === 'decorative'
       ? emptyComponentState
-      : normalizeComponentState(instance, contract.states);
+      : normalizeComponentState(instance, contract.stateSet);
     const model = createComponentModel(instance, ownedDefinition, state);
     const toActionMessage = instance.onAction;
     const behavior = componentBehaviorInput(
@@ -1222,7 +1257,7 @@ export function defineDecorativeLeafComponent(definition: unknown): unknown {
   });
 }
 
-interface ComponentInstanceOptions {
+export interface ComponentInstanceOptions {
   readonly id?: string;
   readonly slots?: unknown;
   readonly disabled?: boolean;
@@ -1244,7 +1279,7 @@ interface ComponentSlotContent {
   readonly ranges: readonly ComponentSlotRange[];
 }
 
-interface ComponentSlotRange {
+export interface ComponentSlotRange {
   readonly name: string;
   readonly start: number;
   readonly count: number;
@@ -1257,13 +1292,15 @@ const emptyComponentSlotContent: ComponentSlotContent = Object.freeze({
   ranges: Object.freeze([])
 });
 
-interface ComponentRuntimeContract {
+export interface ComponentRuntimeContract {
   readonly name: ComponentDefinitionName;
   readonly identity: ComponentIdentity;
   readonly structure: 'leaf' | 'composite' | 'composed';
   readonly semantics: 'semantic' | 'decorative';
   readonly states: readonly ComponentStateCapability[];
+  readonly stateSet: ReadonlySet<ComponentStateCapability>;
   readonly metadata: readonly ComponentMetadataCapability[];
+  readonly metadataFieldSet: ReadonlySet<string>;
   readonly slots: readonly RuntimeComponentSlot[];
   readonly partSet: ReadonlySet<string>;
   readonly visualStateSet: ReadonlySet<ComponentVisualState>;
@@ -1277,7 +1314,7 @@ interface RuntimeComponentSlot {
   readonly messages: ComponentSlotMessagePolicy;
 }
 
-interface CompiledComponentDefinition<
+export interface CompiledComponentDefinition<
   TOptions extends object,
   TModel extends object,
   TAction,
@@ -1362,7 +1399,12 @@ function compileDefinition<
       structure: definition.structure,
       semantics: definition.semantics,
       states: Object.freeze([...(definition.states ?? [])]),
+      stateSet: new Set(definition.states ?? []),
       metadata: Object.freeze([...(definition.metadata ?? [])]),
+      metadataFieldSet: new Set([
+        ...(definition.metadata ?? []).filter((field) => field !== 'styles'),
+        'accessibleName',
+      ]),
       slots: normalizeSlots(definition.slots),
       partSet: new Set(definition.parts ?? []),
       visualStateSet: new Set(definition.visualStates ?? []),
@@ -1401,220 +1443,6 @@ function decodeFocusNavigation(value: unknown): FocusNavigation {
   }
   return Object.freeze({ orientation });
 }
-
-function assertSlotDefinitions(value: unknown, structure: 'leaf' | 'composite' | 'composed'): void {
-  if (value === undefined) return;
-  if (structure === 'leaf') throw new TypeError('Only composite or composed components can declare slots.');
-  if (!isNonArrayObject(value)) throw new TypeError('Component definition slots must be an object.');
-  for (const [name, slot] of Object.entries(value)) {
-    if (!/^[A-Za-z][A-Za-z0-9_.-]*$/u.test(name)) {
-      throw new TypeError(`Component slot name "${name}" is invalid.`);
-    }
-    if (!isNonArrayObject(slot)) throw new TypeError(`Component slot "${name}" must be an object.`);
-    const owner = slot['owner'];
-    if (slot['cardinality'] !== 'one'
-      && slot['cardinality'] !== 'optional'
-      && slot['cardinality'] !== 'many') {
-      throw new TypeError(`Component slot "${name}" cardinality is invalid.`);
-    }
-    if (owner !== 'caller' && owner !== 'implementation') {
-      throw new TypeError(`Component slot "${name}" owner is invalid.`);
-    }
-    if (slot['messages'] !== 'bubble' && slot['messages'] !== 'capture' && slot['messages'] !== 'none') {
-      throw new TypeError(`Component slot "${name}" message policy is invalid.`);
-    }
-  }
-}
-
-function assertDefinition(value: unknown): void {
-  if (!isNonArrayObject(value)) throw new TypeError('Component definition must be an object.');
-  const structure = value['structure'];
-  const semantics = value['semantics'];
-  if (structure !== 'leaf' && structure !== 'composite' && structure !== 'composed') {
-    throw new TypeError('Component definition structure must be "leaf", "composite", or "composed".');
-  }
-  if (semantics !== 'semantic' && semantics !== 'decorative') {
-    throw new TypeError('Component definition semantics must be "semantic" or "decorative".');
-  }
-  assertDefinitionIdentityAndAnatomy(value);
-  assertDefinitionSlots(value, structure);
-  assertDefinitionHooks(value, structure);
-  assertDefinitionSemantics(value, structure, semantics);
-  assertDefinitionInteraction(value, structure, semantics);
-}
-
-type ComponentDefinitionStructure = 'leaf' | 'composite' | 'composed';
-type ComponentDefinitionSemantics = 'semantic' | 'decorative';
-
-function assertDefinitionIdentityAndAnatomy(value: Readonly<Record<string, unknown>>): void {
-  if (typeof value['name'] !== 'string' || !isQualifiedComponentName(value['name'])) {
-    throw new TypeError('Component name must be a safe package-qualified identifier such as "acme/widgets/badge".');
-  }
-  const parts = value['parts'];
-  if (parts !== undefined && (!Array.isArray(parts)
-    || parts.some((part) => typeof part !== 'string'
-      || !/^[A-Za-z][A-Za-z0-9_.-]*$/u.test(part)
-      || part === 'root')
-    || new Set(parts).size !== parts.length)) {
-    throw new TypeError('Component parts must contain unique safe identifiers other than "root".');
-  }
-  if (value['identity'] !== 'required' && value['identity'] !== 'optional') {
-    throw new TypeError('Component definition identity must be "required" or "optional".');
-  }
-  assertUniqueStringMembers(value['states'], elementStateFields, 'Component definition states');
-  assertUniqueStringMembers(
-    value['visualStates'],
-    ['focused', 'hovered', 'pressed', 'selected', 'disabled', 'active', 'busy', 'readOnly'],
-    'Component definition visualStates',
-  );
-  assertUniqueStringMembers(value['metadata'], ['focus', 'layer', 'styles'], 'Component definition metadata');
-}
-
-function assertDefinitionSlots(
-  value: Readonly<Record<string, unknown>>,
-  structure: ComponentDefinitionStructure,
-): void {
-  assertSlotDefinitions(value['slots'], structure);
-  const slots = value['slots'];
-  if (structure === 'composite' && (!isNonArrayObject(slots) || Object.keys(slots).length === 0)) {
-    throw new TypeError('Composite component definitions require at least one named slot.');
-  }
-  const slotValues = isNonArrayObject(slots) ? Object.values(slots) : [];
-  const hasCapturedSlot = slotValues.some((slot) => isNonArrayObject(slot) && slot['messages'] === 'capture');
-  if (hasCapturedSlot !== (value['capture'] !== undefined)) {
-    throw new TypeError('Component definition capture must be declared exactly when a slot captures messages.');
-  }
-  const hasImplementationSlot = slotValues.some(
-    (slot) => isNonArrayObject(slot) && slot['owner'] === 'implementation'
-  );
-  if (structure === 'composed' && hasImplementationSlot) {
-    throw new TypeError('Composed component slots must be caller-owned; compose() owns its implementation tree.');
-  }
-  if (structure !== 'composed' && hasImplementationSlot !== (value['implementationSlots'] !== undefined)) {
-    throw new TypeError(
-      'Component definition implementationSlots must be declared exactly when a slot is implementation-owned.'
-    );
-  }
-}
-
-function assertDefinitionHooks(
-  value: Readonly<Record<string, unknown>>,
-  structure: ComponentDefinitionStructure,
-): void {
-  const requiredHooks = structure === 'leaf'
-    ? ['measure', 'render']
-    : structure === 'composite'
-      ? ['measure', 'layout']
-      : ['compose'];
-  for (const hook of requiredHooks) {
-    if (typeof value[hook] !== 'function') throw new TypeError(`Component definition requires ${hook}().`);
-  }
-  for (const hook of optionalComponentDefinitionHooks) {
-    if (value[hook] !== undefined && typeof value[hook] !== 'function') {
-      throw new TypeError(`Component definition ${hook} must be a function when provided.`);
-    }
-  }
-  if (value['createModel'] !== undefined && typeof value['createModel'] !== 'function') {
-    throw new TypeError('Component definition createModel must be a function when provided.');
-  }
-  if (value['inspection'] !== undefined && typeof value['inspection'] !== 'function') {
-    throw new TypeError('Component definition inspection must be a function when provided.');
-  }
-}
-
-const optionalComponentDefinitionHooks = [
-  'renderBeforeChildren',
-  'renderAfterChildren',
-  'capture',
-  'implementationSlots',
-  'layer',
-  'focusScope',
-  'focusTargets',
-  'hitTargets',
-  'keys',
-  'onInput',
-  'onPaste',
-  'onFocus',
-  'onFocusTarget',
-  'focusNavigation',
-] as const;
-
-function assertDefinitionSemantics(
-  value: Readonly<Record<string, unknown>>,
-  structure: ComponentDefinitionStructure,
-  semantics: ComponentDefinitionSemantics,
-): void {
-  if (structure !== 'leaf' && semantics === 'decorative') {
-    throw new TypeError('Decorative component definitions must be leaf components.');
-  }
-  if (semantics === 'semantic' && typeof value['accessibility'] !== 'function') {
-    throw new TypeError('Semantic component definition requires accessibility().');
-  }
-  if (semantics === 'semantic'
-    && typeof value['accessibleRole'] !== 'function'
-    && !isAccessibleRole(value['accessibleRole'])) {
-    throw new TypeError('Semantic component definition accessibleRole must be an accessibility role or resolver.');
-  }
-  if (semantics === 'decorative' && value['accessibleRole'] !== undefined) {
-    throw new TypeError('Decorative component definitions cannot declare accessibleRole.');
-  }
-  if (semantics === 'decorative' && value['accessibility'] !== undefined) {
-    throw new TypeError('Decorative component definitions cannot define accessibility().');
-  }
-  if (semantics === 'decorative' && value['inspection'] !== undefined) {
-    throw new TypeError('Decorative component definitions cannot define inspection().');
-  }
-}
-
-function assertDefinitionInteraction(
-  value: Readonly<Record<string, unknown>>,
-  structure: ComponentDefinitionStructure,
-  semantics: ComponentDefinitionSemantics,
-): void {
-  if (semantics === 'decorative' && decorativeInteractionFields.some((field) => value[field] !== undefined)) {
-    throw new TypeError('Decorative component definitions cannot declare state or interaction.');
-  }
-  if (value['sensitiveInput'] !== undefined && typeof value['sensitiveInput'] !== 'boolean') {
-    throw new TypeError('Component definition sensitiveInput must be a boolean.');
-  }
-  if (value['sensitiveInput'] === true && value['onInput'] === undefined && value['onPaste'] === undefined) {
-    throw new TypeError('A sensitive-input component must declare onInput or onPaste.');
-  }
-  if (value['onFocusTarget'] !== undefined && value['focusTargets'] === undefined) {
-    throw new TypeError('A component with onFocusTarget() must declare focusTargets().');
-  }
-  if (structure === 'leaf'
-    && semantics === 'semantic'
-    && value['focusTargets'] === undefined
-    && (
-      value['keys'] !== undefined
-      || value['onInput'] !== undefined
-      || value['onPaste'] !== undefined
-      || value['onFocus'] !== undefined
-      || value['focusNavigation'] !== undefined
-      || value['sensitiveInput'] === true
-    )) {
-    throw new TypeError(
-      'A semantic leaf component with keyboard, text, paste, or focus-owned behavior must declare focusTargets().'
-    );
-  }
-  if (value['clipChildren'] !== undefined && typeof value['clipChildren'] !== 'boolean') {
-    throw new TypeError('Component definition clipChildren must be a boolean.');
-  }
-}
-
-const decorativeInteractionFields = [
-  'states',
-  'keys',
-  'onInput',
-  'onPaste',
-  'onFocus',
-  'onFocusTarget',
-  'focusNavigation',
-  'focusTargets',
-  'hitTargets',
-  'focusScope',
-] as const;
 
 function runtimeDefinition<
   TOptions extends object,
@@ -1668,329 +1496,6 @@ function runtimeDefinition<
     renderer: adaptDefinition(compiled)
   });
 }
-
-function adaptDefinition<
-  TOptions extends object,
-  TModel extends object,
-  TAction,
-  TPart extends string,
-  TStates extends readonly ComponentStateCapability[],
-  TIdentity extends ComponentIdentity,
-  TMetadata extends readonly ComponentMetadataCapability[],
-  TSlots extends ComponentSlotsDefinition,
-  TVisualStates extends readonly ComponentVisualState[]
->(compiled: CompiledComponentDefinition<
-  TOptions,
-  TModel,
-  TAction,
-  TPart,
-  TStates,
-  TIdentity,
-  TMetadata,
-  TSlots,
-  TVisualStates
->): RenderNodeRenderer<unknown, 'component'> {
-  const { contract, definition } = compiled;
-  const renderer: RenderNodeRenderer<unknown, 'component'> = {
-    ...(definition.semantics !== 'semantic' || definition.keys === undefined
-      ? {}
-      : {
-          keyMap: (input) => executeComponentPhase(
-            definition.name,
-            input.renderNode.id,
-            'keyboard',
-            () => mappedKeyBindings(
-              definition.keys?.call(undefined, {
-                ...componentInput<TModel>(
-                  input.renderNode,
-                  input.layoutNode.bounds,
-                  input.layoutNode.viewport,
-                  input.theme,
-                  input.widthProfile,
-                ),
-                focus: input.focus,
-                ...(input.focusedTargetId === undefined
-                  ? {}
-                  : { focusedTargetId: input.focusedTargetId }),
-              }),
-              input.renderNode.props.toActionMessage,
-              definition.name,
-              input.renderNode.id,
-            ),
-          ),
-        }),
-    ...(definition.structure !== 'leaf' && definition.clipChildren === true ? { clipChildren: true } : {}),
-    measure: (input) => executeComponentPhase(definition.name, input.renderNode.id, 'measure', () =>
-      definition.structure === 'composed'
-        ? input.measureChild(0)
-        : definition.measure.call(undefined, {
-            ...componentBaseInput<TModel>(input.renderNode, input.theme, input.widthProfile),
-            constraints: { width: input.bounds.width, height: input.bounds.height },
-            childCount: input.childCount,
-            measureChild: input.measureChild,
-            slots: componentSlotMeasurements(input.renderNode.props.slots, input.measureChild)
-          })
-    ),
-    ...(definition.structure === 'leaf' ? {} : {
-      layout: (input) => executeComponentPhase(definition.name, input.renderNode.id, 'layout', () =>
-        definition.structure === 'composed'
-          ? [input.bounds]
-          : decodeComponentLayout(definition.layout.call(undefined, {
-              ...componentInput<TModel>(input.renderNode, input.bounds, input.viewport, input.theme, input.widthProfile),
-              childCount: input.childCount,
-              measureChild: input.measureChild,
-              slots: componentSlotMeasurements(input.renderNode.props.slots, input.measureChild)
-            }), contract, input.renderNode.props.slots, localBounds(input.bounds), input.childCount)
-              .map((bounds) => toAbsoluteRect(bounds, input.bounds))
-      )
-    }),
-    render: (input) => {
-      const renderInput = componentRenderInput<TModel, TPart>(contract, input);
-      if (definition.structure === 'leaf') {
-        executeComponentPhase(definition.name, input.renderNode.id, 'paint', () =>
-          { definition.render.call(undefined, renderInput); }
-        );
-        return;
-      }
-      if (definition.structure === 'composed') {
-        input.renderChildren();
-        return;
-      }
-      if (definition.renderBeforeChildren !== undefined) {
-        executeComponentPhase(definition.name, input.renderNode.id, 'paint', () =>
-          definition.renderBeforeChildren?.call(undefined, renderInput)
-        );
-      }
-      input.renderChildren();
-      if (definition.renderAfterChildren !== undefined) {
-        executeComponentPhase(definition.name, input.renderNode.id, 'paint', () =>
-          definition.renderAfterChildren?.call(undefined, renderInput)
-        );
-      }
-    },
-    ...(definition.semantics === 'decorative' ? {} : {
-      accessibility: (input) => executeComponentPhase(
-        definition.name,
-        input.renderNode.id,
-        'accessibility',
-        () => {
-          const accessible = definition.accessibility.call(undefined, {
-            ...componentInput<TModel>(
-              input.renderNode,
-              input.layoutNode.bounds,
-              input.layoutNode.viewport,
-              input.theme,
-              input.widthProfile
-            ),
-            id: input.id,
-            focused: input.focused,
-            focus: input.focus,
-            ...(input.focusedTargetId === undefined ? {} : { focusedTargetId: input.focusedTargetId }),
-            children: input.children,
-            slots: accessibleSlotValues<TSlots>(
-              input.renderNode.props.slots,
-              input.renderNode.children ?? [],
-              input.accessibleNodes
-            )
-          });
-          return input.renderNode.props.accessibleName === undefined
-            ? accessible
-            : { ...accessible, label: input.renderNode.props.accessibleName };
-        },
-      ),
-      ...(definition.focusTargets === undefined ? {} : {
-        focusTargets: (input) => executeComponentPhase(definition.name, input.renderNode.id, 'focus', () =>
-          definition.focusTargets.call(undefined, componentInteractionInput(
-            contract,
-            input.renderNode,
-            input.bounds,
-            input.viewport,
-            input.theme,
-            input.widthProfile
-          )).map((target) => toAbsoluteFocusTarget(target, input.bounds))
-        )
-      }),
-      ...(definition.hitTargets === undefined ? {} : {
-        hitTargets: (input) => executeComponentPhase(definition.name, input.renderNode.id, 'pointer', () =>
-          decodeComponentHitTargets(
-            definition.hitTargets?.call(undefined, componentInteractionInput(
-              contract,
-              input.renderNode,
-              input.bounds,
-              input.layoutNode.viewport,
-              input.theme,
-              input.widthProfile
-            )) ?? [],
-            input.bounds,
-            input.renderNode.props.toActionMessage,
-            definition.name,
-            input.renderNode.id
-          ))
-      })
-    })
-  };
-  return Object.freeze(renderer);
-}
-
-function accessibleSlotValues<TSlots extends ComponentSlotShape>(
-  ranges: readonly ComponentSlotRange[],
-  roots: readonly RenderNode[],
-  accessibleNodes: ReadonlyMap<RenderNode, AccessibleNode>
-): ComponentAccessibleSlotValues<TSlots> {
-  return Object.freeze(Object.fromEntries(ranges.map((range) => [
-    range.name,
-    Object.freeze(range.accessiblePaths.flatMap((path) => {
-      const root = renderNodeAtPath(roots, path);
-      const accessible = root === undefined ? undefined : accessibleNodes.get(root);
-      return accessible === undefined ? [] : [accessible];
-    }))
-  ]))) as ComponentAccessibleSlotValues<TSlots>;
-}
-
-function renderNodeAtPath(
-  roots: readonly RenderNode[],
-  path: readonly number[]
-): RenderNode | undefined {
-  let nodes = roots;
-  let current: RenderNode | undefined;
-  for (const index of path) {
-    current = nodes[index];
-    if (current === undefined) return undefined;
-    nodes = current.children ?? [];
-  }
-  return current;
-}
-
-function componentBaseInput<TModel extends object>(
-  renderNode: {
-    readonly id?: string;
-    readonly props: { readonly model: unknown; readonly accessibleName?: string };
-    readonly state?: ElementState;
-  },
-  theme: TerminalTheme,
-  widthProfile: TextWidthProfile
-): ComponentBaseInput<TModel> {
-  return {
-    ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
-    ...(renderNode.props.accessibleName === undefined
-      ? {}
-      : { accessibleName: renderNode.props.accessibleName }),
-    model: renderNode.props.model as Readonly<TModel>,
-    disabled: renderNode.state?.disabled === true,
-    busy: renderNode.state?.busy === true,
-    readOnly: renderNode.state?.readOnly === true,
-    inert: renderNode.state?.inert === true,
-    theme,
-    widthProfile
-  };
-}
-
-function componentInput<TModel extends object>(
-  renderNode: {
-    readonly id?: string;
-    readonly props: { readonly model: unknown; readonly accessibleName?: string };
-    readonly state?: ElementState;
-  },
-  bounds: Rect,
-  viewport: Rect,
-  theme: TerminalTheme,
-  widthProfile: TextWidthProfile
-): ComponentInput<TModel> {
-  return {
-    ...componentBaseInput<TModel>(renderNode, theme, widthProfile),
-    bounds: localBounds(bounds),
-    viewport: localViewport(bounds, viewport)
-  };
-}
-
-function componentRenderInput<TModel extends object, TPart extends string>(
-  contract: ComponentRuntimeContract,
-  input: Parameters<RenderNodeRenderer<unknown, 'component'>['render']>[0]
-): ComponentRenderInput<TModel, TPart> {
-  return {
-    ...componentInteractionInput<TModel, TPart>(
-      contract,
-      input.renderNode,
-      input.layoutNode.bounds,
-      input.layoutNode.viewport,
-      input.theme,
-      input.widthProfile
-    ),
-    target: input.buffer,
-    focus: input.focus,
-    ...(input.focusedTargetId === undefined ? {} : { focusedTargetId: input.focusedTargetId }),
-    ...(input.pointerState === undefined ? {} : { pointerState: input.pointerState }),
-  };
-}
-
-function componentInteractionInput<TModel extends object, TPart extends string>(
-  contract: ComponentRuntimeContract,
-  renderNode: Parameters<typeof resolveRenderNodeStyle>[0] & {
-    readonly props: { readonly model: unknown };
-    readonly state?: ElementState;
-  },
-  bounds: Rect,
-  viewport: Rect,
-  theme: TerminalTheme,
-  widthProfile: TextWidthProfile
-): ComponentInteractionInput<TModel, TPart> {
-  return {
-    ...componentInput<TModel>(renderNode, bounds, viewport, theme, widthProfile),
-    ...componentHelpers<TPart>(renderNode, contract)
-  };
-}
-
-function componentHelpers<TPart extends string>(
-  renderNode: Parameters<typeof resolveRenderNodeStyle>[0],
-  contract: ComponentRuntimeContract
-): Pick<ComponentRenderInput<object, TPart>, 'style' | 'frameSource'> {
-  const cachedByContract = componentHelperCache.get(renderNode) ?? new WeakMap<object, ComponentHelpers>();
-  componentHelperCache.set(renderNode, cachedByContract);
-  const cached = cachedByContract.get(contract);
-  if (cached !== undefined) return cached;
-  const styles = new Map<string, ReturnType<typeof resolveRenderNodeStyle>>();
-  const sources = new Map<string, ReturnType<typeof renderNodeFrameSource>>();
-  const helpers: ComponentHelpers = {
-    style(input) {
-      if (input.part !== 'root' && !contract.partSet.has(input.part)) {
-        throw new TypeError(`Component "${contract.name}" requested undeclared style part "${input.part}".`);
-      }
-      const unsupportedState = input.states?.find((state) => !contract.visualStateSet.has(state));
-      if (unsupportedState !== undefined) {
-        throw new TypeError(
-          `Component "${contract.name}" requested undeclared visual state "${unsupportedState}".`,
-        );
-      }
-      const key = JSON.stringify(input);
-      if (styles.has(key)) return styles.get(key);
-      const style = resolveRenderNodeStyle(renderNode, input);
-      styles.set(key, style);
-      return style;
-    },
-    frameSource(input = {}) {
-      const description = input.description ?? input.partName;
-      const key = JSON.stringify({ ...input, description });
-      const cachedSource = sources.get(key);
-      if (cachedSource !== undefined) return cachedSource;
-      const source = renderNodeFrameSource({
-        ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
-        kind: contract.name
-      }, {
-        rendererFamily: 'component',
-        cellRole: 'content',
-        ...input,
-        ...(description === undefined ? {} : { description })
-      });
-      sources.set(key, source);
-      return source;
-    }
-  };
-  cachedByContract.set(contract, helpers);
-  return helpers;
-}
-
-type ComponentHelpers = Pick<ComponentRenderInput<object>, 'style' | 'frameSource'>;
-const componentHelperCache = new WeakMap<object, WeakMap<object, ComponentHelpers>>();
 
 function createComponentModel<
   TOptions extends object,
@@ -2290,115 +1795,6 @@ function slotElements(
   return [value as ElementValue];
 }
 
-function extractComponentOptions(
-  value: unknown,
-  definition: ComponentRuntimeContract
-): ComponentInstanceOptions {
-  if (!isNonArrayObject(value)) {
-    throw new TypeError(`Component "${definition.name}" options must be an object.`);
-  }
-  const instance = { ...value };
-  assertComponentInstanceIdentity(instance, definition);
-  assertComponentInstanceStructure(instance, definition);
-  const meta = adoptComponentInstancePresentation(instance, definition);
-  assertNoInstanceBehavior(instance, definition);
-  if (definition.semantics === 'decorative') {
-    assertDecorativeComponentInstance(instance, meta, definition);
-    return Object.freeze(instance);
-  }
-  assertComponentState(instance, definition);
-  adoptComponentActionMapping(instance, definition);
-  return Object.freeze(instance);
-}
-
-function assertComponentInstanceIdentity(
-  instance: Readonly<Record<string, unknown>>,
-  definition: ComponentRuntimeContract,
-): void {
-  if (definition.identity === 'required'
-    && (typeof instance['id'] !== 'string' || instance['id'].trim() === '')) {
-    throw new TypeError(`Component "${definition.name}" requires a non-empty id.`);
-  }
-  if (instance['id'] !== undefined && (typeof instance['id'] !== 'string' || instance['id'].trim() === '')) {
-    throw new TypeError(`Component "${definition.name}" id must be a non-empty string when provided.`);
-  }
-}
-
-function assertComponentInstanceStructure(
-  instance: Readonly<Record<string, unknown>>,
-  definition: ComponentRuntimeContract,
-): void {
-  if (Object.hasOwn(instance, 'children')) {
-    throw new TypeError(
-      `Component "${definition.name}" options contain unknown field "children"; use declared named slots.`
-    );
-  }
-  if (definition.structure === 'leaf' && instance['slots'] !== undefined) {
-    throw new TypeError(`Component "${definition.name}" is a leaf and cannot contain slots.`);
-  }
-}
-
-function adoptComponentInstancePresentation(
-  instance: Record<string, unknown>,
-  definition: ComponentRuntimeContract,
-): ComponentInstanceOptions['meta'] {
-  const meta = decodeComponentMetadata(instance['meta'], definition);
-  if (meta !== undefined) instance['meta'] = meta;
-  if (instance['styles'] !== undefined) {
-    if (!definition.metadata.includes('styles')) {
-      throw new TypeError(`Component "${definition.name}" does not permit caller styles.`);
-    }
-    instance['styles'] = decodeComponentStyles(instance['styles'], definition);
-  }
-  return meta;
-}
-
-function assertNoInstanceBehavior(
-  instance: Readonly<Record<string, unknown>>,
-  definition: ComponentRuntimeContract,
-): void {
-  for (const removedInstanceHandler of ['keys', 'onInput', 'onPaste', 'pointer'] as const) {
-    if (instance[removedInstanceHandler] !== undefined) {
-      throw new TypeError(
-        `Component "${definition.name}" ${removedInstanceHandler} behavior must be declared by the definition.`
-      );
-    }
-  }
-}
-
-function assertDecorativeComponentInstance(
-  instance: Readonly<Record<string, unknown>>,
-  meta: ComponentInstanceOptions['meta'],
-  definition: ComponentRuntimeContract,
-): void {
-  if (elementStateFields.some((field) => instance[field] !== undefined)
-    || instance['onAction'] !== undefined
-    || meta?.focus !== undefined) {
-    throw new TypeError(
-      `Decorative component "${definition.name}" cannot define state, actions, or focus options.`
-    );
-  }
-}
-
-function adoptComponentActionMapping(
-  instance: Record<string, unknown>,
-  definition: ComponentRuntimeContract,
-): void {
-  const actionful = definition.actionful;
-  const unavailable = instance['disabled'] === true || instance['inert'] === true;
-  if (unavailable) {
-    delete instance['onAction'];
-  } else if (instance['onAction'] !== undefined && typeof instance['onAction'] !== 'function') {
-    throw new TypeError(`Component "${definition.name}" onAction must be a function when provided.`);
-  }
-  if (actionful && !unavailable && typeof instance['onAction'] !== 'function') {
-    throw new TypeError(`Component "${definition.name}" requires onAction to map its semantic actions.`);
-  }
-  if (!unavailable && !actionful && instance['onAction'] !== undefined) {
-    throw new TypeError(`Component "${definition.name}" does not define actions and cannot accept onAction.`);
-  }
-}
-
 function componentBehaviorInput<TModel extends object>(
   id: string | undefined,
   accessibleName: string | undefined,
@@ -2436,78 +1832,6 @@ function resolveComponentAccessibleRole<TModel extends object>(
     throw new TypeError(`Component "${definition.name}" accessibleRole resolver returned an invalid role.`);
   }
   return role;
-}
-
-function normalizeComponentState(
-  value: ComponentInstanceOptions,
-  states: readonly ComponentStateCapability[]
-): Readonly<ElementState> {
-  const enabled = new Set(states);
-  return Object.freeze({
-    ...(enabled.has('disabled') && value.disabled === true ? { disabled: true } : {}),
-    ...(enabled.has('busy') && value.busy === true ? { busy: true } : {}),
-    ...(enabled.has('readOnly') && value.readOnly === true ? { readOnly: true } : {}),
-    ...(enabled.has('inert') && value.inert === true ? { inert: true } : {})
-  });
-}
-
-function assertComponentState(
-  value: Readonly<Record<string, unknown>>,
-  definition: ComponentRuntimeContract
-): void {
-  const allowed = new Set(definition.states);
-  for (const field of elementStateFields) {
-    if (value[field] !== undefined && !allowed.has(field)) {
-      throw new TypeError(`Component "${definition.name}" does not declare the ${field} capability.`);
-    }
-    if (value[field] !== undefined && typeof value[field] !== 'boolean') {
-      throw new TypeError(`Component "${definition.name}" ${field} must be a boolean.`);
-    }
-  }
-}
-
-function decodeComponentMetadata(
-  value: unknown,
-  definition: ComponentRuntimeContract
-): ComponentInstanceOptions['meta'] {
-  if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) {
-    throw new TypeError(`Component "${definition.name}" meta must be an object when provided.`);
-  }
-  const allowed = new Set<string>([
-    ...definition.metadata.filter((field) => field !== 'styles'),
-    'accessibleName',
-  ]);
-  const unsupported = findUnsupportedField(value, allowed);
-  if (unsupported !== undefined) {
-    throw new TypeError(
-      `Component "${definition.name}" does not permit caller metadata field "${unsupported}".`
-    );
-  }
-  const focusValue = value['focus'];
-  const layerValue = value['layer'];
-  const accessibleNameValue = value['accessibleName'];
-  const focus = decodeCallerFocus(focusValue, definition.name);
-  const layer = decodeElementLayer(layerValue, definition.name, 'caller');
-  const accessibleName = accessibleNameValue === undefined
-    ? undefined
-    : cleanComponentAccessibleName(accessibleNameValue, definition.name);
-  return Object.freeze({
-    ...(focus === undefined ? {} : { focus }),
-    ...(layer === undefined ? {} : { layer }),
-    ...(accessibleName === undefined ? {} : { accessibleName }),
-  });
-}
-
-function cleanComponentAccessibleName(value: unknown, component: string): string {
-  if (typeof value !== 'string') {
-    throw new TypeError(`Component "${component}" accessibleName must be a string.`);
-  }
-  const clean = sanitizeTerminalText(value).text.trim();
-  if (clean.length === 0) {
-    throw new TypeError(`Component "${component}" accessibleName must be non-empty.`);
-  }
-  return clean;
 }
 
 function componentInstanceMeta<TModel extends object>(
@@ -2577,308 +1901,4 @@ function componentDefinitionLayer<TModel extends object>(
           'definition'
         )
       );
-}
-
-function decodeCallerFocus(value: unknown, component: string): ElementFocus | undefined {
-  if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) {
-    throw new TypeError(`Component "${component}" meta.focus must be an object.`);
-  }
-  const unsupported = findUnsupportedField(value, new Set(['disabled', 'order']));
-  if (unsupported !== undefined) {
-    throw new TypeError(`Component "${component}" meta.focus contains unknown field "${unsupported}".`);
-  }
-  const disabled = value['disabled'];
-  const order = value['order'];
-  if (disabled !== undefined && typeof disabled !== 'boolean') {
-    throw new TypeError(`Component "${component}" meta.focus.disabled must be a boolean.`);
-  }
-  if (order !== undefined
-    && (typeof order !== 'number'
-      || !Number.isFinite(order)
-      || !Number.isInteger(order))) {
-    throw new TypeError(`Component "${component}" meta.focus.order must be a finite integer.`);
-  }
-  return Object.freeze({
-    ...(disabled === undefined ? {} : { disabled }),
-    ...(order === undefined ? {} : { order })
-  });
-}
-
-function decodeFocusScope(
-  value: unknown,
-  component: string
-): ElementFocusScope | undefined {
-  if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) {
-    throw new TypeError(`Component "${component}" focusScope must return an object or undefined.`);
-  }
-  const unsupported = findUnsupportedField(value, new Set(['kind', 'initialFocus', 'restoreFocus']));
-  if (unsupported !== undefined) {
-    throw new TypeError(`Component "${component}" focusScope contains unknown field "${unsupported}".`);
-  }
-  if (value['kind'] !== 'contain') {
-    throw new TypeError(`Component "${component}" focusScope.kind must be "contain".`);
-  }
-  if (value['restoreFocus'] !== undefined && typeof value['restoreFocus'] !== 'boolean') {
-    throw new TypeError(`Component "${component}" focusScope.restoreFocus must be a boolean.`);
-  }
-  const initialFocus = value['initialFocus'] === undefined
-    ? undefined
-    : decodeInitialFocusSelector(value['initialFocus'], component);
-  return Object.freeze({
-    kind: 'contain' as const,
-    ...(initialFocus === undefined ? {} : { initialFocus }),
-    ...(value['restoreFocus'] === undefined ? {} : { restoreFocus: value['restoreFocus'] })
-  });
-}
-
-function decodeInitialFocusSelector(
-  value: unknown,
-  component: string
-): NonNullable<ElementFocusScope['initialFocus']> {
-  if (!isNonArrayObject(value)) {
-    throw new TypeError(`Component "${component}" initial focus selector must be an object.`);
-  }
-  if (value['kind'] === 'path') {
-    const path = value['path'];
-    const unsupported = findUnsupportedField(value, new Set(['kind', 'path']));
-    if (unsupported !== undefined || !Array.isArray(path)
-      || path.length === 0) {
-      throw new TypeError(`Component "${component}" initial focus path must contain non-empty segments.`);
-    }
-    const ownedPath = path.map((segment: unknown) => {
-      if (typeof segment !== 'string' || segment.trim() === '') {
-        throw new TypeError(`Component "${component}" initial focus path must contain non-empty segments.`);
-      }
-      return segment;
-    });
-    return Object.freeze({ kind: 'path' as const, path: Object.freeze(ownedPath) });
-  }
-  const kind = value['kind'];
-  const supported = kind === 'element'
-    ? new Set(['kind', 'elementId'])
-    : kind === 'elementTarget'
-      ? new Set(['kind', 'elementId', 'targetId'])
-      : undefined;
-  const unsupported = supported === undefined ? undefined : findUnsupportedField(value, supported);
-  if (supported === undefined || unsupported !== undefined
-    || typeof value['elementId'] !== 'string' || value['elementId'].trim() === '') {
-    throw new TypeError(`Component "${component}" initial focus selector is invalid.`);
-  }
-  const elementId = value['elementId'];
-  if (kind === 'element') {
-    return Object.freeze({ kind: 'element' as const, elementId });
-  }
-  const targetId = value['targetId'];
-  if (typeof targetId !== 'string' || targetId.trim() === '') {
-    throw new TypeError(`Component "${component}" initial focus targetId must be non-empty.`);
-  }
-  return Object.freeze({
-    kind: 'elementTarget' as const,
-    elementId,
-    targetId
-  });
-}
-
-function decodeElementLayer(
-  value: unknown,
-  component: string,
-  owner: 'caller' | 'definition'
-): ElementLayer | undefined {
-  if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) {
-    throw new TypeError(`Component "${component}" ${owner} layer must be an object or undefined.`);
-  }
-  const unsupported = findUnsupportedField(
-    value,
-    new Set(['zIndex', 'visible', 'underlay', 'backdrop', 'overflowPriority'])
-  );
-  if (unsupported !== undefined) {
-    throw new TypeError(`Component "${component}" ${owner} layer contains unknown field "${unsupported}".`);
-  }
-  const zIndex = value['zIndex'];
-  const visible = value['visible'];
-  const underlay = value['underlay'];
-  const backdrop = value['backdrop'];
-  const overflowPriority = value['overflowPriority'];
-  if (zIndex !== undefined
-    && (typeof zIndex !== 'number' || !Number.isFinite(zIndex) || !Number.isInteger(zIndex))) {
-    throw new TypeError(`Component "${component}" ${owner} layer.zIndex must be a finite integer.`);
-  }
-  if (visible !== undefined && typeof visible !== 'boolean') {
-    throw new TypeError(`Component "${component}" ${owner} layer.visible must be a boolean.`);
-  }
-  if (underlay !== undefined
-    && !isStringMember(underlay, ['clear', 'preserve', 'inheritBackground'])) {
-    throw new TypeError(`Component "${component}" ${owner} layer.underlay is invalid.`);
-  }
-  if (backdrop !== undefined && backdrop !== 'viewport') {
-    throw new TypeError(`Component "${component}" ${owner} layer.backdrop is invalid.`);
-  }
-  if (overflowPriority !== undefined
-    && !isStringMember(overflowPriority, ['required', 'important', 'secondary', 'decorative'])) {
-    throw new TypeError(`Component "${component}" ${owner} layer.overflowPriority is invalid.`);
-  }
-  return Object.freeze({
-    ...(zIndex === undefined ? {} : { zIndex }),
-    ...(visible === undefined ? {} : { visible }),
-    ...(underlay === undefined ? {} : { underlay }),
-    ...(backdrop === undefined ? {} : { backdrop }),
-    ...(overflowPriority === undefined ? {} : { overflowPriority })
-  });
-}
-
-function decodeComponentStyles(
-  value: unknown,
-  definition: ComponentRuntimeContract
-): ElementStyles {
-  return decodeElementStyles(value, {
-    subject: `Component "${definition.name}" styles`,
-    parts: definition.partSet,
-    states: definition.visualStateSet,
-  });
-}
-
-function assertUniqueStringMembers(
-  value: unknown,
-  allowedValues: readonly string[],
-  subject: string
-): void {
-  if (value === undefined) return;
-  if (!Array.isArray(value)
-    || value.some((member) => typeof member !== 'string' || !allowedValues.includes(member))
-    || new Set(value).size !== value.length) {
-    throw new TypeError(`${subject} must contain unique supported values.`);
-  }
-}
-
-function decodeChildBounds(values: unknown, parent: Rect, childCount: number): readonly Rect[] {
-  if (!Array.isArray(values)) throw new TypeError('Composite component layout must return an array.');
-  if (values.length !== childCount) {
-    throw new RangeError(`Composite component layout returned ${String(values.length)} bounds for ${String(childCount)} children.`);
-  }
-  return Object.freeze(values.map((value, index) => {
-    if (!rectHasValidCoordinates(value) || !rectFits(value, parent)) {
-      throw new RangeError(`Composite component child ${String(index)} returned bounds outside its parent.`);
-    }
-    return Object.freeze({ ...value });
-  }));
-}
-
-function componentSlotMeasurements(
-  ranges: readonly { readonly name: string; readonly start: number; readonly count: number }[],
-  measureChild: (index: number) => Measurement
-): ComponentSlotMeasurements<ComponentSlotsDefinition> {
-  const byName = new Map(ranges.map((range) => [range.name, range]));
-  return Object.freeze({
-    count(name: string) {
-      return byName.get(name)?.count ?? 0;
-    },
-    measure(name: string, index = 0) {
-      const range = byName.get(name);
-      if (range === undefined || !Number.isSafeInteger(index) || index < 0 || index >= range.count) {
-        throw new RangeError(`Component slot "${name}" has no child at index ${String(index)}.`);
-      }
-      return measureChild(range.start + index);
-    }
-  });
-}
-
-function decodeComponentLayout(
-  value: unknown,
-  definition: ComponentRuntimeContract,
-  ranges: readonly { readonly name: string; readonly start: number; readonly count: number }[],
-  parent: Rect,
-  childCount: number
-): readonly Rect[] {
-  if (!isNonArrayObject(value)) throw new TypeError('Composite component layout must return a slot bounds object.');
-  const allowed = new Set(definition.slots.map((slot) => slot.name));
-  const unsupported = findUnsupportedField(value, allowed);
-  if (unsupported !== undefined) {
-    throw new TypeError(`Composite component layout contains unknown slot "${unsupported}".`);
-  }
-  const flattened: Rect[] = [];
-  for (const slot of definition.slots) {
-    const range = ranges.find((candidate) => candidate.name === slot.name);
-    const count = range?.count ?? 0;
-    const current = value[slot.name];
-    const bounds = slot.cardinality === 'many'
-      ? current
-      : current === undefined ? [] : [current];
-    if (!Array.isArray(bounds) || bounds.length !== count) {
-      throw new RangeError(
-        `Composite component slot "${slot.name}" returned invalid bounds for ${String(count)} children.`
-      );
-    }
-    flattened.push(...bounds as Rect[]);
-  }
-  return decodeChildBounds(flattened, parent, childCount);
-}
-
-function localBounds(bounds: Rect): Rect {
-  return Object.freeze({ row: 0, column: 0, width: bounds.width, height: bounds.height });
-}
-
-function localViewport(bounds: Rect, viewport: Rect): Rect {
-  const top = Math.max(bounds.row, viewport.row);
-  const left = Math.max(bounds.column, viewport.column);
-  const bottom = Math.min(bounds.row + bounds.height, viewport.row + viewport.height);
-  const right = Math.min(bounds.column + bounds.width, viewport.column + viewport.width);
-  return Object.freeze({
-    row: Math.max(0, top - bounds.row),
-    column: Math.max(0, left - bounds.column),
-    width: Math.max(0, right - left),
-    height: Math.max(0, bottom - top)
-  });
-}
-
-function toAbsoluteRect(value: Rect, allocation: Rect): Rect {
-  return Object.freeze({
-    row: allocation.row + value.row,
-    column: allocation.column + value.column,
-    width: value.width,
-    height: value.height
-  });
-}
-
-function toAbsoluteFocusTarget(target: FocusTarget, allocation: Rect): FocusTarget {
-  return Object.freeze({
-    ...target,
-    bounds: toAbsoluteRect(target.bounds, allocation),
-    ...(target.cursor === undefined
-      ? {}
-      : {
-          cursor: Object.freeze({
-            ...target.cursor,
-            row: allocation.row + target.cursor.row,
-            column: allocation.column + target.cursor.column
-          })
-        })
-  });
-}
-
-function rectHasValidCoordinates(value: unknown): value is Rect {
-  if (!isNonArrayObject(value)) return false;
-  const width = value['width'];
-  const height = value['height'];
-  return Number.isSafeInteger(value['row'])
-    && Number.isSafeInteger(value['column'])
-    && typeof width === 'number'
-    && Number.isSafeInteger(width)
-    && width >= 0
-    && typeof height === 'number'
-    && Number.isSafeInteger(height)
-    && height >= 0;
-}
-
-function rectFits(value: Rect, parent: Rect): boolean {
-  return value.row >= parent.row
-    && value.column >= parent.column
-    && value.row + value.height <= parent.row + parent.height
-    && value.column + value.width <= parent.column + parent.width;
-}
-
-function isQualifiedComponentName(value: string): boolean {
-  return /^(?:@[A-Za-z][A-Za-z0-9_.-]*\/[A-Za-z][A-Za-z0-9_.-]*|[A-Za-z][A-Za-z0-9_.-]*)(?:\/[A-Za-z][A-Za-z0-9_.-]*)+$/u.test(value);
 }

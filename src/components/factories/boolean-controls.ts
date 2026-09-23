@@ -36,16 +36,7 @@ const instantiateCheckbox: SemanticLeafComponentFactory<
   'required',
   readonly ['focus', 'layer', 'styles'],
   readonly ['focused', 'hovered', 'pressed', 'disabled']
-> = defineComponent<
-  Pick<CheckboxOptions<ComponentMessage>, 'label' | 'checked' | 'required' | 'error'>,
-  CheckboxModel,
-  CheckboxComponentAction,
-  ChoiceStylePart,
-  readonly ['disabled'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['focused', 'hovered', 'pressed', 'disabled']
->({
+> = defineComponent<Pick<CheckboxOptions<ComponentMessage>, 'label' | 'checked' | 'required' | 'error'>, CheckboxComponentAction>()({
   name: 'terminal-ui/components/checkbox',
   identity: 'required',
   structure: 'leaf',
@@ -123,8 +114,9 @@ export const checkbox: CheckboxFactory = (options) => {
     ...(options.error === undefined ? {} : { error: options.error }),
     ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
+    ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
   };
-  if (options.disabled === true) return instantiateCheckbox({ ...own, disabled: true });
+  if (options.disabled === true && options.onTransition === undefined) return instantiateCheckbox({ ...own, disabled: true });
   assertTransitionCallback(options, 'checkbox');
   return instantiateCheckbox({
     ...own,
@@ -157,19 +149,10 @@ const instantiateSwitch: SemanticLeafComponentFactory<
   'required',
   readonly ['focus', 'layer', 'styles'],
   readonly ['focused', 'hovered', 'pressed', 'disabled']
-> = defineComponent<
-  Pick<
+> = defineComponent<Pick<
     SwitchOptions<ComponentMessage>,
     'label' | 'checked' | 'onLabel' | 'offLabel' | 'error'
-  >,
-  ToggleModel,
-  SwitchComponentAction,
-  import('../../components/style-parts.ts').ToggleStylePart,
-  readonly ['disabled'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['focused', 'hovered', 'pressed', 'disabled']
->({
+  >, SwitchComponentAction>()({
   name: 'terminal-ui/components/switch',
   identity: 'required',
   structure: 'leaf',
@@ -251,8 +234,9 @@ export const switchControl: SwitchFactory = (options) => {
     ...(options.error === undefined ? {} : { error: options.error }),
     ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
+    ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
   };
-  if (options.disabled === true) return instantiateSwitch({ ...own, disabled: true });
+  if (options.disabled === true && options.onTransition === undefined) return instantiateSwitch({ ...own, disabled: true });
   assertTransitionCallback(options, 'switchControl');
   return instantiateSwitch({
     ...own,

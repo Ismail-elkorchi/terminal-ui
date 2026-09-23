@@ -1,5 +1,5 @@
 import type { RemovedControlSequence, SanitizedTerminalText, SanitizeTerminalTextOptions } from './types.ts';
-import { segmentGraphemesForMeasurement } from './graphemes.ts';
+import { graphemeBoundaryOffsets, segmentGraphemesForMeasurement } from './graphemes.ts';
 
 const escape = '\u001B';
 const stringTerminator = String.raw`(?:\u001B\\|\u009C)`;
@@ -31,6 +31,114 @@ export function sanitizeTerminalSingleLineText(
   options: SanitizeTerminalTextOptions = {}
 ): SanitizedTerminalText {
   return sanitize(text, options, 'single-line');
+}
+
+/** Source offsets for an editable one-line value whose terminal text may be sanitized. */
+export function projectTerminalSingleLineText(source: string): {
+  readonly text: string;
+  sourceOffsetToDisplay(offset: number): number;
+  displayOffsetToSource(offset: number): number;
+} {
+  const sanitized = sanitizeTerminalSingleLineText(source);
+  if (!sanitized.changed) {
+    return {
+      text: sanitized.text,
+      sourceOffsetToDisplay: (offset) => offset,
+      displayOffsetToSource: (offset) => offset,
+    };
+  }
+
+  const sourceToStripped = new Uint32Array(source.length + 1);
+  const pieces: string[] = [];
+  let sourceOffset = 0;
+  let strippedOffset = 0;
+  for (const removed of sanitized.removedControlSequences) {
+    const start = removed.codeUnitOffset;
+    const end = start + removed.sequence.length;
+    pieces.push(source.slice(sourceOffset, start));
+    while (sourceOffset < start) {
+      sourceToStripped[sourceOffset] = strippedOffset;
+      sourceOffset += 1;
+      strippedOffset += 1;
+      sourceToStripped[sourceOffset] = strippedOffset;
+    }
+    while (sourceOffset < end) {
+      sourceToStripped[sourceOffset] = strippedOffset;
+      sourceOffset += 1;
+      sourceToStripped[sourceOffset] = strippedOffset;
+    }
+  }
+  pieces.push(source.slice(sourceOffset));
+  while (sourceOffset < source.length) {
+    sourceToStripped[sourceOffset] = strippedOffset;
+    sourceOffset += 1;
+    strippedOffset += 1;
+    sourceToStripped[sourceOffset] = strippedOffset;
+  }
+  const stripped = pieces.join('');
+  const strippedToNormalized = new Uint32Array(stripped.length + 1);
+  let normalizedOffset = 0;
+  for (let index = 0; index < stripped.length;) {
+    strippedToNormalized[index] = normalizedOffset;
+    if (stripped[index] === '\r' && stripped[index + 1] === '\n') {
+      strippedToNormalized[index + 1] = normalizedOffset;
+      index += 2;
+    } else {
+      index += 1;
+    }
+    normalizedOffset += 1;
+    strippedToNormalized[index] = normalizedOffset;
+  }
+  const normalized = stripped.replace(/\r\n?/gu, '\n');
+  const normalizedToDisplay = new Uint32Array(normalized.length + 1);
+  let displayOffset = 0;
+  let column = 0;
+  for (const segment of segmentGraphemesForMeasurement(normalized, {})) {
+    for (let index = segment.startOffset; index < segment.endOffsetExclusive; index += 1) {
+      normalizedToDisplay[index] = displayOffset;
+    }
+    if (segment.text === '\n') {
+      displayOffset += 1;
+      column = 0;
+    } else if (segment.text === '\t') {
+      const spaces = terminalTabSize - column % terminalTabSize;
+      displayOffset += spaces;
+      column += spaces;
+    } else {
+      displayOffset += segment.text.length;
+      column += segment.cells;
+    }
+    normalizedToDisplay[segment.endOffsetExclusive] = displayOffset;
+  }
+  if (displayOffset !== sanitized.text.length) {
+    throw new Error('Single-line text projection is inconsistent with terminal sanitization.');
+  }
+  const sourceOffsets = graphemeBoundaryOffsets(source);
+  const displayOffsets = sourceOffsets.map((offset) => {
+    const strippedIndex = sourceToStripped[offset] ?? 0;
+    const normalizedIndex = strippedToNormalized[strippedIndex] ?? 0;
+    return normalizedToDisplay[normalizedIndex] ?? 0;
+  });
+  return {
+    text: sanitized.text,
+    sourceOffsetToDisplay(offset) {
+      return displayOffsets[lastMappedBoundary(sourceOffsets, offset)] ?? 0;
+    },
+    displayOffsetToSource(offset) {
+      return sourceOffsets[lastMappedBoundary(displayOffsets, offset)] ?? 0;
+    },
+  };
+}
+
+function lastMappedBoundary(offsets: readonly number[], target: number): number {
+  let low = 0;
+  let high = offsets.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if ((offsets[middle] ?? Number.POSITIVE_INFINITY) <= target) low = middle + 1;
+    else high = middle;
+  }
+  return Math.max(0, low - 1);
 }
 
 /**

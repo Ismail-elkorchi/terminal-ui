@@ -5,7 +5,6 @@ import {
   createScrollState,
   createTreeCollection,
   createTreeSource,
-  createTreeView,
   createTreeCollectionFromRows,
   selectableTreeRows,
   treeDisclosureTransition,
@@ -43,7 +42,7 @@ const initial = {
 } as const satisfies UnscrolledTreeState;
 
 const source = createTreeSource(nodes);
-const options = { view: createTreeView(source, initial) };
+const options = { source: source };
 
 void test('tree navigation changes active row without changing application selection', () => {
   const moved = treeReducer(initial, { kind: 'moveActive', delta: 1 }, options);
@@ -78,11 +77,11 @@ void test('tree navigation keeps the active row inside the controlled viewport',
 void test('tree disclosure state is independent from immutable node data', () => {
   const collapsed = treeReducer(initial, { kind: 'collapse', id: 'src' }, options);
   const stillCollapsed = treeReducer(collapsed, { kind: 'collapse', id: 'src' }, {
-    view: createTreeView(source, collapsed)
+    source: source
   });
-  const expanded = treeReducer(collapsed, { kind: 'expandAll' }, { view: createTreeView(source, collapsed) });
-  const stillExpanded = treeReducer(expanded, { kind: 'expandAll' }, { view: createTreeView(source, expanded) });
-  const reset = treeReducer(expanded, { kind: 'collapseAll' }, { view: createTreeView(source, expanded) });
+  const expanded = treeReducer(collapsed, { kind: 'expandAll' }, { source: source });
+  const stillExpanded = treeReducer(expanded, { kind: 'expandAll' }, { source: source });
+  const reset = treeReducer(expanded, { kind: 'collapseAll' }, { source: source });
 
   assert.deepEqual(collapsed.expandedIds, []);
   assert.deepEqual(expanded.expandedIds, ['src', 'remote']);

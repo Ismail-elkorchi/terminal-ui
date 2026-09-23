@@ -3,7 +3,6 @@ import {
   createInputPipeline,
   decodeInputEvent,
   InputDecodeError,
-  matchesInputTrigger,
 } from '../input/index.ts';
 import { diagnostic } from '../diagnostics.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
@@ -28,19 +27,18 @@ import { createRuntimeCommitCoordinator } from './runtime-commit-coordinator.ts'
 import { createRuntimeDiagnostics } from './runtime-diagnostics.ts';
 import { createRuntimeContextFactory } from './runtime-context.ts';
 import {
-  inputEventContainsSensitiveText,
-  isRepeatableNavigationKey,
-  redactSensitiveInputEvent,
   resolveRuntimeInputMessage,
   resolvedRenderNodeKeyMap,
 } from './runtime-input.ts';
-import { createRuntimeStore } from './runtime-store.ts';
+import { inputEventContainsSensitiveText, redactSensitiveInputEvent } from '../input/sensitive.ts';
+import { createRuntimeReducer } from './runtime-reducer.ts';
 import { createTuiSubscriptionManager } from './subscriptions.ts';
 import { createWheelInputCoordinator } from './wheel-input-coordinator.ts';
 import { createResizeCoordinator } from './resize-coordinator.ts';
 import { createPointerMotionCoordinator } from './pointer-motion-coordinator.ts';
 import type { PointerMotionEvent } from './pointer-motion-coordinator.ts';
 import type { TerminalCapabilityProfile, TerminalInputChunk, TerminalSize } from '../host/index.ts';
+import type { InputPipelineOptions } from '../input/index.ts';
 import { decodeTerminalGraphicsMode, resolveGraphicsBudgetLimits } from '../graphics/index.ts';
 import type { GraphicsBudgetLimits, TerminalGraphicsMode } from '../graphics/index.ts';
 import type {
@@ -54,7 +52,7 @@ import { focusPathsEqual } from '../interaction/focus.ts';
 import type { FocusPath } from '../interaction/focus.ts';
 import type { Frame, RenderDiff } from '../renderer/contracts.ts';
 import type { PointerRouteResult } from '../renderer/internal/pointer-router.ts';
-import type { PendingTuiMessage, RuntimeReduction } from './runtime-store.ts';
+import type { PendingTuiMessage, RuntimeReduction } from './runtime-reducer.ts';
 import type {
   TuiContext,
   TuiExit,
@@ -68,9 +66,9 @@ import type {
 } from './types.ts';
 import type { WheelInputBatch } from './wheel-input-batch.ts';
 import type { ProducerAdmissionLease } from './producer-admission.ts';
-import { segmentGraphemes } from '../text/index.ts';
 import { focusRevealMessages } from './focus-reveal.ts';
 import { focusLifecycleMessages } from './focus-lifecycle.ts';
+import type { FocusLifecycleMessage } from './focus-lifecycle.ts';
 import { focusNavigationPath } from '../renderer/internal/focus.ts';
 import { assertTuiApp, tuiDefinition } from './definition.ts';
 import { decodeMessageResolution, decodeTuiInitialResult } from './hook-results.ts';
@@ -90,6 +88,20 @@ interface RuntimeTransitionInput<TMessage> {
 
 const inputRetirement = new WeakMap<object, () => void>();
 const terminalFailure = new WeakMap<object, (cause: unknown) => void>();
+const runtimeRunners = new WeakMap<object, TuiRuntimeRunner>();
+
+export interface TuiRuntimeRunner {
+  replaceTerminalProfile(options: InputPipelineOptions & { readonly capabilities: TerminalCapabilityProfile }): Promise<void>;
+  resetInput(): Promise<void>;
+  suspendOutput(): Promise<void>;
+  resumeOutput(): Promise<void>;
+}
+
+export function tuiRuntimeRunner(runtime: object): TuiRuntimeRunner {
+  const runner = runtimeRunners.get(runtime);
+  if (runner === undefined) throw new Error('Expected a terminal-ui TUI runtime.');
+  return runner;
+}
 
 export function retireTuiRuntimeInput(runtime: object): void {
   const retire = inputRetirement.get(runtime);
@@ -152,7 +164,7 @@ function createRuntime<TState, TMessage>(
   const inputQueue = createSerializedDispatchQueue();
   const dispatchQueue = createSerializedDispatchQueue();
   const lifecycle = createRuntimeLifecycle<Frame>();
-  const store = createRuntimeStore(definition.update, () => {
+  const reducer = createRuntimeReducer(definition.update, () => {
     metrics.dispatchedMessages += 1;
   });
   let recordGraphicsDiagnostic: (item: TerminalDiagnostic) => void = ignoreTerminalDiagnostic;
@@ -171,8 +183,8 @@ function createRuntime<TState, TMessage>(
     initial: [...(options.diagnostics ?? []), ...inputPipeline.profile.diagnostics],
     ...(options.transcript === undefined ? {} : { transcript: options.transcript }),
     active: () => lifecycle.active(),
-    canRefresh: () => store.hasState() && commits.renderOrUndefined() !== undefined,
-    refresh: () => dispatchQueue.run(refreshAfterDiagnostic)
+    canRefresh: () => commits.hasState() && commits.renderOrUndefined() !== undefined,
+    refresh: () => enqueueTransition(refreshAfterDiagnostic)
   });
   recordGraphicsDiagnostic = (item) => { diagnostics.record(item); };
   const wheelInput = createWheelInputCoordinator<TuiInputResult<TState>>({
@@ -202,7 +214,9 @@ function createRuntime<TState, TMessage>(
       }
     }
   });
+  const resizeInputBarriers = new WeakMap<TerminalSize, Promise<void>>();
   const resizeCoordinator = createResizeCoordinator(async (terminalSize: TerminalSize) => {
+    await resizeInputBarriers.get(terminalSize);
     await wheelInput.flush();
     await pointerMotion.flush();
     return dispatchQueue.run(() => resizeInternal(terminalSize));
@@ -214,7 +228,7 @@ function createRuntime<TState, TMessage>(
     context: createRuntimeContext,
     reportDiagnostic: (item) => diagnostics.report(item),
     dispatchMany(messages, source, lease) {
-      return dispatchQueue.run(() => dispatchManyAdmitted(messages, source, lease)).then(() => undefined);
+      return enqueueTransition(() => dispatchManyAdmitted(messages, source, lease)).then(() => undefined);
     }
   });
   const effects = createTuiEffectManager<TMessage>({
@@ -227,8 +241,10 @@ function createRuntime<TState, TMessage>(
         return commits.copySelectedText(input, context.capabilities, signal);
       });
     },
-    dispatch(messages, lease) {
-      return dispatchQueue.run(() => dispatchManyAdmitted(messages, 'effect', lease)).then(() => undefined);
+    dispatch(messages, lease, redacted) {
+      return enqueueTransition(() => dispatchManyAdmitted(
+        messages, 'effect', lease, redacted
+      )).then(() => undefined);
     },
     ...(options.withTerminalSuspended === undefined
       ? {}
@@ -244,7 +260,7 @@ function createRuntime<TState, TMessage>(
       if (message === null || message === undefined) {
         return Promise.reject(new TypeError('TUI runtime dispatch() message cannot be null or undefined.'));
       }
-      return dispatchQueue.run(() => dispatchInternal(message, 'external'));
+      return enqueueTransition(() => dispatchInternal(message, 'external'));
     },
     dispatchMany(messages) {
       const suppliedMessages: readonly TMessage[] = messages;
@@ -256,7 +272,7 @@ function createRuntime<TState, TMessage>(
         return Promise.reject(new TypeError('TUI runtime dispatchMany() messages cannot contain null or undefined.'));
       }
       const ownedMessages = Object.freeze([...suppliedMessages]);
-      return dispatchQueue.run(() => ownedMessages.length === 0
+      return enqueueTransition(() => ownedMessages.length === 0
         ? operationalState()
         : dispatchManyInternal(ownedMessages, 'external'));
     },
@@ -267,7 +283,7 @@ function createRuntime<TState, TMessage>(
       } catch (cause) {
         return Promise.reject(errorFromUnknown(cause));
       }
-      return dispatchQueue.run(async () => {
+      return enqueueTransition(async () => {
         lifecycle.assertOperational();
         const context = await createRuntimeContext();
         return commits.copySelectedText(request, context.capabilities);
@@ -275,7 +291,9 @@ function createRuntime<TState, TMessage>(
     },
     resize(terminalSize) {
       try {
-        return resizeCoordinator.request(decodeTuiTerminalSize(terminalSize));
+        const ownedSize = decodeTuiTerminalSize(terminalSize);
+        resizeInputBarriers.set(ownedSize, inputQueue.drain());
+        return resizeCoordinator.request(ownedSize);
       } catch (cause) {
         return Promise.reject(errorFromUnknown(cause));
       }
@@ -296,45 +314,8 @@ function createRuntime<TState, TMessage>(
     async flushInput() {
       return inputQueue.run(flushInputInternal);
     },
-    replaceTerminalProfile(nextOptions) {
-      lifecycle.assertOperational();
-      if (inputPipeline.pending().kind !== 'none' || pendingCharacterText.length > 0) {
-        throw new Error('Cannot replace the input profile while an input token is incomplete.');
-      }
-      inputAmbiguity.cancel();
-      const limits = nextOptions.limits ?? inputOptions.limits;
-      inputOptions = {
-        ...nextOptions,
-        escapeDelayMs: nextOptions.escapeDelayMs ?? inputPipeline.profile.escapeDelayMs,
-        ...(limits === undefined ? {} : { limits })
-      };
-      inputPipeline = createInputPipeline(inputOptions);
-      runtimeContext.replace(nextOptions.capabilities);
-      inputAmbiguity = createInputAmbiguityDeadline<readonly TuiInputResult<TState>[]>(
-        options.host.clock,
-        inputPipeline.profile.escapeDelayMs
-      );
-      for (const item of inputPipeline.profile.diagnostics) diagnostics.report(item);
-    },
-    resetInput() {
-      lifecycle.assertOperational();
-      inputAmbiguity.cancel();
-      inputPipeline.reset();
-      pendingCharacterText = '';
-      wheelInput.reset();
-      pointerMotion.reset();
-      pointerRouter.reset();
-    },
-    suspendOutput() {
-      lifecycle.assertOperational();
-      return commits.suspendOutput();
-    },
-    resumeOutput() {
-      lifecycle.assertOperational();
-      commits.resumeOutput();
-    },
     redraw() {
-      return dispatchQueue.run(async () => {
+      return enqueueTransition(async () => {
         const terminalSize = decodeTuiTerminalSize(options.host.getTerminalSize());
         if (!sameTerminalSize(terminalSize, commits.terminalSize())) {
           return resizeInternal(terminalSize);
@@ -356,7 +337,7 @@ function createRuntime<TState, TMessage>(
       return disposeRuntime(disposeOptions);
     },
     state() {
-      return store.state();
+      return commits.state();
     },
     frame() {
       return commits.renderOrUndefined()?.frame;
@@ -379,27 +360,81 @@ function createRuntime<TState, TMessage>(
       };
     }
   };
+  runtimeRunners.set(runtime, {
+    async replaceTerminalProfile(nextOptions) {
+      await inputQueue.drain();
+      return dispatchQueue.run(() => {
+        lifecycle.assertOperational();
+        if (inputPipeline.pending().kind !== 'none' || pendingCharacterText.length > 0) {
+          throw new Error('Cannot replace the input profile while an input token is incomplete.');
+        }
+        inputAmbiguity.cancel();
+        const limits = nextOptions.limits ?? inputOptions.limits;
+        inputOptions = {
+          ...nextOptions,
+          escapeDelayMs: nextOptions.escapeDelayMs ?? inputPipeline.profile.escapeDelayMs,
+          ...(limits === undefined ? {} : { limits })
+        };
+        inputPipeline = createInputPipeline(inputOptions);
+        runtimeContext.replace(nextOptions.capabilities);
+        inputAmbiguity = createInputAmbiguityDeadline<readonly TuiInputResult<TState>[]>(
+          options.host.clock,
+          inputPipeline.profile.escapeDelayMs
+        );
+        for (const item of inputPipeline.profile.diagnostics) diagnostics.report(item);
+      });
+    },
+    async resetInput() {
+      await inputQueue.drain();
+      return dispatchQueue.run(() => {
+        lifecycle.assertOperational();
+        inputAmbiguity.cancel();
+        inputPipeline.reset();
+        pendingCharacterText = '';
+        wheelInput.reset();
+        pointerMotion.reset();
+        pointerRouter.reset();
+      });
+    },
+    async suspendOutput() {
+      await inputQueue.drain();
+      await wheelInput.flush();
+      await pointerMotion.flush();
+      return dispatchQueue.run(async () => {
+        lifecycle.assertOperational();
+        await commits.suspendOutput();
+      });
+    },
+    resumeOutput() {
+      return dispatchQueue.run(() => {
+        lifecycle.assertOperational();
+        commits.resumeOutput();
+      });
+    }
+  });
   terminalFailure.set(runtime, (cause) => {
-    diagnostics.record(diagnostic(
-      'TUI_TERMINAL_OWNERSHIP_FAILED',
-      'Terminal ownership could not be re-established.',
-      { severity: 'fatal', target: options.app.id, cause }
-    ));
     lifecycle.fail();
     subscriptions.cancel();
     effects.cancel();
-    const render = commits.renderOrUndefined();
-    if (store.hasState() && render !== undefined) {
-      terminalExit = {
-        status: 'error',
-        state: store.state(),
-        diagnostics: diagnostics.values(),
-        snapshot: render.frame.accessibility
-      };
-      changes.publish({ kind: 'exit', exit: terminalExit });
-    } else {
-      changes.close(new TerminalUiError('Terminal ownership could not be re-established.'));
-    }
+    void dispatchQueue.run(() => {
+      diagnostics.record(diagnostic(
+        'TUI_TERMINAL_OWNERSHIP_FAILED',
+        'Terminal ownership could not be re-established.',
+        { severity: 'fatal', target: options.app.id, cause }
+      ));
+      const render = commits.renderOrUndefined();
+      if (commits.hasState() && render !== undefined) {
+        terminalExit = {
+          status: 'error',
+          state: commits.state(),
+          diagnostics: diagnostics.values(),
+          snapshot: render.frame.accessibility
+        };
+        changes.publish({ kind: 'exit', exit: terminalExit });
+      } else {
+        changes.close(new TerminalUiError('Terminal ownership could not be re-established.'));
+      }
+    }).catch((failure: unknown) => { changes.close(errorFromUnknown(failure)); });
   });
   inputRetirement.set(runtime, () => {
     inputAmbiguity.cancel();
@@ -411,6 +446,13 @@ function createRuntime<TState, TMessage>(
     lifecycle.retire();
   });
   return runtime;
+
+  async function enqueueTransition<TValue>(operation: () => Promise<TValue>): Promise<TValue> {
+    await inputQueue.drain();
+    await wheelInput.flush();
+    await pointerMotion.flush();
+    return dispatchQueue.run(operation);
+  }
 
   async function handleDecodedInput(
     event: InputEvent,
@@ -474,48 +516,61 @@ function createRuntime<TState, TMessage>(
   async function dispatchManyAdmitted(
     messages: readonly TMessage[],
     source: TuiMessageSource,
-    lease: ProducerAdmissionLease
+    lease: ProducerAdmissionLease,
+    redacted = false,
   ): Promise<TState> {
-    return lease.authorized() ? dispatchManyInternal(messages, source) : store.state();
+    return lease.authorized() ? dispatchManyInternal(messages, source, redacted) : commits.state();
   }
 
   async function handleInputImmediately(
     event: InputEvent,
     occurredAt = options.host.clock.monotonicNow()
   ): Promise<TuiInputResult<TState>> {
+    return dispatchQueue.run(() => handleInputInTransaction(event, occurredAt));
+  }
+
+  async function handleInputInTransaction(
+    event: InputEvent,
+    occurredAt: number
+  ): Promise<TuiInputResult<TState>> {
     if (event.kind === 'mouse') {
       runInstrumentation('transcript_input', () => options.transcript?.record({ kind: 'input', event }));
-      return dispatchQueue.run(() => handleMouseInputInternal(event, occurredAt));
+      return handleMouseInputInternal(event, occurredAt);
     }
     lifecycle.assertOperational();
-    const redactInput = focusedInputIsSensitive() && inputEventContainsSensitiveText(event);
+    const sensitiveOrigin = focusedInputIsSensitive();
+    const redactInput = sensitiveOrigin && inputEventContainsSensitiveText(event);
     runInstrumentation('transcript_input', () => options.transcript?.record({
       kind: 'input',
       event: redactInput ? redactSensitiveInputEvent(event) : event
     }));
     if (event.kind === 'focus' && !event.focused) {
-      const pointerRevision = pointerRouter.revision();
-      const cancelled = pointerRouter.cancel(commits.render().regions)
-        .flatMap((result) => isIgnoredMessage(result.message) ? [] : [result.message]);
-      const pointerChanged = pointerRouter.revision() !== pointerRevision;
-      if (cancelled.length > 0 || pointerChanged) {
-        await commitRuntimeTransition({
-          messages: cancelled.map((message) => ({ message, source: 'input' })),
-          terminalSize: commits.terminalSize(),
-          requestedFocusPath: commits.focusPath(),
-          forceFrame: pointerChanged,
-        });
+      const pointerSnapshot = pointerRouter.snapshot();
+      try {
+        const cancelled = pendingPointerMessages(pointerRouter.cancel(commits.render().regions));
+        const pointerChanged = pointerRouter.revision() !== pointerSnapshot.visualRevision;
+        if (cancelled.length > 0 || pointerChanged) {
+          await commitRuntimeTransition({
+            messages: cancelled,
+            terminalSize: commits.terminalSize(),
+            requestedFocusPath: commits.focusPath(),
+            forceFrame: pointerChanged,
+          });
+        }
+      } catch (cause) {
+        pointerRouter.restore(pointerSnapshot);
+        throw cause;
       }
     }
-    return handleResolvedInput(event, messageForInput(store.state(), event), redactInput);
+    return handleResolvedInput(event, messageForInput(commits.state(), event), sensitiveOrigin);
   }
 
   async function handleResolvedInput(
     event: InputEvent,
     message: ReturnType<typeof messageForInput>,
-    redactInput: boolean,
+    sensitiveOrigin: boolean,
   ): Promise<TuiInputResult<TState>> {
-    const state = store.state();
+    const state = commits.state();
     const frame = commits.frame();
     if (isIgnoredMessage(message)) {
       if (event.kind === 'key' && event.eventType === 'press') {
@@ -526,17 +581,17 @@ function createRuntime<TState, TMessage>(
           const requested = focusNavigationPath(current.layout, commits.focusPath(), key);
           if (requested !== undefined) {
             const next = await moveFocusTo(requested);
-            return { handled: true, state: store.state(), frame: next };
+            return { handled: true, state: commits.state(), frame: next };
           }
         }
       }
       if (event.kind === 'key' && event.key === 'tab' && event.eventType === 'press') {
         const next = await moveFocus(event.modifiers.shift ? 'previous' : 'next');
-        return { handled: true, state: store.state(), frame: next };
+        return { handled: true, state: commits.state(), frame: next };
       }
       return { handled: false, state, frame };
     }
-    const nextState = await dispatchQueue.run(() => dispatchInternal(message, 'input', redactInput));
+    const nextState = await dispatchInternal(message, 'input', sensitiveOrigin);
     const nextFrame = commits.frame();
     return terminalExit === undefined
       ? { handled: true, state: nextState, frame: nextFrame }
@@ -548,10 +603,9 @@ function createRuntime<TState, TMessage>(
       const context = await createRuntimeContext();
       const initial = decodeTuiInitialResult<TState, TMessage>(definition.init(context));
       const subscriptionPlan = await subscriptions.plan(initial.state, context);
-      const result = await commits.initial(initial.state, context, store.version(), () => {
-        store.initialize(initial.state);
-        if (lifecycle.phase() === 'starting') lifecycle.activate();
-      }, initial.focus ?? options.initialFocus);
+      const result = await commits.initial(initial.state, context, commits.version(), initial.focus ?? options.initialFocus);
+      commits.publish(result, initial.state, 0);
+      if (lifecycle.phase() === 'starting') lifecycle.activate();
       metrics.frameCommits += 1;
       recordCommittedRender(result.render, result.diff);
       if (lifecycle.active()) runPostCommit('subscription_activation', () => {
@@ -614,7 +668,7 @@ function createRuntime<TState, TMessage>(
 
   function operationalState(): Promise<TState> {
     lifecycle.assertOperational();
-    return Promise.resolve(store.state());
+    return Promise.resolve(commits.state());
   }
 
   async function dispatchManyInternal(
@@ -647,7 +701,7 @@ function createRuntime<TState, TMessage>(
     const resolution = definition.resizeMessage === undefined
       ? undefined
       : decodeMessageResolution<TMessage>(
-          definition.resizeMessage(store.state(), Object.freeze({
+          definition.resizeMessage(commits.state(), Object.freeze({
             ...context,
             previousTerminalSize
           })),
@@ -679,25 +733,25 @@ function createRuntime<TState, TMessage>(
     context: TuiContext
   ): Promise<TState> {
     lifecycle.assertOperational();
-    const reduction = store.reduce(input.messages, context);
+    const reduction = reducer.reduce(commits.state(), commits.version(), input.messages, context);
     const terminalSize = commits.terminalSize();
     const terminalSizeChanged = !sameTerminalSize(input.terminalSize, terminalSize);
     const focusChanged = !focusPathsEqual(input.requestedFocusPath, commits.focusPath());
     const requiresFrame = input.forceFrame === true
-      || reduction.stateVersion !== store.version()
+      || reduction.stateVersion !== commits.version()
       || terminalSizeChanged
       || focusChanged
       || reduction.focus !== undefined;
     if (!requiresFrame) {
-      store.commit(reduction);
+      commits.publishWithoutFrame(reduction.state, reduction.stateVersion);
       recordReductionMessages(reduction);
       const exit = completeReduction(reduction, commits.frame());
       if (exit !== undefined) changes.publish({ kind: 'exit', exit });
       if (reduction.exitReason === undefined && lifecycle.active()) {
         runPostCommit('effect_cancellation', () => { effects.cancelIds(reduction.cancelEffects); });
-        runPostCommit('effect_start', () => { effects.start(reduction.effects); });
+        runPostCommit('effect_start', () => { startReductionEffects(reduction); });
       }
-      return store.state();
+      return commits.state();
     }
 
     const previousRender = commits.render();
@@ -712,8 +766,8 @@ function createRuntime<TState, TMessage>(
       input.requestedFocusPath,
       reduction.stateVersion,
       reduction.focus,
-      () => { store.commit(reduction); }
     );
+    commits.publish(result, reduction.state, reduction.stateVersion);
     metrics.frameCommits += 1;
     recordReductionMessages(reduction);
     recordCommittedRender(result.render, result.diff);
@@ -749,10 +803,10 @@ function createRuntime<TState, TMessage>(
       }));
       if (focusMessages.length > 0) await dispatchPostCommitMessages(focusMessages, 'focus_lifecycle');
       if (terminalExit === undefined && lifecycle.active()) {
-        runPostCommit('effect_start', () => { effects.start(reduction.effects); });
+        runPostCommit('effect_start', () => { startReductionEffects(reduction); });
       }
     }
-    return store.state();
+    return commits.state();
   }
 
   function sameTerminalSize(
@@ -771,6 +825,12 @@ function createRuntime<TState, TMessage>(
     }
   }
 
+  function startReductionEffects(reduction: RuntimeReduction<TState, TMessage>): void {
+    reduction.effects.forEach((effect, index) => {
+      effects.start([effect], reduction.effectOrigins[index] === true);
+    });
+  }
+
   function focusedInputIsSensitive(): boolean {
     const current = commits.renderOrUndefined();
     if (current === undefined) return false;
@@ -783,6 +843,7 @@ function createRuntime<TState, TMessage>(
     frame: Frame
   ): TuiExit<TState> | undefined {
     if (reduction.exitReason === undefined) return undefined;
+    if (lifecycle.phase() === 'failed') return undefined;
     lifecycle.beginExit();
     subscriptions.cancel();
     effects.cancel();
@@ -798,7 +859,7 @@ function createRuntime<TState, TMessage>(
   }
 
   async function refreshAfterDiagnostic(): Promise<void> {
-    if (!lifecycle.active() || !store.hasState() || commits.renderOrUndefined() === undefined) return;
+    if (!lifecycle.active() || !commits.hasState() || commits.renderOrUndefined() === undefined) return;
     await commitRuntimeTransition({
       messages: [],
       terminalSize: commits.terminalSize(),
@@ -814,18 +875,115 @@ function createRuntime<TState, TMessage>(
   ): Promise<TuiInputBatchResult<TState>> {
     lifecycle.assertOperational();
     const results: TuiInputResult<TState>[] = [];
-    const routedEvents = routingInputEvents(events, flushCharacterText);
-    for (let index = 0; index < routedEvents.length;) {
-      const chunk = await processInputChunk(routedEvents, index, occurredAt);
-      results.push(...chunk.results);
-      if (chunk.exit) break;
-      index += chunk.consumed;
+    for (const event of events) {
+      if (event.kind !== 'mouse') {
+        const flushed = await flushInputCoordinators(true, true);
+        results.push(...flushed);
+        if (inputResultsExit(results)) break;
+        results.push(...await dispatchQueue.run(() => executeRoutedInput([event], false, occurredAt)));
+      } else {
+        if (pendingCharacterText.length > 0) {
+          const flushed = await flushInputCoordinators(true, true);
+          results.push(...flushed);
+          if (inputResultsExit(results)) break;
+          results.push(...await dispatchQueue.run(() => executeRoutedInput([], true, occurredAt)));
+          if (inputResultsExit(results)) break;
+        }
+        const chunk = await processInputChunk([event], 0, occurredAt);
+        results.push(...chunk.results);
+      }
+      if (inputResultsExit(results)) break;
+    }
+    if (flushCharacterText && !inputResultsExit(results)) {
+      const flushed = await flushInputCoordinators(true, true);
+      results.push(...flushed);
+      if (!inputResultsExit(results)) {
+        results.push(...await dispatchQueue.run(() => executeRoutedInput([], true, occurredAt)));
+      }
     }
     const pending = combinePendingInput(wheelInput.pending(), pointerMotion.pending());
     return {
       results,
       ...(pending === undefined ? {} : { pending })
     };
+  }
+
+  async function executeRoutedInput(
+    events: readonly InputEvent[],
+    flushCharacterText: boolean,
+    occurredAt: number,
+  ): Promise<readonly TuiInputResult<TState>[]> {
+    const results: TuiInputResult<TState>[] = [];
+    const limit = inputPipeline.profile.limits.maxEventsPerBatch;
+    let bindingRender = commits.renderOrUndefined();
+    let bindingFocus = commits.focusPath();
+    let cachedBindings: ReadonlySet<string> | undefined;
+    const currentBindings = (): ReadonlySet<string> => {
+      const render = commits.renderOrUndefined();
+      const focus = commits.focusPath();
+      if (cachedBindings === undefined || render !== bindingRender || focus !== bindingFocus) {
+        cachedBindings = characterTextBindings();
+        bindingRender = render;
+        bindingFocus = focus;
+      }
+      return cachedBindings;
+    };
+    const routeText = async (text: string, retainPrefix: boolean): Promise<void> => {
+      const combined = pendingCharacterText + text;
+      pendingCharacterText = '';
+      // Code-point messages are stable across host chunks, including chunks
+      // that split a combining sequence. Multi-code-point bindings still win
+      // as a single semantic event when they match.
+      const segments: { text: string; startOffset: number; endOffsetExclusive: number }[] = [];
+      let offset = 0;
+      for (const point of combined) {
+        segments.push({ text: point, startOffset: offset, endOffsetExclusive: offset + point.length });
+        offset += point.length;
+      }
+      // Reject an oversized expansion before applying any of its messages.
+      if (segments.length > limit) {
+        throw new InputDecodeError('event_batch_limit_exceeded', limit, segments.length);
+      }
+      const boundaryToIndex = new Map(segments.map((segment, index) => [segment.endOffsetExclusive, index + 1]));
+      let index = 0;
+      while (index < segments.length && !inputResultsExit(results)) {
+        const segment = segments[index];
+        if (segment === undefined) break;
+        const remaining = combined.slice(segment.startOffset);
+        const bindings = currentBindings();
+        if (retainPrefix && [...bindings].some((binding) =>
+          suffixIsStrictBindingPrefix(remaining, 0, binding))) {
+          pendingCharacterText = remaining;
+          break;
+        }
+        // A text binding may span more than one grapheme. Consume its whole
+        // trigger, then resolve the next trigger against the resulting focus.
+        let match = '';
+        let nextIndex = index + 1;
+        for (const binding of bindings) {
+          if (binding.length <= match.length || !remaining.startsWith(binding)) continue;
+          const boundary = boundaryToIndex.get(segment.startOffset + binding.length);
+          if (boundary === undefined) continue;
+          match = binding;
+          nextIndex = boundary;
+        }
+        const value = match || segment.text;
+        results.push(await handleInputInTransaction({ kind: 'text', text: value, paste: false }, occurredAt));
+        index = match ? nextIndex : index + 1;
+      }
+    };
+    for (const event of events) {
+      if (event.kind === 'text') await routeText(event.text, true);
+      else {
+        if (pendingCharacterText.length > 0) await routeText('', false);
+        if (!inputResultsExit(results)) results.push(await handleInputInTransaction(event, occurredAt));
+      }
+      if (inputResultsExit(results)) break;
+    }
+    if (flushCharacterText && !inputResultsExit(results) && pendingCharacterText.length > 0) {
+      await routeText('', false);
+    }
+    return results;
   }
 
   async function processInputChunk(
@@ -839,14 +997,6 @@ function createRuntime<TState, TMessage>(
   }> {
     const event = events[index];
     if (event === undefined) return { results: [], consumed: 1, exit: false };
-    const navigationRun = repeatedNavigationRun(events, index);
-    if (navigationRun.length > 1 && navigationRun.every(navigationInputCanBatch)) {
-      const flushed = await flushInputCoordinators(true, true);
-      if (inputResultsExit(flushed)) return { results: flushed, consumed: navigationRun.length, exit: true };
-      const navigation = await handleNavigationInputRun(navigationRun);
-      const results = [...flushed, navigation];
-      return { results, consumed: navigationRun.length, exit: inputResultsExit(results) };
-    }
     if (isWheelInputEvent(event)) {
       const flushed = await flushInputCoordinators(false, true);
       if (inputResultsExit(flushed)) return { results: flushed, consumed: 1, exit: true };
@@ -878,88 +1028,6 @@ function createRuntime<TState, TMessage>(
     return results.at(-1)?.exit !== undefined;
   }
 
-  async function handleNavigationInputRun(
-    events: readonly Extract<InputEvent, { readonly kind: 'key' }>[],
-  ): Promise<TuiInputResult<TState>> {
-    lifecycle.assertOperational();
-    const state = store.state();
-    for (const event of events) {
-      runInstrumentation('transcript_input', () => options.transcript?.record({ kind: 'input', event }));
-    }
-    const sampled = events[0];
-    if (sampled === undefined) return { handled: false, state, frame: commits.frame() };
-    const message = messageForInput(state, sampled);
-    if (isIgnoredMessage(message)) return handleResolvedInput(sampled, message, false);
-    const messages = Array.from({ length: events.length }, () => message);
-    const nextState = await dispatchQueue.run(() => dispatchManyInternal(messages, 'input'));
-    const frame = commits.frame();
-    return terminalExit === undefined
-      ? { handled: true, state: nextState, frame }
-      : { handled: true, state: nextState, frame, exit: terminalExit };
-  }
-
-  function navigationInputCanBatch(event: Extract<InputEvent, { readonly kind: 'key' }>): boolean {
-    return (definition.inputBindings ?? []).every((binding) =>
-      !binding.triggers.some((trigger) => matchesInputTrigger(trigger, event))
-    );
-  }
-
-  function routingInputEvents(
-    events: readonly InputEvent[],
-    flushCharacterText: boolean
-  ): readonly InputEvent[] {
-    const boundText = characterTextBindings();
-    const routed: InputEvent[] = [];
-    const limit = inputPipeline.profile.limits.maxEventsPerBatch;
-    let retainedText = pendingCharacterText;
-    const push = (event: InputEvent): void => {
-      if (routed.length >= limit) {
-        throw new InputDecodeError('event_batch_limit_exceeded', limit, routed.length + 1);
-      }
-      routed.push(event);
-    };
-    const routeText = (text: string, retainBindingPrefix: boolean): void => {
-      const combined = retainedText + text;
-      retainedText = '';
-      const retainedFrom = retainBindingPrefix
-        ? bindingPrefixStart(combined, boundText)
-        : undefined;
-      const ready = retainedFrom === undefined ? combined : combined.slice(0, retainedFrom);
-      if (retainedFrom !== undefined) retainedText = combined.slice(retainedFrom);
-      let unmatched = '';
-      const flushUnmatched = (): void => {
-        if (unmatched.length === 0) return;
-        push({ kind: 'text', text: unmatched, paste: false });
-        unmatched = '';
-      };
-      for (const segment of segmentGraphemes(ready)) {
-        if (!boundText.has(segment.text)) {
-          unmatched += segment.text;
-          continue;
-        }
-        flushUnmatched();
-        push({ kind: 'text', text: segment.text, paste: false });
-      }
-      flushUnmatched();
-    };
-    try {
-      for (const event of events) {
-        if (event.kind !== 'text') {
-          routeText('', false);
-          push(event);
-          continue;
-        }
-        routeText(event.text, true);
-      }
-      if (flushCharacterText) routeText('', false);
-      pendingCharacterText = retainedText;
-      return routed;
-    } catch (cause) {
-      pendingCharacterText = '';
-      throw cause;
-    }
-  }
-
   function characterTextBindings(): ReadonlySet<string> {
     const bound = new Set<string>();
     for (const binding of definition.inputBindings ?? []) {
@@ -989,20 +1057,6 @@ function createRuntime<TState, TMessage>(
     return bound;
   }
 
-  function bindingPrefixStart(value: string, bindings: ReadonlySet<string>): number | undefined {
-    let maximumPrefixLength = 0;
-    for (const binding of bindings) {
-      maximumPrefixLength = Math.max(maximumPrefixLength, binding.length - 1);
-    }
-    const firstCandidate = Math.max(0, value.length - maximumPrefixLength);
-    for (let start = firstCandidate; start < value.length; start += 1) {
-      for (const binding of bindings) {
-        if (suffixIsStrictBindingPrefix(value, start, binding)) return start;
-      }
-    }
-    return undefined;
-  }
-
   function suffixIsStrictBindingPrefix(value: string, start: number, binding: string): boolean {
     const suffixLength = value.length - start;
     if (suffixLength >= binding.length) return false;
@@ -1018,23 +1072,28 @@ function createRuntime<TState, TMessage>(
   }
 
   async function enqueueWheelInput(event: MouseWheelEvent): Promise<readonly TuiInputResult<TState>[]> {
-    lifecycle.assertOperational();
-    metrics.wheelPackets += 1;
-    runInstrumentation('transcript_input', () => options.transcript?.record({ kind: 'input', event }));
-    const targetId = pointerRouter.wheelTargetId(commits.render().regions, event);
+    const targetId = await dispatchQueue.run(() => {
+      lifecycle.assertOperational();
+      metrics.wheelPackets += 1;
+      runInstrumentation('transcript_input', () => options.transcript?.record({ kind: 'input', event }));
+      return pointerRouter.wheelTargetId(commits.render().regions, event);
+    });
     return wheelInput.enqueue(event, targetId);
   }
 
   async function handleWheelInputBatch(batch: WheelInputBatch): Promise<readonly TuiInputResult<TState>[]> {
     lifecycle.assertOperational();
-    const state = store.state();
+    const state = commits.state();
     const frame = commits.frame();
-    const messages = pointerRouter.routeWheel(commits.render().regions, batch.event, batch.targetId)
-      .flatMap((result) => isIgnoredMessage(result.message) ? [] : [result.message]);
+    const messages = pendingPointerMessages(pointerRouter.routeWheel(commits.render().regions, batch.event, batch.targetId));
     if (messages.length === 0) {
       return [{ handled: false, state, frame }];
     }
-    const nextState = await dispatchManyInternal(messages, 'input');
+    const nextState = await commitRuntimeTransition({
+      messages,
+      terminalSize: commits.terminalSize(),
+      requestedFocusPath: commits.focusPath(),
+    });
     const nextFrame = commits.frame();
     return [terminalExit === undefined
       ? { handled: true, state: nextState, frame: nextFrame }
@@ -1046,26 +1105,31 @@ function createRuntime<TState, TMessage>(
     occurredAt = options.host.clock.monotonicNow()
   ): Promise<TuiInputResult<TState>> {
     lifecycle.assertOperational();
-    const pointerRevision = pointerRouter.revision();
-    const routed = pointerRouter.route(commits.render().regions, event, occurredAt);
-    const pointerChanged = pointerRouter.revision() !== pointerRevision;
-    const requestedFocusPath = pointerFocusPath(event, routed);
-    const focusChanged = !focusPathsEqual(requestedFocusPath, commits.focusPath());
-    const messages = routed.flatMap((result) => isIgnoredMessage(result.message) ? [] : [result.message]);
-    if (messages.length > 0 || focusChanged || pointerChanged) {
-      await commitRuntimeTransition({
-        messages: messages.map((message) => ({ message, source: 'input' })),
-        terminalSize: commits.terminalSize(),
-        requestedFocusPath,
-        forceFrame: pointerChanged,
-      });
+    const pointerSnapshot = pointerRouter.snapshot();
+    try {
+      const routed = pointerRouter.route(commits.render().regions, event, occurredAt);
+      const pointerChanged = pointerRouter.revision() !== pointerSnapshot.visualRevision;
+      const requestedFocusPath = pointerFocusPath(event, routed);
+      const focusChanged = !focusPathsEqual(requestedFocusPath, commits.focusPath());
+      const messages = pendingPointerMessages(routed);
+      if (messages.length > 0 || focusChanged || pointerChanged) {
+        await commitRuntimeTransition({
+          messages,
+          terminalSize: commits.terminalSize(),
+          requestedFocusPath,
+          forceFrame: pointerChanged,
+        });
+      }
+      const nextState = commits.state();
+      const nextFrame = commits.frame();
+      const handled = focusChanged || pointerChanged || messages.length > 0;
+      return terminalExit === undefined
+        ? { handled, state: nextState, frame: nextFrame }
+        : { handled, state: nextState, frame: nextFrame, exit: terminalExit };
+    } catch (cause) {
+      pointerRouter.restore(pointerSnapshot);
+      throw cause;
     }
-    const nextState = store.state();
-    const nextFrame = commits.frame();
-    const handled = focusChanged || pointerChanged || messages.length > 0;
-    return terminalExit === undefined
-      ? { handled, state: nextState, frame: nextFrame }
-      : { handled, state: nextState, frame: nextFrame, exit: terminalExit };
   }
 
   function pointerFocusPath(
@@ -1076,6 +1140,16 @@ function createRuntime<TState, TMessage>(
     const intent = routed.find((result) => result.event.kind === 'pointerDown')?.hit?.focus;
     if (intent === undefined || intent.kind === 'preserve') return commits.focusPath();
     return [...intent.path];
+  }
+
+  function pendingPointerMessages(routed: readonly PointerRouteResult<TMessage>[]): readonly PendingTuiMessage<TMessage>[] {
+    return routed.flatMap((result) => isIgnoredMessage(result.message)
+      ? []
+      : [{
+        message: result.message,
+        source: 'input' as const,
+        ...(result.hit?.sensitiveOrigin === true ? { redacted: true } : {}),
+      }]);
   }
 
   function disposeRuntime(disposeOptions: TuiRuntimeDisposeOptions = {}): Promise<void> {
@@ -1155,8 +1229,9 @@ function createRuntime<TState, TMessage>(
   async function moveFocusTo(requestedFocusPath: FocusPath | undefined): Promise<Frame> {
     const current = commits.render();
     const messages = focusRevealMessages(current.node, current.layout, requestedFocusPath);
+    const sensitiveOrigin = focusedInputIsSensitive();
     await commitRuntimeTransition({
-      messages: messages.map((message) => ({ message, source: 'input' })),
+      messages: messages.map((message) => ({ message, source: 'input', ...(sensitiveOrigin ? { redacted: true } : {}) })),
       terminalSize: commits.terminalSize(),
       requestedFocusPath
     });
@@ -1190,9 +1265,19 @@ function createRuntime<TState, TMessage>(
     });
   }
 
-  async function dispatchPostCommitMessages(messages: readonly TMessage[], taskName: string): Promise<void> {
+  async function dispatchPostCommitMessages(
+    messages: readonly FocusLifecycleMessage<TMessage>[], taskName: string
+  ): Promise<void> {
     try {
-      await dispatchManyInternal(messages, 'input');
+      await commitRuntimeTransition({
+        messages: messages.map(({ message, sensitiveOrigin }) => ({
+          message,
+          source: 'input',
+          ...(sensitiveOrigin ? { redacted: true } : {}),
+        })),
+        terminalSize: commits.terminalSize(),
+        requestedFocusPath: commits.focusPath(),
+      });
     } catch (cause) {
       diagnostics.record(diagnostic('TUI_RUNTIME_TASK_FAILED', `TUI runtime task ${taskName} failed.`, {
         target: options.app.id,
@@ -1214,7 +1299,7 @@ function createRuntime<TState, TMessage>(
     }
   }
 
-  function resolvePostCommitMessages(taskName: string, operation: () => readonly TMessage[]): readonly TMessage[] {
+  function resolvePostCommitMessages<TValue>(taskName: string, operation: () => readonly TValue[]): readonly TValue[] {
     try {
       return operation();
     } catch (cause) {
@@ -1269,51 +1354,6 @@ function isPointerMotionEvent(event: InputEvent): event is PointerMotionEvent {
 
 function isAmbiguousInput(kind: InputPendingState['kind']): boolean {
   return kind === 'escape' || kind === 'sequence';
-}
-
-function repeatedNavigationRun(
-  events: readonly InputEvent[],
-  start: number,
-): readonly Extract<InputEvent, { readonly kind: 'key' }>[] {
-  const first = events[start];
-  if (!isBatchableNavigationKey(first)) return [];
-  const run: Extract<InputEvent, { readonly kind: 'key' }>[] = [first];
-  let end = start + 1;
-  while (end < events.length) {
-    const candidate = events[end];
-    if (!sameNavigationKey(first, candidate)) break;
-    run.push(candidate);
-    end += 1;
-  }
-  return run;
-}
-
-function isBatchableNavigationKey(
-  event: InputEvent | undefined,
-): event is Extract<InputEvent, { readonly kind: 'key' }> {
-  return event?.kind === 'key'
-    && (event.eventType === 'press' || event.eventType === 'repeat')
-    && isRepeatableNavigationKey(event.key);
-}
-
-function sameNavigationKey(
-  left: Extract<InputEvent, { readonly kind: 'key' }>,
-  right: InputEvent | undefined,
-): right is Extract<InputEvent, { readonly kind: 'key' }> {
-  return isBatchableNavigationKey(right)
-    && right.key === left.key
-    && right.keyCodePoint === left.keyCodePoint
-    && right.location === left.location
-    && sameKeyModifiers(right.modifiers, left.modifiers);
-}
-
-function sameKeyModifiers(
-  left: Extract<InputEvent, { readonly kind: 'key' }>['modifiers'],
-  right: Extract<InputEvent, { readonly kind: 'key' }>['modifiers'],
-): boolean {
-  return left.ctrl === right.ctrl && left.alt === right.alt && left.shift === right.shift
-    && left.meta === right.meta && left.super === right.super && left.hyper === right.hyper
-    && left.capsLock === right.capsLock && left.numLock === right.numLock;
 }
 
 function combinePendingInput<TState>(

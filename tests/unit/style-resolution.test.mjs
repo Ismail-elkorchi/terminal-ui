@@ -2,8 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  defaultStyleForState,
-  defaultStyleForTextRole
+  defaultStyleForState
 } from '../../dist/renderer/style-resolution.js';
 
 const foreground = (token, extra = {}) => ({
@@ -35,25 +34,5 @@ test('default state styles cover interaction branches without result styling', (
   }
   for (const outcome of ['error', 'warning', 'success']) {
     assert.equal(defaultStyleForState(outcome), undefined, outcome);
-  }
-});
-
-test('default text roles cover every branch', () => {
-  const cases = [
-    ['title', foreground('surface.title', { bold: true })],
-    ['heading', foreground('text.strong', { bold: true })],
-    ['body', foreground('text.default')],
-    ['caption', foreground('text.muted', { dim: true })],
-    ['metadata', foreground('text.muted', { dim: true })],
-    ['metric', foreground('accent.primary', { bold: true })],
-    ['badge', {
-      fg: { kind: 'theme', token: 'badge.foreground' },
-      bg: { kind: 'theme', token: 'badge.background' },
-      bold: true
-    }]
-  ];
-
-  for (const [role, expected] of cases) {
-    assert.deepEqual(defaultStyleForTextRole(role), expected, role);
   }
 });

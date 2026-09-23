@@ -9,7 +9,7 @@ import { column, row, viewport } from '../../dist/layout/index.js';
 test('renderFrameDebug emits cursor-addressed control-sequence output', () => {
   const frame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'addressed-field',
-    state: { value: 'Go', cursor: 0 },
+    state: { text: 'Go', cursor: 0 },
     onTransition: () => ignoreMessage()
   }), { columns: 8, rows: 2 });
   const output = renderFrameDebug(frame);
@@ -136,7 +136,7 @@ test('renderDiffAnsi serializes clear, write, and structural cursor state', () =
   const previous = renderElementFrame(text({ content: 'Longer text', id: 'before' }), { columns: 16, rows: 2 });
   const next = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'after',
-    state: { value: 'Go', cursor: 0 },
+    state: { text: 'Go', cursor: 0 },
     onTransition: () => ignoreMessage()
   }), { columns: 16, rows: 2 });
   const diff = diffFrames(previous, next);

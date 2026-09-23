@@ -9,6 +9,7 @@ import type { TuiInputSuspensionController } from './input-suspension.ts';
 import { inputProfileForSession } from './session-policy.ts';
 import { recordTuiRestore } from './transcript.ts';
 import { failTuiRuntimeTerminalOwnership } from './runtime.ts';
+import type { TuiRuntimeRunner } from './runtime.ts';
 import { runTuiLifecyclePhase } from './lifecycle-phase.ts';
 import type { TerminalGraphicsMode } from '../graphics/index.ts';
 import type { TuiLifecyclePhase } from './lifecycle-phase.ts';
@@ -22,6 +23,7 @@ interface TerminalSuspensionOptions<TState, TMessage> {
   readonly recoveryTimeoutMs: number;
   readonly transcript?: TranscriptRecorder;
   readonly runtime: () => TuiRuntime<TState, TMessage>;
+  readonly runner: () => TuiRuntimeRunner;
   readonly session: () => TerminalSession;
   readonly replaceSession: (session: TerminalSession) => void;
   readonly canReacquire: () => boolean;
@@ -37,7 +39,8 @@ export function createTerminalSuspension<TState, TMessage>(
     const completion = tail.then(async () => {
       signal.throwIfAborted();
       const runtime = options.runtime();
-      await runtime.suspendOutput();
+      const runner = options.runner();
+      await runner.suspendOutput();
       const input = options.input.request();
       let inputPaused = false;
       let terminalReleaseStarted = false;
@@ -82,7 +85,7 @@ export function createTerminalSuspension<TState, TMessage>(
           if (options.canReacquire()) {
             await lifecycleRecovery('recovery', async () => {
               if (!cancelledBeforeDelivery) await input.resume();
-              runtime.resumeOutput();
+              await runner.resumeOutput();
               await runtime.redraw();
             });
           }
@@ -130,11 +133,11 @@ export function createTerminalSuspension<TState, TMessage>(
               throw new Error('Terminal session could not be reconfigured after suspension.');
             }
             options.replaceSession(session);
-            runtime.replaceTerminalProfile({
+            await runner.replaceTerminalProfile({
               capabilities: session.capabilities,
               ...inputProfileForSession(setup)
             });
-            runtime.resumeOutput();
+            await runner.resumeOutput();
             await runtime.redraw();
           });
           terminalReacquired = true;

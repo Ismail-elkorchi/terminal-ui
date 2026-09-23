@@ -51,7 +51,6 @@ import {
   textAreaReducer,
   treeReducer,
   createTreeSource,
-  createTreeView,
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { CommandInputState, MenuBarState, TextAreaState } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { TreeSource } from '@ismail-elkorchi/terminal-ui';
@@ -226,7 +225,7 @@ function updateEditor(
       return commandResult(state, message.id, operations);
     case 'tree': {
       const treeState = treeReducer(state.tree, message.transition, {
-        view: createTreeView(state.treeSource, state.tree),
+        source: state.treeSource,
       });
       return result({ ...state, tree: treeState });
     }
@@ -580,7 +579,7 @@ function explorerPane(state: EditorState): Element<EditorMessage> {
     tree({
       id: 'editor-tree',
       meta: { accessibleName: 'File explorer' },
-      view: createTreeView(state.treeSource, state.tree),
+      source: state.treeSource,
       state: state.tree,
       emptyText: 'Use /folder <path>',
       onTransition: (transition): EditorMessage => ({ kind: 'tree', transition }),

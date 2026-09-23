@@ -10,9 +10,10 @@ let measurementCacheWeight = 0;
 
 export function measureTextCells(
   text: string,
-  options: TextMeasurementOptions = {}
+  options: TextMeasurementOptions = {},
+  onSegmentation?: (codeUnits: number) => void,
 ): TextCellMetrics {
-  return measureText(text, options, 'text');
+  return measureText(text, options, 'text', onSegmentation);
 }
 
 export function measureTerminalCellText(
@@ -26,6 +27,7 @@ function measureText(
   text: string,
   options: TextMeasurementOptions,
   mode: 'text' | 'cell',
+  onSegmentation?: (codeUnits: number) => void,
 ): TextCellMetrics {
   const cacheKey = measurementCacheKey(text, options, mode);
   if (cacheKey !== undefined) {
@@ -36,6 +38,7 @@ function measureText(
     ? sanitizeTerminalCellText(text)
     : sanitizeTerminalText(text);
   const graphemes = segmentGraphemesForMeasurement(sanitized.text, options);
+  onSegmentation?.(sanitized.text.length);
   const measured = Object.freeze({
     text: sanitized.text,
     graphemes,

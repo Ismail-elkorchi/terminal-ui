@@ -245,10 +245,15 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
     ], { id: 'root' })
   });
   const host = createMemoryTerminalHost({ terminalSize: { columns: 48, rows: 10 } });
+  const paintStages = [];
   const runtime = createTuiRuntime({
     app,
     host,
-    initialFocus: { kind: 'path', path: ['root', 'base', 'command'] }
+    initialFocus: { kind: 'path', path: ['root', 'base', 'command'] },
+    instrumentation: {
+      now: () => 1,
+      record: (sample) => { paintStages.push(sample.stage); },
+    },
   });
 
   await runtime.start();
@@ -269,6 +274,7 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
 
   await runtime.handleInput({ kind: 'text', text: 'z', paste: false });
   assert.equal(runtime.state()?.command, 'z');
+  assert.equal(paintStages.filter((stage) => stage === 'snapshot').length, host.frames().length);
 });
 
 
@@ -278,8 +284,8 @@ test('anonymous container focus identity survives terminal resize', async () => 
     init: () => ({ state: ({ value: '' }) }),
     update: (state) => ({ state }),
     view: (state) => column([
-      focusInput({ id: 'first', state: { value: state.value, cursor: 0 } }),
-      focusInput({ id: 'second', state: { value: state.value, cursor: 0 } })
+      focusInput({ id: 'first', state: { text: state.value, cursor: 0 } }),
+      focusInput({ id: 'second', state: { text: state.value, cursor: 0 } })
     ])
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 40, rows: 6 } });
@@ -658,11 +664,11 @@ test('dialog owns escape dismissal, initial focus, and focus restoration', async
         ? [dialog({
             slots: {
               content: column([
-                surface(focusInput({ id: 'nested-dialog-field', state: { value: '', cursor: 0 } }), {
+                surface(focusInput({ id: 'nested-dialog-field', state: { text: '', cursor: 0 } }), {
                   id: 'nested-dialog-surface'
                 }),
-                focusInput({ id: 'first-dialog-field', state: { value: '', cursor: 0 } }),
-                focusInput({ id: 'preferred-dialog-field', state: { value: '', cursor: 0 } })
+                focusInput({ id: 'first-dialog-field', state: { text: '', cursor: 0 } }),
+                focusInput({ id: 'preferred-dialog-field', state: { text: '', cursor: 0 } })
               ])
             },
             id: 'lifecycle-dialog',
@@ -703,7 +709,7 @@ test('dialog owns escape dismissal, initial focus, and focus restoration', async
 
 test('TUI runtime preserves clipped modal focus so Escape can dismiss after a tiny resize', async () => {
   const view = (state) => overlay([
-    focusInput({ id: 'modal-launcher', state: { value: '', cursor: 0 } }),
+    focusInput({ id: 'modal-launcher', state: { text: '', cursor: 0 } }),
     ...(state.open ? [dialog({
       id: 'clipped-dialog',
       title: 'Clipped dialog',
@@ -716,11 +722,11 @@ test('TUI runtime preserves clipped modal focus so Escape can dismiss after a ti
       onDismiss: () => ({ kind: 'close' }),
       slots: {
         content: column([
-          focusInput({ id: 'first-dialog-field', state: { value: '', cursor: 0 } }),
-          focusInput({ id: 'second-dialog-field', state: { value: '', cursor: 0 } }),
+          focusInput({ id: 'first-dialog-field', state: { text: '', cursor: 0 } }),
+          focusInput({ id: 'second-dialog-field', state: { text: '', cursor: 0 } }),
           focusInput({
             id: 'third-dialog-field',
-            state: { value: '', cursor: 0 },
+            state: { text: '', cursor: 0 },
             onTransition: () => ({ kind: 'input', field: 'third-dialog-field' })
           })
         ])

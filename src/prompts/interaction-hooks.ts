@@ -1,8 +1,10 @@
 import type { TerminalHost } from '../host/index.ts';
 import type { PromptRuntimeState } from './state.ts';
 import type { PromptDefinition, PromptResult, PromptValueContract } from './types.ts';
+import type { PromptTaskOwner } from './session.ts';
 
 export interface PromptRenderHook<TChoice, TPrompt extends PromptDefinition<TChoice>> {
+  readonly owner: PromptTaskOwner;
   render(
     host: TerminalHost,
     prompt: TPrompt,

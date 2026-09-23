@@ -103,20 +103,20 @@ test('focus traversal properties avoid disabled targets and remain restorable', 
       textInput({
         id: 'first',
         meta: { accessibleName: 'First value' },
-        state: { value: state.active, cursor: 0 },
+        state: { text: state.active, cursor: 0 },
         onTransition: () => ignoreMessage(),
         onSubmit: () => ({ kind: 'first' })
       }),
       textInput({
         id: 'disabled',
         meta: { accessibleName: 'Disabled value' },
-        state: { value: state.active, cursor: 0 },
+        state: { text: state.active, cursor: 0 },
         disabled: true
       }),
       textInput({
         id: 'second',
         meta: { accessibleName: 'Second value' },
-        state: { value: state.active, cursor: 0 },
+        state: { text: state.active, cursor: 0 },
         onTransition: () => ignoreMessage(),
         onSubmit: () => ({ kind: 'second' })
       })

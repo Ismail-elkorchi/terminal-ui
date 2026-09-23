@@ -5,13 +5,13 @@ import { frameCellSource } from '../visual/frame-source.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { FrameCellSource } from '../visual/frame-source.ts';
 import type { FocusPath } from './internal/focus.ts';
-import type { CursorPosition } from './contracts.ts';
+import type { CursorPosition, RenderInstrumentation } from './contracts.ts';
 import type { Frame, FrameCell, FrameHitTarget } from './contracts.ts';
 import type { Rect } from './contracts.ts';
 import { decodeTerminalLink } from '../visual/render-content.ts';
 import { decodeTerminalStyle } from '../visual/terminal-style.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalColor, TerminalLink, TerminalStyle } from '../visual/render-content.ts';
-import type { RenderTarget } from './contracts.ts';
+import type { FrameRenderTarget, RenderTarget } from './contracts.ts';
 import type { TextWidthProfile } from '../text/index.ts';
 import type { GraphemeSegment } from '../text/index.ts';
 import { defaultTextWidthProfile, defineTextWidthProfile } from '../text/index.ts';
@@ -29,6 +29,7 @@ import type { DirtyRegionSet } from './internal/dirty-regions.ts';
 
 export interface FrameBufferOptions {
   readonly widthProfile?: TextWidthProfile;
+  readonly instrumentation?: Pick<RenderInstrumentation, 'recordWork'>;
 }
 
 export interface FrameBufferSnapshotOptions {
@@ -45,7 +46,7 @@ export interface FrameBufferSnapshot extends Frame {
   readonly [frameBufferSnapshotBrand]: true;
 }
 
-export interface FrameBuffer extends RenderTarget {
+export interface FrameBuffer extends FrameRenderTarget {
   readonly width: number;
   readonly height: number;
 
@@ -67,7 +68,8 @@ export function createFrameBuffer(width: number, height: number, options: FrameB
     width,
     height,
     defineTextWidthProfile(options.widthProfile ?? defaultTextWidthProfile),
-    false
+    false,
+    options.instrumentation,
   );
 }
 
@@ -80,7 +82,8 @@ export function createCompositingFrameBuffer(
     width,
     height,
     defineTextWidthProfile(options.widthProfile ?? defaultTextWidthProfile),
-    true
+    true,
+    options.instrumentation,
   );
 }
 
@@ -99,10 +102,6 @@ export function transferFrameCell(buffer: RenderTarget, cell: FrameCell): void {
     return;
   }
   buffer.writeCell(cell);
-}
-
-export function transferGraphicPlacement(buffer: RenderTarget, placement: GraphicPlacement): void {
-  buffer.placeGraphic(placement);
 }
 
 export interface FrameBufferSpan {
@@ -160,6 +159,7 @@ const mergeableCells = Symbol('terminal-ui.mergeable-frame-cells');
 const captureDamage = Symbol('terminal-ui.capture-frame-buffer-damage');
 
 class CellFrameBuffer implements FrameBuffer {
+  readonly coordinateSpace = 'frame' as const;
   readonly width: number;
   readonly height: number;
   readonly widthProfile: TextWidthProfile;
@@ -172,18 +172,26 @@ class CellFrameBuffer implements FrameBuffer {
   private readonly clearedCoverage = new DirtyCoverageAccumulator();
   private readonly damageScopes: DirtyCoverageAccumulator[] = [];
   private canvasStyleOverride: TerminalStyle | undefined;
+  private readonly onSegmentation?: (codeUnits: number) => void;
 
   constructor(
     width: number,
     height: number,
     widthProfile: TextWidthProfile,
-    inheritBackground: boolean
+    inheritBackground: boolean,
+    instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
   ) {
     assertFrameDimensions(width, height);
     this.width = width;
     this.height = height;
     this.widthProfile = widthProfile;
     this.inheritBackground = inheritBackground;
+    if (instrumentation?.recordWork !== undefined) {
+      this.onSegmentation = (codeUnits) => {
+        instrumentation.recordWork?.({ kind: 'buffer_segmentations', count: 1 });
+        instrumentation.recordWork?.({ kind: 'buffer_segmented_code_units', count: codeUnits });
+      };
+    }
   }
 
   write(row: number, column: number, spans: readonly RenderSpan[]): void {
@@ -191,7 +199,7 @@ class CellFrameBuffer implements FrameBuffer {
     let nextColumn = Math.floor(column);
     for (const currentSpan of spans) {
       const text = sanitizeTerminalCellText(currentSpan.text).text;
-      const measured = measureTextCells(text, { widthProfile: this.widthProfile });
+      const measured = measureTextCells(text, { widthProfile: this.widthProfile }, this.onSegmentation);
       const style = currentSpan.style === undefined
         ? undefined
         : decodeTerminalStyle(currentSpan.style, 'Frame span style');
@@ -371,7 +379,7 @@ class CellFrameBuffer implements FrameBuffer {
     if (cell.width < 1 || cell.column + cell.width - 1 > this.width) return;
     const text = sanitizeTerminalCellText(cell.text).text;
     if (text.length === 0) return;
-    const measured = measureTextCells(text, { widthProfile: this.widthProfile });
+    const measured = measureTextCells(text, { widthProfile: this.widthProfile }, this.onSegmentation);
     if (measured.graphemes.length !== 1 || measured.cells !== cell.width) return;
     const style = cell.style === undefined
       ? undefined

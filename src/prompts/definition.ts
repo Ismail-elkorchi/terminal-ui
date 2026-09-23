@@ -21,7 +21,7 @@ import type {
 import { minimalTheme } from '../theme/index.ts';
 import { resolveThemeInput } from '../theme/theme.ts';
 import { decodeTerminalDiagnostic } from '../diagnostics.ts';
-import { isNonArrayObject } from '../foundation/validation.ts';
+import { assertSupportedFields, isNonArrayObject } from '../foundation/validation.ts';
 import { measureTextCells, sanitizeTerminalCellText, sanitizeTerminalText } from '../text/index.ts';
 import { decodeProgressSnapshot } from './progress.ts';
 import type {
@@ -36,7 +36,7 @@ const registeredPromptDefinitions = new WeakSet<object>();
 
 export function confirm(options: ConfirmPromptOptions): ConfirmPromptDefinition;
 export function confirm(options: unknown): ConfirmPromptDefinition {
-  const supplied = promptOptions(options);
+  const supplied = promptOptions(options, 'confirm', valuePromptFields);
   const defaultValue = supplied['defaultValue'];
   if (defaultValue !== undefined && typeof defaultValue !== 'boolean') {
     throw new TypeError('Confirm prompt defaultValue must be a boolean when provided.');
@@ -46,14 +46,14 @@ export function confirm(options: unknown): ConfirmPromptDefinition {
 
 export function input(options: InputPromptOptions): InputPromptDefinition;
 export function input(options: unknown): InputPromptDefinition {
-  const supplied = promptOptions(options);
+  const supplied = promptOptions(options, 'input', valuePromptFields);
   assertOptionalString(supplied['defaultValue'], 'Input prompt defaultValue');
   return registerPrompt(Object.freeze({ kind: 'input', ...valuePromptDefinition(supplied) }) as InputPromptDefinition);
 }
 
 export function password(options: PasswordPromptOptions): PasswordPromptDefinition;
 export function password(options: unknown): PasswordPromptDefinition {
-  const supplied = promptOptions(options);
+  const supplied = promptOptions(options, 'password', [...valuePromptFields, 'mask']);
   assertOptionalString(supplied['defaultValue'], 'Password prompt defaultValue');
   const mask = decodeMask(supplied['mask']);
   return registerPrompt(Object.freeze({
@@ -65,7 +65,7 @@ export function password(options: unknown): PasswordPromptDefinition {
 
 export function select<TValue>(options: SelectPromptOptions<TValue>): SelectPromptDefinition<TValue>;
 export function select<TValue>(options: unknown): SelectPromptDefinition<TValue> {
-  const supplied = promptOptions(options);
+  const supplied = promptOptions(options, 'select', [...valuePromptFields, 'choices']);
   return registerPrompt(Object.freeze({
     kind: 'select',
     ...valuePromptDefinition<TValue>(supplied),
@@ -77,7 +77,7 @@ export function multiselect<TValue>(
   options: MultiSelectPromptOptions<TValue>
 ): MultiSelectPromptDefinition<TValue>;
 export function multiselect<TValue>(options: unknown): MultiSelectPromptDefinition<TValue> {
-  const supplied = promptOptions(options);
+  const supplied = promptOptions(options, 'multiselect', [...valuePromptFields, 'choices', 'minSelected', 'maxSelected', 'rangeSelection']);
   const minSelected = optionalNonNegativeSafeInteger(supplied['minSelected'], 'Multiselect minSelected');
   const maxSelected = optionalNonNegativeSafeInteger(supplied['maxSelected'], 'Multiselect maxSelected');
   if (minSelected !== undefined && maxSelected !== undefined && minSelected > maxSelected) {
@@ -105,7 +105,7 @@ export function autocomplete<TValue>(
   options: AutocompletePromptOptions<TValue>
 ): AutocompletePromptDefinition<TValue>;
 export function autocomplete<TValue>(options: unknown): AutocompletePromptDefinition<TValue> {
-  const supplied = promptOptions(options);
+  const supplied = promptOptions(options, 'autocomplete', [...valuePromptFields, 'choices', 'debounceMs']);
   const debounceMs = optionalNonNegativeSafeInteger(supplied['debounceMs'], 'Autocomplete debounceMs');
   return registerPrompt(Object.freeze({
     kind: 'autocomplete',
@@ -117,7 +117,7 @@ export function autocomplete<TValue>(options: unknown): AutocompletePromptDefini
 
 export function editor(options: EditorPromptOptions): EditorPromptDefinition;
 export function editor(options: unknown): EditorPromptDefinition {
-  const supplied = promptOptions(options);
+  const supplied = promptOptions(options, 'editor', [...basePromptFields, 'defaultValue', 'required', 'validate', 'editorCommand', 'editorAdapter']);
   assertOptionalString(supplied['defaultValue'], 'Editor prompt defaultValue');
   const editorCommand = decodeEditorCommand(supplied['editorCommand']);
   const editorAdapter = supplied['editorAdapter'];
@@ -136,7 +136,7 @@ export function editor(options: unknown): EditorPromptDefinition {
 
 export function progress(options: ProgressPromptOptions): ProgressPromptDefinition;
 export function progress(options: unknown): ProgressPromptDefinition {
-  const supplied = promptOptions(options);
+  const supplied = promptOptions(options, 'progress', [...basePromptFields, 'transcript', 'progress', 'task']);
   const task = supplied['task'];
   if (task !== undefined && typeof task !== 'function') {
     throw new TypeError('Progress prompt task must be a function when provided.');
@@ -149,7 +149,7 @@ export function progress(options: unknown): ProgressPromptDefinition {
     }),
     ...decodeTranscriptOption(supplied),
     ...(task === undefined ? {} : { progressTask: task }),
-    progress: decodeProgressSnapshot(supplied['progress'])
+    progress: decodeProgressSnapshot(supplied['progress'], 'prompt.progress')
   }) as ProgressPromptDefinition);
 }
 
@@ -218,8 +218,12 @@ function registerPrompt<TPrompt extends object>(prompt: TPrompt): TPrompt {
   return prompt;
 }
 
-function promptOptions(value: unknown): Readonly<Record<string, unknown>> {
+const basePromptFields = ['id', 'label', 'description', 'timeoutMs', 'nonTty', 'accessibility'];
+const valuePromptFields = [...basePromptFields, 'defaultValue', 'required', 'theme', 'transcript', 'validate'];
+
+function promptOptions(value: unknown, kind: string, fields: readonly string[]): Readonly<Record<string, unknown>> {
   if (!isNonArrayObject(value)) throw new TypeError('Prompt options must be an object.');
+  assertSupportedFields(value, fields, `${kind} options`);
   return value;
 }
 
@@ -281,6 +285,7 @@ function decodeMask(value: unknown): string | undefined {
 function decodeAccessibility(value: unknown): { readonly id?: string } | undefined {
   if (value === undefined) return undefined;
   if (!isNonArrayObject(value)) throw new TypeError('Prompt accessibility must be an object.');
+  assertSupportedFields(value, ['id'], 'prompt.accessibility');
   const id = optionalNonEmptyText(value['id'], 'Prompt accessibility id');
   return Object.freeze(id === undefined ? {} : { id });
 }
@@ -288,6 +293,7 @@ function decodeAccessibility(value: unknown): { readonly id?: string } | undefin
 function decodeNonTtyPolicy<TValue>(value: unknown): BasePromptOptions<TValue>['nonTty'] {
   if (value === undefined) return undefined;
   if (!isNonArrayObject(value)) throw new TypeError('Prompt nonTty policy must be an object.');
+  assertSupportedFields(value, ['mode', 'diagnosticHint', 'value'], 'prompt.nonTty');
   const mode = value['mode'];
   if (mode !== 'line_fallback' && mode !== 'transcript_only' && mode !== 'reject' && mode !== 'provided_value') {
     throw new TypeError('Prompt nonTty mode is unsupported.');

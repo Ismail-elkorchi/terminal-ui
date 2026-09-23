@@ -8,6 +8,7 @@ import {
   brailleMaskForSubcell,
   canvasTransform,
   createCanvas2D,
+  createComponentCanvas2D,
   createFrameBuffer,
   ellipseStrokePoints,
   horizontalAxis,
@@ -18,6 +19,7 @@ import {
   tooltipLines
 } from '../../dist/renderer/index.js';
 import { defaultTextWidthProfile } from '../../dist/text/index.js';
+import { createLocalComponentRenderTarget } from '../../dist/renderer/internal/scoped-render-target.js';
 
 test('Canvas2D draws points lines rectangles text and block spans through FrameBuffer', () => {
   const buffer = createFrameBuffer(14, 6);
@@ -49,6 +51,95 @@ test('Canvas2D clips drawing to the supplied canvas bounds', () => {
     buffer.snapshot().cells.slice(0, 3).map(({ row, column }) => ({ row, column })),
     [{ row: 2, column: 3 }, { row: 2, column: 4 }, { row: 2, column: 5 }]
   );
+});
+
+test('Canvas2D owns bounds and clips clears and partial text without touching neighbors', () => {
+  const buffer = createFrameBuffer(6, 1);
+  buffer.write(1, 1, [{ text: 'ABCDEF' }]);
+  const bounds = { row: 1, column: 3, width: 2, height: 1 };
+  const canvas = createCanvas2D(buffer, bounds);
+  bounds.column = 5;
+  canvas.clear({ x: -100, y: -100, width: 200, height: 200 });
+  assert.equal(renderFramePlain(buffer.snapshot()), 'AB  EF');
+  const source = { elementId: 'partial-text' };
+  canvas.text(-1, 0, [{ text: 'xyz', source }]);
+  assert.equal(renderFramePlain(buffer.snapshot()), 'AByzEF');
+  assert.equal(buffer.snapshot().cells.find((cell) => cell.column === 3)?.source?.elementId, 'partial-text');
+  assert.equal(canvas.bounds.column, 3);
+});
+
+test('component canvases use local coordinates and reject frame targets', () => {
+  const buffer = createFrameBuffer(6, 3);
+  const scoped = createLocalComponentRenderTarget(
+    buffer,
+    { row: 2, column: 3, width: 2, height: 1 },
+    { row: 1, column: 1, width: 6, height: 3 },
+    { name: 'local-canvas' },
+  );
+  assert.throws(() => createCanvas2D(scoped.target, {
+    row: 1, column: 1, width: 2, height: 1,
+  }), /frame drawing target/u);
+  assert.throws(() => createComponentCanvas2D(buffer), /component drawing target/u);
+  const canvas = createComponentCanvas2D(scoped.target);
+  canvas.point(0, 0, { text: 'X' });
+  canvas.point(1, 0, { text: 'Y' });
+  assert.equal(renderFramePlain(buffer.snapshot()), '\n  XY');
+  assert.deepEqual(canvas.bounds, { row: 0, column: 0, width: 2, height: 1 });
+  scoped.close();
+});
+
+test('Canvas2D clips large shapes before rasterizing and preserves original stroke edges', () => {
+  const buffer = createFrameBuffer(6, 2);
+  const canvas = createCanvas2D(buffer, { row: 1, column: 1, width: 6, height: 2 });
+  canvas.rect({ x: 1_000_000, y: 1_000_000, width: 1_000_000, height: 1_000_000 }, {
+    fill: { text: 'X' }, stroke: { text: '#' },
+  });
+  canvas.fillPolygon([
+    { x: 1_000_000, y: 1_000_000 }, { x: 2_000_000, y: 1_000_000 },
+    { x: 2_000_000, y: 2_000_000 },
+  ], { text: 'X' });
+  canvas.ellipse({ x: 2_000_000, y: 2_000_000 }, 1_000_000, 1_000_000, {
+    fill: { text: 'X' }, stroke: { text: '#' },
+  });
+  assert.equal(buffer.snapshot().cells.length, 0);
+  canvas.rect({ x: -1_000_000, y: 0, width: 1_000_002, height: 2 }, { stroke: { text: '#' } });
+  assert.equal(renderFramePlain(buffer.snapshot()), '##\n##');
+});
+
+test('bounded line rasterization equals the full Bresenham oracle', () => {
+  let seed = 0x6251ab;
+  const next = () => {
+    seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0;
+    return seed % 81 - 40;
+  };
+  for (let index = 0; index < 500; index += 1) {
+    const start = { x: next(), y: next() };
+    const end = { x: next(), y: next() };
+    const buffer = createFrameBuffer(10, 5);
+    createCanvas2D(buffer, { row: 1, column: 1, width: 10, height: 5 })
+      .line(start.x, start.y, end.x, end.y, { text: 'x' });
+    const actual = buffer.snapshot().cells.map((cell) => `${cell.column - 1}:${cell.row - 1}`).sort();
+    const expected = linePoints(start.x, start.y, end.x, end.y)
+      .filter((point) => point.x >= 0 && point.x < 10 && point.y >= 0 && point.y < 5)
+      .map((point) => `${point.x}:${point.y}`).sort();
+    assert.deepEqual(actual, expected);
+  }
+  const buffer = createFrameBuffer(10, 5);
+  createCanvas2D(buffer, { row: 1, column: 1, width: 10, height: 5 })
+    .line(-1_000_000_000, -1_000_000_000, 1_000_000_000, 1_000_000_000, { text: 'x' });
+  assert.equal(buffer.snapshot().cells.length, 5);
+});
+
+test('Canvas2D transforms Braille subcells once in cell units', () => {
+  const buffer = createFrameBuffer(6, 1);
+  const canvas = createCanvas2D(buffer, { row: 1, column: 1, width: 6, height: 1 });
+  canvas.withTransform({ translateX: 2 }, (scoped) => {
+    scoped.brailleSubcell(0, 0);
+  });
+  const cells = buffer.snapshot().cells;
+  assert.equal(cells.length, 1);
+  assert.equal(cells[0]?.column, 3);
+  assert.equal(cells[0]?.text, brailleCharacter(1));
 });
 
 test('Canvas2D accumulates Braille subcells into terminal cells', () => {

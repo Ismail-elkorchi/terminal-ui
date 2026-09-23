@@ -156,8 +156,6 @@ serialization.
 See [Component definitions](./component-definitions.md) and
 [Rendering internals](./rendering-internals.md).
 
-Executable examples:
-
-- `examples/tui/interactive-workspace.ts`
-- `examples/tui/ide-editor.ts`
-- `examples/tui/btop-monitor.ts`
+Executable examples: [interactive workspace](../../examples/tui/interactive-workspace.ts),
+[IDE editor](../../examples/tui/ide-editor.ts), and
+[btop-style monitor](../../examples/tui/btop-monitor.ts).

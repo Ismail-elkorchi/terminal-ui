@@ -1,5 +1,6 @@
 import type { GraphicPlacement } from '../graphics/index.ts';
 import type { Rect } from '../geometry/types.ts';
+import { intersectRects } from '../geometry/rect.ts';
 
 /** @experimental */
 export interface TerminalCellPixels {
@@ -66,14 +67,4 @@ function cropSource(
   const sourceRight = source.x + Math.ceil(source.width * right);
   const sourceBottom = source.y + Math.ceil(source.height * bottom);
   return { x, y, width: Math.max(1, sourceRight - x), height: Math.max(1, sourceBottom - y) };
-}
-
-function intersectRects(left: Rect, right: Rect): Rect | undefined {
-  const row = Math.max(left.row, right.row);
-  const column = Math.max(left.column, right.column);
-  const bottom = Math.min(left.row + left.height, right.row + right.height);
-  const edge = Math.min(left.column + left.width, right.column + right.width);
-  return bottom <= row || edge <= column
-    ? undefined
-    : { row, column, width: edge - column, height: bottom - row };
 }

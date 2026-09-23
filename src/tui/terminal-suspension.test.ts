@@ -50,8 +50,6 @@ function suspensionFixture() {
   let redraws = 0;
   let sessionRestores = 0;
   const runtime = {
-    async suspendOutput() {},
-    resumeOutput() { outputResumes += 1; },
     async redraw() { redraws += 1; },
   } as unknown as TuiRuntime<unknown, { readonly kind: string }>;
   const session = {
@@ -74,6 +72,12 @@ function suspensionFixture() {
       graphics: 'none',
       recoveryTimeoutMs: 100,
       runtime: () => runtime,
+      runner: () => ({
+        async suspendOutput() {},
+        async resumeOutput() { outputResumes += 1; },
+        async resetInput() {},
+        async replaceTerminalProfile() {},
+      }),
       session: () => session as never,
       replaceSession: () => undefined,
       canReacquire: () => true

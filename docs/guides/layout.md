@@ -9,19 +9,21 @@ geometry-only interaction. They preserve child behavior and accessibility;
 they do not become components merely because they contain children or expose a
 scroll or resize action that changes geometry.
 
-| Layout factory | Responsibility | Not |
-| --- | --- | --- |
-| `column()` | Vertical tracks with shared flow options. | A visual panel or semantic control group by itself. |
-| `row()` | Horizontal tracks with shared flow options. | A toolbar, menu, or command model. |
-| `flow()` | Multi-line horizontal or vertical flow from measured child sizes. | A virtualized data collection or semantic list. |
-| `measuredColumn()` | A retained variable-height window rendered as child elements with stable identities. | Measuring items, filtering, selection policy, or a domain-specific feed. |
-| `grid()` | Row/column tracks and named areas for spatial composition. | An accessible data grid or breakpoint policy engine. |
-| `splitPane()` | Static pane tracks or caller-controlled divider resizing. | Retaining pane content, persistence, or a window manager. |
-| `surface()` | Single-child visual containment, border and title geometry, and background construction. | Multi-child flow; compose children before wrapping. |
-| `overlay()` | Multiple children sharing the same bounds and layer order. | Modal behavior or product overlay lifecycle. |
-| `absolute()` | One child placed at a relative rectangle. | A layout solver or drag/drop framework. |
-| `anchored()` | One child placed from a cursor or target anchor with fallback sides. | Popover lifecycle, focus policy, or open state. |
-| `viewport()` | Clipping and caller-controlled offsets over a self-measured child. | A semantic list, table, editor, or transcript component. |
+| Layout factory | Use it for |
+| --- | --- |
+| `column()` | Vertical tracks with shared flow options. |
+| `row()` | Horizontal tracks with shared flow options. |
+| `flow()` | Multi-line horizontal or vertical flow from measured child sizes. |
+| `measuredColumn()` | A retained variable-height window rendered as child elements with stable identities. |
+| `grid()` | Row/column tracks and named areas for spatial composition. |
+| `splitPane()` | Static pane tracks or caller-controlled divider resizing. |
+| `surface()` | Single-child visual containment, border and title geometry, and background construction. |
+| `overlay()` | Multiple children sharing the same bounds and layer order. |
+| `absolute()` | One child placed at a relative rectangle. |
+| `anchored()` | One child placed from a cursor or target anchor with fallback sides. |
+| `viewport()` | Clipping and caller-controlled offsets over a self-measured child. |
+
+## Component boundaries
 
 Interactive `tabs()` and `dialog()` surfaces are components. Their definitions
 participate in ordinary layout, but `tabs()` owns selection actions and the
@@ -37,6 +39,8 @@ The category records which public API created the element. Component names are
 diagnostic identifiers and never select renderer behavior. Inspection exposes
 neither package origin nor private node data.
 
+## Sizing and flow
+
 Layout options include gap, padding, margin, fixed/percent/fill/content sizing,
 min/max dimensions, alignment, justification, overflow, z-index, visibility,
 and focus scope. Tiny terminal sizes should produce clipped or empty regions,
@@ -50,6 +54,8 @@ uses the final row and column of the surface's visual bounds.
 
 Without explicit sizes, `column()` stacks children at their measured heights;
 use a fill track only for content that should consume remaining rows.
+
+## Large collections and scrolling
 
 Variable-height feeds create their row index outside `view()` and retain it
 until item membership or measurements change. `createMeasuredCollection()`
@@ -76,6 +82,8 @@ offset that reveals the target. The caller remains the sole owner of scroll
 state; a passive viewport does not become scrollable merely because it clips a
 focusable child.
 
+## Rendering output
+
 Rendering starts after layout. Renderers emit styled spans into a `FrameBuffer`;
 the buffer handles clipping, wide glyphs, overwrite behavior, and source
 metadata. Diffs and ANSI serialization operate on frames rather than on element
@@ -86,6 +94,5 @@ serialization pipeline that consumes layout output.
 See [Components](./components.md) for factories that own control, document,
 feedback, and accessibility behavior.
 
-Executable example:
-
-- `examples/testing/harness.mjs`
+See the executable [testing harness example](../../examples/testing/harness.mjs)
+for layout in a rendered frame.

@@ -13,6 +13,7 @@ import {
   renderElementFrame
 } from '../../dist/renderer/index.js';
 import {
+  barChart,
   button,
   checkbox,
   checkboxGroup,
@@ -25,6 +26,7 @@ import {
   rangeSlider,
   combobox,
   link,
+  menu,
   slider,
   textArea,
   textInput,
@@ -114,7 +116,7 @@ const disabledElementCases = [
   },
   {
     name: 'textInput',
-    element: () => textInput({ meta: { accessibleName: "Text input" }, id: 'disabled-text-input', state: { value: 'locked', cursor: 0 }, disabled: true })
+    element: () => textInput({ meta: { accessibleName: "Text input" }, id: 'disabled-text-input', state: { text: 'locked', cursor: 0 }, disabled: true })
   },
   {
     name: 'numberInput',
@@ -182,24 +184,112 @@ test('disabled components expose no keyboard or mouse dispatch', async () => {
   assert.deepEqual(runtime.state(), { active: 'idle' });
 });
 
-test('unavailable controls ignore unreachable interaction options', () => {
-  assert.doesNotThrow(
+test('boolean disabled and inert controls suppress input and restore retained handlers', async () => {
+  const cases = [
+    {
+      name: 'button',
+      view: (unavailable) => button({
+        id: 'control', label: 'Run', disabled: unavailable,
+        onPress: () => ({ kind: 'activate' })
+      })
+    },
+    {
+      name: 'link',
+      view: (unavailable) => link({
+        id: 'control', label: 'Run', href: 'https://example.test', inert: unavailable,
+        onActivate: () => ({ kind: 'activate' })
+      })
+    }
+  ];
+  const enter = {
+    kind: 'key', key: 'enter', eventType: 'press', location: 'standard',
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false }
+  };
+  for (const candidate of cases) {
+    const app = defineTui({
+      id: `availability-${candidate.name}`,
+      init: () => ({ state: { unavailable: true, activations: 0 } }),
+      update: (state, message) => ({ state: message.kind === 'setAvailability'
+        ? { ...state, unavailable: message.unavailable }
+        : { ...state, activations: state.activations + 1 } }),
+      view: (state) => candidate.view(state.unavailable)
+    });
+    const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
+    const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'click' } });
+    await runtime.start();
+
+    for (const [unavailable, expected] of [[true, 0], [false, 2], [true, 2], [false, 4]]) {
+      await runtime.dispatch({ kind: 'setAvailability', unavailable });
+      const before = runtime.state().activations;
+      const key = await runtime.handleInput(enter);
+      await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+      const pointer = await runtime.handleInputChunk({ data: '\u001B[<0;1;1m' });
+      assert.equal(runtime.state().activations, expected, `${candidate.name} availability ${String(unavailable)}`);
+      assert.equal(runtime.state().activations - before, unavailable ? 0 : 2);
+      assert.equal(key.handled, !unavailable);
+      assert.equal(pointer.results[0]?.handled, !unavailable);
+    }
+  }
+});
+
+test('menus, charts, and text entry follow boolean availability at render time', () => {
+  const cases = [
+    {
+      name: 'menu',
+      element: (unavailable) => menu({
+        id: 'menu', meta: { accessibleName: 'Actions' },
+        view: { activePath: ['run'], items: [{ id: 'run', kind: 'action', label: 'Run' }] },
+        disabled: unavailable,
+        onTransition: (transition) => ({ kind: 'menu', transition })
+      })
+    },
+    {
+      name: 'barChart',
+      element: (unavailable) => barChart({
+        id: 'chart', label: 'Chart', items: [{ id: 'run', label: 'Run', value: 1 }],
+        state: { activeId: 'run', selection: { mode: 'single' } },
+        inert: unavailable,
+        onTransition: (transition) => ({ kind: 'chart', transition })
+      })
+    },
+    {
+      name: 'textInput',
+      element: (unavailable) => textInput({
+        id: 'input', meta: { accessibleName: 'Input' },
+        state: { text: 'run', cursor: 0 }, disabled: unavailable,
+        onTransition: (transition) => ({ kind: 'input', transition })
+      })
+    }
+  ];
+  for (const candidate of cases) {
+    for (const unavailable of [true, false, true, false]) {
+      const frame = renderElementFrame(candidate.element(unavailable), { columns: 24, rows: 3 });
+      assert.equal(frame.focusPath === undefined, unavailable, candidate.name);
+      assert.equal((frame.hitTargets?.length ?? 0) === 0, unavailable, candidate.name);
+    }
+  }
+});
+
+test('unavailable controls validate retained interaction handlers', () => {
+  assert.throws(
     () => button({
       id: 'invalid-disabled-button',
       label: 'Disabled',
       disabled: true,
       onPress: 'unreachable'
     }),
+    /onPress must be a function/u,
   );
-  assert.doesNotThrow(
+  assert.throws(
     () => textInput({ meta: { accessibleName: "Text input" },
       id: 'invalid-disabled-input',
-      state: { value: '', cursor: 0 },
+      state: { text: '', cursor: 0 },
       disabled: true,
       onTransition: 'unreachable'
     }),
+    /onTransition must be a function/u,
   );
-  assert.doesNotThrow(
+  assert.throws(
     () => combobox({
       id: 'invalid-disabled-combobox',
       label: 'Choice',
@@ -208,16 +298,18 @@ test('unavailable controls ignore unreachable interaction options', () => {
       disabled: true,
       onTransition: 'unreachable'
     }),
+    /onTransition must be a function/u,
   );
-  assert.doesNotThrow(
+  assert.throws(
     () => textArea({ meta: { accessibleName: "Text area" },
       id: 'invalid-disabled-editor',
       state: { document: createTextDocument('locked'), caret: textCaretAt(0) },
       disabled: true,
       onTransition: 'unreachable'
     }),
+    /onTransition must be a function/u,
   );
-  assert.doesNotThrow(
+  assert.throws(
     () => link({
       id: 'invalid-inert-link',
       label: 'Documentation',
@@ -225,6 +317,17 @@ test('unavailable controls ignore unreachable interaction options', () => {
       inert: true,
       onActivate: 'unreachable'
     }),
+    /onActivate must be a function/u,
+  );
+  assert.throws(
+    () => textInput({ id: 'invalid-retained-submit', state: { text: '', cursor: 0 },
+      disabled: true, onSubmit: 'invalid' }),
+    /onSubmit must be a function/u,
+  );
+  assert.throws(
+    () => menu({ id: 'invalid-retained-activate', view: { activePath: [], items: [] },
+      inert: true, onActivate: 'invalid' }),
+    /onActivate must be a function/u,
   );
 });
 

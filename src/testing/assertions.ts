@@ -64,9 +64,17 @@ export function assertNoSecretLeak(result: InteractionResult, secret: string): v
   }
 }
 
-export function assertTerminalRestored(result: InteractionResult): void {
-  if (!result.transcript.steps.some((step) => step.kind === 'restore')) {
-    throw new Error('Expected interaction transcript to include a restore checkpoint.');
+export function assertTerminalRestored(
+  result: InteractionResult,
+  phase?: 'checkpoint' | 'shutdown',
+): void {
+  const restore = result.transcript.steps.findLast((step) =>
+    step.kind === 'restore' && (phase === undefined || step.phase === phase));
+  if (restore?.kind !== 'restore') {
+    throw new Error(`Expected interaction transcript to include a ${phase ?? 'terminal'} restore.`);
+  }
+  if (restore.result.status !== 'restored') {
+    throw new Error(`Expected terminal restore to succeed; received ${restore.result.status}.`);
   }
 }
 

@@ -60,7 +60,6 @@ import {
   createListboxCollection,
   createTableCollection,
   createTreeSource,
-  createTreeView,
   dataGridReducer,
   treeReducer
 } from '../../dist/behavior/index.js';
@@ -330,13 +329,13 @@ test('small local frame updates produce bounded render diffs', () => {
   const previous = renderElementFrame(textInput({
     id: 'field',
     meta: { accessibleName: 'Field' },
-    state: { value: 'alpha', cursor: 0 },
+    state: { text: 'alpha', cursor: 0 },
     onTransition: () => ignoreMessage()
   }), { columns: 24, rows: 3 });
   const next = renderElementFrame(textInput({
     id: 'field',
     meta: { accessibleName: 'Field' },
-    state: { value: 'alpha!', cursor: 0 },
+    state: { text: 'alpha!', cursor: 0 },
     onTransition: () => ignoreMessage()
   }), { columns: 24, rows: 3 });
   const diff = diffFrames(previous, next);
@@ -742,7 +741,7 @@ test('large tree rendering is bounded by terminal size independently from node c
   const frame = renderElementFrame(tree({
     id: 'large-tree',
     meta: { accessibleName: 'Large tree' },
-    view: createTreeView(source, treeState),
+    source: source,
     state: treeState,
     onTransition: () => ignoreMessage()
   }), { columns: 40, rows: 10 });
@@ -773,21 +772,20 @@ test('retained tree collections avoid recursive flattening on rerender and movem
     expandedIds: ['root']
   };
   const source = createTreeSource(nodes);
-  const view = createTreeView(source, initial);
 
   assert.ok(nodeIdReads >= children.length);
   nodeIdReads = 0;
   renderElementFrame(tree({
     id: 'retained-tree',
     meta: { accessibleName: 'Retained tree' },
-    view,
+    source,
     state: initial,
     onTransition: () => ignoreMessage()
   }), { columns: 40, rows: 10 });
   renderElementFrame(tree({
     id: 'retained-tree',
     meta: { accessibleName: 'Retained tree' },
-    view,
+    source,
     state: {
       activeId: 'node-25001',
       selection: { mode: 'single', selectedId: 'node-25001' },
@@ -796,7 +794,7 @@ test('retained tree collections avoid recursive flattening on rerender and movem
     onTransition: () => ignoreMessage()
   }), { columns: 48, rows: 12 });
   const state = treeReducer(initial, { kind: 'moveActive', delta: 1 }, {
-    view,
+    source,
   });
 
   assert.equal(state.activeId, 'node-25001');
@@ -850,7 +848,7 @@ test('form navigation over many controls items one bounded frame per input', asy
       ...Array.from({ length: 25 }, (_value, index) => textInput({
         id: `field-${index}`,
         meta: { accessibleName: `Field ${String(index + 1)}` },
-        state: { value: state.active, cursor: 0 },
+        state: { text: state.active, cursor: 0 },
         onTransition: () => ignoreMessage(),
         onSubmit: () => ({ kind: `field-${index}` })
       })),

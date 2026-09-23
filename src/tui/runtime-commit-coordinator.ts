@@ -5,7 +5,8 @@ import {
   findAnyLayoutFocusTarget,
   nextFocusPath,
   previousFocusPath,
-  resolveInitialFocusSelector
+  resolveInitialFocusSelector,
+  resolveFocusPath
 } from '../renderer/internal/focus.ts';
 import {
   commitFrame,
@@ -20,33 +21,43 @@ import type { TerminalDiagnostic } from '../diagnostics.ts';
 import { focusPathsEqual } from '../interaction/focus.ts';
 import type { FocusPath } from '../interaction/focus.ts';
 import type { Frame, RenderDiff } from '../renderer/index.ts';
+import type { LayoutNode } from '../renderer/contracts.ts';
 import type { RenderCommitCandidate } from './runtime-frame.ts';
 import type { TuiContext, TuiRuntimeOptions } from './types.ts';
 import { createTerminalGraphicsCommitter } from './graphics-committer.ts';
 import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
 import { sameThemeRendering } from '../theme/theme.ts';
 import type { PointerVisualSnapshot } from '../interaction/pointer-interaction.ts';
+import { samePointerVisualSnapshot } from '../interaction/pointer-interaction.ts';
 import {
   copySelectedTextToClipboard,
   suspendedClipboardSelection,
 } from './selection.ts';
 import type { CopySelectedTextInput } from './selection.ts';
 
+interface CommittedRuntimeRecord<TState, TMessage> {
+  readonly state: TState;
+  readonly stateVersion: number;
+  readonly terminalSize: TerminalSize;
+  readonly context: TuiContext;
+  readonly render: RenderCommitCandidate<TMessage>;
+  readonly focusPath: FocusPath | undefined;
+  readonly focusReturnPaths: readonly FocusPath[];
+}
+
 export function createRuntimeCommitCoordinator<TState, TMessage>(
-  options: Pick<TuiRuntimeOptions<TState, TMessage>, 'app' | 'host' | 'theme' | 'initialFocus' | 'graphics' | 'graphicsBudget'> & {
+  options: Pick<TuiRuntimeOptions<TState, TMessage>, 'app' | 'host' | 'theme' | 'initialFocus' | 'graphics' | 'graphicsBudget' | 'instrumentation'> & {
     readonly initialTerminalSize: TerminalSize;
     readonly reportDiagnostic?: (item: TerminalDiagnostic) => void;
     readonly pointerVisuals?: () => PointerVisualSnapshot;
   },
   signal: AbortSignal
 ) {
-  let currentTerminalSize = options.initialTerminalSize;
-  let currentRender: RenderCommitCandidate<TMessage> | undefined;
-  let currentFocusPath: FocusPath | undefined = options.initialFocus?.kind === 'path'
+  const startingFocusPath: FocusPath | undefined = options.initialFocus?.kind === 'path'
     ? options.initialFocus.path
     : undefined;
+  let committed: CommittedRuntimeRecord<TState, TMessage> | undefined;
   let pendingInitialFocus = options.initialFocus;
-  let focusReturnPaths: FocusPath[] = [];
   let outputBaselineKnown = false;
   let outputSuspended = false;
   let nextCommitSequence = 1;
@@ -58,14 +69,19 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
   );
 
   const coordinator = {
-    terminalSize: () => currentTerminalSize,
-    render: committedRender,
-    renderOrUndefined: () => currentRender,
-    frame() {
-      if (currentRender === undefined) throw new Error('TUI runtime does not have a frame.');
-      return currentRender.frame;
+    terminalSize: () => committed?.terminalSize ?? options.initialTerminalSize,
+    hasState: () => committed !== undefined,
+    state() {
+      if (committed === undefined) throw new Error('TUI runtime does not have state.');
+      return committed.state;
     },
-    focusPath: () => currentFocusPath,
+    version: () => committed?.stateVersion ?? 0,
+    render: committedRender,
+    renderOrUndefined: () => committed?.render,
+    frame() {
+      return committedRender().frame;
+    },
+    focusPath: () => committed === undefined ? startingFocusPath : committed.focusPath,
     copySelectedText(
       input: CopySelectedTextInput,
       capabilities: TuiContext['capabilities'],
@@ -110,7 +126,6 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
       state: TState,
       context: TuiContext,
       stateVersion: number,
-      publishState: () => void,
       focus = pendingInitialFocus,
     ) {
       const theme = resolveTuiTheme(options.theme, state);
@@ -118,18 +133,14 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
         state,
         context,
         theme,
-        currentFocusPath,
-        focusReturnPaths,
+        committed?.focusPath ?? startingFocusPath,
+        committed?.focusReturnPaths ?? [],
         focus,
         stateVersion,
         candidateCommitId()
       );
       const diff = await write(undefined, resolution.render, theme, context);
-      accept(resolution, currentTerminalSize);
-      publishState();
-      observeCommittedFrame(resolution.render.frame, diff);
-      pendingInitialFocus = undefined;
-      return { render: resolution.render, diff, diagnostics: resolution.diagnostics };
+      return { render: resolution.render, diff, diagnostics: resolution.diagnostics, resolution, terminalSize: options.initialTerminalSize, context, initial: true };
     },
     async transition(
       state: TState,
@@ -138,7 +149,6 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
       requestedFocusPath: FocusPath | undefined,
       stateVersion: number,
       focus: TuiRuntimeOptions<TState, TMessage>['initialFocus'],
-      publishState: () => void
     ) {
       const theme = resolveTuiTheme(options.theme, state);
       const previousFrame = frameDiffBase(theme);
@@ -147,29 +157,41 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
         context,
         theme,
         requestedFocusPath,
-        focusReturnPaths,
+        committed?.focusReturnPaths ?? [],
         focus,
         stateVersion,
         candidateCommitId()
       );
       const diff = await write(previousFrame, resolution.render, theme, context);
-      accept(resolution, terminalSize);
-      publishState();
-      observeCommittedFrame(resolution.render.frame, diff);
-      return { render: resolution.render, diff, diagnostics: resolution.diagnostics };
+      return { render: resolution.render, diff, diagnostics: resolution.diagnostics, resolution, terminalSize, context, initial: false };
+    },
+    publish(result: {
+      readonly resolution: RuntimeRenderResolution<TMessage>;
+      readonly terminalSize: TerminalSize;
+      readonly context: TuiContext;
+      readonly diff: RenderDiff;
+      readonly initial: boolean;
+    }, state: TState, stateVersion: number) {
+      accept(result.resolution, result.terminalSize, result.context, state, stateVersion);
+      if (result.initial) pendingInitialFocus = undefined;
+      observeCommittedFrame(result.resolution.render.frame, result.diff);
+    },
+    publishWithoutFrame(state: TState, stateVersion: number) {
+      if (committed === undefined) throw new Error('TUI runtime does not have a committed render.');
+      committed = { ...committed, state, stateVersion };
     },
     adjacentFocusPath(direction: 'next' | 'previous') {
       const current = committedRender();
       return direction === 'next'
-        ? nextFocusPath(current.layout, currentFocusPath)
-        : previousFocusPath(current.layout, currentFocusPath);
+        ? nextFocusPath(current.layout, committed?.focusPath, options.instrumentation)
+        : previousFocusPath(current.layout, committed?.focusPath, options.instrumentation);
     }
   };
   return coordinator;
 
   function committedRender(): RenderCommitCandidate<TMessage> {
-    if (currentRender === undefined) throw new Error('TUI runtime does not have a committed render.');
-    return currentRender;
+    if (committed === undefined) throw new Error('TUI runtime does not have a committed render.');
+    return committed.render;
   }
 
   async function write(
@@ -179,15 +201,16 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
     context: TuiContext
   ): Promise<RenderDiff> {
     signal.throwIfAborted();
-    if (outputSuspended) return diffFrames(previousFrame, render.frame);
+    if (outputSuspended) return diffFrames(previousFrame, render.frame, options.instrumentation === undefined ? {} : { instrumentation: options.instrumentation });
     try {
       const dirtyRegions = previousFrame === undefined
         ? undefined
-        : dirtyRegionsForRenderCommit(currentRender, render);
+        : dirtyRegionsForRenderCommit(committed?.render, render);
       const diff = await commitFrame(options.host, previousFrame, render.frame, theme, context.capabilities, {
         ...(dirtyRegions === undefined ? {} : { dirtyRegions: dirtyRegions.rects }),
         signal,
-        graphics
+        graphics,
+        ...(options.instrumentation === undefined ? {} : { instrumentation: options.instrumentation })
       });
       outputBaselineKnown = true;
       return diff;
@@ -197,11 +220,22 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
     }
   }
 
-  function accept(resolution: RuntimeRenderResolution<TMessage>, terminalSize: TerminalSize): void {
-    currentTerminalSize = terminalSize;
-    currentRender = resolution.render;
-    currentFocusPath = resolution.focusPath;
-    focusReturnPaths = [...resolution.focusReturnPaths];
+  function accept(
+    resolution: RuntimeRenderResolution<TMessage>,
+    terminalSize: TerminalSize,
+    context: TuiContext,
+    state: TState,
+    stateVersion: number,
+  ): void {
+    committed = {
+      state,
+      stateVersion,
+      terminalSize,
+      context,
+      render: resolution.render,
+      focusPath: resolution.focusPath,
+      focusReturnPaths: [...resolution.focusReturnPaths],
+    };
     for (const fingerprint of resolution.renderDiagnosticFingerprints) {
       acceptedRenderDiagnostics.delete(fingerprint);
       acceptedRenderDiagnostics.set(fingerprint, true);
@@ -215,9 +249,9 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
 
   function frameDiffBase(theme: RenderCommitCandidate<TMessage>['theme']): Frame | undefined {
     return outputBaselineKnown
-      && currentRender !== undefined
-      && sameThemeRendering(currentRender.theme, theme)
-      ? currentRender.frame
+      && committed !== undefined
+      && sameThemeRendering(committed.render.theme, theme)
+      ? committed.render.frame
       : undefined;
   }
 
@@ -235,119 +269,102 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
     stateVersion: number,
     commitId: string
   ): RuntimeRenderResolution<TMessage> {
-    let desiredFocusPath = requestedFocusPath;
-    let render = renderCurrentFrame(
-      options.app,
-      state,
-      context,
-      desiredFocusPath,
-      theme,
-      stateVersion,
-      commitId,
-      options.graphicsBudget,
-      options.pointerVisuals?.(),
-    );
-    const initial = resolveInitialFocus(state, render, desiredFocusPath, initialFocus, stateVersion, commitId);
-    render = initial.render;
-    desiredFocusPath = initial.desiredFocusPath;
-    const recovered = resolveFocusReturnPaths(
-      state,
-      render,
-      desiredFocusPath,
-      previousReturnPaths,
-      stateVersion,
-      commitId,
-    );
-    render = recovered.render;
-    const nextReturnPaths = recovered.returnPaths;
+    const planned: { current?: PlannedFocusResolution } = {};
+    const focusForLayout = (layout: LayoutNode): FocusPath | undefined => {
+      const next = planCandidateFocus(layout, requestedFocusPath, previousReturnPaths, initialFocus);
+      planned.current = next;
+      return next.focusPath;
+    };
+    const render = committed !== undefined && canReuseCommittedRender(state, context, theme, requestedFocusPath)
+      ? rerenderCurrentFrame(
+          options.app,
+          state,
+          committed.render,
+          focusForLayout(committed.render.layout),
+          stateVersion,
+          commitId,
+          options.pointerVisuals?.(),
+          options.instrumentation,
+        )
+      : renderCurrentFrame(
+          options.app,
+          state,
+          context,
+          requestedFocusPath,
+          theme,
+          stateVersion,
+          commitId,
+          options.graphicsBudget,
+          options.pointerVisuals?.(),
+          options.instrumentation,
+          focusForLayout,
+        );
+    const focus = planned.current;
+    if (focus === undefined) throw new Error('TUI frame was painted without resolving its focus.');
     const renderDiagnostics = newRenderDiagnostics(render);
     return {
       render,
       ...(render.frame.focusPath === undefined ? {} : { focusPath: render.frame.focusPath }),
-      focusReturnPaths: nextReturnPaths,
+      focusReturnPaths: focus.returnPaths,
       renderDiagnosticFingerprints: renderDiagnostics.fingerprints,
-      diagnostics: [...initial.diagnostics, ...renderDiagnostics.diagnostics],
+      diagnostics: [...focus.diagnostics, ...renderDiagnostics.diagnostics],
     };
   }
 
-  function resolveInitialFocus(
-    state: TState,
-    current: RenderCommitCandidate<TMessage>,
-    desiredFocusPath: FocusPath | undefined,
-    initialFocus: TuiRuntimeOptions<TState, TMessage>['initialFocus'],
-    stateVersion: number,
-    commitId: string,
-  ): InitialFocusResolution<TMessage> {
-    if (initialFocus === undefined) return { render: current, desiredFocusPath, diagnostics: [] };
-    const resolution = resolveInitialFocusSelector(current.layout, initialFocus);
-    if (resolution.kind === 'matched') {
-      if (focusPathsEqual(resolution.path, current.frame.focusPath)) {
-        return { render: current, desiredFocusPath: resolution.path, diagnostics: [] };
-      }
-      return {
-        render: rerenderCurrentFrame(
-          options.app,
-          state,
-          current,
-          resolution.path,
-          stateVersion,
-          commitId,
-          options.pointerVisuals?.(),
-        ),
-        desiredFocusPath: resolution.path,
-        diagnostics: [],
-      };
-    }
-    return {
-      render: current,
-      desiredFocusPath,
-      diagnostics: [initialFocusDiagnostic(options.app.id, resolution)],
-    };
-  }
-
-  function resolveFocusReturnPaths(
-    state: TState,
-    current: RenderCommitCandidate<TMessage>,
-    desiredFocusPath: FocusPath | undefined,
+  function planCandidateFocus(
+    layout: LayoutNode,
+    requested: FocusPath | undefined,
     previousReturnPaths: readonly FocusPath[],
-    stateVersion: number,
-    commitId: string,
-  ): FocusReturnResolution<TMessage> {
-    let render = current;
-    let nextReturnPaths = previousReturnPaths
-      .filter((path) => findAnyLayoutFocusTarget(render.layout, path) !== undefined)
+    initialFocus: TuiRuntimeOptions<TState, TMessage>['initialFocus'],
+  ): PlannedFocusResolution {
+    let desired = requested;
+    const diagnostics: TerminalDiagnostic[] = [];
+    if (initialFocus !== undefined) {
+      const resolution = resolveInitialFocusSelector(layout, initialFocus);
+      if (resolution.kind === 'matched') desired = resolution.path;
+      else diagnostics.push(initialFocusDiagnostic(options.app.id, resolution));
+    }
+    let focusPath = resolveFocusPath(layout, desired, options.instrumentation);
+    let returnPaths = previousReturnPaths
+      .filter((path) => findAnyLayoutFocusTarget(layout, path) !== undefined)
       .map((path) => [...path]);
-    const focusReturnPath = nextReturnPaths.at(-1);
-    if (
-      focusReturnPath !== undefined
-      && desiredFocusPath !== undefined
-      && !focusPathsEqual(render.frame.focusPath, desiredFocusPath)
-    ) {
-      const recovered = rerenderCurrentFrame(
-        options.app,
-        state,
-        render,
-        focusReturnPath,
-        stateVersion,
-        commitId,
-        options.pointerVisuals?.(),
-      );
-      if (focusPathsEqual(recovered.frame.focusPath, focusReturnPath)) render = recovered;
+    const lastReturnPath = returnPaths.at(-1);
+    if (lastReturnPath !== undefined && desired !== undefined && !focusPathsEqual(focusPath, desired)) {
+      const recovered = resolveFocusPath(layout, lastReturnPath, options.instrumentation);
+      if (focusPathsEqual(recovered, lastReturnPath)) focusPath = recovered;
     }
-    if (
-      desiredFocusPath !== undefined
-      && render.frame.focusPath !== undefined
-      && !focusPathsEqual(render.frame.focusPath, desiredFocusPath)
-      && findAnyLayoutFocusTarget(render.layout, desiredFocusPath) !== undefined
-      && activeFocusScopeRestores(render.layout)
-      && !nextReturnPaths.some((path) => focusPathsEqual(path, desiredFocusPath))
-    ) {
-      nextReturnPaths.push([...desiredFocusPath]);
+    if (desired !== undefined && focusPath !== undefined
+      && !focusPathsEqual(focusPath, desired)
+      && findAnyLayoutFocusTarget(layout, desired) !== undefined
+      && activeFocusScopeRestores(layout)
+      && !returnPaths.some((path) => focusPathsEqual(path, desired))) {
+      returnPaths.push([...desired]);
     }
-    if (nextReturnPaths.length > 0 && focusPathsEqual(render.frame.focusPath, nextReturnPaths.at(-1))) {
-      nextReturnPaths = nextReturnPaths.slice(0, -1);
+    if (returnPaths.length > 0 && focusPathsEqual(focusPath, returnPaths.at(-1))) {
+      returnPaths = returnPaths.slice(0, -1);
     }
-    return { render, returnPaths: nextReturnPaths };
+    return { focusPath, returnPaths, diagnostics };
+  }
+
+  function canReuseCommittedRender(
+    state: TState,
+    context: TuiContext,
+    theme: RenderCommitCandidate<TMessage>['theme'],
+    requestedFocusPath: FocusPath | undefined,
+  ): boolean {
+    if (committed === undefined) return false;
+    if (committed.state !== state) return false;
+    const previous = committed.context;
+    const interactionChanged = !focusPathsEqual(committed.focusPath, requestedFocusPath)
+      || !samePointerVisualSnapshot(committed.render.pointerVisuals, options.pointerVisuals?.());
+    return interactionChanged
+      && previous.capabilities === context.capabilities
+      && previous.clock === context.clock
+      && previous.terminalSize.columns === context.terminalSize.columns
+      && previous.terminalSize.rows === context.terminalSize.rows
+      && previous.diagnostics.length === context.diagnostics.length
+      && previous.diagnostics.every((item, index) => item === context.diagnostics[index])
+      && sameThemeRendering(committed.render.theme, theme);
   }
 
   function newRenderDiagnostics(render: RenderCommitCandidate<TMessage>): RenderDiagnosticResolution {
@@ -393,15 +410,10 @@ interface RuntimeRenderResolution<TMessage> {
   readonly diagnostics: readonly TerminalDiagnostic[];
 }
 
-interface InitialFocusResolution<TMessage> {
-  readonly render: RenderCommitCandidate<TMessage>;
-  readonly desiredFocusPath: FocusPath | undefined;
-  readonly diagnostics: readonly TerminalDiagnostic[];
-}
-
-interface FocusReturnResolution<TMessage> {
-  readonly render: RenderCommitCandidate<TMessage>;
+interface PlannedFocusResolution {
+  readonly focusPath: FocusPath | undefined;
   readonly returnPaths: readonly FocusPath[];
+  readonly diagnostics: readonly TerminalDiagnostic[];
 }
 
 interface RenderDiagnosticResolution {

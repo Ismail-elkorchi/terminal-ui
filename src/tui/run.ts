@@ -8,7 +8,7 @@ import {
 import { createTerminalHost } from '../host/index.ts';
 import { TerminalUiError } from '../errors.ts';
 import { runTuiNonTty } from './non-tty.ts';
-import { createTuiRuntimeWithCapabilitySnapshot } from './runtime.ts';
+import { createTuiRuntimeWithCapabilitySnapshot, tuiRuntimeRunner } from './runtime.ts';
 import { assertTuiApp } from './definition.ts';
 import { TuiRunLifecycleOwner } from './run-lifecycle.ts';
 import { runTuiLifecyclePhase } from './lifecycle-phase.ts';
@@ -68,6 +68,11 @@ export async function runTui<TState, TMessage>(
       const runtime = lifecycle.runtime;
       if (runtime === undefined) throw new Error('TUI runtime is unavailable during terminal suspension.');
       return runtime;
+    },
+    runner: () => {
+      const runtime = lifecycle.runtime;
+      if (runtime === undefined) throw new Error('TUI runtime is unavailable during terminal suspension.');
+      return tuiRuntimeRunner(runtime);
     },
     session: () => {
       const activeSession = lifecycle.session;

@@ -16,6 +16,16 @@ export interface PointerVisualSnapshot {
   readonly pressed?: PointerVisualTarget;
 }
 
+export function samePointerVisualSnapshot(
+  left: PointerVisualSnapshot | undefined,
+  right: PointerVisualSnapshot | undefined,
+): boolean {
+  return left?.hovered?.ownerIdentity === right?.hovered?.ownerIdentity
+    && left?.hovered?.targetId === right?.hovered?.targetId
+    && left?.pressed?.ownerIdentity === right?.pressed?.ownerIdentity
+    && left?.pressed?.targetId === right?.pressed?.targetId;
+}
+
 export function pointerStateForOwner(
   snapshot: PointerVisualSnapshot | undefined,
   ownerIdentity: string,

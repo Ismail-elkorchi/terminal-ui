@@ -93,6 +93,10 @@ const EMPTY_LEAF: TextChunkLeaf = Object.freeze({
 const MAX_CHUNK_LENGTH = 4_096;
 const MIN_CHUNK_LENGTH = 1_024;
 const documents = new WeakMap<object, TextDocumentData>();
+// A global budget also bounds retained lines when many document revisions stay live.
+const lineCacheLimit = 4_194_304;
+const lineCache = new Map<TextDocument, Map<number, TextDocumentLine>>();
+let lineCacheBytes = 0;
 
 export function createTextDocument(value: string): TextDocument {
   if (typeof value !== 'string') throw new TypeError('text document source must be a string.');
@@ -214,12 +218,70 @@ export function textDocumentLineAt(document: TextDocument, lineIndex: number): T
   const endOffsetExclusive = lineIndex < root.lineBreaks
     ? Math.max(startOffset, afterBreak - lineTerminatorLength(root, afterBreak))
     : afterBreak;
-  return {
-    lineIndex,
-    startOffset,
-    endOffsetExclusive,
-    text: textDocumentSlice(document, startOffset, endOffsetExclusive)
-  };
+  const cached = lineCache.get(document)?.get(lineIndex);
+  if (cached?.startOffset === startOffset
+    && cached.endOffsetExclusive === endOffsetExclusive) {
+    const lines = lineCache.get(document);
+    lines?.delete(lineIndex);
+    lines?.set(lineIndex, cached);
+    if (lines !== undefined) {
+      lineCache.delete(document);
+      lineCache.set(document, lines);
+    }
+    return cached;
+  }
+  const inherited = inheritedLine(document, lineIndex, startOffset, endOffsetExclusive);
+  const text = inherited?.text ?? textDocumentSlice(document, startOffset, endOffsetExclusive);
+  const line = { lineIndex, startOffset, endOffsetExclusive, text };
+  retainLine(document, line);
+  return line;
+}
+
+function inheritedLine(
+  document: TextDocument,
+  lineIndex: number,
+  startOffset: number,
+  endOffsetExclusive: number
+): TextDocumentLine | undefined {
+  const lineage = textDocumentPreviousMutation(document);
+  if (lineage?.changes.length !== 1) return undefined;
+  const previous = lineCache.get(lineage.document);
+  if (previous === undefined) return undefined;
+  const change = lineage.changes[0];
+  if (change === undefined) return undefined;
+  const delta = change.insertedText.length - (change.endOffsetExclusive - change.startOffset);
+  const shift = endOffsetExclusive <= change.startOffset ? 0
+    : startOffset >= change.startOffset + change.insertedText.length ? delta : undefined;
+  if (shift === undefined) return undefined;
+  const oldStart = startOffset - shift;
+  const oldEnd = endOffsetExclusive - shift;
+  if (oldEnd > change.startOffset && oldStart < change.endOffsetExclusive) return undefined;
+  const previousIndex = textDocumentLineIndexAtOffset(lineage.document, oldStart);
+  const line = previous.get(previousIndex);
+  return line?.startOffset === oldStart && line.endOffsetExclusive === oldEnd
+    ? { lineIndex, startOffset, endOffsetExclusive, text: line.text }
+    : undefined;
+}
+
+function retainLine(document: TextDocument, line: TextDocumentLine): void {
+  const weight = line.text.length * 2 + 96;
+  if (weight > lineCacheLimit / 2) return;
+  const lines = lineCache.get(document) ?? new Map<number, TextDocumentLine>();
+  const previous = lines.get(line.lineIndex);
+  if (previous !== undefined) lineCacheBytes -= previous.text.length * 2 + 96;
+  lines.set(line.lineIndex, line);
+  lineCache.delete(document);
+  lineCache.set(document, lines);
+  lineCacheBytes += weight;
+  while (lineCacheBytes > lineCacheLimit) {
+    const oldest = lineCache.entries().next().value;
+    if (oldest === undefined) break;
+    const first = oldest[1].entries().next().value;
+    if (first === undefined) { lineCache.delete(oldest[0]); continue; }
+    oldest[1].delete(first[0]);
+    lineCacheBytes -= first[1].text.length * 2 + 96;
+    if (oldest[1].size === 0) lineCache.delete(oldest[0]);
+  }
 }
 
 /**

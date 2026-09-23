@@ -26,6 +26,7 @@ import type { CollectionSnapshot, CollectionItem } from '../../collection/snapsh
 import {
   assertOptionalCallback,
   assertOptionalEnum,
+  assertRequiredPropertyCallback,
   assertRequiredCallback,
   isNonArrayObject,
   isStringMember,
@@ -187,46 +188,19 @@ const tableBase = {
   }),
 };
 
-const passiveTable = defineComponent<
-  TableModel,
-  TableModel,
-  never,
-  TableStylePart,
-  readonly [],
-  'required',
-  readonly ['layer', 'styles'],
-  readonly ['active', 'selected']
->({ ...tableBase, name: 'terminal-ui/components/table' });
+const passiveTable = defineComponent<TableModel>()({ ...tableBase, name: 'terminal-ui/components/table' });
 
 type DataGridComponentAction =
   | { readonly kind: 'transition'; readonly transition: DataGridTransition }
   | { readonly kind: 'activate'; readonly event: DataGridActivateEvent };
 
-const scrollableTable = defineComponent<
-  TableModel,
-  TableModel,
-  { readonly kind: 'scroll'; readonly request: import('../../interaction/scroll.ts').ScrollRequest },
-  TableStylePart,
-  readonly [],
-  'required',
-  readonly ['layer', 'styles'],
-  readonly ['active', 'selected']
->({
+const scrollableTable = defineComponent<TableModel, { readonly kind: 'scroll'; readonly request: import('../../interaction/scroll.ts').ScrollRequest }>()({
   ...tableBase,
   name: 'terminal-ui/components/table',
   hitTargets: tableScrollHitTargets,
 });
 
-const activeDataGrid = defineComponent<
-  TableModel,
-  TableModel,
-  DataGridComponentAction,
-  TableStylePart,
-  readonly ['disabled', 'busy', 'inert'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy']
->({
+const activeDataGrid = defineComponent<TableModel, DataGridComponentAction>()({
   ...tableBase,
   name: 'terminal-ui/components/data-grid',
   accessibleRole: 'grid',
@@ -341,16 +315,19 @@ export function dataGrid<
     ...model,
     id: options.id,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+    ...(options.inert === undefined ? {} : { inert: options.inert }),
     ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
-  if (options.disabled === true) return activeDataGrid({
+  assertOptionalCallback(options.onActivate, 'data-table onActivate');
+  if (options.disabled === true && options.onTransition === undefined) return activeDataGrid({
     ...shared,
     disabled: true,
     ...(options.inert === undefined ? {} : { inert: options.inert }),
   });
-  if (options.inert === true) return activeDataGrid({ ...shared, inert: true });
-  assertRequiredCallback(options.onTransition, 'dataGrid onTransition');
+  if (options.inert === true && options.onTransition === undefined) return activeDataGrid({ ...shared, inert: true });
+  assertRequiredPropertyCallback(options, 'onTransition', 'dataGrid onTransition');
   assertOptionalCallback(options.onActivate, 'dataGrid onActivate');
   const onTransition = isScrollableDataGrid(options)
     ? (transition: DataGridTransition) => options.onTransition(transition)
@@ -1090,7 +1067,7 @@ function boundedTableContentWidth(
   return result;
 }
 
-function paintTable(input: ComponentRenderInput<TableModel, TableStylePart>): void {
+function paintTable(input: ComponentRenderInput<TableModel, TableStylePart>): undefined {
   const plan = tablePlan(input);
   if (plan.headerHeight > 0) {
     input.target.write(

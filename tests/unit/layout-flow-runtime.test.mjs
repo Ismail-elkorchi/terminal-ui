@@ -322,7 +322,7 @@ test('form content tracks include field labels and control gaps', () => {
     form({ meta: { accessibleName: "Form" }, slots: { content: [
       field({ control: textInput({ meta: { accessibleName: "Text input" },
           id: 'name',
-          state: { value: '', cursor: 0 },
+          state: { text: '', cursor: 0 },
           onTransition: (action) => action
         }), id: 'name-field', label: 'Name' }),
       button({ id: 'submit', label: 'Submit', onPress: () => ignoreMessage() })
@@ -379,7 +379,7 @@ test('constrained component boxes apply intrinsic content padding margin and lim
         minWidth: 10,
         control: textInput({ meta: { accessibleName: "Text input" },
           id: 'constrained-input',
-          state: { value: '', cursor: 0 },
+          state: { text: '', cursor: 0 },
           onTransition: (action) => action
         })
       })

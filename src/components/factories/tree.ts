@@ -19,11 +19,11 @@ import type {
 } from '../../component/index.ts';
 import type { HitTarget } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
-import { isTreeView, visibleRowWindow } from '../../behavior/index.ts';
-import type { CollectionSnapshot } from '../../collection/snapshot.ts';
+import { createTreeView, visibleRowWindow } from '../../behavior/index.ts';
+import { collectionItemById } from '../../collection/snapshot.ts';
 import {
   assertOptionalCallback,
-  assertRequiredCallback,
+  assertRequiredPropertyCallback,
   isNonArrayObject,
   isStringMember,
 } from '../../foundation/validation.ts';
@@ -39,10 +39,9 @@ import type {
   TreeTransition,
 } from '../../behavior/tree.ts';
 import type {
-  TreeCollectionRow,
   TreeLoadStatus,
-  TreeNode,
   TreeVisibleRow,
+  TreeView,
 } from '../../behavior/tree.ts';
 import { decodeSelectionState, type SelectionState } from '../../interaction/collection-interaction.ts';
 import type { TreeStylePart } from '../style-parts.ts';
@@ -71,7 +70,7 @@ interface TreeRow {
 }
 
 interface TreeModel {
-  readonly source: Readonly<Record<string, never>>;
+  readonly view: TreeView;
   readonly startIndex: number;
   readonly totalCount: number;
   readonly query: CompiledCollectionQuery;
@@ -82,14 +81,6 @@ interface TreeModel {
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
 }
-
-interface TreeSource {
-  readonly rows: readonly TreeRow[];
-  readonly indexes: ReadonlyMap<string, number>;
-}
-
-const treeSources = new WeakMap<object, TreeSource>();
-const treeSourcesByCollection = new WeakMap<object, TreeSource>();
 
 const treeBase = {
   name: 'terminal-ui/components/tree' as const,
@@ -121,7 +112,7 @@ const treeBase = {
     collection: {
       startIndex: model.startIndex,
       totalCount: model.totalCount,
-      visibleCount: treeSourceFor(model).rows.length,
+      visibleCount: model.view.collection.items.length,
     },
   }),
 };
@@ -130,16 +121,7 @@ type TreeComponentAction =
   | { readonly kind: 'transition'; readonly transition: TreeTransition }
   | { readonly kind: 'activate'; readonly event: TreeActivateEvent };
 
-const activeTree = defineComponent<
-  TreeModel,
-  TreeModel,
-  TreeComponentAction,
-  TreeStylePart,
-  readonly ['disabled', 'busy', 'inert'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy']
->({
+const activeTree = defineComponent<TreeModel, TreeComponentAction>()({
   ...treeBase,
   keys: ({ model, busy }) => {
     if (busy) return {};
@@ -196,16 +178,19 @@ export function tree<
     ...model,
     id: options.id,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+    ...(options.inert === undefined ? {} : { inert: options.inert }),
     ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
-  if (options.disabled === true) return activeTree({
+  assertOptionalCallback(options.onActivate, 'tree onActivate');
+  if (options.disabled === true && options.onTransition === undefined) return activeTree({
     ...shared,
     disabled: true,
     ...(options.inert === undefined ? {} : { inert: options.inert }),
   });
-  if (options.inert === true) return activeTree({ ...shared, inert: true });
-  assertRequiredCallback(options.onTransition, 'tree onTransition');
+  if (options.inert === true && options.onTransition === undefined) return activeTree({ ...shared, inert: true });
+  assertRequiredPropertyCallback(options, 'onTransition', 'tree onTransition');
   assertOptionalCallback(options.onActivate, 'tree onActivate');
   return activeTree({
     ...shared,
@@ -229,14 +214,10 @@ function createTreeModel<
   const query = compileCollectionQuery(
     value.state.query ?? { text: '', mode: 'contains' },
   );
-  if (!isTreeView(value.view)) {
-    throw new TypeError('tree view must be created with createTreeView().');
-  }
-  const collection = value.view.collection as CollectionSnapshot<TreeCollectionRow<TMetadata>>;
+  const view = createTreeView(value.source, value.state);
+  const collection = view.collection;
   const startIndex = collection.startIndex;
   const totalCount = collection.totalCount;
-  const sourceToken = Object.freeze({});
-  treeSources.set(sourceToken, treeSourceForCollection(collection));
   const scroll = decodeComponentScrollState(value.state.scroll, 'tree scroll');
   const scrollbar = decodeComponentScrollbarOptions(value.scrollbar, 'tree scrollbar');
   const scrollPolicy = decodeComponentScrollPolicy(value.scrollPolicy, 'tree scrollPolicy');
@@ -247,7 +228,7 @@ function createTreeModel<
     ? undefined
     : nonEmpty(value.state.activeId, 'tree activeId');
   return {
-    source: sourceToken,
+    view,
     startIndex,
     totalCount,
     query,
@@ -268,82 +249,6 @@ function isScrollableTreeOptions<
   options: TreeOptions<TMetadata, TTransitionMessage, TActivateMessage>,
 ): options is ScrollableTreeOptions<TMetadata, TTransitionMessage, TActivateMessage> {
   return options.state.scroll !== undefined;
-}
-
-function treeSourceForCollection<
-  TMetadata extends Readonly<Record<string, unknown>>,
->(
-  collection: CollectionSnapshot<TreeCollectionRow<TMetadata>>,
-): TreeSource {
-  const cached = treeSourcesByCollection.get(collection);
-  if (cached !== undefined) return cached;
-  const rows = Object.freeze(collection.items.map((item, index) => {
-    const row = decodeTreeRow(
-      item.row,
-      item.itemIndex,
-    );
-    if (row.id !== item.id) {
-      throw new TypeError(`tree collection item ${String(index)} id does not match its row.`);
-    }
-    return row;
-  }));
-  const source = Object.freeze({
-    rows,
-    indexes: new Map(rows.map((row) => [row.id, row.itemIndex])),
-  });
-  treeSourcesByCollection.set(collection, source);
-  return source;
-}
-
-function decodeTreeRow<
-  TMetadata extends Readonly<Record<string, unknown>>,
->(value: TreeVisibleRow<TMetadata>, itemIndex: number): TreeRow {
-  if (!isNonArrayObject(value)) throw new TypeError('tree collection row is invalid.');
-  const node = decodeVisibleTreeNode(value.node, 'tree collection row.node');
-  const depth = nonNegative(value.depth, 'tree row depth');
-  const path = value.path;
-  if (!Array.isArray(path) || path.some((part) => typeof part !== 'string')) {
-    throw new TypeError('tree row path must be a string array.');
-  }
-  const lazyPlaceholder = value.lazyPlaceholder;
-  if (lazyPlaceholder !== undefined && typeof lazyPlaceholder !== 'boolean') {
-    throw new TypeError('tree row lazyPlaceholder must be a boolean.');
-  }
-  return treeRow({
-    node,
-    depth,
-    path: path.map((part) => sanitizeTerminalText(part as string).text),
-    expanded: boolean(value.expanded, 'tree row expanded'),
-    ...(value.loadStatus === undefined ? {} : { loadStatus: decodeTreeLoadStatus(value.loadStatus) }),
-    ...(lazyPlaceholder === true ? { lazyPlaceholder: true } : {}),
-  }, itemIndex);
-}
-
-function decodeVisibleTreeNode(value: TreeNode, owner: string): TreeNode {
-  if (!isNonArrayObject(value)) throw new TypeError(`${owner} must be an object.`);
-  const kind = value.kind;
-  if (!isStringMember(kind, ['leaf', 'branch', 'lazy'])) {
-    throw new TypeError(`${owner}.kind is invalid.`);
-  }
-  const base = {
-    id: nonEmpty(value.id, `${owner}.id`),
-    label: text(value.label, `${owner}.label`) ?? '',
-    ...(value.description === undefined
-      ? {}
-      : { description: text(value.description, `${owner}.description`) ?? '' }),
-    ...(value.disabled === undefined
-      ? {}
-      : { disabled: boolean(value.disabled, `${owner}.disabled`) }),
-    ...(value.icon === undefined ? {} : { icon: text(value.icon, `${owner}.icon`) ?? '' }),
-  };
-  if (kind === 'leaf') return { ...base, kind };
-  if (kind === 'branch') {
-    if (!Array.isArray(value.children)) {
-      throw new TypeError(`${owner}.children must be an array.`);
-    }
-    return { ...base, kind, children: [] };
-  }
-  return { ...base, kind };
 }
 
 function decodeTreeLoadStatus(value: TreeLoadStatus): TreeLoadStatus {
@@ -371,6 +276,7 @@ function decodeTreeLoadStatus(value: TreeLoadStatus): TreeLoadStatus {
 }
 
 function treeRow(value: TreeVisibleRow, itemIndex: number): TreeRow {
+  if (value.loadStatus !== undefined) decodeTreeLoadStatus(value.loadStatus);
   return {
     id: value.node.id,
     itemIndex,
@@ -404,11 +310,11 @@ function treeGeometry(input: ComponentInput<TreeModel>) {
 }
 
 function treePlan(input: ComponentInput<TreeModel>) {
-  const source = treeSourceFor(input.model);
+  const collection = input.model.view.collection;
   const geometry = treeGeometry(input);
   const activeIndex = input.model.activeId === undefined
     ? undefined
-    : source.indexes.get(input.model.activeId);
+    : collectionItemById(collection, input.model.activeId)?.itemIndex;
   const requested = visibleRowWindow({
     totalRows: input.model.totalCount,
     viewportRows: geometry.contentBounds.height,
@@ -417,15 +323,15 @@ function treePlan(input: ComponentInput<TreeModel>) {
       scroll: input.model.scroll,
     }),
   });
-  const availableEnd = input.model.startIndex + source.rows.length;
+  const availableEnd = input.model.startIndex + collection.items.length;
   const lastStart = Math.max(
     input.model.startIndex,
-    availableEnd - Math.min(geometry.contentBounds.height, source.rows.length),
+    availableEnd - Math.min(geometry.contentBounds.height, collection.items.length),
   );
   const startIndex = Math.max(input.model.startIndex, Math.min(lastStart, requested.startIndex));
   const localStart = startIndex - input.model.startIndex;
   const rows = Array.from(
-    { length: Math.min(geometry.contentBounds.height, source.rows.length - localStart) },
+    { length: Math.min(geometry.contentBounds.height, collection.items.length - localStart) },
     (_unused, offset) => treeRowAt(input.model, localStart + offset),
   );
   const activeVisibleIndex = activeIndex === undefined || activeIndex < startIndex ||
@@ -442,8 +348,7 @@ function treePlan(input: ComponentInput<TreeModel>) {
 }
 
 function measureTree(input: ComponentMeasureInput<TreeModel>) {
-  const source = treeSourceFor(input.model);
-  const sampleSize = Math.min(64, source.rows.length);
+  const sampleSize = Math.min(64, input.model.view.collection.items.length);
   let preferredWidth = 1;
   for (let localIndex = 0; localIndex < sampleSize; localIndex += 1) {
     const row = treeRowAt(input.model, localIndex);
@@ -463,9 +368,9 @@ function measureTree(input: ComponentMeasureInput<TreeModel>) {
   };
 }
 
-function paintTree(input: ComponentRenderInput<TreeModel, TreeStylePart>) {
+function paintTree(input: ComponentRenderInput<TreeModel, TreeStylePart>): undefined {
   const plan = treePlan(input);
-  if (treeSourceFor(input.model).rows.length === 0) {
+  if (input.model.view.collection.items.length === 0) {
     const style = input.style({
       part: 'empty',
       base: { fg: { kind: 'theme', token: 'text.muted' }, dim: true },
@@ -495,25 +400,16 @@ function paintTree(input: ComponentRenderInput<TreeModel, TreeStylePart>) {
   });
 }
 
-function treeSourceFor(model: TreeModel): TreeSource {
-  const source = treeSources.get(model.source);
-  if (source === undefined) throw new TypeError('tree render source is unavailable.');
-  return source;
-}
-
 function treeRowAt(model: TreeModel, localIndex: number): TreeRow {
-  const source = treeSourceFor(model);
-  const row = source.rows[localIndex];
-  if (row === undefined) throw new RangeError('tree row index is outside the tree source.');
-  return row;
+  const item = model.view.collection.items[localIndex];
+  if (item === undefined) throw new RangeError('tree row index is outside the tree view.');
+  return treeRow(item.row, item.itemIndex);
 }
 
 function activeTreeRow(model: TreeModel): TreeRow | undefined {
   if (model.activeId === undefined) return undefined;
-  const source = treeSourceFor(model);
-  const itemIndex = source.indexes.get(model.activeId);
-  if (itemIndex === undefined) return undefined;
-  return treeRowAt(model, itemIndex - model.startIndex);
+  const item = collectionItemById(model.view.collection, model.activeId);
+  return item === undefined ? undefined : treeRow(item.row, item.itemIndex);
 }
 
 function paintTreeRow(
@@ -881,15 +777,4 @@ function nonEmpty(value: unknown, owner: string): string {
     throw new TypeError(`${owner} must be non-empty.`);
   }
   return result;
-}
-function boolean(value: unknown, owner: string): boolean {
-  if (value === undefined) return false;
-  if (typeof value !== 'boolean') throw new TypeError(`${owner} must be a boolean.`);
-  return value;
-}
-function nonNegative(value: unknown, owner: string): number {
-  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
-    throw new RangeError(`${owner} must be a non-negative safe integer.`);
-  }
-  return value;
 }

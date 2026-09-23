@@ -10,8 +10,9 @@ control sequences.
 
 Password prompts and `passwordInput()` mask rendered input, honor
 caller-provided mask symbols, and omit secrets from accessibility output.
-While a password input has focus, TUI input events and the messages they
-produce are redacted in transcripts. Interactive prompt and TUI transcript
+The runtime tracks sensitive origin through component actions, navigation,
+pointer callbacks, and effects. It redacts their input and message evidence
+even if focus changes before the message commits. Interactive prompt and TUI transcript
 capture is opt-in. Transcript redaction records every modified path so exported
 recordings stay auditable without leaking the original value.
 

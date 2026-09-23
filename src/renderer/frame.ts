@@ -9,7 +9,7 @@ import type {
   FrameRowDiff,
   RenderDiff,
   RenderOperation,
-  RenderWorkInstrumentation
+  RenderInstrumentation
 } from './contracts.ts';
 import type { Rect } from './contracts.ts';
 import type {
@@ -19,6 +19,7 @@ import type {
 import { sameFrameCellSource, sameTerminalLink, sameTerminalStyle, span } from '../visual/render-content.ts';
 import type { RenderSerializeOptions } from './internal/ansi.ts';
 import { textWidthProfileKey } from '../text/index.ts';
+import { measureTerminalCellText } from '../text/index.ts';
 import { frameIndex } from './internal/frame-index.ts';
 import type { FrameIndex } from './internal/frame-index.ts';
 import type { GraphicOperation, GraphicPlacement } from '../graphics/index.ts';
@@ -31,11 +32,11 @@ export type { FocusPath } from './internal/focus.ts';
 
 export interface DiffFramesOptions {
   readonly dirtyRegions?: readonly Rect[];
-  readonly instrumentation?: RenderWorkInstrumentation;
+  readonly instrumentation?: Pick<RenderInstrumentation, 'recordWork'>;
 }
 
 export interface RenderDiffAnsiOptions extends RenderSerializeOptions {
-  readonly instrumentation?: RenderWorkInstrumentation;
+  readonly instrumentation?: Pick<RenderInstrumentation, 'recordWork'>;
 }
 
 export type { FrameRowDiff, RenderDiff, RenderOperation } from './contracts.ts';
@@ -116,12 +117,7 @@ export function renderFrameAnsi(frame: Frame, options: RenderSerializeOptions): 
 }
 
 export function diffFrames(previous: Frame | undefined, next: Frame, options: DiffFramesOptions = {}): RenderDiff {
-  if (
-    previous?.width !== next.width
-    || previous.height !== next.height
-    || textWidthProfileKey(previous.widthProfile) !== textWidthProfileKey(next.widthProfile)
-    || !sameTerminalStyle(previous.canvasStyle, next.canvasStyle)
-  ) {
+  if (!framesCanDiff(previous, next)) {
     const clear = next.width > 0 && next.height > 0
       ? [canvasClearOperation(next)]
       : [];
@@ -138,7 +134,8 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
       ...(next.cursor === undefined ? {} : { cursor: next.cursor }),
       fullRewrite: true
     };
-    recordDiffWork(options.instrumentation, next.height, next.width * next.height, diff.operations.length);
+    recordDiffWork(options.instrumentation, 0, 0, diff.operations.length);
+    recordDiffOutputCells(options.instrumentation, diff);
     return diff;
   }
 
@@ -146,15 +143,16 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
   const operations: RenderOperation[] = [];
   let comparedRows = 0;
   let comparedCells = 0;
+  const fingerprintComparisons = options.instrumentation?.recordWork === undefined ? undefined : { count: 0 };
   const dirtyRegions = dirtyRectsForFrame(next, options.dirtyRegions);
-  const dirtyRanges = dirtyRegions === undefined ? undefined : dirtyColumnRanges(dirtyRegions);
-  const previousCells = frameIndex(previous);
-  const nextCells = frameIndex(next);
+  const dirtyRanges = dirtyRegions === undefined ? undefined : dirtyColumnRanges(dirtyRegions, options.instrumentation);
+  const previousCells = frameIndex(previous, options.instrumentation);
+  const nextCells = frameIndex(next, options.instrumentation);
 
   if (dirtyRegions === undefined) {
     for (let row = 1; row <= next.height; row += 1) {
       comparedRows += 1;
-      if (fingerprintsMatch(previousCells, nextCells, row)) continue;
+      if (fingerprintsMatch(previousCells, nextCells, row, fingerprintComparisons)) continue;
       comparedCells += next.width;
       const rowDiff = diffRow(previousCells, nextCells, next.width, row, 1, next.width);
       (releasesInteractionEmphasis(previousCells, nextCells, row, 1, next.width)
@@ -164,7 +162,7 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
   } else {
     for (const [row, ranges] of dirtyRanges ?? []) {
       comparedRows += 1;
-      if (fingerprintsMatch(previousCells, nextCells, row)) continue;
+      if (fingerprintsMatch(previousCells, nextCells, row, fingerprintComparisons)) continue;
       for (const range of ranges) {
         comparedCells += range.toColumn - range.fromColumn + 1;
         const rowDiff = diffRow(previousCells, nextCells, next.width, row, range.fromColumn, range.toColumn);
@@ -189,10 +187,33 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
   recordDiffWork(
     options.instrumentation,
     comparedRows,
-    comparedCells,
+    comparedCells + (fingerprintComparisons?.count ?? 0),
     releasedInteractionOperations.length + operations.length,
   );
+  recordDiffOutputCells(options.instrumentation, diff);
   return diff;
+}
+
+function framesCanDiff(previous: Frame | undefined, next: Frame): previous is Frame {
+  return previous?.width === next.width
+    && previous.height === next.height
+    && textWidthProfileKey(previous.widthProfile) === textWidthProfileKey(next.widthProfile)
+    && sameTerminalStyle(previous.canvasStyle, next.canvasStyle);
+}
+
+function recordDiffOutputCells(instrumentation: Pick<RenderInstrumentation, 'recordWork'> | undefined, diff: RenderDiff): void {
+  if (instrumentation?.recordWork === undefined) return;
+  let count = 0;
+  for (const operation of diff.operations) {
+    if (operation.kind === 'clearRect') {
+      count += operation.bounds.width * operation.bounds.height;
+    } else {
+      for (const value of operation.spans) {
+        count += measureTerminalCellText(value.text, { widthProfile: diff.widthProfile }).cells;
+      }
+    }
+  }
+  instrumentation.recordWork({ kind: 'diff_output_cells', count });
 }
 
 function diffGraphics(
@@ -230,19 +251,19 @@ function sameRect(left: Rect, right: Rect): boolean {
 
 export function renderDiffAnsi(diff: RenderDiff, options?: RenderDiffAnsiOptions): string {
   const text = planTerminalOutput(diff, options).text;
-  options?.instrumentation?.recordWork({ kind: 'encoded_bytes', count: new TextEncoder().encode(text).byteLength });
+  options?.instrumentation?.recordWork?.({ kind: 'encoded_bytes', count: new TextEncoder().encode(text).byteLength });
   return text;
 }
 
 function recordDiffWork(
-  instrumentation: RenderWorkInstrumentation | undefined,
+  instrumentation: Pick<RenderInstrumentation, 'recordWork'> | undefined,
   rows: number,
   cells: number,
   operations: number
 ): void {
-  instrumentation?.recordWork({ kind: 'diff_rows', count: rows });
-  instrumentation?.recordWork({ kind: 'diff_cells', count: cells });
-  instrumentation?.recordWork({ kind: 'diff_operations', count: operations });
+  instrumentation?.recordWork?.({ kind: 'diff_rows', count: rows });
+  instrumentation?.recordWork?.({ kind: 'cell_comparisons', count: cells });
+  instrumentation?.recordWork?.({ kind: 'diff_operations', count: operations });
 }
 
 export function compareCells(left: FrameCell, right: FrameCell): number {
@@ -351,12 +372,16 @@ interface ColumnRange {
 
 type DirtyColumnRanges = ReadonlyMap<number, readonly ColumnRange[]>;
 
-function dirtyColumnRanges(rects: readonly Rect[]): DirtyColumnRanges {
+function dirtyColumnRanges(
+  rects: readonly Rect[],
+  instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
+): DirtyColumnRanges {
   const rows = new Map<number, ColumnRange[]>();
   for (const rect of rects) {
     const fromColumn = rect.column;
     const toColumn = rect.column + rect.width - 1;
     for (let row = rect.row; row < rect.row + rect.height; row += 1) {
+      instrumentation?.recordWork?.({ kind: 'interval_operations', count: 1 });
       rows.set(row, [...(rows.get(row) ?? []), { fromColumn, toColumn }]);
     }
   }
@@ -453,7 +478,12 @@ function interactionEmphasis(
   }
 }
 
-function fingerprintsMatch(previous: FrameIndex, next: FrameIndex, row: number): boolean {
+function fingerprintsMatch(
+  previous: FrameIndex,
+  next: FrameIndex,
+  row: number,
+  comparisons?: { count: number },
+): boolean {
   const previousFingerprint = previous.rows[row - 1]?.terminalFingerprint;
   if (previousFingerprint === undefined || previousFingerprint !== next.rows[row - 1]?.terminalFingerprint) return false;
   const previousRow = previous.rows[row - 1];
@@ -461,6 +491,7 @@ function fingerprintsMatch(previous: FrameIndex, next: FrameIndex, row: number):
   if (previousRow === undefined || nextRow === undefined) return previousRow === nextRow;
   if (previousRow.cells.size !== nextRow.cells.size) return false;
   for (const [column, cell] of previousRow.cells) {
+    if (comparisons !== undefined) comparisons.count += 1;
     if (!sameTerminalFrameCell(cell, nextRow.cells.get(column))) return false;
   }
   return true;

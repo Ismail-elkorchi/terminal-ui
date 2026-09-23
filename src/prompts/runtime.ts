@@ -2,7 +2,7 @@ import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import { diagnostic } from '../diagnostics.ts';
 import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
 import { createTerminalHost } from '../host/index.ts';
-import type { TerminalHost, TerminalRestoreReason } from '../host/index.ts';
+import type { TerminalHost } from '../host/index.ts';
 import { isCancelKey, isInterruptKey } from '../input/index.ts';
 import type { InputEvent } from '../input/index.ts';
 import type { TranscriptRecorder } from '../transcript/index.ts';
@@ -12,6 +12,7 @@ import {
   applySelectEvent
 } from './choice-interaction.ts';
 import { resolvePromptChoices } from './choices.ts';
+import type { ChoiceResolution } from './choices.ts';
 import { assertPromptDefinition } from './definition.ts';
 import { runEditorPrompt } from './editor.ts';
 import type { PromptInteractionHooks } from './interaction-hooks.ts';
@@ -19,7 +20,7 @@ import { nonTtyDiagnosticOptions, nonTtyMode } from './non-tty.ts';
 import { runProgressPrompt } from './progress-runtime.ts';
 import { promptInputEvents } from './input-events.ts';
 import { renderPromptText } from './render-theme.ts';
-import { setupPromptSession, restoreReasonForPrompt } from './session.ts';
+import { raisePromptCleanupFailure, runOwnedPrompt, type PromptTaskOwner } from './session.ts';
 import { createPromptSnapshot, promptValueForSnapshot } from './snapshot.ts';
 import { completePromptState, initialPromptState } from './state.ts';
 import type { PromptRuntimeState } from './state.ts';
@@ -54,6 +55,7 @@ import type {
 type InteractivePromptValue<TChoice> = boolean | string | TChoice | readonly TChoice[];
 type PromptRunValue<TChoice> = InteractivePromptValue<TChoice> | ProgressResult;
 
+/** Runs one prompt. An omitted host is owned and disposed by the call; a supplied host stays caller-owned. */
 export function runPrompt(
   prompt: ConfirmPromptDefinition,
   host?: TerminalHost
@@ -262,12 +264,21 @@ async function runLineFallbackPrompt(
 }
 
 async function readLineFallback(host: TerminalHost): Promise<string | undefined> {
-  let text = '';
+  const decoder = new TextDecoder();
+  const parts: string[] = [];
   for await (const chunk of host.stdin.read()) {
-    text += typeof chunk.data === 'string' ? chunk.data : new TextDecoder().decode(chunk.data);
-    const newline = text.search(/\r?\n/u);
-    if (newline !== -1) return text.slice(0, newline).replace(/\r$/u, '');
+    const text = typeof chunk.data === 'string'
+      ? decoder.decode() + chunk.data
+      : decoder.decode(chunk.data, { stream: true });
+    const newline = text.indexOf('\n');
+    if (newline !== -1) {
+      parts.push(text.slice(0, newline));
+      return parts.join('').replace(/\r$/u, '');
+    }
+    parts.push(text);
   }
+  parts.push(decoder.decode());
+  const text = parts.join('');
   return text.length === 0 ? undefined : text;
 }
 
@@ -275,90 +286,142 @@ async function runInteractivePrompt<TChoice>(
   prompt: InteractivePromptDefinition<TChoice>,
   host: TerminalHost
 ): Promise<PromptResult<InteractivePromptValue<TChoice>>> {
-  const session = await host.beginSession({ id: prompt.id ?? `prompt-${prompt.kind}` });
   const transcript = createPromptTranscript(prompt);
-  const setup = await setupPromptSession(session);
-  let result: PromptResult<InteractivePromptValue<TChoice>>;
-  let restoreReason: TerminalRestoreReason;
-  try {
-    result = await runPromptLoop(prompt, host, transcript, setup.bracketedPaste);
-    restoreReason = restoreReasonForPrompt(result);
-  } catch (cause) {
-    restoreReason = 'error';
-    result = {
+  const deadline = prompt.timeoutMs === undefined ? undefined : host.clock.monotonicNow() + prompt.timeoutMs;
+  const result = await runOwnedPrompt<InteractivePromptValue<TChoice>>(
+    host,
+    prompt.id ?? `prompt-${prompt.kind}`,
+    (owner) => runPromptLoop(prompt, host, transcript, owner, deadline),
+    (cause) => ({
       status: 'aborted',
       reason: 'host_error',
       diagnostics: [
-        diagnostic('HOST_STREAM_CLOSED', 'Prompt failed while reading terminal input.', {
+        diagnostic('HOST_STREAM_CLOSED', 'Prompt failed during terminal session.', {
           cause,
           target: prompt.id ?? prompt.kind
         })
       ],
       snapshot: createPromptSnapshot(prompt)
-    };
-  }
-  const restore = await session.restore(restoreReason);
-  const finalResult = withPromptDiagnostics(result, [...setup.diagnostics, ...restore.diagnostics]);
-  recordPromptResult(transcript, finalResult);
-  return withPromptTranscript(finalResult, transcript?.snapshot());
+    }),
+    true
+  );
+  recordPromptResult(transcript, result);
+  return withPromptTranscript(result, transcript?.snapshot());
 }
 
 async function runPromptLoop<TChoice>(
   prompt: InteractivePromptDefinition<TChoice>,
   host: TerminalHost,
   transcript: TranscriptRecorder | undefined,
-  bracketedPaste: boolean
+  owner: PromptTaskOwner,
+  deadline: number | undefined
 ): Promise<PromptResult<InteractivePromptValue<TChoice>>> {
   const inputController = new AbortController();
-  const input = promptInputEvents(host, inputController.signal, { bracketedPaste })[Symbol.asyncIterator]();
-  const choices = isChoicePrompt(prompt)
-    ? await resolvePromptChoices(prompt)
-    : { status: 'resolved' as const, choices: [], diagnostics: [], hasMore: false };
-  if (choices.status === 'failed') {
-    return {
-      status: 'aborted',
-      reason: 'host_error',
-      diagnostics: choices.diagnostics,
-      snapshot: createPromptSnapshot(prompt)
-    };
-  }
-  const state = initialPromptState(prompt, choices);
+  const abortInput = (): void => { inputController.abort(owner.signal.reason); };
+  owner.signal.addEventListener('abort', abortInput, { once: true });
+  if (owner.signal.aborted) abortInput();
+  const input = promptInputEvents(host, inputController.signal, { bracketedPaste: owner.bracketedPaste })[Symbol.asyncIterator]();
+  let state: PromptRuntimeState<TChoice> | undefined;
+  let loopFailure: unknown;
+  let loopFailed = false;
   try {
-    scheduleInitialValidation(prompt, host, state, { render: renderPromptState });
-    await renderPromptState(host, prompt, state);
+    let choices: ChoiceResolution<TChoice> = { status: 'resolved', choices: [], diagnostics: [], hasMore: false };
+    const buffered: InputEvent[] = [];
+    let pendingRead: Promise<PromptInputRead> | undefined;
+    if (isChoicePrompt(prompt)) {
+      const load = resolvePromptChoices(prompt, owner.signal);
+      for (;;) {
+        pendingRead ??= readPromptInput(input, host, deadline, owner.signal);
+        const next = await owner.wait(Promise.race([
+          load.then((value) => ({ kind: 'choices' as const, value })),
+          pendingRead.then((value) => ({ kind: 'read' as const, value }))
+        ]));
+        if (next.kind === 'choices') {
+          choices = next.value;
+          break;
+        }
+        pendingRead = undefined;
+        if (next.value.kind === 'timeout') return timeoutPromptResult(prompt);
+        if (next.value.value.done === true) return inputEndedPromptResult(prompt);
+        const event = next.value.value.value;
+        const abort = isInterruptKey(event) || isCancelKey(event)
+          ? terminalInputAbort(prompt, initialPromptState(prompt), event)
+          : undefined;
+        if (abort !== undefined) return abort;
+        buffered.push(event);
+      }
+    }
+    if (choices.status === 'failed') {
+      return {
+        status: 'aborted', reason: 'host_error', diagnostics: choices.diagnostics,
+        snapshot: createPromptSnapshot(prompt)
+      };
+    }
+    state = initialPromptState(prompt, choices);
+    scheduleInitialValidation(prompt, host, state, {
+      owner, render: (renderHost, renderPrompt, renderState) => renderPromptState(renderHost, renderPrompt, renderState, owner)
+    });
+    await owner.wait(renderPromptState(host, prompt, state, owner));
     for (;;) {
-      const next = await readPromptInput(input, host, prompt.timeoutMs);
+      const queued = buffered.shift();
+      const next = queued !== undefined
+        ? { kind: 'input' as const, value: { done: false as const, value: queued } }
+        : await owner.wait(pendingRead ?? readPromptInput(input, host, deadline, owner.signal));
+      pendingRead = undefined;
       if (next.kind === 'timeout') {
         completePromptState(state);
-        return {
-          status: 'aborted',
-          reason: 'timeout',
-          diagnostics: [
-            diagnostic('INPUT_TIMEOUT', 'Prompt timed out before submission.', {
-              target: prompt.id ?? prompt.kind,
-              data: { timeoutMs: prompt.timeoutMs ?? null }
-            })
-          ],
-          snapshot: createPromptSnapshot(prompt, promptValueForSnapshot(prompt, state), state)
-        };
+        return timeoutPromptResult(prompt, state);
       }
       if (next.value.done === true) break;
       const event = next.value.value;
       transcript?.record({ kind: 'input', event: transcriptEvent(prompt, event) });
-      const nextResult = await applyPromptEvent(prompt, host, state, event);
+      const nextResult = await owner.wait(applyPromptEvent(prompt, host, state, event, owner));
       if (nextResult !== undefined) return nextResult;
     }
     completePromptState(state);
-    return {
-      status: 'aborted',
-      reason: 'host_error',
-      diagnostics: [diagnostic('HOST_STREAM_CLOSED', 'Prompt input ended before submission.')],
-      snapshot: createPromptSnapshot(prompt, promptValueForSnapshot(prompt, state), state)
-    };
+    return inputEndedPromptResult(prompt, state);
+  } catch (cause) {
+    loopFailure = cause;
+    loopFailed = true;
+    throw cause;
   } finally {
+    if (state !== undefined) completePromptState(state);
     inputController.abort();
-    await input.return?.();
+    owner.signal.removeEventListener('abort', abortInput);
+    try {
+      await input.return?.();
+    } catch (cleanup) {
+      raisePromptCleanupFailure(loopFailure, cleanup, loopFailed);
+    }
   }
+}
+
+function timeoutPromptResult<TChoice>(
+  prompt: InteractivePromptDefinition<TChoice>,
+  state?: PromptRuntimeState<TChoice>
+): PromptAbortResult {
+  return {
+    status: 'aborted', reason: 'timeout',
+    diagnostics: [diagnostic('INPUT_TIMEOUT', 'Prompt timed out before submission.', {
+      target: prompt.id ?? prompt.kind, data: { timeoutMs: prompt.timeoutMs ?? null }
+    })],
+    snapshot: state === undefined
+      ? createPromptSnapshot(prompt)
+      : createPromptSnapshot(prompt, promptValueForSnapshot(prompt, state), state)
+  };
+}
+
+function inputEndedPromptResult<TChoice>(
+  prompt: InteractivePromptDefinition<TChoice>,
+  state?: PromptRuntimeState<TChoice>
+): PromptAbortResult {
+  return {
+    status: 'aborted', reason: 'host_error',
+    diagnostics: [diagnostic('HOST_STREAM_CLOSED', 'Prompt input ended before submission.')],
+    snapshot: state === undefined
+      ? createPromptSnapshot(prompt)
+      : createPromptSnapshot(prompt, promptValueForSnapshot(prompt, state), state)
+  };
 }
 
 type PromptInputRead =
@@ -368,33 +431,45 @@ type PromptInputRead =
 async function readPromptInput(
   input: AsyncIterator<InputEvent>,
   host: TerminalHost,
-  timeoutMs: number | undefined
+  deadline: number | undefined,
+  signal: AbortSignal
 ): Promise<PromptInputRead> {
-  if (timeoutMs === undefined) return { kind: 'input', value: await input.next() };
+  if (deadline === undefined) return { kind: 'input', value: await input.next() };
   const timeoutController = new AbortController();
-  const inputRead = input.next().then((value): PromptInputRead => ({ kind: 'input', value }));
-  const immediate = await Promise.race([inputRead, Promise.resolve<undefined>(undefined)]);
-  if (immediate !== undefined) return immediate;
-  const timeout = host.clock.sleep(timeoutMs, timeoutController.signal)
-    .then((outcome): Promise<PromptInputRead> | PromptInputRead => outcome === 'elapsed'
-      ? { kind: 'timeout' }
-      : new Promise<PromptInputRead>(() => undefined));
-  const result = await Promise.race([inputRead, timeout]);
-  if (result.kind === 'input') timeoutController.abort();
-  return result;
+  const abort = (): void => { timeoutController.abort(); };
+  signal.addEventListener('abort', abort, { once: true });
+  if (signal.aborted) timeoutController.abort();
+  try {
+    const inputRead = input.next().then((value): PromptInputRead => ({ kind: 'input', value }));
+    const immediate = await Promise.race([inputRead, Promise.resolve<undefined>(undefined)]);
+    if (immediate !== undefined) return immediate;
+    const remaining = deadline - host.clock.monotonicNow();
+    if (remaining <= 0) return { kind: 'timeout' };
+    const timeout = host.clock.sleep(remaining, timeoutController.signal)
+      .then((outcome): Promise<PromptInputRead> | PromptInputRead => outcome === 'elapsed'
+        ? { kind: 'timeout' }
+        : new Promise<PromptInputRead>(() => undefined));
+    const result = await Promise.race([inputRead, timeout]);
+    if (result.kind === 'input') timeoutController.abort();
+    return result;
+  } finally {
+    timeoutController.abort();
+    signal.removeEventListener('abort', abort);
+  }
 }
 
 async function applyPromptEvent<TChoice>(
   prompt: InteractivePromptDefinition<TChoice>,
   host: TerminalHost,
   state: PromptRuntimeState<TChoice>,
-  event: InputEvent
+  event: InputEvent,
+  owner: PromptTaskOwner
 ): Promise<PromptResult<InteractivePromptValue<TChoice>> | undefined> {
   const interrupted = terminalInputAbort(prompt, state, event);
   if (interrupted !== undefined) return interrupted;
-  if (prompt.kind === 'confirm') return applyConfirmEvent(prompt, host, state, event);
+  if (prompt.kind === 'confirm') return applyConfirmEvent(prompt, host, state, event, owner);
   if (prompt.kind === 'select') {
-    return applySelectEvent(prompt, host, state, event, interactionHooks<TChoice, SelectPromptDefinition<TChoice>, TChoice>());
+    return applySelectEvent(prompt, host, state, event, interactionHooks<TChoice, SelectPromptDefinition<TChoice>, TChoice>(owner));
   }
   if (prompt.kind === 'multiselect') {
     return applyMultiSelectEvent(
@@ -402,7 +477,7 @@ async function applyPromptEvent<TChoice>(
       host,
       state,
       event,
-      interactionHooks<TChoice, MultiSelectPromptDefinition<TChoice>, readonly TChoice[]>()
+      interactionHooks<TChoice, MultiSelectPromptDefinition<TChoice>, readonly TChoice[]>(owner)
     );
   }
   if (prompt.kind === 'autocomplete') {
@@ -411,7 +486,7 @@ async function applyPromptEvent<TChoice>(
       host,
       state,
       event,
-      interactionHooks<TChoice, AutocompletePromptDefinition<TChoice>, TChoice>()
+      interactionHooks<TChoice, AutocompletePromptDefinition<TChoice>, TChoice>(owner)
     );
   }
   return applyTextPromptEvent(
@@ -419,7 +494,7 @@ async function applyPromptEvent<TChoice>(
     host,
     state,
     event,
-    interactionHooks<TChoice, TextPromptDefinition, string>()
+    interactionHooks<TChoice, TextPromptDefinition, string>(owner)
   );
 }
 
@@ -447,21 +522,22 @@ async function applyConfirmEvent<TChoice>(
   prompt: ConfirmPromptDefinition,
   host: TerminalHost,
   state: PromptRuntimeState<TChoice>,
-  event: InputEvent
+  event: InputEvent,
+  owner: PromptTaskOwner
 ): Promise<PromptResult<boolean> | undefined> {
   if (event.kind === 'key' && event.key === 'enter') {
     const value = state.confirmValue ?? prompt.defaultValue;
-    return value === undefined ? undefined : submitInteractiveValue<TChoice, boolean>(prompt, value, host, state);
+    return value === undefined ? undefined : submitInteractiveValue<TChoice, boolean>(prompt, value, host, state, owner);
   }
   if (event.kind !== 'text') return undefined;
   const normalized = event.text.trim().toLowerCase();
   if (normalized === 'y' || normalized === 'yes') {
     state.confirmValue = true;
-    return submitInteractiveValue<TChoice, boolean>(prompt, true, host, state);
+    return submitInteractiveValue<TChoice, boolean>(prompt, true, host, state, owner);
   }
   if (normalized === 'n' || normalized === 'no') {
     state.confirmValue = false;
-    return submitInteractiveValue<TChoice, boolean>(prompt, false, host, state);
+    return submitInteractiveValue<TChoice, boolean>(prompt, false, host, state, owner);
   }
   return undefined;
 }
@@ -470,10 +546,11 @@ function interactionHooks<
   TChoice,
   TPrompt extends PromptDefinition<TChoice> & PromptValueContract<TValue>,
   TValue
->(): PromptInteractionHooks<TChoice, TPrompt, TValue> {
+>(owner: PromptTaskOwner): PromptInteractionHooks<TChoice, TPrompt, TValue> {
   return {
-    render: (host, prompt, state) => renderPromptState<TChoice>(host, prompt, state),
-    submit: (prompt, value, host, state) => submitInteractiveValue<TChoice, TValue>(prompt, value, host, state)
+    owner,
+    render: (host, prompt, state) => renderPromptState<TChoice>(host, prompt, state, owner),
+    submit: (prompt, value, host, state) => submitInteractiveValue<TChoice, TValue>(prompt, value, host, state, owner)
   };
 }
 
@@ -481,10 +558,11 @@ async function submitInteractiveValue<TChoice, TValue>(
   prompt: PromptDefinition<TChoice> & PromptValueContract<TValue>,
   value: TValue,
   host: TerminalHost,
-  state: PromptRuntimeState<TChoice>
+  state: PromptRuntimeState<TChoice>,
+  owner: PromptTaskOwner
 ): Promise<PromptResult<TValue>> {
   completePromptState(state);
-  requireCommittedTerminalWrite(await host.write({ text: '\n' }));
+  await owner.publish(async () => { requireCommittedTerminalWrite(await host.write({ text: '\n' })); });
   const snapshot = createPromptSnapshot<TChoice>(
     prompt,
     promptValueForSnapshot<TChoice>(prompt, state, value),
@@ -496,12 +574,16 @@ async function submitInteractiveValue<TChoice, TValue>(
 async function renderPromptState<TChoice>(
   host: TerminalHost,
   prompt: PromptDefinition<TChoice>,
-  state: PromptRuntimeState<TChoice>
+  state: PromptRuntimeState<TChoice>,
+  owner: PromptTaskOwner
 ): Promise<void> {
-  const capabilities = await host.getCapabilities();
-  requireCommittedTerminalWrite(await host.write({
-    text: `\r\u001B[2K${renderPromptText(prompt, state, capabilities)}`
-  }));
+  await owner.publish(async () => {
+    const capabilities = await host.getCapabilities();
+    if (!owner.active || owner.failed) return;
+    requireCommittedTerminalWrite(await host.write({
+      text: `\r\u001B[2K${renderPromptText(prompt, state, capabilities)}`
+    }));
+  });
 }
 
 function isInteractivePrompt<TChoice>(

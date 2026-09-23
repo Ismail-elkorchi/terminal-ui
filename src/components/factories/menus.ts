@@ -24,7 +24,7 @@ import type { Element } from '../../element/index.ts';
 import {
   assertOptionalCallback,
   assertOptionalEnum,
-  assertRequiredCallback,
+  assertRequiredPropertyCallback,
   isNonArrayObject,
   isStringMember,
 } from '../../foundation/validation.ts';
@@ -130,16 +130,7 @@ type MenuFactory = <const TMessage extends ComponentMessage = never>(
   options: MenuOptions<TMessage>,
 ) => Element<TMessage>;
 
-const instantiateMenu = defineComponent<
-  MenuOwnOptions,
-  MenuModel,
-  MenuComponentAction,
-  MenuStylePart,
-  readonly ['disabled', 'busy', 'inert'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy']
->({
+const instantiateMenu = defineComponent<MenuOwnOptions, MenuComponentAction>()({
   name: 'terminal-ui/components/menu',
   identity: 'required',
   structure: 'leaf',
@@ -189,20 +180,20 @@ const instantiateMenu = defineComponent<
 
 export const menu: MenuFactory = (options) => {
   const shared = menuInstanceOptions(options);
-  if (options.disabled === true) return instantiateMenu({
+  const instance = {
     ...shared,
-    disabled: true,
+    ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
     ...(options.inert === undefined ? {} : { inert: options.inert }),
-  });
-  if (options.inert === true) return instantiateMenu({
-    ...shared,
-    inert: true,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
-  });
+  };
+  assertOptionalCallback(options.onActivate, 'menu onActivate');
+  if (options.onTransition === undefined) {
+    if (options.disabled !== true && options.inert !== true) assertMenuCallbacks(options, 'menu');
+    return instantiateMenu({ ...instance, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }) });
+  }
   assertMenuCallbacks(options, 'menu');
   return instantiateMenu({
-    ...shared,
-    ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...instance,
     onAction: (action) => routeMenuComponentAction(action, options),
   });
 };
@@ -225,7 +216,7 @@ function menuInstanceOptions<TMessage extends ComponentMessage>(options: MenuOpt
 
 function routeMenuComponentAction<TMessage extends ComponentMessage>(
   action: MenuComponentAction,
-  options: MenuOptions<TMessage> & { readonly disabled?: false; readonly inert?: false },
+  options: MenuOptions<TMessage> & { readonly onTransition: NonNullable<MenuOptions<TMessage>["onTransition"]> },
 ) {
   if (action.kind === 'transition') return options.onTransition(action.transition);
   return options.onActivate?.(action.event) ?? ignoreMessage();
@@ -266,17 +257,7 @@ type MenuBarComponentAction =
   | { readonly kind: 'transition'; readonly transition: MenuBarTransition }
   | { readonly kind: 'activate'; readonly event: MenuActivateEvent };
 
-const instantiateMenuBar = defineComponent<
-  MenuBarOwnOptions,
-  MenuBarModel,
-  MenuBarComponentAction,
-  MenuStylePart,
-  readonly ['disabled', 'busy', 'inert'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  typeof popupSlot,
-  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy']
->({
+const instantiateMenuBar = defineComponent<MenuBarOwnOptions, MenuBarComponentAction>()({
   name: 'terminal-ui/components/menu-bar',
   identity: 'required',
   structure: 'composite',
@@ -373,20 +354,20 @@ const instantiateMenuBar = defineComponent<
 
 export const menuBar: MenuBarFactory = (options) => {
   const shared = menuBarInstanceOptions(options);
-  if (options.disabled === true) return instantiateMenuBar({
+  const instance = {
     ...shared,
-    disabled: true,
+    ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
     ...(options.inert === undefined ? {} : { inert: options.inert }),
-  });
-  if (options.inert === true) return instantiateMenuBar({
-    ...shared,
-    inert: true,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
-  });
+  };
+  assertOptionalCallback(options.onActivate, 'menuBar onActivate');
+  if (options.onTransition === undefined) {
+    if (options.disabled !== true && options.inert !== true) assertMenuCallbacks(options, 'menuBar');
+    return instantiateMenuBar({ ...instance, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }) });
+  }
   assertMenuCallbacks(options, 'menuBar');
   return instantiateMenuBar({
-    ...shared,
-    ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...instance,
     onAction: (action) => routeMenuBarAction(action, options),
   });
 };
@@ -416,7 +397,7 @@ function menuBarInstanceOptions<TMessage extends ComponentMessage>(options: Menu
 
 function routeMenuBarAction<TMessage extends ComponentMessage>(
   action: MenuBarComponentAction,
-  options: MenuBarOptions<TMessage> & { readonly disabled?: false; readonly inert?: false },
+  options: MenuBarOptions<TMessage> & { readonly onTransition: NonNullable<MenuBarOptions<TMessage>["onTransition"]> },
 ) {
   if (action.kind === 'transition') return options.onTransition(action.transition);
   return options.onActivate?.(action.event) ?? ignoreMessage();
@@ -451,17 +432,7 @@ type ContextMenuComponentAction =
   | { readonly kind: 'transition'; readonly transition: ContextMenuTransition }
   | { readonly kind: 'activate'; readonly event: MenuActivateEvent };
 
-const instantiateContextMenu = defineComponent<
-  ContextOwnOptions,
-  ContextMenuModel,
-  ContextMenuComponentAction,
-  MenuStylePart,
-  readonly ['disabled', 'busy', 'inert'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  Readonly<Record<never, never>>,
-  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy']
->({
+const instantiateContextMenu = defineComponent<ContextOwnOptions, ContextMenuComponentAction>()({
   name: 'terminal-ui/components/context-menu',
   identity: 'required',
   structure: 'composed',
@@ -549,20 +520,20 @@ const instantiateContextMenu = defineComponent<
 
 export const contextMenu: ContextMenuFactory = (options) => {
   const shared = contextMenuInstanceOptions(options);
-  if (options.disabled === true) return instantiateContextMenu({
+  const instance = {
     ...shared,
-    disabled: true,
+    ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
     ...(options.inert === undefined ? {} : { inert: options.inert }),
-  });
-  if (options.inert === true) return instantiateContextMenu({
-    ...shared,
-    inert: true,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
-  });
+  };
+  assertOptionalCallback(options.onActivate, 'contextMenu onActivate');
+  if (options.onTransition === undefined) {
+    if (options.disabled !== true && options.inert !== true) assertMenuCallbacks(options, 'contextMenu');
+    return instantiateContextMenu({ ...instance, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }) });
+  }
   assertMenuCallbacks(options, 'contextMenu');
   return instantiateContextMenu({
-    ...shared,
-    ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...instance,
     onAction: (action) => routeContextMenuAction(action, options),
   });
 };
@@ -592,7 +563,7 @@ function contextMenuInstanceOptions<TMessage extends ComponentMessage>(
 
 function routeContextMenuAction<TMessage extends ComponentMessage>(
   action: ContextMenuComponentAction,
-  options: ContextMenuOptions<TMessage> & { readonly disabled?: false; readonly inert?: false },
+  options: ContextMenuOptions<TMessage> & { readonly onTransition: NonNullable<ContextMenuOptions<TMessage>["onTransition"]> },
 ) {
   if (action.kind === 'transition') return options.onTransition(action.transition);
   return options.onActivate?.(action.event) ?? ignoreMessage();
@@ -624,17 +595,7 @@ type MenuTriggerComponentAction =
   | { readonly kind: 'transition'; readonly transition: MenuTriggerTransition }
   | { readonly kind: 'activate'; readonly event: MenuActivateEvent };
 
-const instantiateMenuTrigger = defineComponent<
-  MenuTriggerOwnOptions,
-  MenuTriggerModel,
-  MenuTriggerComponentAction,
-  MenuStylePart,
-  readonly ['disabled', 'busy', 'inert'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  typeof popupSlot,
-  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy']
->({
+const instantiateMenuTrigger = defineComponent<MenuTriggerOwnOptions, MenuTriggerComponentAction>()({
   name: 'terminal-ui/components/menu-trigger',
   identity: 'required',
   structure: 'composite',
@@ -760,32 +721,32 @@ const instantiateMenuTrigger = defineComponent<
 
 export const menuTrigger: MenuTriggerFactory = (options) => {
   const shared = menuTriggerInstanceOptions(options);
-  if (options.disabled === true) return instantiateMenuTrigger({
+  const instance = {
     ...shared,
-    disabled: true,
+    ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
     ...(options.inert === undefined ? {} : { inert: options.inert }),
-  });
-  if (options.inert === true) return instantiateMenuTrigger({
-    ...shared,
-    inert: true,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
-  });
+  };
+  assertOptionalCallback(options.onActivate, 'menuTrigger onActivate');
+  if (options.onTransition === undefined) {
+    if (options.disabled !== true && options.inert !== true) assertMenuCallbacks(options, 'menuTrigger');
+    return instantiateMenuTrigger({ ...instance, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }) });
+  }
   assertMenuCallbacks(options, 'menuTrigger');
   return instantiateMenuTrigger({
-    ...shared,
-    ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...instance,
     onAction: (action) => routeMenuTriggerAction(action, options),
   });
 };
 
-function assertMenuCallbacks(
-  options: {
+function assertMenuCallbacks<TOptions extends {
     readonly onTransition?: unknown;
     readonly onActivate?: unknown;
-  },
+  }>(
+  options: TOptions,
   component: string,
-): void {
-  assertRequiredCallback(options.onTransition, `${component} onTransition`);
+): asserts options is TOptions & { readonly onTransition: NonNullable<TOptions['onTransition']> } {
+  assertRequiredPropertyCallback(options, 'onTransition', `${component} onTransition`);
   assertOptionalCallback(options.onActivate, `${component} onActivate`);
 }
 
@@ -822,7 +783,7 @@ function menuTriggerInstanceOptions<TMessage extends ComponentMessage>(
 
 function routeMenuTriggerAction<TMessage extends ComponentMessage>(
   action: MenuTriggerComponentAction,
-  options: MenuTriggerOptions<TMessage> & { readonly disabled?: false; readonly inert?: false },
+  options: MenuTriggerOptions<TMessage> & { readonly onTransition: NonNullable<MenuTriggerOptions<TMessage>["onTransition"]> },
 ) {
   if (action.kind === 'transition') return options.onTransition(action.transition);
   return options.onActivate?.(action.event) ?? ignoreMessage();
@@ -1074,7 +1035,7 @@ function menuPlan(model: MenuModel, bounds: Rect) {
   };
 }
 
-function paintMenu(input: ComponentRenderInput<MenuModel, MenuStylePart>): void {
+function paintMenu(input: ComponentRenderInput<MenuModel, MenuStylePart>): undefined {
   const { plan, rows } = menuPlan(input.model, input.bounds);
   if (rows.length === 0 && plan.contentBounds.height > 0) {
     input.target.write(plan.contentBounds.row, plan.contentBounds.column, [
@@ -1354,7 +1315,7 @@ function decodeMenuBarView(
   };
 }
 
-function paintMenuBar(input: ComponentRenderInput<MenuBarModel, MenuStylePart>): void {
+function paintMenuBar(input: ComponentRenderInput<MenuBarModel, MenuStylePart>): undefined {
   const spans = input.model.items.flatMap((item, index): readonly RenderSpan[] => {
     const active = input.model.view.active === item.id;
     const pointer = pointerVisualState(
@@ -1618,7 +1579,7 @@ function decodeMenuTriggerView(value: MenuTriggerView): MenuTriggerModel['view']
   };
 }
 
-function paintMenuTrigger(input: ComponentRenderInput<MenuTriggerModel, MenuStylePart>): void {
+function paintMenuTrigger(input: ComponentRenderInput<MenuTriggerModel, MenuStylePart>): undefined {
   const value = menuTriggerValue(input.model);
   const pointer = pointerVisualState(input.pointerState, `${input.id ?? 'menu-trigger'}:trigger`);
   const states = [

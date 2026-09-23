@@ -24,8 +24,8 @@ const samples = Object.freeze([
   Object.freeze({
     name: 'initial frame diff dereferences a missing baseline',
     module: 'dist/renderer/frame.js',
-    from: '    if (previous?.width !== next.width',
-    to: '    if (previous !== undefined && previous.width !== next.width',
+    from: '    return previous?.width === next.width',
+    to: '    return previous === undefined || previous.width === next.width',
     test: 'tests/unit/render-instrumentation.test.mjs',
   }),
 ]);

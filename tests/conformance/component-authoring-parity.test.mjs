@@ -56,7 +56,7 @@ runEditableControlConformance('built-in', {
   active: ({ id, value, onInsert }) => textInput({
     id,
     meta: { accessibleName: 'Value' },
-    state: { value, cursor: value.length },
+    state: { text: value, cursor: value.length },
     onTransition: (action) => action.kind === 'edit' && action.operation.kind === 'insert'
       ? onInsert(action.operation.text)
       : ignoreMessage()
@@ -64,7 +64,7 @@ runEditableControlConformance('built-in', {
   disabled: ({ id, value }) => textInput({
     id,
     meta: { accessibleName: 'Value' },
-    state: { value, cursor: value.length },
+    state: { text: value, cursor: value.length },
     disabled: true
   })
 });

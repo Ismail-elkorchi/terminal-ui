@@ -2,6 +2,7 @@ import type { TerminalStyle } from '../visual/render-content.ts';
 import { decodeTerminalSymbols, mergeSymbols, symbolEntries } from './symbols.ts';
 import type { TerminalDesignTokenDefinition, TerminalDesignTokens, ThemeColor, ThemeColorToken } from './tokens.ts';
 import { isThemeColorToken } from '../visual/color.ts';
+import { assertSupportedFields } from '../foundation/validation.ts';
 
 const canonicalThemes = new WeakSet<object>();
 const canonicalDesignTokens = new WeakSet<object>();
@@ -24,6 +25,7 @@ export interface TerminalThemeDefinition {
 export function createTheme(input: { readonly name: string; readonly tokens: TerminalDesignTokens }): TerminalTheme;
 export function createTheme(input: unknown): TerminalTheme {
   const supplied = record(input, 'Theme input');
+  assertSupportedFields(supplied, ['name', 'tokens'], 'theme');
   const name = supplied['name'];
   if (typeof name !== 'string' || name.trim() === '') {
     throw new TypeError('Theme name must be a non-empty string.');
@@ -47,6 +49,7 @@ export function mergeThemes(base: unknown, override: unknown): TerminalTheme {
 
 function mergeThemeDefinition(base: TerminalTheme, override: unknown): TerminalTheme {
   const definition = record(override, 'Theme definition');
+  assertSupportedFields(definition, ['name', 'tokens'], 'theme');
   const name = definition['name'];
   if (name !== undefined && (typeof name !== 'string' || name.trim() === '')) {
     throw new TypeError('Theme definition name must be a non-empty string.');
@@ -70,6 +73,7 @@ function mergeDesignTokenValues(base: unknown, override: unknown): TerminalDesig
   const normalizedBase = decodeDesignTokens(base);
   if (override === undefined) return normalizedBase;
   const definition = record(override, 'Design token definition');
+  assertSupportedFields(definition, ['colors', 'symbols'], 'theme.tokens');
   const colors = optionalRecord(definition['colors'], 'Theme colors');
   return decodeDesignTokens({
     colors: { ...normalizedBase.colors, ...(colors ?? {}) },
@@ -127,6 +131,7 @@ export function sameThemeRendering(left: TerminalTheme, right: TerminalTheme): b
 function decodeDesignTokens(value: unknown): TerminalDesignTokens {
   const tokens = record(value, 'Design tokens');
   if (isCanonicalDesignTokens(tokens)) return tokens;
+  assertSupportedFields(tokens, ['colors', 'symbols'], 'theme.tokens');
   const colors = decodeColorTokens(tokens['colors']);
   const symbols = decodeTerminalSymbols(tokens['symbols']);
   const normalized = Object.freeze({ colors, symbols });
@@ -162,9 +167,9 @@ function decodeColorTokens(value: unknown): TerminalDesignTokens['colors'] {
   const entries: [ThemeColorToken, ThemeColor][] = [];
   for (const [token, color] of Object.entries(colors)) {
     if (!isThemeColorToken(token)) {
-      throw new TypeError(`Unsupported color token: ${token}. Custom color tokens must use the custom.* namespace.`);
+      throw new TypeError(`Unsupported configuration field: theme.tokens.colors.${token}. Custom color tokens must use the custom.* namespace.`);
     }
-    entries.push([token, decodeThemeColor(color, `Theme color ${token}`)]);
+    entries.push([token, decodeThemeColor(color, `theme.tokens.colors.${token}`)]);
   }
   return Object.freeze(Object.fromEntries(entries));
 }
@@ -176,6 +181,8 @@ function decodeThemeColor(value: unknown, subject: string): ThemeColor {
   const existing = canonicalThemeColors.get(value);
   if (existing !== undefined) return existing;
   const kind = 'kind' in value ? value.kind : undefined;
+  assertSupportedFields(value as Readonly<Record<string, unknown>>,
+    kind === 'ansi' ? ['kind', 'value'] : kind === 'rgb' ? ['kind', 'r', 'g', 'b'] : ['kind'], subject);
   let normalized: ThemeColor;
   if (kind === 'ansi') {
     const index = 'value' in value ? value.value : undefined;

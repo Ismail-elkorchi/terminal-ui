@@ -29,6 +29,7 @@ import {
   isNonArrayObject,
 } from '../../foundation/validation.ts';
 import type { Rect } from '../../geometry/types.ts';
+import { intersectRects } from '../../geometry/rect.ts';
 import { pointerVisualState } from '../../interaction/index.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
@@ -92,15 +93,7 @@ const parts = [
 ] as const;
 const historyParts = [...parts, 'scrollbarTrack', 'scrollbarThumb'] as const;
 
-const passiveRegion = defineComponent<
-  Omit<NotificationOwnOptions, 'selectedId'>,
-  NotificationModel,
-  never,
-  NotificationStylePart,
-  readonly [],
-  'required',
-  readonly ['focus', 'layer', 'styles']
->({
+const passiveRegion = defineComponent<Omit<NotificationOwnOptions, 'selectedId'>>()({
   name: 'terminal-ui/components/notification-region',
   identity: 'required',
   structure: 'leaf',
@@ -115,16 +108,7 @@ const passiveRegion = defineComponent<
   accessibility: (input) => accessibleNotifications(input, 'region', false),
 });
 
-const activeRegion = defineComponent<
-  Omit<NotificationOwnOptions, 'selectedId'>,
-  NotificationModel,
-  NotificationRegionComponentAction,
-  NotificationStylePart,
-  readonly [],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['hovered', 'pressed']
->({
+const activeRegion = defineComponent<Omit<NotificationOwnOptions, 'selectedId'>, NotificationRegionComponentAction>()({
   name: 'terminal-ui/components/notification-region',
   identity: 'required',
   structure: 'leaf',
@@ -141,16 +125,7 @@ const activeRegion = defineComponent<
   accessibility: (input) => accessibleNotifications(input, 'region', true),
 });
 
-const history = defineComponent<
-  NotificationOwnOptions,
-  NotificationModel,
-  NotificationHistoryComponentAction,
-  NotificationHistoryStylePart,
-  readonly [],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['hovered', 'pressed', 'active', 'selected', 'disabled']
->({
+const history = defineComponent<NotificationOwnOptions, NotificationHistoryComponentAction>()({
   name: 'terminal-ui/components/notification-history',
   identity: 'required',
   structure: 'leaf',
@@ -446,7 +421,7 @@ function historyLayout(
       width: Math.min(card.width, viewport.width),
       height: card.height,
     };
-    const visibleBounds = intersect(bounds, viewport);
+    const visibleBounds = intersectRects(bounds, viewport);
     if (visibleBounds !== undefined) output.push({ card, bounds, visibleBounds });
     logicalRow += card.height + 1;
   }
@@ -503,16 +478,6 @@ function historySelection(
   };
 }
 
-function intersect(left: Rect, right: Rect): Rect | undefined {
-  const row = Math.max(left.row, right.row);
-  const column = Math.max(left.column, right.column);
-  const endRow = Math.min(left.row + left.height, right.row + right.height);
-  const endColumn = Math.min(left.column + left.width, right.column + right.width);
-  return endRow <= row || endColumn <= column
-    ? undefined
-    : { row, column, width: endColumn - column, height: endRow - row };
-}
-
 type NotificationPaintInput = Omit<
   ComponentRenderInput<NotificationModel, NotificationStylePart>,
   'style'
@@ -524,14 +489,14 @@ type NotificationPaintInput = Omit<
 
 function paintRegionNotifications(
   input: ComponentRenderInput<NotificationModel, NotificationStylePart>,
-): void {
+): undefined {
   const layout = notificationLayout(input);
   for (const placed of layout.cards) paintCard(input, placed);
 }
 
 function paintHistoryNotifications(
   input: ComponentRenderInput<NotificationModel, NotificationHistoryStylePart>,
-): void {
+): undefined {
   const layout = notificationLayout(input);
   for (const placed of layout.cards) paintCard(input, placed);
   if (layout.scrollbar !== undefined) {

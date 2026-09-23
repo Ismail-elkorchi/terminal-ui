@@ -9,6 +9,7 @@ import {
 import type {
   ComponentInteractionInput,
   ComponentMessage,
+  ComponentRenderInput,
   SemanticLeafComponentFactory,
 } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
@@ -32,6 +33,7 @@ import type { ElementKeyEvent } from '../../element/metadata.ts';
 import type { RoutedPointerEvent } from '../../input/index.ts';
 import type { RichTextLinkActivateEvent } from '../options/content-and-collections.ts';
 import type { Rect } from '../../geometry/types.ts';
+import { withoutTransitionCallback } from './form-control-helpers.ts';
 
 interface TextModel {
   readonly content: string;
@@ -46,15 +48,7 @@ export const text: SemanticLeafComponentFactory<
   readonly [],
   'optional',
   readonly ['styles', 'layer']
-> = defineComponent<
-  Pick<TextOptions, 'content' | 'textRole' | 'headingLevel'>,
-  TextModel,
-  never,
-  TextStylePart,
-  readonly [],
-  'optional',
-  readonly ['styles', 'layer']
->({
+> = defineComponent<Pick<TextOptions, 'content' | 'textRole' | 'headingLevel'>>()({
   name: 'terminal-ui/components/text',
   identity: 'optional',
   structure: 'leaf',
@@ -63,7 +57,7 @@ export const text: SemanticLeafComponentFactory<
     model.textRole === 'heading' || model.textRole === 'title' ? 'heading' : 'text',
   metadata: ['styles', 'layer'],
   parts: ['content'],
-  createModel(value) {
+  createModel(value): TextModel {
     const content = value.content;
     const textRole = value.textRole;
     const headingLevel = value.headingLevel;
@@ -96,7 +90,7 @@ export const text: SemanticLeafComponentFactory<
       preferredHeight: lines.length,
     };
   },
-  render({ model, target, style, frameSource }) {
+  render({ model, target, style, frameSource }: ComponentRenderInput<TextModel, TextStylePart>) {
     const contentStyle = style({
       part: 'content',
       base: textRoleStyle(model.textRole),
@@ -178,16 +172,7 @@ interface RichTextComponentAction {
   readonly event: RichTextLinkActivateEvent;
 }
 
-const instantiateRichText = defineComponent<
-  Pick<RichTextOptions, 'segments' | 'wrap'> & { readonly interactive: boolean },
-  RichTextModel,
-  RichTextComponentAction,
-  RichTextStylePart,
-  readonly [],
-  'optional',
-  readonly ['focus', 'styles', 'layer'],
-  readonly ['focused', 'hovered', 'pressed']
->({
+const instantiateRichText = defineComponent<Pick<RichTextOptions, 'segments' | 'wrap'> & { readonly interactive: boolean }, RichTextComponentAction>()({
   name: 'terminal-ui/components/rich-text',
   identity: 'optional',
   structure: 'leaf',
@@ -653,17 +638,7 @@ type DisclosureFactory = <
   options: DisclosureOptions<TMessage, TChild>,
 ) => Element<TMessage | ElementMessage<TChild>>;
 
-const instantiateDisclosure = defineComponent<
-  { readonly label: string; readonly summary?: InlineContent; readonly expanded: boolean },
-  DisclosureModel,
-  import('../../components/disclosure.ts').DisclosureTransition,
-  import('../../components/style-parts.ts').DisclosureStylePart,
-  readonly ['disabled'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  typeof disclosureSlots,
-  readonly ['focused', 'hovered', 'pressed', 'disabled']
->({
+const instantiateDisclosure = defineComponent<{ readonly label: string; readonly summary?: InlineContent; readonly expanded: boolean }, import('../../components/disclosure.ts').DisclosureTransition>()({
   name: 'terminal-ui/components/disclosure',
   identity: 'required',
   structure: 'composite',
@@ -774,7 +749,10 @@ const instantiateDisclosure = defineComponent<
 });
 
 export const disclosure: DisclosureFactory = (options) => {
-  if (options.disabled === true) return instantiateDisclosure(options);
+  if (options.disabled === true && options.onTransition === undefined) {
+    const rest = withoutTransitionCallback(options);
+    return instantiateDisclosure({ ...rest, disabled: true });
+  }
   const { onTransition, ...input } = options;
   assertRequiredCallback(onTransition, 'disclosure onTransition');
   return instantiateDisclosure({

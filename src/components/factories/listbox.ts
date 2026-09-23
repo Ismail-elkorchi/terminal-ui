@@ -17,35 +17,28 @@ import {
   normalizeScrollState,
   scrollReducer,
 } from '../../behavior/index.ts';
-import { isCollectionSnapshot } from '../../collection/snapshot.ts';
+import { listboxViewForOptions } from '../../behavior/listbox-operations.ts';
 import type { Element } from '../../element/index.ts';
 import {
   assertOptionalCallback,
-  assertRequiredCallback,
-  isNonArrayObject,
+  assertRequiredPropertyCallback,
 } from '../../foundation/validation.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import {
   pointerVisualState,
 } from '../../interaction/pointer-interaction.ts';
-import { decodeSelectionState, type SelectionState } from '../../interaction/collection-interaction.ts';
+import { decodeSelectionState, selectionContains, type SelectionState } from '../../interaction/collection-interaction.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
 import { terminalStyleHasBackground } from '../../theme/index.ts';
 import type {
-  CompleteListboxCollection,
   ListboxActivateEvent,
-  ListboxCollectionItem,
-  ListboxOption,
-  ListboxOptionMapper,
   ListboxTransition,
-  WindowedListboxCollection,
+  ListboxViewEntry,
 } from '../../behavior/listbox.ts';
-import { matchCompiledCollectionQuery, compileCollectionQuery, indexQueryCandidate } from '../../text/query.ts';
 import type {
   CompiledCollectionQuery,
-  IndexedQueryCandidate,
   QueryMatchRange,
 } from '../../text/query.ts';
 import type { DataListStylePart } from '../style-parts.ts';
@@ -57,15 +50,7 @@ import type {
 } from '../options/content-and-collections.ts';
 import { inspectSelection } from '../internal/inspection.ts';
 
-interface ListEntryModel {
-  readonly id: string;
-  readonly itemIndex: number;
-  readonly position: number;
-  readonly label: string;
-  readonly description?: string;
-  readonly disabled: boolean;
-  readonly matches?: readonly QueryMatchRange[];
-}
+type ListEntryModel = ListboxViewEntry<unknown>;
 
 interface ListboxModel {
   readonly entries: readonly ListEntryModel[];
@@ -108,16 +93,7 @@ type ListboxComponentAction =
   | { readonly kind: 'transition'; readonly transition: ListboxTransition }
   | { readonly kind: 'activate'; readonly event: ListboxActivateEvent };
 
-const instantiateListbox = defineComponent<
-  ListboxModel,
-  ListboxModel,
-  ListboxComponentAction,
-  DataListStylePart,
-  readonly ['disabled', 'busy', 'inert'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy']
->({
+const instantiateListbox = defineComponent<ListboxModel, ListboxComponentAction>()({
   ...listboxDefinitionBase,
   keys({ model, busy }) {
     if (busy) return {};
@@ -130,7 +106,7 @@ const instantiateListbox = defineComponent<
       home: () => transition({ kind: 'firstActive' }),
       end: () => transition({ kind: 'lastActive' }),
       space: () => transition({ kind: 'commitActive' }),
-      ...(active === undefined || active.disabled
+      ...(active === undefined || active.option.disabled
         ? {}
         : { enter: () => activate(active) }),
     };
@@ -154,7 +130,7 @@ const instantiateListbox = defineComponent<
     const plan = listPlan(input.model, input.bounds);
     return [
       ...plan.rows.flatMap((entry, row) =>
-        entry.disabled ? [] : [{
+        entry.option.disabled ? [] : [{
           id: `${input.id ?? 'list'}:option:${entry.id}`,
           bounds: {
             row: plan.scrollbar.contentBounds.row + row,
@@ -194,7 +170,7 @@ export function listbox<TValue, const TMessage extends ComponentMessage = never>
   options: ListboxOptions<TValue, TMessage>,
 ): Element<TMessage> {
   const model = createListboxModel(options);
-  if (options.disabled === true) return instantiateListbox({
+  if (options.disabled === true && options.onTransition === undefined) return instantiateListbox({
     ...model,
     id: options.id,
     disabled: true,
@@ -202,7 +178,7 @@ export function listbox<TValue, const TMessage extends ComponentMessage = never>
     ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   });
-  if (options.inert === true) return instantiateListbox({
+  if (options.inert === true && options.onTransition === undefined) return instantiateListbox({
     ...model,
     id: options.id,
     inert: true,
@@ -210,12 +186,14 @@ export function listbox<TValue, const TMessage extends ComponentMessage = never>
     ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   });
-  assertRequiredCallback(options.onTransition, 'listbox onTransition');
+  assertRequiredPropertyCallback(options, 'onTransition', 'listbox onTransition');
   assertOptionalCallback(options.onActivate, 'listbox onActivate');
   return instantiateListbox({
     ...model,
     id: options.id,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+    ...(options.inert === undefined ? {} : { inert: options.inert }),
     ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
     onAction: (action) => {
@@ -237,31 +215,7 @@ function isScrollableListboxOptions<TValue, TMessage extends ComponentMessage>(
 function createListboxModel<TValue, TMessage extends ComponentMessage>(
   value: Readonly<ListboxOptions<TValue, TMessage>>,
 ): ListboxModel {
-  const rawItems = value.items;
-  const toOption = value.toOption;
-  const rawCollection = value.collection;
-  const dataForms = Number(rawItems !== undefined || toOption !== undefined) +
-    Number(rawCollection !== undefined);
-  if (dataForms !== 1) {
-    throw new TypeError('listbox requires either items with toOption, or collection.');
-  }
-  let source: ListSourceData;
-  if (rawCollection === undefined) {
-    if (rawItems === undefined || toOption === undefined) {
-      throw new TypeError('listbox requires items and toOption together.');
-    }
-    source = createListSourceFromItems(rawItems, toOption);
-  } else {
-    source = createListSourceFromSnapshot(rawCollection);
-  }
-  const requestedQuery = value.query;
-  if (source.windowed && requestedQuery !== undefined) {
-    throw new TypeError('Windowed listbox collections own their filter query.');
-  }
-  const query = source.windowed
-    ? source.query
-    : compileCollectionQuery(requestedQuery ?? { text: '', mode: 'contains' });
-  const entries = listEntriesForQuery(source, query);
+  const view = listboxViewForOptions(value);
   const activeId = optionalCleanString(value.state.activeId, 'listbox activeId');
   const selection = decodeSelectionState(value.state.selection, 'listbox selection');
   const scroll = decodeComponentScrollState(value.state.scroll, 'listbox scroll');
@@ -271,199 +225,16 @@ function createListboxModel<TValue, TMessage extends ComponentMessage>(
     throw new TypeError('listbox scrollbar and scrollPolicy require scroll state.');
   }
   return {
-    entries,
-    startIndex: source.windowed ? source.startIndex : 0,
-    totalCount: source.windowed ? source.totalCount : entries.length,
-    windowed: source.windowed,
-    query,
+    entries: view.entries,
+    startIndex: view.startIndex,
+    totalCount: view.totalCount,
+    windowed: view.source.kind === 'window',
+    query: view.query,
     ...(activeId === undefined ? {} : { activeId }),
     selection,
     ...(scroll === undefined ? {} : { scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
-  };
-}
-
-interface ListSourceData {
-  readonly entries: readonly ListSourceEntryModel[];
-  readonly windowed: boolean;
-  readonly startIndex: number;
-  readonly totalCount: number;
-  readonly query: CompiledCollectionQuery;
-}
-
-type ListSourceEntryModel = Omit<ListEntryModel, 'position'> & {
-  readonly searchText: string;
-  readonly candidate: IndexedQueryCandidate;
-};
-
-const listboxCollectionModels = new WeakMap<object, ListSourceData>();
-const listEntryViewCache = new WeakMap<
-  object,
-  { readonly queryKey: string; readonly entries: readonly ListEntryModel[] }
->();
-
-function listEntriesForQuery(
-  source: ListSourceData,
-  query: CompiledCollectionQuery,
-): readonly ListEntryModel[] {
-  const cached = listEntryViewCache.get(source);
-  const queryKey = `${query.mode}:${query.caseSensitive ? '1' : '0'}:${query.text}`;
-  if (cached?.queryKey === queryKey) return cached.entries;
-  const matched: {
-    readonly entry: ListSourceEntryModel;
-    readonly matches?: readonly QueryMatchRange[];
-  }[] = [];
-  for (const entry of source.entries) {
-    if (source.windowed || query.text.length === 0) {
-      matched.push({ entry });
-      continue;
-    }
-    const match = matchCompiledCollectionQuery(entry.candidate, query);
-    if (match !== undefined) {
-      const primary = Object.freeze(match.ranges.filter((range) => range.field === 'primary'));
-      matched.push({ entry, ...(primary.length === 0 ? {} : { matches: primary }) });
-    }
-  }
-  const entries = Object.freeze(matched.map(({ entry, matches }, position): ListEntryModel =>
-    Object.freeze({
-      id: entry.id,
-      itemIndex: entry.itemIndex,
-      position: source.windowed ? entry.itemIndex : position,
-      label: entry.label,
-      ...(entry.description === undefined ? {} : { description: entry.description }),
-      disabled: entry.disabled,
-      ...(matches === undefined ? {} : { matches }),
-    })
-  ));
-  listEntryViewCache.set(source, Object.freeze({ queryKey, entries }));
-  return entries;
-}
-
-function createListSourceFromItems<TValue>(
-  items: readonly TValue[],
-  toOption: ListboxOptionMapper<TValue>,
-): ListSourceData {
-  const ids = new Set<string>();
-  return {
-    entries: Object.freeze(items.map((item, index) => {
-      const option = toOption(item, index);
-      return decodeListEntry(
-        isNonArrayObject(option) ? option.id : undefined,
-        index,
-        option,
-        ids,
-      );
-    })),
-    windowed: false,
-    startIndex: 0,
-    totalCount: items.length,
-    query: compileCollectionQuery({ text: '', mode: 'contains' }),
-  };
-}
-
-function createListSourceFromSnapshot<TValue>(
-  value: CompleteListboxCollection<TValue> | WindowedListboxCollection<TValue>,
-): ListSourceData {
-  if (!isCollectionSnapshot(value)) {
-    throw new TypeError('listbox collection must be created with createListboxCollection().');
-  }
-  const cached = listboxCollectionModels.get(value);
-  if (cached !== undefined) return cached;
-  const kind = value.kind;
-  const query = kind === 'window'
-    && value.scope.kind === 'query'
-    && value.scope.query !== undefined
-    ? value.scope.query
-    : compileCollectionQuery({ text: '', mode: 'contains' });
-  const model = Object.freeze({
-    entries: createListSourceEntries(value.items),
-    windowed: kind === 'window',
-    startIndex: value.startIndex,
-    totalCount: value.totalCount,
-    query,
-  });
-  listboxCollectionModels.set(value, model);
-  return model;
-}
-
-function createListSourceEntries<TValue>(
-  items: readonly ListboxCollectionItem<TValue>[],
-): readonly ListSourceEntryModel[] {
-  return Object.freeze(items.map((collectionItem) => {
-    const option = decodeListItem(collectionItem.option);
-    if (collectionItem.id !== option.id) throw new TypeError('Listbox collection item and option ids must match.');
-    return Object.freeze({
-      id: collectionItem.id,
-      itemIndex: collectionItem.itemIndex,
-      label: option.label,
-      ...(option.description === undefined ? {} : { description: option.description }),
-      disabled: option.disabled,
-      searchText: option.searchText,
-      candidate: indexQueryCandidate({
-        id: collectionItem.id,
-        primary: option.label,
-        secondary: [option.searchText],
-      }),
-    });
-  }));
-}
-
-function decodeListEntry(
-  rawId: unknown,
-  rawItemIndex: number,
-  rawItem: ListboxOption,
-  ids: Set<string>,
-): ListSourceEntryModel {
-  const itemIndex = nonNegativeSafeInteger(rawItemIndex, 'listbox item itemIndex');
-  const item = decodeListItem(rawItem);
-  const id = requiredCleanString(rawId, 'listbox item id');
-  if (id !== item.id) throw new TypeError('Listbox item and option ids must match.');
-  if (ids.has(id)) throw new TypeError(`Listbox option ids must be unique; duplicate id: ${id}`);
-  ids.add(id);
-  return Object.freeze({
-    id,
-    itemIndex,
-    label: item.label,
-    ...(item.description === undefined ? {} : { description: item.description }),
-    disabled: item.disabled,
-    searchText: item.searchText,
-    candidate: indexQueryCandidate({ id, primary: item.label, secondary: [item.searchText] }),
-  });
-}
-
-function decodeListItem(value: ListboxOption): {
-  readonly id: string;
-  readonly label: string;
-  readonly description?: string;
-  readonly disabled: boolean;
-  readonly searchText: string;
-} {
-  if (!isNonArrayObject(value)) throw new TypeError('Listbox option must be an object.');
-  const id = requiredCleanString(value.id, 'listbox option id');
-  const label = requiredString(value.label, 'listbox option label');
-  const description = optionalString(value.description, 'listbox option description');
-  const keywords = value.keywords === undefined
-    ? []
-    : Array.isArray(value.keywords)
-    ? value.keywords.map((entry) => requiredString(entry, 'listbox option keyword'))
-    : undefined;
-  if (keywords === undefined) {
-    throw new TypeError('Listbox option keywords must be an array of strings.');
-  }
-  if (value.disabled !== undefined && typeof value.disabled !== 'boolean') {
-    throw new TypeError('Listbox option disabled must be a boolean.');
-  }
-  const cleanLabel = cleanLine(label);
-  const cleanDescription = description === undefined ? undefined : cleanLine(description);
-  return {
-    id,
-    label: cleanLabel,
-    ...(cleanDescription === undefined ? {} : { description: cleanDescription }),
-    disabled: value.disabled === true,
-    searchText: searchableText(
-      [cleanLabel, cleanDescription, ...keywords].filter(Boolean).join(' '),
-    ),
   };
 }
 
@@ -478,7 +249,7 @@ function measureListbox(
     1,
     ...rows.map((entry) =>
       measureTextCells(
-        `${entry.label}${entry.description === undefined ? '' : ` · ${entry.description}`}`,
+        `${entry.option.label}${entry.option.description === undefined ? '' : ` · ${entry.option.description}`}`,
         { widthProfile },
       ).cells + 2
     ),
@@ -493,7 +264,7 @@ function measureListbox(
 
 function renderListbox(
   input: import('../../component/index.ts').ComponentRenderInput<ListboxModel, DataListStylePart>,
-): void {
+): undefined {
   const plan = listPlan(input.model, input.bounds);
   if (plan.rows.length === 0 && plan.scrollbar.contentBounds.height > 0) {
     const emptyStyle = input.style({
@@ -532,7 +303,7 @@ function renderListboxRow(
   const selected = selectionContains(input.model.selection, entry.id);
   const active = entry.id === input.model.activeId;
   const pointer = pointerVisualState(input.pointerState, `${input.id ?? 'listbox'}:option:${entry.id}`);
-  const states = entry.disabled
+  const states = entry.option.disabled
     ? ['disabled' as const]
     : [
       ...(selected ? ['selected' as const] : []),
@@ -606,7 +377,7 @@ function listboxRowSpans(
         itemIndex: entry.itemIndex,
       }),
     },
-    ...highlightedListLabel(entry.label, entry.matches, itemStyle, input, entry, states),
+    ...highlightedListLabel(entry.option.label, entry.matches, itemStyle, input, entry, states),
     ...listboxDescriptionSpans(input, entry, states, state),
   ];
 }
@@ -617,9 +388,9 @@ function listboxDescriptionSpans(
   states: readonly Exclude<import('../../element/metadata.ts').ElementVisualState, 'default'>[],
   state: Exclude<import('../../element/metadata.ts').ElementVisualState, 'default'> | undefined,
 ): readonly RenderSpan[] {
-  if (entry.description === undefined) return [];
+  if (entry.option.description === undefined) return [];
   return [{
-    text: ` · ${entry.description}`,
+    text: ` · ${entry.option.description}`,
     ...optionalSpanStyle(input.style({
       part: 'description',
       base: { fg: { kind: 'theme', token: 'text.muted' }, dim: true },
@@ -687,11 +458,14 @@ function accessibleListbox(
     children: plan.rows.map((entry) => ({
       id: `${input.id}:option:${entry.id}`,
       role: 'option' as const,
-      label: entry.label,
-      ...(entry.description === undefined ? {} : { description: entry.description }),
+      label: entry.option.label,
+      ...(entry.option.description === undefined ? {} : { description: entry.option.description }),
       selected: selectionContains(input.model.selection, entry.id),
-      disabled: entry.disabled,
-      position: { positionInSet: entry.position + 1, setSize: input.model.totalCount },
+      disabled: entry.option.disabled,
+      position: {
+        positionInSet: (input.model.windowed ? entry.itemIndex : entry.visibleIndex) + 1,
+        setSize: input.model.totalCount,
+      },
     })),
   };
 }
@@ -703,7 +477,11 @@ function listPlan(model: ListboxModel, bounds: import('../../geometry/types.ts')
       ? createScrollState()
       : scrollReducer(
         createScrollState(),
-        { kind: 'itemIntoView', itemIndex: active.position, alignment: 'center' },
+        {
+          kind: 'itemIntoView',
+          itemIndex: model.windowed ? active.itemIndex : active.visibleIndex,
+          alignment: 'center',
+        },
         {
           contentRows: model.totalCount,
           contentColumns: bounds.width,
@@ -817,12 +595,6 @@ function activeEntry(model: ListboxModel): ListEntryModel | undefined {
     : model.entries.find((entry) => entry.id === model.activeId);
 }
 
-function selectionContains(selection: SelectionState, id: string): boolean {
-  return selection.mode === 'single'
-    ? selection.selectedId === id
-    : selection.mode === 'multiple' && selection.selectedIds.includes(id);
-}
-
 function transition(transition: ListboxTransition): ListboxComponentAction {
   return { kind: 'transition', transition };
 }
@@ -834,10 +606,6 @@ function activate(entry: ListEntryModel): ListboxComponentAction {
 function requiredString(value: unknown, subject: string): string {
   if (typeof value !== 'string') throw new TypeError(`${subject} must be a string.`);
   return value;
-}
-
-function optionalString(value: unknown, subject: string): string | undefined {
-  return value === undefined ? undefined : requiredString(value, subject);
 }
 
 function requiredCleanString(value: unknown, subject: string): string {
@@ -852,15 +620,4 @@ function optionalCleanString(value: unknown, subject: string): string | undefine
 
 function cleanLine(value: string): string {
   return sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ');
-}
-
-function searchableText(value: string): string {
-  return cleanLine(value).trim();
-}
-
-function nonNegativeSafeInteger(value: unknown, subject: string): number {
-  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
-    throw new RangeError(`${subject} must be a non-negative safe integer.`);
-  }
-  return value;
 }

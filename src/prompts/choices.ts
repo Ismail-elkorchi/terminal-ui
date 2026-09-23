@@ -70,19 +70,19 @@ export function filterStaticChoices<TValue>(
 }
 
 export async function resolvePromptChoices<TValue>(
-  prompt: ChoicePromptDefinition<TValue>
+  prompt: ChoicePromptDefinition<TValue>,
+  signal: AbortSignal
 ): Promise<ChoiceResolution<TValue>> {
   const source = prompt.choices;
   try {
     if (typeof source !== 'function') {
       return { status: 'resolved', choices: source, diagnostics: [], hasMore: false };
     }
-    const controller = new AbortController();
     const result = await source({
       query: '',
       offset: 0,
       limit: 50,
-      signal: controller.signal
+      signal
     });
     return {
       status: 'resolved',

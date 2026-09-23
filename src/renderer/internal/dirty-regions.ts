@@ -1,4 +1,5 @@
 import type { Rect } from '../contracts.ts';
+import { intersectRects } from '../../geometry/rect.ts';
 import type { FrameSnapshotMetadata } from './frame-snapshot.ts';
 import {
   sameTerminalSnapshotRow,
@@ -26,31 +27,48 @@ export function createDirtyRegionSet(rects: readonly Rect[] = []): DirtyRegionSe
   return dirtyRegionSetFromRects(rects);
 }
 
+/** Collects damage without sorting or freezing it until publication. */
+export class DirtyRegionBuilder {
+  private readonly rects: Rect[] = [];
+
+  add(rect: Rect): void {
+    this.rects.push(rect);
+  }
+
+  addSet(set: DirtyRegionSet): void {
+    this.rects.push(...set.rects);
+  }
+
+  build(): DirtyRegionSet {
+    return createDirtyRegionSet(this.rects);
+  }
+}
+
 export function dirtyRegionsForRegionChanges(
   previous: readonly DirtyRegionSource[] | undefined,
   next: readonly DirtyRegionSource[]
 ): DirtyRegionSet | undefined {
   if (previous === undefined) return undefined;
-  let dirty = createDirtyRegionSet();
+  const dirty = new DirtyRegionBuilder();
   const previousById = new Map(previous.map((region) => [region.id, region]));
   const nextById = new Map(next.map((region) => [region.id, region]));
 
   for (const previousRegion of previous) {
     const nextRegion = nextById.get(previousRegion.id);
     if (nextRegion === undefined) {
-      dirty = dirty.add(effectiveRegionBounds(previousRegion));
+      dirty.add(effectiveRegionBounds(previousRegion));
       continue;
     }
-    dirty = dirty.union(dirtyRegionsForChangedRegion(previousRegion, nextRegion));
+    dirty.addSet(dirtyRegionsForChangedRegion(previousRegion, nextRegion));
   }
   for (const nextRegion of next) {
     const previousRegion = previousById.get(nextRegion.id);
     if (previousRegion === undefined) {
-      dirty = dirty.add(effectiveRegionBounds(nextRegion));
+      dirty.add(effectiveRegionBounds(nextRegion));
     }
   }
 
-  return dirty.rects.length === 0 ? createDirtyRegionSet() : dirty;
+  return dirty.build();
 }
 
 function dirtyRegionsForChangedRegion(previous: DirtyRegionSource, next: DirtyRegionSource): DirtyRegionSet {
@@ -63,11 +81,13 @@ function dirtyRegionsForChangedRegion(previous: DirtyRegionSource, next: DirtyRe
   ) return createDirtyRegionSet();
 
   const changedRows = changedRowRects(previous, next);
-  const coverage = previous.metadata.writtenBounds
-    .union(previous.metadata.clearedBounds)
-    .union(next.metadata.writtenBounds)
-    .union(next.metadata.clearedBounds);
-  const coverageNarrowed = intersectRegionSets(changedRows, coverage);
+  const coverageBuilder = new DirtyRegionBuilder();
+  coverageBuilder.addSet(previous.metadata.writtenBounds);
+  coverageBuilder.addSet(previous.metadata.clearedBounds);
+  coverageBuilder.addSet(next.metadata.writtenBounds);
+  coverageBuilder.addSet(next.metadata.clearedBounds);
+  const coverage = coverageBuilder.build();
+  const coverageNarrowed = intersectDirtyRegionSets(changedRows, coverage);
   return coverageNarrowed.rects.length > 0 ? coverageNarrowed : changedRows;
 }
 
@@ -128,16 +148,6 @@ function normalizeRect(rect: Rect): Rect | undefined {
   return width === 0 || height === 0 ? undefined : { row, column, width, height };
 }
 
-function intersectRects(left: Rect, right: Rect): Rect | undefined {
-  const row = Math.max(left.row, right.row);
-  const column = Math.max(left.column, right.column);
-  const bottom = Math.min(left.row + left.height, right.row + right.height);
-  const rightEdge = Math.min(left.column + left.width, right.column + right.width);
-  const width = Math.max(0, rightEdge - column);
-  const height = Math.max(0, bottom - row);
-  return width === 0 || height === 0 ? undefined : { row, column, width, height };
-}
-
 function sameRegionSurface(left: DirtyRegionSource, right: DirtyRegionSource): boolean {
   return left.zIndex === right.zIndex
     && left.order === right.order
@@ -194,10 +204,55 @@ function sameTerminalContents(
   return true;
 }
 
-function intersectRegionSets(left: DirtyRegionSet, right: DirtyRegionSet): DirtyRegionSet {
-  let output = createDirtyRegionSet();
-  for (const rect of right.rects) output = output.union(left.intersect(rect));
-  return output;
+export function intersectDirtyRegionSets(left: DirtyRegionSet, right: DirtyRegionSet): DirtyRegionSet {
+  const rows = new Map<number, { start: number; end: number }[]>();
+  for (const rect of left.rects) {
+    for (let row = rect.row; row < rect.row + rect.height; row += 1) {
+      const intervals = rows.get(row) ?? [];
+      intervals.push({ start: rect.column, end: rect.column + rect.width });
+      rows.set(row, intervals);
+    }
+  }
+  for (const intervals of rows.values()) {
+    intervals.sort((a, b) => a.start - b.start);
+    let write = 0;
+    for (const interval of intervals) {
+      const previous = intervals[write - 1];
+      if (previous !== undefined && interval.start <= previous.end) {
+        previous.end = Math.max(previous.end, interval.end);
+      } else {
+        intervals[write] = interval;
+        write += 1;
+      }
+    }
+    intervals.length = write;
+  }
+  const output = new DirtyRegionBuilder();
+  for (const rect of right.rects) {
+    const end = rect.column + rect.width;
+    for (let row = rect.row; row < rect.row + rect.height; row += 1) {
+      const intervals = rows.get(row);
+      if (intervals === undefined) continue;
+      let low = 0;
+      let high = intervals.length;
+      while (low < high) {
+        const middle = (low + high) >>> 1;
+        if ((intervals[middle]?.end ?? 0) <= rect.column) low = middle + 1;
+        else high = middle;
+      }
+      for (let index = low; index < intervals.length; index += 1) {
+        const interval = intervals[index];
+        if (interval === undefined || interval.start >= end) break;
+        output.add({
+          row,
+          column: Math.max(rect.column, interval.start),
+          width: Math.min(end, interval.end) - Math.max(rect.column, interval.start),
+          height: 1,
+        });
+      }
+    }
+  }
+  return output.build();
 }
 
 function sameRect(left: Rect, right: Rect): boolean {

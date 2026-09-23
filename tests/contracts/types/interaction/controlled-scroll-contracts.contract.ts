@@ -17,7 +17,7 @@ import {
   type TextAreaTransition,
   type TreeTransition,
 } from '@ismail-elkorchi/terminal-ui/components';
-import { createScrollState, createLogHistory, createSearchPickerIndex, createTreeSource, createTreeView } from '@ismail-elkorchi/terminal-ui/behavior';
+import { createScrollState, createLogHistory, createSearchPickerIndex, createTreeSource } from '@ismail-elkorchi/terminal-ui/behavior';
 import { createMeasuredCollection, measuredWindow } from '@ismail-elkorchi/terminal-ui/collection';
 import { viewport } from '@ismail-elkorchi/terminal-ui/layout';
 import type { ScrollRequest } from '@ismail-elkorchi/terminal-ui/interaction';
@@ -40,7 +40,7 @@ const controlledListbox = listbox({
 });
 const controlledTree = tree({
   id: 'tree',
-  view: createTreeView(createTreeSource([{ id: 'one', label: 'One', kind: 'leaf' }]), { activeId: 'one', selection: { mode: 'none' }, expandedIds: [], scroll }),
+  source: createTreeSource([{ id: 'one', label: 'One', kind: 'leaf' }]),
   state: { activeId: 'one', selection: { mode: 'none' }, expandedIds: [], scroll },
   scrollbar: { visible: 'auto' },
   onTransition: (transition) => ({ kind: 'tree' as const, transition }),

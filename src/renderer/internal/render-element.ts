@@ -1,4 +1,4 @@
-import { createAccessibleSnapshot } from '../../accessibility/index.ts';
+import { decodeAccessibleSnapshotWithPolicy } from '../../accessibility/validate.ts';
 import type { Element } from '../../element/index.ts';
 import { toRenderNode } from './render-tree/element.ts';
 import type { RenderNode } from './render-tree/index.ts';
@@ -8,6 +8,7 @@ import {
   focusedTargetIdForLayoutNode,
   focusPathForLayoutTarget,
   layoutFocusPath,
+  renderNodeLayoutAncestorsForFocus,
   renderFocusRelation,
   resolveFocusPath
 } from './focus.ts';
@@ -26,7 +27,9 @@ import { applyFramePasses, boxDrawingJoinPass } from '../frame-passes/index.ts';
 import { layoutRenderTree } from './render-tree-layout.ts';
 import {
   accountAccessibleTree,
+  AccessibleRelationshipError,
   accessibleNode,
+  accessibleSourceForTarget,
   inertAccessibleRoot,
   withControlLabelRelationships
 } from './render-accessibility.ts';
@@ -69,8 +72,7 @@ import type {
   Rect,
   RenderInstrumentation,
   RenderStage,
-  RenderTarget,
-  RenderWorkMeasurement
+  RenderTarget
 } from '../contracts.ts';
 import type { DraftRenderRegion, RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
@@ -79,13 +81,20 @@ import { createRenderBudget } from '../render-budget.ts';
 import type { RenderBudget, RenderBudgetLimits } from '../render-budget.ts';
 import {
   pointerStateForOwner,
+  samePointerVisualSnapshot,
   type PointerVisualSnapshot,
 } from '../../interaction/pointer-interaction.ts';
 import type { RenderElementOptions } from '../render-element.ts';
 
 interface InternalRenderElementOptions extends RenderElementOptions {
   readonly pointerVisuals?: PointerVisualSnapshot;
+  readonly focusPathForLayout?: (layout: LayoutNode) => FocusPath | undefined;
 }
+
+type MaterializeOptions = Pick<InternalRenderElementOptions,
+  'framePasses' | 'disableFramePasses' | 'instrumentation' | 'pointerVisuals'> & {
+  readonly focusPath?: FocusPath | undefined;
+};
 
 export interface InternalRenderResult<TMessage = unknown> {
   readonly node: RenderNode<TMessage>;
@@ -98,6 +107,7 @@ export interface InternalRenderResult<TMessage = unknown> {
   readonly frame: Frame;
   readonly limits: RenderBudgetLimits;
   readonly graphicsBudget: GraphicsBudgetLimits;
+  readonly pointerVisuals?: PointerVisualSnapshot;
 }
 
 export function renderElementInternal<TMessage>(
@@ -115,15 +125,17 @@ export function renderElementInternal<TMessage>(
   });
   const { theme, widthProfile } = environment;
   const resolved = measureRenderStage(options.instrumentation, 'layout', () =>
-    layoutRenderTree(renderNode, terminalSize, theme, widthProfile, budget)
+    layoutRenderTree(renderNode, terminalSize, theme, widthProfile, budget, options.instrumentation)
   );
-  recordRenderWork(options.instrumentation, { kind: 'render_nodes', count: budget.nodeCount() });
-  return materializeRenderNode(resolved.node, environment.terminalSize, theme, widthProfile, resolved.layout, budget, options);
+  const paintOptions = options.focusPathForLayout === undefined
+    ? options
+    : { ...options, focusPath: options.focusPathForLayout(resolved.layout) };
+  return materializeRenderNode(resolved.node, environment.terminalSize, theme, widthProfile, resolved.layout, budget, paintOptions);
 }
 
 /** Repaints a previous render tree when only focus-dependent output changed. */
 export function rerenderElementInternal<TMessage>(
-  previous: Pick<InternalRenderResult<TMessage>, 'node' | 'terminalSize' | 'theme' | 'widthProfile' | 'layout' | 'limits' | 'graphicsBudget'>,
+  previous: Pick<InternalRenderResult<TMessage>, 'node' | 'terminalSize' | 'theme' | 'widthProfile' | 'layout' | 'limits' | 'graphicsBudget' | 'regions' | 'frame' | 'pointerVisuals'>,
   options: Pick<InternalRenderElementOptions, 'focusPath' | 'framePasses' | 'disableFramePasses' | 'instrumentation' | 'pointerVisuals'> = {},
 ): InternalRenderResult<TMessage> {
   return materializeRenderNode(
@@ -134,6 +146,7 @@ export function rerenderElementInternal<TMessage>(
     previous.layout,
     createRenderBudget(previous.limits, createGraphicsBudget(previous.graphicsBudget)),
     options,
+    previous,
   );
 }
 
@@ -144,13 +157,12 @@ function materializeRenderNode<TMessage>(
   widthProfile: TextWidthProfile,
   layout: LayoutNode,
   budget: RenderBudget,
-  options: Pick<InternalRenderElementOptions, 'focusPath' | 'framePasses' | 'disableFramePasses' | 'instrumentation' | 'pointerVisuals'>,
+  options: MaterializeOptions,
+  previous?: Pick<InternalRenderResult<TMessage>, 'regions' | 'frame' | 'pointerVisuals'>,
 ): InternalRenderResult<TMessage> {
   const decorativeNodes = decorativeSubtreeNodes(renderNode, layout);
-  recordRenderWork(options.instrumentation, { kind: 'measured_nodes', count: budget.nodeCount() });
-  recordRenderWork(options.instrumentation, { kind: 'rendered_nodes', count: budget.nodeCount() });
   const resolvedFocusPath = measureRenderStage(options.instrumentation, 'focus', () =>
-    resolveFocusPath(layout, options.focusPath)
+    resolveFocusPath(layout, options.focusPath, options.instrumentation)
   );
   const regions = measureRenderStage(options.instrumentation, 'regions', () =>
     renderLayoutRegions(
@@ -163,20 +175,26 @@ function materializeRenderNode<TMessage>(
       decorativeNodes,
       budget,
       options.pointerVisuals,
+      options.instrumentation,
+      previous,
     )
   );
-  recordRenderWork(options.instrumentation, {
-    kind: 'hit_target_candidates',
-    count: regions.reduce((total, region) => total + region.hitTargets.length, 0)
-  });
+  if (options.instrumentation?.recordWork !== undefined) {
+    options.instrumentation.recordWork({
+      kind: 'hit_targets',
+      count: regions.reduce((total, region) => total + region.hitTargets.length, 0)
+    });
+  }
   const composition = measureRenderStage(options.instrumentation, 'composition', () => {
-    return compositeRegions(terminalSize, regions, widthProfile, budget);
+    return compositeRegions(terminalSize, regions, widthProfile, budget, options.instrumentation);
   });
   const buffer = composition.buffer;
-  recordRenderWork(options.instrumentation, {
-    kind: 'composed_cells',
-    count: regions.reduce((total, region) => total + region.cells.length, 0)
-  });
+  if (options.instrumentation?.recordWork !== undefined) {
+    options.instrumentation.recordWork({
+      kind: 'region_cells',
+      count: regions.reduce((total, region) => total + region.cells.length, 0)
+    });
+  }
   let cursor: ReturnType<typeof cursorForFocusedRenderNode> = undefined;
   const postCompositionDamage = captureFrameBufferDamage(buffer, () => {
     measureRenderStage(options.instrumentation, 'frame_passes', () => {
@@ -192,6 +210,7 @@ function materializeRenderNode<TMessage>(
     regions.flatMap((region) => region.hitTargets.map(frameHitTargetFromRegion))
   );
   const accessibility = measureRenderStage(options.instrumentation, 'accessibility', () => {
+    const accessibleNodes = new Map<RenderNode, import('../../accessibility/index.ts').AccessibleNode>();
     const accessibleRoot = accessibleNode(
       renderNode,
       layout,
@@ -200,23 +219,39 @@ function materializeRenderNode<TMessage>(
       theme,
       widthProfile,
       false,
-      new Map(),
+      accessibleNodes,
       budget,
+      0,
+      options.instrumentation,
     );
     const relatedRoot = accessibleRoot ?? inertAccessibleRoot();
     accountAccessibleTree(relatedRoot, budget);
-    let snapshot;
+    let related;
     try {
-      snapshot = createAccessibleSnapshot({
-        source: 'renderer',
-        root: withControlLabelRelationships(relatedRoot, budget),
-        ...(composition.diagnostic === undefined ? {} : { diagnostics: [composition.diagnostic] }),
-      });
+      related = withControlLabelRelationships(relatedRoot, budget);
     } catch (cause) {
       const detail = cause instanceof Error ? cause.message : String(cause);
-      throw new TypeError(`Renderer returned invalid accessibility: ${detail}`, { cause });
+      const source = cause instanceof AccessibleRelationshipError
+        ? accessibleSourceForTarget(relatedRoot, accessibleNodes, cause.target)
+        : undefined;
+      throw new TypeError(
+        `Renderer returned invalid accessibility${source === undefined ? '' : ` from ${source}`}: ${detail}`,
+        { cause },
+      );
     }
-    return decodeRenderedAccessibility(snapshot, resolvedFocusPath !== undefined);
+    const result = decodeAccessibleSnapshotWithPolicy({
+      source: 'renderer',
+      root: related,
+      ...(composition.diagnostic === undefined ? {} : { diagnostics: [composition.diagnostic] }),
+    }, true);
+    if (result.status === 'failure') {
+      const source = accessibleSourceForTarget(related, accessibleNodes, result.error.target ?? related.id);
+      throw new TypeError(
+        `Renderer returned invalid accessibility${source === undefined ? '' : ` from ${source}`}: ${result.error.message}`,
+        { cause: result.error },
+      );
+    }
+    return decodeRenderedAccessibility(result.value, resolvedFocusPath !== undefined);
   });
   const frame = measureRenderStage(options.instrumentation, 'snapshot', () => buffer.snapshot({
       accessibility,
@@ -225,9 +260,10 @@ function materializeRenderNode<TMessage>(
       ...(cursor === undefined ? {} : { cursor }),
       ...(resolvedFocusPath === undefined ? {} : { focusPath: resolvedFocusPath })
     }));
-  recordRenderWork(options.instrumentation, { kind: 'snapshot_rows', count: frame.height });
-  recordRenderWork(options.instrumentation, { kind: 'snapshot_cells', count: frame.cells.length });
-  recordRenderWork(options.instrumentation, { kind: 'emitted_cells', count: frame.cells.length });
+  if (options.instrumentation?.recordWork !== undefined) {
+    options.instrumentation.recordWork({ kind: 'snapshot_rows', count: frame.height });
+    options.instrumentation.recordWork({ kind: 'snapshot_cells', count: frame.cells.length });
+  }
   return {
     node: renderNode,
     terminalSize,
@@ -239,14 +275,8 @@ function materializeRenderNode<TMessage>(
     frame,
     limits: budget.limits,
     graphicsBudget: budget.graphicsLimits,
+    ...(options.pointerVisuals === undefined ? {} : { pointerVisuals: options.pointerVisuals }),
   };
-}
-
-function recordRenderWork(
-  instrumentation: RenderInstrumentation | undefined,
-  measurement: RenderWorkMeasurement
-): void {
-  instrumentation?.recordWork?.(measurement);
 }
 
 function measureRenderStage<TValue>(
@@ -264,7 +294,7 @@ function measureRenderStage<TValue>(
   }
 }
 
-function framePassesForOptions(options: RenderElementOptions): readonly FramePass[] {
+function framePassesForOptions(options: Pick<RenderElementOptions, 'framePasses' | 'disableFramePasses'>): readonly FramePass[] {
   if (options.disableFramePasses === true) return [];
   return options.framePasses ?? defaultFramePasses;
 }
@@ -289,21 +319,137 @@ function renderLayoutRegions<TMessage>(
   decorativeNodes: ReadonlySet<RenderNode>,
   budget: RenderBudget,
   pointerVisuals: PointerVisualSnapshot | undefined,
+  instrumentation?: RenderInstrumentation,
+  previous?: Pick<InternalRenderResult<TMessage>, 'regions' | 'frame' | 'pointerVisuals'>,
 ): readonly RenderRegion<TMessage>[] {
-  const composer = createRegionComposer<TMessage>(terminalSize, widthProfile, decorativeNodes, budget);
-  const path = nodePath(layout, []);
-  renderRenderNodeToRegion(
-    renderNode,
-    layout,
-    [],
-    composer.regionFor(renderNode, layout, path),
-    composer,
-    theme,
-    widthProfile,
-    focusPath,
-    pointerVisuals,
+  const oldFocus = previous?.frame.focusPath;
+  const changedInteraction = previous !== undefined && (
+    !sameOptionalFocusPath(oldFocus, focusPath)
+    || !samePointerVisualSnapshot(previous.pointerVisuals, pointerVisuals)
   );
-  return composer.snapshot(createRegionTargetIndex(renderNode, layout), theme, widthProfile);
+  const affected = changedInteraction
+    ? affectedRegions(renderNode, layout, oldFocus, focusPath, previous.pointerVisuals, pointerVisuals)
+    : undefined;
+  const composer = createRegionComposer<TMessage>(
+    terminalSize, widthProfile, decorativeNodes, budget, instrumentation,
+    affected === undefined ? undefined : previous?.regions,
+    affected,
+  );
+  const path = nodePath(layout, []);
+  if (!composer.reuseFor(renderNode, layout, [])) {
+    renderRenderNodeToRegion(
+      renderNode,
+      layout,
+      [],
+      composer.regionFor(renderNode, layout, path),
+      composer,
+      theme,
+      widthProfile,
+      focusPath,
+      pointerVisuals,
+      instrumentation,
+    );
+  }
+  return composer.snapshot(createRegionTargetIndex(renderNode, layout, instrumentation), theme, widthProfile);
+}
+
+function sameOptionalFocusPath(left: FocusPath | undefined, right: FocusPath | undefined): boolean {
+  return left === undefined ? right === undefined : left.length === right?.length
+    && left.every((segment, index) => segment === right[index]);
+}
+
+function affectedRegions<TMessage>(
+  renderNode: RenderNode<TMessage>,
+  layout: LayoutNode,
+  oldFocus: FocusPath | undefined,
+  newFocus: FocusPath | undefined,
+  oldPointer: PointerVisualSnapshot | undefined,
+  newPointer: PointerVisualSnapshot | undefined,
+): ReadonlySet<string> {
+  const index = regionDependencyIndex(renderNode, layout);
+  const affected = new Set<string>();
+  const mark = (entry: RegionDependencyEntry | undefined): void => {
+    if (entry === undefined) return;
+    for (let ancestor: RegionDependencyEntry | undefined = entry; ancestor !== undefined; ancestor = ancestor.parent) {
+      affected.add(ancestor.regionId);
+    }
+    const visit = (current: RegionDependencyEntry): void => {
+      affected.add(current.regionId);
+      for (const child of current.children) visit(child);
+    };
+    visit(entry);
+  };
+  if (!sameOptionalFocusPath(oldFocus, newFocus)) {
+    const paths = [oldFocus, newFocus].filter((path): path is FocusPath => path !== undefined);
+    const candidates = new Set(paths.flatMap((path) => renderNodeLayoutAncestorsForFocus(renderNode, layout, path))
+      .map((target) => index.byLayout.get(target.layoutNode))
+      .filter((entry): entry is RegionDependencyEntry => entry !== undefined));
+    for (const entry of candidates) {
+      if (renderFocusRelation(oldFocus, entry.path) !== renderFocusRelation(newFocus, entry.path)
+        || focusedTargetIdForLayoutNode(entry.layout, entry.path, oldFocus)
+          !== focusedTargetIdForLayoutNode(entry.layout, entry.path, newFocus)) {
+        mark(entry);
+      }
+    }
+  }
+  if (!samePointerVisualSnapshot(oldPointer, newPointer)) {
+    for (const owner of [oldPointer?.hovered?.ownerIdentity, oldPointer?.pressed?.ownerIdentity,
+      newPointer?.hovered?.ownerIdentity, newPointer?.pressed?.ownerIdentity]) {
+      if (owner !== undefined) mark(index.byOwner.get(owner));
+    }
+  }
+  return affected;
+}
+
+interface RegionDependencyEntry {
+  readonly path: FocusPath;
+  readonly layout: LayoutNode;
+  readonly regionId: string;
+  readonly parent?: RegionDependencyEntry;
+  readonly children: RegionDependencyEntry[];
+}
+
+interface RegionDependencyIndex {
+  readonly byLayout: WeakMap<LayoutNode, RegionDependencyEntry>;
+  readonly byOwner: ReadonlyMap<string, RegionDependencyEntry>;
+}
+
+const regionDependencyCache = new WeakMap<LayoutNode, {
+  readonly node: RenderNode;
+  readonly index: RegionDependencyIndex;
+}>();
+
+function regionDependencyIndex<TMessage>(renderNode: RenderNode<TMessage>, layout: LayoutNode): RegionDependencyIndex {
+  const cached = regionDependencyCache.get(layout);
+  if (cached?.node === renderNode) return cached.index;
+  const byLayout = new WeakMap<LayoutNode, RegionDependencyEntry>();
+  const byOwner = new Map<string, RegionDependencyEntry>();
+  const visit = (
+    current: RenderNode, node: LayoutNode, parentPath: FocusPath,
+    parent: RegionDependencyEntry | undefined,
+  ): void => {
+    if (!node.visible) return;
+    const path = nodePath(node, parentPath);
+    const regionId = parent?.layout.layer.zIndex === node.layer.zIndex
+      ? parent.regionId
+      : regionIdForLayoutNode(node, path);
+    const entry: RegionDependencyEntry = {
+      path, layout: node, regionId,
+      ...(parent === undefined ? {} : { parent }),
+      children: [],
+    };
+    parent?.children.push(entry);
+    byLayout.set(node, entry);
+    byOwner.set(hitTargetOwnerIdentity(path, node.identity), entry);
+    for (const [position, child] of (current.children ?? []).entries()) {
+      const childLayout = node.children[position];
+      if (childLayout !== undefined) visit(child, childLayout, path, entry);
+    }
+  };
+  visit(renderNode, layout, [], undefined);
+  const index = { byLayout, byOwner };
+  regionDependencyCache.set(layout, { node: renderNode, index });
+  return index;
 }
 
 function frameHitTargets<TMessage>(
@@ -314,6 +460,9 @@ function frameHitTargets<TMessage>(
   decorativeNodes: ReadonlySet<RenderNode>,
   budget: RenderBudget,
 ): readonly RenderRegionHitTarget<TMessage>[] {
+  const sensitivePaths = new Set(targets
+    .filter((target) => target.renderNode.kind === 'component' && target.renderNode.definition.sensitiveInput)
+    .map((target) => target.path.join('\u0000')));
   const result = targets
     .flatMap((target): RenderRegionHitTarget<TMessage>[] => {
       const hitTargets = hitTargetsForRenderNode(target.renderNode, target, theme, widthProfile);
@@ -331,7 +480,9 @@ function frameHitTargets<TMessage>(
               { ...hitTarget, bounds },
               region,
               hitTargetOwnerIdentity(target.path, target.layoutNode.identity),
-              resolveHitTargetFocus(hitTarget, target)
+              resolveHitTargetFocus(hitTarget, target),
+              target.path.some((_, index) => sensitivePaths.has(target.path.slice(0, index + 1).join('\u0000')))
+                || sensitivePaths.has('')
             )];
       });
     });
@@ -373,6 +524,7 @@ function renderRenderNodeToRegion<TMessage>(
   widthProfile: TextWidthProfile,
   focusPath: FocusPath | undefined,
   pointerVisuals: PointerVisualSnapshot | undefined,
+  instrumentation: RenderInstrumentation | undefined,
   target: RenderTarget = region.buffer
 ): void {
   if (!node.visible) return;
@@ -382,34 +534,40 @@ function renderRenderNodeToRegion<TMessage>(
     hitTargetOwnerIdentity(path, node.identity),
   );
   const focusedTargetId = focusedTargetIdForLayoutNode(node, path, focusPath);
-  const renderTarget = targetForRenderNode(renderNode, node, target);
+  const localTarget = targetForRenderNode(renderNode, node, target);
+  const renderTarget = localTarget?.target ?? target;
   const childrenTarget = renderNodeClipsChildren(renderNode)
     ? createClippedRenderTarget(target, node.bounds, node.viewport)
     : target;
-  renderRenderNode(renderNode, {
-    layoutNode: node,
-    buffer: renderTarget,
-    theme,
-    widthProfile,
-    focus: renderFocusRelation(focusPath, path),
-    ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
-    ...(pointerState === undefined ? {} : { pointerState }),
-    renderChildren(requestedTarget = childrenTarget) {
-      renderRenderNodeChildrenToRegions(
-        renderNode,
-        node,
-        path,
-        requestedTarget,
-        requestedTarget === childrenTarget,
-        region,
-        composer,
-        theme,
-        widthProfile,
-        focusPath,
-        pointerVisuals,
-      );
-    }
-  });
+  try {
+    renderRenderNode(renderNode, {
+      layoutNode: node,
+      buffer: renderTarget,
+      theme,
+      widthProfile,
+      focus: renderFocusRelation(focusPath, path),
+      ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
+      ...(pointerState === undefined ? {} : { pointerState }),
+      renderChildren(requestedTarget = childrenTarget) {
+        renderRenderNodeChildrenToRegions(
+          renderNode,
+          node,
+          path,
+          requestedTarget,
+          requestedTarget === childrenTarget,
+          region,
+          composer,
+          theme,
+          widthProfile,
+          focusPath,
+          pointerVisuals,
+          instrumentation,
+        );
+      }
+    }, instrumentation);
+  } finally {
+    localTarget?.close();
+  }
 }
 
 function renderRenderNodeChildrenToRegions<TMessage>(
@@ -424,6 +582,7 @@ function renderRenderNodeChildrenToRegions<TMessage>(
   widthProfile: TextWidthProfile,
   focusPath: FocusPath | undefined,
   pointerVisuals: PointerVisualSnapshot | undefined,
+  instrumentation: RenderInstrumentation | undefined,
 ): void {
   const children = renderNode.children ?? [];
   for (const { child, childNode } of orderedChildren(children, node)) {
@@ -437,12 +596,16 @@ function renderRenderNodeChildrenToRegions<TMessage>(
         widthProfile,
         focusPath,
         pointerVisuals,
+        instrumentation,
       );
       continue;
     }
-    const childRegion = childNode.layer.zIndex === region.zIndex
-      ? region
-      : composer.regionFor(child, childNode, nodePath(childNode, path));
+    const separateRegion = childNode.layer.zIndex !== region.zIndex;
+    const childPath = nodePath(childNode, path);
+    if (separateRegion && composer.reuseFor(child, childNode, path)) continue;
+    const childRegion = separateRegion
+      ? composer.regionFor(child, childNode, childPath)
+      : region;
     renderRenderNodeToRegion(
       child,
       childNode,
@@ -453,6 +616,7 @@ function renderRenderNodeChildrenToRegions<TMessage>(
       widthProfile,
       focusPath,
       pointerVisuals,
+      instrumentation,
       childRegion === region ? buffer : childRegion.buffer
     );
   }
@@ -467,6 +631,7 @@ function renderRenderNodeToBuffer<TMessage>(
   widthProfile: TextWidthProfile,
   focusPath: FocusPath | undefined,
   pointerVisuals: PointerVisualSnapshot | undefined,
+  instrumentation: RenderInstrumentation | undefined,
 ): void {
   if (!node.visible) return;
   const path = nodePath(node, parentPath);
@@ -475,40 +640,46 @@ function renderRenderNodeToBuffer<TMessage>(
     hitTargetOwnerIdentity(path, node.identity),
   );
   const focusedTargetId = focusedTargetIdForLayoutNode(node, path, focusPath);
-  const renderTarget = targetForRenderNode(renderNode, node, buffer);
-  renderRenderNode(renderNode, {
-    layoutNode: node,
-    buffer: renderTarget,
-    theme,
-    widthProfile,
-    focus: renderFocusRelation(focusPath, path),
-    ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
-    ...(pointerState === undefined ? {} : { pointerState }),
-    renderChildren(target = buffer) {
-      const childTarget = renderNodeClipsChildren(renderNode)
-        ? createClippedRenderTarget(target, node.bounds, node.viewport)
-        : target;
-      for (const { child, childNode } of orderedChildren(renderNode.children ?? [], node)) {
-        renderRenderNodeToBuffer(
-          child,
-          childNode,
-          path,
-          childTarget,
-          theme,
-          widthProfile,
-          focusPath,
-          pointerVisuals,
-        );
+  const localTarget = targetForRenderNode(renderNode, node, buffer);
+  const renderTarget = localTarget?.target ?? buffer;
+  try {
+    renderRenderNode(renderNode, {
+      layoutNode: node,
+      buffer: renderTarget,
+      theme,
+      widthProfile,
+      focus: renderFocusRelation(focusPath, path),
+      ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
+      ...(pointerState === undefined ? {} : { pointerState }),
+      renderChildren(target = buffer) {
+        const childTarget = renderNodeClipsChildren(renderNode)
+          ? createClippedRenderTarget(target, node.bounds, node.viewport)
+          : target;
+        for (const { child, childNode } of orderedChildren(renderNode.children ?? [], node)) {
+          renderRenderNodeToBuffer(
+            child,
+            childNode,
+            path,
+            childTarget,
+            theme,
+            widthProfile,
+            focusPath,
+            pointerVisuals,
+            instrumentation,
+          );
+        }
       }
-    }
-  });
+    }, instrumentation);
+  } finally {
+    localTarget?.close();
+  }
 }
 
 function targetForRenderNode(
   renderNode: RenderNode,
   node: LayoutNode,
   target: RenderTarget
-): RenderTarget {
+): { readonly target: RenderTarget; readonly close: () => void } | undefined {
   return renderNode.kind === 'component'
     ? createLocalComponentRenderTarget(target, node.bounds, node.viewport, {
         ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
@@ -516,7 +687,7 @@ function targetForRenderNode(
         name: renderNodeFactoryName(renderNode),
         rendererFamily: 'component'
       })
-    : target;
+    : undefined;
 }
 
 function nodePath(node: LayoutNode, parentPath: FocusPath): FocusPath {
@@ -536,6 +707,7 @@ function orderedChildren(
 }
 
 interface RegionComposer<TMessage> {
+  reuseFor(renderNode: RenderNode, node: LayoutNode, parentPath: FocusPath): boolean;
   regionFor(renderNode: RenderNode, node: LayoutNode, path: FocusPath): DraftRenderRegion;
   snapshot(
     index: RegionTargetIndex<TMessage>,
@@ -549,12 +721,47 @@ function createRegionComposer<TMessage>(
   widthProfile: TextWidthProfile,
   decorativeNodes: ReadonlySet<RenderNode>,
   budget: RenderBudget,
+  instrumentation?: RenderInstrumentation,
+  previous?: readonly RenderRegion<TMessage>[],
+  affected?: ReadonlySet<string>,
 ): RegionComposer<TMessage> {
   const regions: DraftRenderRegion[] = [];
+  const reused: RenderRegion<TMessage>[] = [];
+  const prior = new Map(previous?.map((region) => [region.id, region]) ?? []);
   let regionOrder = 0;
   return {
+    reuseFor(renderNode, node, parentPath) {
+      const path = nodePath(node, parentPath);
+      const id = regionIdForLayoutNode(node, path);
+      if (affected === undefined || affected.has(id)) return false;
+      const region = prior.get(id);
+      if (region === undefined) return false;
+      const include = (
+        current: RenderNode, currentLayout: LayoutNode, parentPath: FocusPath,
+        parentLayer: number | undefined,
+      ): void => {
+        if (!currentLayout.visible) return;
+        const currentPath = nodePath(currentLayout, parentPath);
+        if (parentLayer !== currentLayout.layer.zIndex) {
+          const cached = prior.get(regionIdForLayoutNode(currentLayout, currentPath));
+          if (cached !== undefined) {
+            budget.addRegions();
+            budget.addHitTargets(cached.hitTargets.length);
+            reused.push(cached);
+            regionOrder += 1;
+          }
+        }
+        for (const [index, child] of (current.children ?? []).entries()) {
+          const childLayout = currentLayout.children[index];
+          if (childLayout !== undefined) include(child, childLayout, currentPath, currentLayout.layer.zIndex);
+        }
+      };
+      include(renderNode, node, parentPath, undefined);
+      return true;
+    },
     regionFor(renderNode, node, path) {
       budget.addRegions();
+      instrumentation?.recordWork?.({ kind: 'region_allocations', count: 1 });
       const backdropBounds = renderNode.layer?.backdrop === 'viewport'
         ? { row: 1, column: 1, width: terminalSize.columns, height: terminalSize.rows }
         : undefined;
@@ -571,14 +778,15 @@ function createRegionComposer<TMessage>(
         },
         underlay: node.layer.underlay,
         ...(backdropBounds === undefined ? {} : { backdropBounds }),
-        widthProfile
+        widthProfile,
+        ...(instrumentation === undefined ? {} : { instrumentation })
       });
       regionOrder += 1;
       regions.push(region);
       return region;
     },
     snapshot(index, theme, snapshotWidthProfile) {
-      return regions
+      return Object.freeze([...reused, ...regions
         .toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order)
         .map((region): RenderRegion<TMessage> => {
           const snapshot = region.buffer.snapshot();
@@ -604,7 +812,7 @@ function createRegionComposer<TMessage>(
             ),
             focusTargets: index.focusTargetsForRegion(region.zIndex, region.bounds)
           };
-        });
+        })].toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order));
     }
   };
 }
@@ -614,8 +822,12 @@ function compositeRegions(
   regions: readonly RenderRegion[],
   widthProfile: TextWidthProfile,
   budget?: RenderBudget,
+  instrumentation?: RenderInstrumentation,
 ): { readonly buffer: FrameBuffer; readonly diagnostic?: TerminalDiagnostic } {
-  const buffer = createFrameBuffer(terminalSize.columns, terminalSize.rows, { widthProfile });
+  const buffer = createFrameBuffer(terminalSize.columns, terminalSize.rows, {
+    widthProfile,
+    ...(instrumentation === undefined ? {} : { instrumentation })
+  });
   let graphicsAllowed = true;
   let graphicsDiagnostic: TerminalDiagnostic | undefined;
   if (budget !== undefined) {
@@ -637,6 +849,7 @@ function compositeRegions(
     if (region.underlay === 'clear') {
       buffer.clear(region.bounds);
       for (const cell of region.cells) {
+        recordCellTransfer(instrumentation);
         transferFrameCell(buffer, canvasBackdropActive ? aboveBackdrop(cell) : cell);
       }
       if (graphicsAllowed) placeRegionGraphics(buffer, region.graphics);
@@ -644,6 +857,7 @@ function compositeRegions(
     }
     if (region.underlay === 'inheritBackground') {
       for (const cell of region.cells) {
+        recordCellTransfer(instrumentation);
         const inherited = withInheritedBackground(cell, buffer.readCell(cell.row, cell.column));
         transferFrameCell(buffer, canvasBackdropActive ? aboveBackdrop(inherited) : inherited);
       }
@@ -651,6 +865,7 @@ function compositeRegions(
       continue;
     }
     for (const cell of region.cells) {
+      recordCellTransfer(instrumentation);
       transferFrameCell(buffer, canvasBackdropActive ? aboveBackdrop(cell) : cell);
     }
     if (graphicsAllowed) placeRegionGraphics(buffer, region.graphics);
@@ -659,6 +874,10 @@ function compositeRegions(
     buffer,
     ...(graphicsDiagnostic === undefined ? {} : { diagnostic: graphicsDiagnostic }),
   };
+}
+
+function recordCellTransfer(instrumentation: RenderInstrumentation | undefined): void {
+  instrumentation?.recordWork?.({ kind: 'cell_transfer_calls', count: 1 });
 }
 
 function placeRegionGraphics(

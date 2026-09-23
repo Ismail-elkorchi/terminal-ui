@@ -33,8 +33,13 @@ export async function runInteractionScript(
           break;
         case 'wait':
           harness.clock.advance(step.ms);
-          await Promise.resolve();
           break;
+        case 'waitForCommit': {
+          const next = harness.nextCommit();
+          harness.clock.advance(step.ms);
+          await next;
+          break;
+        }
         case 'assertOutput':
           assertOutput(harness.output(), step.includes, step.excludes);
           break;
@@ -54,7 +59,7 @@ export async function runInteractionScript(
           assertHitTarget(latestFrame(harness), step.assertion);
           break;
         case 'assertRestore':
-          assertTerminalRestored(currentResult(harness));
+          assertTerminalRestored(currentResult(harness), step.phase);
           break;
         case 'assertNoSecretLeak':
           assertNoSecretLeak(currentResult(harness), step.secret);
@@ -70,10 +75,30 @@ export async function runInteractionScript(
           data: { scriptId: script.id, stepKind: step.kind }
         }
       ));
-      return currentResult(harness);
+      throw new InteractionScriptError(script.id, index, step.kind, currentResult(harness), cause);
     }
   }
   return currentResult(harness);
+}
+
+export class InteractionScriptError extends Error {
+  readonly result: InteractionResult;
+  readonly stepIndex: number;
+  readonly stepKind: InteractionScript['steps'][number]['kind'];
+
+  constructor(
+    scriptId: string,
+    stepIndex: number,
+    stepKind: InteractionScript['steps'][number]['kind'],
+    result: InteractionResult,
+    cause: unknown,
+  ) {
+    super(`Interaction script "${scriptId}" failed at step ${String(stepIndex + 1)} (${stepKind}).`, { cause });
+    this.name = 'InteractionScriptError';
+    this.result = result;
+    this.stepIndex = stepIndex;
+    this.stepKind = stepKind;
+  }
 }
 
 function latestFrame(harness: TerminalHarness): FrameDescriptor {

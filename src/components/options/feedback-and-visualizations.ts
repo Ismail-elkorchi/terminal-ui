@@ -17,6 +17,7 @@ import type { NotificationItem, NotificationPlacement } from '../../behavior/not
 import type { ProgressBarDisplay, ProgressBarLabelPosition, ProgressBarMode } from '../progress.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 import type { ComponentMetadataOptions } from '../../component/index.ts';
+import type { RetainedCallbacks } from './availability.ts';
 import type { NotificationHistoryTransition, NotificationDismissEvent } from '../../behavior/notification-history.ts';
 import type {
   BarChartTransition,
@@ -238,28 +239,30 @@ type VisualizationOptions<
     }
   | {
       readonly state: VisualizationState;
-      readonly disabled?: false;
+      readonly disabled?: boolean;
       readonly busy?: boolean;
-      readonly inert?: false;
+      readonly inert?: boolean;
       readonly onTransition: (transition: TTransition) => MessageResolution<TMessage>;
       readonly onActivate?: (event: VisualizationActivateEvent) => MessageResolution<TMessage>;
     }
   | {
       readonly state: VisualizationState;
-      readonly disabled?: false;
+      readonly disabled?: boolean;
       readonly busy?: boolean;
       readonly inert: true;
-      readonly onTransition?: never;
-      readonly onActivate?: never;
-    }
+    } & RetainedCallbacks<{
+      readonly onTransition: (transition: TTransition) => MessageResolution<TMessage>;
+      readonly onActivate?: (event: VisualizationActivateEvent) => MessageResolution<TMessage>;
+    }>
   | {
       readonly state: VisualizationState;
       readonly disabled: true;
       readonly busy?: boolean;
       readonly inert?: boolean;
-      readonly onTransition?: never;
-      readonly onActivate?: never;
-    };
+    } & RetainedCallbacks<{
+      readonly onTransition: (transition: TTransition) => MessageResolution<TMessage>;
+      readonly onActivate?: (event: VisualizationActivateEvent) => MessageResolution<TMessage>;
+    }>;
 
 export type {
   BarChartItem,

@@ -24,7 +24,7 @@ import {
 } from '../internal/inspection.ts';
 import {
   assertOptionalCallback,
-  assertRequiredCallback,
+  assertRequiredPropertyCallback,
   isNonArrayObject,
 } from '../../foundation/validation.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
@@ -32,7 +32,6 @@ import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import {
   createTerminalTextIndex,
   measureTextCells,
-  sanitizeTerminalText,
   segmentGraphemes,
 } from '../../text/index.ts';
 import type { TextSelection } from '../../text/index.ts';
@@ -50,6 +49,8 @@ import {
   indexQueryCandidate,
 } from '../../text/query.ts';
 import type { CompiledCollectionQuery, QueryMatchRange } from '../../text/query.ts';
+import { queryLabelSpans } from '../internal/query-label-spans.ts';
+import { clean, nonEmpty, nonNegativeInteger, positiveInteger } from '../internal/picker-validation.ts';
 import type { SearchPickerStylePart } from '../style-parts.ts';
 import type {
   ScrollableSearchPickerOptions,
@@ -136,10 +137,18 @@ const createSearchPicker: SearchPickerFactory = <
 >(
   options: SearchPickerOptions<TValue, TTransitionMessage, TAcceptMessage>,
 ) => {
-  if (options.disabled === true || options.inert === true) {
-    return instantiateSearchPicker(withoutSearchPickerCallbacks(options));
+  assertOptionalCallback(options.onAccept, 'search-picker onAccept');
+  assertOptionalCallback(options.onContextMenu, 'search-picker onContextMenu');
+  if (options.onTransition === undefined) {
+    if (options.disabled !== true && options.inert !== true) {
+      throw new TypeError('searchPicker onTransition must be a function.');
+    }
+    return instantiateSearchPicker({
+      ...withoutSearchPickerCallbacks(options),
+      ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }),
+    });
   }
-  assertRequiredCallback(options.onTransition, 'searchPicker onTransition');
+  assertRequiredPropertyCallback(options, 'onTransition', 'searchPicker onTransition');
   assertOptionalCallback(options.onAccept, 'searchPicker onAccept');
   const { onTransition, onAccept, onContextMenu, ...componentOptions } = options;
   return instantiateSearchPicker({
@@ -175,16 +184,7 @@ function withoutSearchPickerCallbacks<TOptions extends {
   )) as SearchPickerWithoutCallbacks<TOptions>;
 }
 
-const instantiateSearchPicker = defineComponent<
-  SearchPickerComponentOptions,
-  SearchPickerModel,
-  SearchPickerComponentAction,
-  SearchPickerStylePart,
-  readonly ['disabled', 'readOnly', 'busy', 'inert'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy', 'readOnly']
->({
+const instantiateSearchPicker = defineComponent<SearchPickerComponentOptions, SearchPickerComponentAction>()({
   name: 'terminal-ui/components/search-picker',
   identity: 'required',
   structure: 'leaf',
@@ -535,7 +535,7 @@ function searchPickerTransition(transition: SearchPickerTransition): SearchPicke
 }
 function paintSearchPicker(
   input: ComponentRenderInput<SearchPickerModel, SearchPickerStylePart>,
-): void {
+): undefined {
   const plan = searchPickerPlan(input);
   const selectedPreview = selectedSearchPickerPreview(input.model);
   const title = input.model.title.length === 0 ? 'Options' : input.model.title;
@@ -796,31 +796,6 @@ function decodeTextSelection(
   return { startOffset, endOffsetExclusive };
 }
 
-function clean(value: unknown, owner: string): string | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value !== 'string') throw new TypeError(`${owner} must be a string.`);
-  return sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ');
-}
-function nonEmpty(value: unknown, owner: string): string {
-  const result = clean(value, owner);
-  if (result === undefined || result.trim() === '') {
-    throw new TypeError(`${owner} must be non-empty.`);
-  }
-  return result;
-}
-function nonNegativeInteger(value: unknown, owner: string): number {
-  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
-    throw new RangeError(`${owner} must be a non-negative safe integer.`);
-  }
-  return value;
-}
-
-function positiveInteger(value: unknown, owner: string): number | undefined {
-  if (value === undefined) return undefined;
-  const result = nonNegativeInteger(value, owner);
-  if (result < 1) throw new RangeError(`${owner} must be positive.`);
-  return result;
-}
 function searchPickerInputVisual(
   model: SearchPickerModel,
   width: number,
@@ -832,43 +807,4 @@ function searchPickerInputVisual(
     Math.max(0, width - 2),
     widthProfile,
   );
-}
-
-function queryLabelSpans(
-  label: string,
-  ranges: readonly QueryMatchRange[],
-  baseStyle: TerminalStyle | undefined,
-  matchStyle: TerminalStyle | undefined,
-  source: (matched: boolean) => import('../../visual/frame-source.ts').FrameCellSource,
-): import('../../visual/render-content.ts').RenderSpan[] {
-  if (ranges.length === 0) {
-    return [span(label, {
-      ...(baseStyle === undefined ? {} : { style: baseStyle }),
-      source: source(false),
-    })];
-  }
-  const spans: import('../../visual/render-content.ts').RenderSpan[] = [];
-  let cursor = 0;
-  for (const range of ranges) {
-    if (range.start > cursor) {
-      spans.push(span(label.slice(cursor, range.start), {
-        ...(baseStyle === undefined ? {} : { style: baseStyle }),
-        source: source(false),
-      }));
-    }
-    if (range.end > range.start) {
-      spans.push(span(label.slice(range.start, range.end), {
-        ...(matchStyle === undefined ? {} : { style: matchStyle }),
-        source: source(true),
-      }));
-    }
-    cursor = Math.max(cursor, range.end);
-  }
-  if (cursor < label.length) {
-    spans.push(span(label.slice(cursor), {
-      ...(baseStyle === undefined ? {} : { style: baseStyle }),
-      source: source(false),
-    }));
-  }
-  return spans;
 }

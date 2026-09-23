@@ -1,4 +1,5 @@
 import { applyScrollRequest, createScrollState } from './scroll.ts';
+import { sameDocumentSelection, sameTextCaret } from '../text/comparison.ts';
 import {
   breakEditHistoryGroup,
   createBoundedEditHistory,
@@ -40,7 +41,7 @@ import type {
 import type { TextPointerTransition } from '../interaction/text-pointer.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import type { TextAreaTransition } from './text-area.ts';
-import type { TextInputTransition, TextInputState } from './text-input.ts';
+import type { TextInputTransition } from './text-input.ts';
 import { textDocumentRevision } from '../text/document.ts';
 
 const utf8Encoder = new TextEncoder();
@@ -101,15 +102,6 @@ export function createTextAreaState(input: CreateTextAreaStateInput): TextAreaSt
     scroll: input.scroll ?? createScrollState(),
     revealCaret: true,
     history: bindTextAreaHistory(createBoundedEditHistory(input.historyPolicy), document)
-  };
-}
-
-export function textInputState(state: TextEditBuffer): TextInputState {
-  const selection = normalizeTextSelection(state.text, state.selection);
-  return {
-    value: state.text,
-    cursor: normalizeTextCursor(state.text, state.cursor),
-    ...(selection === undefined ? {} : { selection })
   };
 }
 
@@ -485,23 +477,6 @@ function caretAfterChanges(changeSet: TextChangeSet): number {
     delta += change.insertedText.length - (change.endOffsetExclusive - change.startOffset);
   }
   return caret;
-}
-
-function sameTextCaret(left: TextCaret, right: TextCaret): boolean {
-  return left.position.offset === right.position.offset
-    && left.position.affinity === right.position.affinity
-    && left.preferredColumnCells === right.preferredColumnCells;
-}
-
-function sameDocumentSelection(
-  left: TextDocumentSelection | undefined,
-  right: TextDocumentSelection | undefined
-): boolean {
-  if (left === undefined || right === undefined) return left === right;
-  return left.anchor.offset === right.anchor.offset
-    && left.anchor.affinity === right.anchor.affinity
-    && left.focus.offset === right.focus.offset
-    && left.focus.affinity === right.focus.affinity;
 }
 
 export function applyTextPointerTransition(

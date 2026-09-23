@@ -24,7 +24,6 @@ import type {
 } from '../../interaction/popup.ts';
 import type { DialogOptions } from '../options/dialog.ts';
 import type { DialogDismissEvent, DialogDismissal, DialogFocusPolicy } from '../dialog.ts';
-import type { DialogStylePart } from '../style-parts.ts';
 import {
   type BorderOptions,
   type BorderTitle,
@@ -55,16 +54,7 @@ const dialogSlots = {
   actions: { cardinality: 'optional', owner: 'caller', messages: 'bubble' },
 } as const;
 
-const instantiateDialog = defineComponent<
-  DialogComponentOptions,
-  DialogModel,
-  DialogDismissEvent,
-  DialogStylePart,
-  readonly [],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  typeof dialogSlots
->({
+const instantiateDialog = defineComponent<DialogComponentOptions, DialogDismissEvent>()({
   name: 'terminal-ui/components/dialog',
   identity: 'required',
   structure: 'composed',

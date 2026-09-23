@@ -8,9 +8,9 @@ import type { ComponentDensity } from '../density.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
 
 interface AvailableControl {
-  readonly disabled?: false;
+  readonly disabled?: boolean;
   readonly busy?: boolean;
-  readonly inert?: false;
+  readonly inert?: boolean;
 }
 
 interface DisabledControl {
@@ -20,7 +20,7 @@ interface DisabledControl {
 }
 
 interface InertControl {
-  readonly disabled?: false;
+  readonly disabled?: boolean;
   readonly busy?: boolean;
   readonly inert: true;
 }
@@ -40,7 +40,7 @@ export type LinkOptions<TMessage extends ComponentMessage = never> = LinkBaseOpt
   | AvailableControl & {
       readonly onActivate: (event: LinkActivateEvent) => MessageResolution<TMessage>;
     }
-  | UnavailableControl & { readonly onActivate?: never }
+  | UnavailableControl & { readonly onActivate?: (event: LinkActivateEvent) => MessageResolution<TMessage> }
 );
 
 export interface ToggleButtonBaseOptions {
@@ -62,7 +62,7 @@ export type ToggleButtonOptions<TMessage extends ComponentMessage = never> = Tog
   | AvailableControl & {
       readonly onTransition: (transition: ToggleButtonTransition) => MessageResolution<TMessage>;
     }
-  | UnavailableControl & { readonly onTransition?: never }
+  | UnavailableControl & { readonly onTransition?: (transition: ToggleButtonTransition) => MessageResolution<TMessage> }
 );
 
 export interface ToolbarOptions {

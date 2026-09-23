@@ -15,7 +15,7 @@ test('toolbar preserves caller-owned flexible layout', () => {
     button({ id: 'back', label: 'Back', onPress: () => ignoreMessage() }),
     textInput({ meta: { accessibleName: "Text input" },
       id: 'location',
-      state: { value: 'example.test', cursor: 0 },
+      state: { text: 'example.test', cursor: 0 },
       onTransition: () => ignoreMessage()
     }),
     button({ id: 'menu', label: 'Menu', onPress: () => ignoreMessage() })

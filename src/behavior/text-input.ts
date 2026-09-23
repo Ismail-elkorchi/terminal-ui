@@ -1,11 +1,5 @@
-import type { TextEditOperation, TextSelection } from '../text/index.ts';
+import type { TextEditOperation } from '../text/index.ts';
 import type { TextPointerTransition } from '../interaction/text-pointer.ts';
-
-export interface TextInputState {
-  readonly value: string;
-  readonly cursor: number;
-  readonly selection?: TextSelection;
-}
 
 export type TextInputTransition =
   | { readonly kind: 'edit'; readonly operation: TextEditOperation }

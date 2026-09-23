@@ -281,7 +281,7 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     'ComponentDefinition',
     'ComponentRenderInput',
     'Element',
-    'RenderTarget'
+    'ComponentRenderTarget'
   ]) {
     assert.match(componentDefinitionDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `component:${typeName}`);
   }

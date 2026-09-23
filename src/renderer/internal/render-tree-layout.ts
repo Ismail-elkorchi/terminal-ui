@@ -7,7 +7,7 @@ import { resolveThemeInput } from '../../theme/theme.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
 import { defaultTextWidthProfile } from '../../text/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
-import type { LayoutFocusRegion, LayoutNode } from '../contracts.ts';
+import type { LayoutFocusRegion, LayoutNode, RenderInstrumentation } from '../contracts.ts';
 import {
   focusTargetsForRenderNode,
   createRenderMeasurementContext,
@@ -39,14 +39,16 @@ export function layoutRenderTree<TMessage>(
   themeInput?: TerminalTheme | TerminalThemeDefinition,
   widthProfile: TextWidthProfile = defaultTextWidthProfile,
   budget: RenderBudget = createRenderBudget(),
+  instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
 ): LaidOutRenderNode<TMessage> {
   const theme = themeForLayout(themeInput);
   const bounds = 'columns' in terminalSizeOrBounds
     ? { row: 1, column: 1, width: terminalSizeOrBounds.columns, height: terminalSizeOrBounds.rows }
     : terminalSizeOrBounds;
   const viewportBounds = clampRect(bounds);
-  const measurements = createRenderMeasurementContext(theme, widthProfile, budget);
-  return layoutNode(renderNode, viewportBounds, viewportBounds, theme, widthProfile, measurements, budget, 0, 0, 0, [], false);
+  const measurements = createRenderMeasurementContext(theme, widthProfile, budget, instrumentation);
+  const uniqueNodes = instrumentation?.recordWork === undefined ? undefined : new WeakSet<RenderNode>();
+  return layoutNode(renderNode, viewportBounds, viewportBounds, theme, widthProfile, measurements, budget, 0, 0, 0, [], false, instrumentation, uniqueNodes);
 }
 
 function layoutNode<TMessage>(
@@ -61,9 +63,12 @@ function layoutNode<TMessage>(
   ordinal: number,
   parentZIndex: number,
   parentIdentity: readonly string[],
-  ancestorInert: boolean
+  ancestorInert: boolean,
+  instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
+  uniqueNodes?: WeakSet<RenderNode>,
 ): LaidOutRenderNode<TMessage> {
   budget.visitNode(depth);
+  recordLayoutVisit(renderNode, instrumentation, uniqueNodes);
   if (renderNode.kind === 'viewport' && renderNode.props.measured === true) {
     renderNode = resolveMeasuredViewport(renderNode, bounds, measurements, depth);
   }
@@ -150,6 +155,8 @@ function layoutNode<TMessage>(
     zIndex,
     identityPath,
     inert,
+    instrumentation,
+    uniqueNodes,
   ));
   const layout: LayoutNode = {
     ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
@@ -179,6 +186,17 @@ function layoutNode<TMessage>(
       : { ...renderNode, children: laidOutChildren.map((child) => child.node) },
     layout: renderNode.kind === 'overlay' ? markPaintOrderedFocusChildren(identified) : identified,
   };
+}
+
+function recordLayoutVisit(
+  node: RenderNode,
+  instrumentation: Pick<RenderInstrumentation, 'recordWork'> | undefined,
+  uniqueNodes: WeakSet<RenderNode> | undefined,
+): void {
+  instrumentation?.recordWork?.({ kind: 'layout_nodes', count: 1 });
+  if (uniqueNodes === undefined || uniqueNodes.has(node)) return;
+  uniqueNodes.add(node);
+  instrumentation?.recordWork?.({ kind: 'unique_nodes', count: 1 });
 }
 
 function encodedIdentityPath(path: readonly string[]): string {

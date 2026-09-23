@@ -78,7 +78,6 @@ export {
   createTextAreaState,
   selectionFromTextPointerTransition,
   textAreaReducer,
-  textInputState,
   textInputReducer
 } from './text-editing.ts';
 export type {
@@ -97,7 +96,7 @@ export type {
   ScrollableTextAreaControlState,
   UnscrolledTextAreaControlState,
 } from './text-area.ts';
-export type { TextInputTransition, TextInputState } from './text-input.ts';
+export type { TextInputTransition } from './text-input.ts';
 export type { PointerSelectionTransition, TextPointerTransition } from '../interaction/text-pointer.ts';
 export {
   indeterminateProgressFrame,

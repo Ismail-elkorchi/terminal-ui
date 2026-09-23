@@ -1,7 +1,7 @@
 import type { RenderNode } from '../renderer/internal/render-tree/index.ts';
 import { defaultTheme } from '../theme/index.ts';
 import { resolveThemeInput } from '../theme/theme.ts';
-import { dirtyRegionsForRegionChanges } from '../renderer/internal/dirty-regions.ts';
+import { DirtyRegionBuilder, dirtyRegionsForRegionChanges } from '../renderer/internal/dirty-regions.ts';
 import { withFrameAccessibility } from '../renderer/internal/frame-snapshot.ts';
 import { diffFrames } from '../renderer/frame.ts';
 import { renderElementInternal, rerenderElementInternal } from '../renderer/internal/render-element.ts';
@@ -24,7 +24,7 @@ import type { DirtyRegionSet } from '../renderer/internal/dirty-regions.ts';
 import type { FocusPath } from '../interaction/focus.ts';
 import type { PointerVisualSnapshot } from '../interaction/pointer-interaction.ts';
 import type { Frame, RenderDiff } from '../renderer/frame.ts';
-import type { LayoutNode, Rect } from '../renderer/contracts.ts';
+import type { LayoutNode, Rect, RenderInstrumentation } from '../renderer/contracts.ts';
 import type { RenderRegion } from '../renderer/internal/render-regions.ts';
 import type { RenderBudgetLimits } from '../renderer/render-budget.ts';
 import type { GraphicsBudgetLimits } from '../graphics/index.ts';
@@ -44,6 +44,7 @@ export interface RenderCommitCandidate<TMessage> {
   readonly theme: TerminalTheme;
   readonly limits: RenderBudgetLimits;
   readonly graphicsBudget: GraphicsBudgetLimits;
+  readonly pointerVisuals?: PointerVisualSnapshot;
 }
 
 export function renderCurrentFrame<TState, TMessage>(
@@ -56,6 +57,8 @@ export function renderCurrentFrame<TState, TMessage>(
   commitId: string,
   graphicsBudget?: Partial<GraphicsBudgetLimits>,
   pointerVisuals?: PointerVisualSnapshot,
+  instrumentation?: RenderInstrumentation,
+  focusPathForLayout?: (layout: LayoutNode) => FocusPath | undefined,
 ): RenderCommitCandidate<TMessage> {
   const renderResult = renderElementInternal(tuiDefinition(app).view(state, context), context.terminalSize, {
     ...(focusPath === undefined ? {} : { focusPath }),
@@ -63,6 +66,8 @@ export function renderCurrentFrame<TState, TMessage>(
     widthProfile: context.capabilities.unicode.widthProfile,
     ...(graphicsBudget === undefined ? {} : { graphicsBudget }),
     ...(pointerVisuals === undefined ? {} : { pointerVisuals }),
+    ...(instrumentation === undefined ? {} : { instrumentation }),
+    ...(focusPathForLayout === undefined ? {} : { focusPathForLayout }),
   });
   return candidateFromRenderResult(app, state, renderResult, stateVersion, commitId);
 }
@@ -75,10 +80,12 @@ export function rerenderCurrentFrame<TState, TMessage>(
   stateVersion: number,
   commitId: string,
   pointerVisuals?: PointerVisualSnapshot,
+  instrumentation?: RenderInstrumentation,
 ): RenderCommitCandidate<TMessage> {
   const renderResult = rerenderElementInternal<TMessage>(candidate, {
     ...(focusPath === undefined ? {} : { focusPath }),
     ...(pointerVisuals === undefined ? {} : { pointerVisuals }),
+    ...(instrumentation === undefined ? {} : { instrumentation }),
   });
   return candidateFromRenderResult<TState, TMessage>(app, state, renderResult, stateVersion, commitId);
 }
@@ -105,6 +112,7 @@ function candidateFromRenderResult<TState, TMessage>(
     theme: renderResult.theme,
     limits: renderResult.limits,
     graphicsBudget: renderResult.graphicsBudget,
+    ...(renderResult.pointerVisuals === undefined ? {} : { pointerVisuals: renderResult.pointerVisuals }),
   };
 }
 
@@ -118,6 +126,7 @@ export async function commitFrame(
     readonly dirtyRegions?: readonly Rect[];
     readonly signal?: AbortSignal;
     readonly graphics?: TerminalGraphicsCommitter;
+    readonly instrumentation?: RenderInstrumentation;
   } = {}
 ): Promise<RenderDiff> {
   options.signal?.throwIfAborted();
@@ -140,6 +149,9 @@ export async function commitFrame(
     ...(graphics?.beforeCells === undefined ? {} : { beforeText: graphics.beforeCells }),
     ...(graphics?.afterCells === undefined ? {} : { afterText: graphics.afterCells })
   });
+  if (options.instrumentation?.recordWork !== undefined) {
+    options.instrumentation.recordWork({ kind: 'encoded_bytes', count: new TextEncoder().encode(output.text).byteLength });
+  }
   const operationContext: TerminalOperationContext = options.signal === undefined
     ? {}
     : { signal: options.signal };
@@ -190,9 +202,11 @@ export function dirtyRegionsForRenderCommit(
 ): DirtyRegionSet | undefined {
   const regionDamage = dirtyRegionsForRegionChanges(previous?.regions, next.regions);
   if (regionDamage === undefined || previous === undefined) return undefined;
-  return regionDamage
-    .union(previous.postCompositionDamage)
-    .union(next.postCompositionDamage);
+  const damage = new DirtyRegionBuilder();
+  damage.addSet(regionDamage);
+  damage.addSet(previous.postCompositionDamage);
+  damage.addSet(next.postCompositionDamage);
+  return damage.build();
 }
 
 export function resolveTuiTheme<TState>(theme: TuiTheme<TState> | undefined, state: TState): TerminalTheme {

@@ -8,7 +8,9 @@ import {
 } from '../../dist/renderer/index.js';
 import {
   createDirtyRegionSet,
-  dirtyRegionsForRegionChanges
+  dirtyRegionsForRegionChanges,
+  DirtyRegionBuilder,
+  intersectDirtyRegionSets,
 } from '../../dist/renderer/internal/dirty-regions.js';
 import { applyRenderDiff } from '../../dist/renderer/internal/diff-interpreter.js';
 import { createFrameBuffer } from '../../dist/renderer/frame-buffer.js';
@@ -41,6 +43,41 @@ test('DirtyRegionSet adds unions intersects and normalizes rectangles', () => {
     { row: 2, column: 2, width: 5, height: 1 },
     { row: 4, column: 4, width: 3, height: 1 }
   ]);
+});
+
+test('batched damage intersection agrees with an independent cell oracle', () => {
+  let seed = 0x4f73a9;
+  const random = (limit) => {
+    seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0;
+    return seed % limit;
+  };
+  const cells = (rects) => {
+    const result = new Set();
+    for (const rect of rects) {
+      for (let row = rect.row; row < rect.row + rect.height; row += 1) {
+        for (let column = rect.column; column < rect.column + rect.width; column += 1) {
+          result.add(`${row}:${column}`);
+        }
+      }
+    }
+    return result;
+  };
+  for (let sample = 0; sample < 100; sample += 1) {
+    const rects = () => Array.from({ length: 20 }, () => ({
+      row: random(12), column: random(20), width: random(8), height: random(5),
+    }));
+    const leftRects = rects();
+    const rightRects = rects();
+    const builder = new DirtyRegionBuilder();
+    leftRects.forEach((rect) => builder.add(rect));
+    const left = builder.build();
+    const right = createDirtyRegionSet(rightRects);
+    const leftCells = cells(leftRects);
+    const rightCells = cells(rightRects);
+    const expected = [...leftCells].filter((cell) => rightCells.has(cell)).sort();
+    assert.deepEqual([...cells(left.rects)].sort(), [...leftCells].sort());
+    assert.deepEqual([...cells(intersectDirtyRegionSets(left, right).rects)].sort(), expected);
+  }
 });
 
 test('region damage for moving overlay includes old and new bounds only', () => {
@@ -408,7 +445,7 @@ function cursorInput(cursor, value = 'abcd', id = 'cursor-input') {
   return textInput({
     id,
     meta: { accessibleName: 'Cursor input' },
-    state: { value, cursor },
+    state: { text: value, cursor },
     onTransition: () => ignoreMessage()
   });
 }

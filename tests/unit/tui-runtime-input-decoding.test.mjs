@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
+import { tuiRuntimeRunner } from '../../dist/tui/runtime.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { button, textInput as createTextInput } from '../../dist/components/index.js';
@@ -20,7 +21,7 @@ test('TUI runtime does not reserve escape or ctrlC key events', async () => {
     id: 'unreserved-keys',
     init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
-    view: () => textInput({ meta: { accessibleName: "Text input" }, id: 'exit-field', state: { value: 'ready', cursor: 0 } })
+    view: () => textInput({ meta: { accessibleName: "Text input" }, id: 'exit-field', state: { text: 'ready', cursor: 0 } })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -57,7 +58,7 @@ test('TUI runtime decodes input chunks before routing them', async () => {
     update: (_state, message) => ({ state: { committed: message.committed } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'commit-field',
-      state: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
+      state: { text: state.committed ? 'committed' : 'pending', cursor: 0 },
       onTransition: () => ignoreMessage(),
       onSubmit: () => ({ committed: true })
     })
@@ -81,7 +82,7 @@ test('TUI runtime buffers split input chunks before routing them', async () => {
     update: (_state, message) => ({ state: { committed: message.committed } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'split-commit-field',
-      state: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
+      state: { text: state.committed ? 'committed' : 'pending', cursor: 0 },
       onTransition: () => ignoreMessage(),
       onSubmit: () => ({ committed: true })
     })
@@ -139,7 +140,7 @@ test('decoded input resolves earlier raw input before it is admitted', async () 
     ['unknown', 'text']
   );
   const capabilities = await harness.host.getCapabilities();
-  assert.doesNotThrow(() => runtime.replaceTerminalProfile({
+  await assert.doesNotReject(tuiRuntimeRunner(runtime).replaceTerminalProfile({
     capabilities,
     bracketedPaste: false
   }));
@@ -154,7 +155,7 @@ test('TUI runtime expires every incomplete terminal token before unrelated input
     update: (_state, message) => ({ state: { committed: message.committed } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'deadline-field',
-      state: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
+      state: { text: state.committed ? 'committed' : 'pending', cursor: 0 },
       onTransition: () => ignoreMessage(),
       onSubmit: () => ({ committed: true })
     })
@@ -188,7 +189,7 @@ test('TUI runtime does not expire an active bracketed paste as Escape ambiguity'
     }),
     view: (value) => textInput({ meta: { accessibleName: "Text input" },
       id: 'slow-paste-field',
-      state: { value, cursor: value.length },
+      state: { text: value, cursor: value.length },
       onTransition: (action) => action.kind === 'edit'
         ? { operation: action.operation }
         : ignoreMessage()
@@ -219,7 +220,7 @@ test('TUI runtime ignores non-command paste, focus, and mouse events without cor
     update: (_state, message) => ({ state: { committed: message.committed } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'protocol-field',
-      state: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
+      state: { text: state.committed ? 'committed' : 'pending', cursor: 0 },
       onTransition: () => ignoreMessage(),
       onSubmit: () => ({ committed: true })
     })
@@ -261,6 +262,34 @@ test('multi-code-point grapheme bindings do not depend on host chunk boundaries'
   const binding = 'e\u0301';
   assert.deepEqual(await graphemeActions([binding], binding), ['activate']);
   assert.deepEqual(await graphemeActions(['e', '\u0301'], binding), ['activate']);
+});
+
+test('unbound combining text produces the same messages across chunk boundaries', async () => {
+  async function insertions(chunks) {
+    const app = defineTui({
+      id: 'unbound-combining-input',
+      init: () => ({ state: [] }),
+      update: (state, message) => ({ state: [...state, message] }),
+      view: () => textInput({
+        id: 'combining-field', meta: { accessibleName: 'Input' },
+        state: { text: '', cursor: 0 },
+        onTransition: (transition) => transition.kind === 'edit' && transition.operation.kind === 'insert'
+          ? transition.operation.text
+          : ignoreMessage(),
+      }),
+    });
+    const runtime = createTuiRuntime({ app, host: createTerminalHarness().host });
+    await runtime.start();
+    for (const data of chunks) await runtime.handleInputChunk({ data });
+    await runtime.flushInput();
+    const result = runtime.state();
+    await runtime.dispose();
+    return result;
+  }
+
+  const joined = await insertions(['e\u0301🙂']);
+  assert.deepEqual(joined, ['e', '\u0301', '🙂']);
+  assert.deepEqual(await insertions(['e', '\u0301', '🙂']), joined);
 });
 
 async function actionsForChunks(chunks) {

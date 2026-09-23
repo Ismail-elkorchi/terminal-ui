@@ -40,38 +40,6 @@ type JsonInspection =
   | { readonly status: 'valid'; readonly snapshot?: JsonValue }
   | { readonly status: 'invalid'; readonly issue: string };
 
-export function jsonValueIssue(value: unknown): string | undefined {
-  const result = inspectJsonValue(
-    value,
-    new Set(),
-    0,
-    { nodes: 0, stringCodeUnits: 0 },
-    false,
-    defaultJsonSnapshotLimits,
-    false
-  );
-  return result.status === 'valid' ? undefined : result.issue;
-}
-
-export function snapshotJsonValue(
-  value: unknown,
-  subject: string,
-  limits: JsonSnapshotLimits = {}
-): JsonValue {
-  const normalizedLimits = normalizeJsonSnapshotLimits(limits);
-  const result = inspectJsonValue(
-    value,
-    new Set(),
-    0,
-    { nodes: 0, stringCodeUnits: 0 },
-    true,
-    normalizedLimits,
-    false
-  );
-  if (result.status === 'invalid') throw new TypeError(`${subject} must be JSON-safe: ${result.issue}.`);
-  return result.snapshot as JsonValue;
-}
-
 export function snapshotCanonicalJsonValue<T>(
   value: T,
   subject: string,

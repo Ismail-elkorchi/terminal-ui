@@ -478,6 +478,7 @@ test('component render targets are frozen write-only capabilities clipped to ele
     assert.equal('snapshot' in target, false);
     assert.deepEqual(Object.keys(target).sort(), [
       'clear',
+      'coordinateSpace',
       'height',
       'placeGraphic',
       'width',
@@ -958,7 +959,7 @@ test('inert component subtrees are absent from interaction and accessibility out
   assert.equal(childAccessibilityCalls, 0);
 });
 
-test('inert actionful components ignore unreachable action mappers', () => {
+test('inert actionful components retain typed action mappers and validate them', () => {
   const actionful = defineComponent({
     name: 'terminal-ui-tests/components/inert-actionful',
     identity: 'required',
@@ -970,16 +971,18 @@ test('inert actionful components ignore unreachable action mappers', () => {
     render() {},
     focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
     keys: () => ({ enter: () => ({ kind: 'activate' }) }),
-    accessibility: ({ id }) => ({ id, role: 'button', label: 'Action' })
+    accessibility: ({ id, focused }) => ({ id, role: 'button', label: 'Action', ...(focused ? { focused: true } : {}) })
   });
 
   assert.doesNotThrow(() => actionful({ id: 'inert-actionful', inert: true }));
-  assert.doesNotThrow(
-    () => actionful({
-      id: 'invalid-inert-actionful',
-      inert: true,
-      onAction: () => ({ kind: 'mapped' })
-    })
+  const handler = () => ({ kind: 'mapped' });
+  const inert = actionful({ id: 'inert-actionful', inert: true, onAction: handler });
+  const available = actionful({ id: 'available-actionful', inert: false, onAction: handler });
+  assert.equal(renderElementFrame(inert, { columns: 8, rows: 1 }).focusPath, undefined);
+  assert.notEqual(renderElementFrame(available, { columns: 8, rows: 1 }).focusPath, undefined);
+  assert.throws(
+    () => actionful({ id: 'invalid-inert-actionful', inert: true, onAction: 'invalid' }),
+    /onAction must be a function/u
   );
 });
 

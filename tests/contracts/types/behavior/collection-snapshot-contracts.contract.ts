@@ -63,7 +63,7 @@ table({
 table({ id: 'windowed-table-without-columns', collection: tableCollection });
 tree({
   id: 'tree',
-  view: createTreeView(treeSource, { ...interaction, expandedIds: [] }),
+  source: treeSource,
   state: { ...interaction, expandedIds: [] },
   onTransition: (transition) => transition,
 });
@@ -75,5 +75,7 @@ listbox({ id: 'filtered-window-listbox', collection: listCollection, query: { te
 listbox({ id: 'mixed-listbox', collection: listCollection, items: ['alpha'], toOption: (value: string) => ({ id: value, label: value }), state: interaction, onTransition: (transition) => transition });
 // @ts-expect-error retained table collections replace raw row identity inputs
 table({ id: 'mixed-table', collection: tableCollection, rows: [{ id: 'two', value: 2 }], getRowId: (row: { id: string }) => row.id });
-// @ts-expect-error tree consumes a retained view rather than parallel raw hierarchy data
-tree({ id: 'mixed-tree', view: createTreeView(treeSource, { ...interaction, expandedIds: [] }), nodes: [{ id: 'other', label: 'Other', kind: 'leaf' }], state: { ...interaction, expandedIds: [] }, onTransition: (transition) => transition });
+// @ts-expect-error a tree source replaces parallel raw hierarchy data
+tree({ id: 'mixed-tree', source: treeSource, nodes: [{ id: 'other', label: 'Other', kind: 'leaf' }], state: { ...interaction, expandedIds: [] }, onTransition: (transition) => transition });
+// @ts-expect-error the tree derives its view from source and state
+tree({ id: 'stale-tree-view', view: createTreeView(treeSource, { ...interaction, expandedIds: [] }), state: { ...interaction, expandedIds: [] }, onTransition: (transition) => transition });

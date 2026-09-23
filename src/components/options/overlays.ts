@@ -20,6 +20,7 @@ import type { MessageResolution } from '../../interaction/message.ts';
 import type { MenuStylePart, TooltipStylePart } from '../style-parts.ts';
 import type { ComponentDensity } from '../density.ts';
 import type { ComponentMetadataOptions } from '../../component/index.ts';
+import type { RetainedCallbacks } from './availability.ts';
 import type { TooltipTone, TooltipTransition } from '../tooltip.ts';
 
 interface InteractiveMenuOptions {
@@ -36,24 +37,19 @@ interface MenuCallbacks<TTransition, TMessage extends ComponentMessage> {
   readonly onActivate?: (event: MenuActivateEvent) => MessageResolution<TMessage>;
 }
 
-interface DisabledMenuCallbacks {
-  readonly onTransition?: never;
-  readonly onActivate?: never;
-}
-
 type MenuAvailability<TTransition, TMessage extends ComponentMessage> =
   | (MenuCallbacks<TTransition, TMessage> & {
-      readonly disabled?: false;
-      readonly inert?: false;
+      readonly disabled?: boolean;
+      readonly inert?: boolean;
     })
-  | (DisabledMenuCallbacks & (
+  | (RetainedCallbacks<MenuCallbacks<TTransition, TMessage>> & (
       | {
           readonly disabled: true;
           readonly busy?: never;
           readonly inert?: boolean;
         }
       | {
-          readonly disabled?: false;
+          readonly disabled?: boolean;
           readonly inert: true;
         }
     ));

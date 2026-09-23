@@ -18,7 +18,6 @@ import { assertOptionalEnum, assertRequiredCallback } from '../../foundation/val
 import { overlay, portal, surface } from '../../layout/index.ts';
 import { text } from './text-and-disclosure.ts';
 import type { TooltipTone, TooltipTransition } from '../tooltip.ts';
-import type { TooltipStylePart } from '../style-parts.ts';
 import type { BorderOptions } from '../../visual/border.ts';
 import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
 
@@ -39,15 +38,7 @@ const dividerDefinitionBase = {
   render: renderDivider,
 };
 
-const labelledDivider = defineComponent<
-  Omit<DividerOptions, 'id' | 'styles' | 'meta'>,
-  DividerModel,
-  never,
-  DividerStylePart,
-  readonly [],
-  'optional',
-  readonly ['styles', 'layer']
->({
+const labelledDivider = defineComponent<Omit<DividerOptions, 'id' | 'styles' | 'meta'>>()({
   ...dividerDefinitionBase,
   name: 'terminal-ui/components/divider',
   semantics: 'semantic',
@@ -60,13 +51,7 @@ const labelledDivider = defineComponent<
   }),
 });
 
-const decorativeDivider = defineComponent<
-  Omit<DividerOptions, 'id' | 'styles' | 'meta'>,
-  DividerModel,
-  DividerStylePart,
-  'optional',
-  readonly ['styles', 'layer']
->({
+const decorativeDivider = defineComponent<Omit<DividerOptions, 'id' | 'styles' | 'meta'>>()({
   ...dividerDefinitionBase,
   name: 'terminal-ui/components/divider-decoration',
   semantics: 'decorative',
@@ -116,7 +101,7 @@ function measureDivider({ model, widthProfile }: {
 
 function renderDivider({ model, bounds, target, theme, style, frameSource, widthProfile }:
   import('../../component/index.ts').ComponentRenderInput<DividerModel, DividerStylePart>
-): void {
+): undefined {
     if (bounds.width <= 0 || bounds.height <= 0) return;
     const glyphs = dividerGlyphs(model.line, theme);
     const lineStyle = style({
@@ -227,19 +212,10 @@ const tooltipSlots = {
   trigger: { cardinality: 'one', owner: 'caller', messages: 'bubble' },
 } as const;
 
-const instantiateTooltip = defineComponent<
-  Pick<
+const instantiateTooltip = defineComponent<Pick<
     TooltipOptions<Element, ComponentMessage>,
     'content' | 'open' | 'title' | 'tone' | 'placement' | 'maxWidth' | 'border'
-  >,
-  TooltipModel,
-  TooltipTransition,
-  TooltipStylePart,
-  readonly [],
-  'required',
-  readonly ['styles'],
-  typeof tooltipSlots
->({
+  >, TooltipTransition>()({
   name: 'terminal-ui/components/tooltip',
   identity: 'required',
   structure: 'composed',
@@ -248,7 +224,7 @@ const instantiateTooltip = defineComponent<
   slots: tooltipSlots,
   metadata: ['styles'],
   parts: ['background', 'border', 'title', 'content'],
-  createModel(value) {
+  createModel(value): TooltipModel {
     const content = value.content;
     const open = value.open;
     const title = value.title;

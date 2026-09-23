@@ -54,6 +54,12 @@ const collectionIndexes = new WeakMap<CollectionInteractionIndex, CollectionInte
 
 export const noSelection: SelectionState = Object.freeze({ mode: 'none' });
 
+export function selectionContains(selection: SelectionState, id: string): boolean {
+  return selection.mode === 'single'
+    ? selection.selectedId === id
+    : selection.mode === 'multiple' && selection.selectedIds.includes(id);
+}
+
 export function createCollectionInteractionIndex(value: unknown): CollectionInteractionIndex {
   if (!Array.isArray(value)) throw new TypeError('Collection interaction ids must be an array.');
   const ids = Object.freeze(value.map((id, position) =>

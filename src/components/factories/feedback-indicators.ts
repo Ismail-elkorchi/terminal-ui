@@ -76,15 +76,7 @@ export const statusBar: SemanticLeafComponentFactory<
   readonly [],
   'required',
   readonly ['styles', 'layer']
-> = defineComponent<
-  Pick<StatusBarOptions, 'leading' | 'center' | 'trailing'>,
-  StatusBarModel,
-  never,
-  StatusVisualPart,
-  readonly [],
-  'required',
-  readonly ['styles', 'layer']
->({
+> = defineComponent<Pick<StatusBarOptions, 'leading' | 'center' | 'trailing'>>()({
   name: 'terminal-ui/components/status-bar',
   identity: 'required',
   structure: 'leaf',
@@ -175,15 +167,7 @@ export const helpBar: SemanticLeafComponentFactory<
   readonly [],
   'required',
   readonly ['styles', 'layer']
-> = defineComponent<
-  Pick<HelpBarOptions, 'groups'>,
-  HelpBarModel,
-  never,
-  StatusVisualPart,
-  readonly [],
-  'required',
-  readonly ['styles', 'layer']
->({
+> = defineComponent<Pick<HelpBarOptions, 'groups'>>()({
   name: 'terminal-ui/components/help-bar',
   identity: 'required',
   structure: 'leaf',
@@ -236,14 +220,19 @@ export const helpBar: SemanticLeafComponentFactory<
 
 type StatusVisualPart = StatusBarStylePart | HelpBarStylePart;
 
-type StatusVisualInput = Pick<
-  ComponentRenderInput<StatusBarModel | HelpBarModel, StatusVisualPart>,
+type StatusVisualInput<TModel extends object, TPart extends StatusVisualPart> = Pick<
+  ComponentRenderInput<TModel, TPart>,
   'id' | 'model' | 'theme' | 'widthProfile' | 'style' | 'frameSource'
+>;
+type StatusBarVisualInput = StatusVisualInput<StatusBarModel, StatusBarStylePart>;
+type HelpBarVisualInput = StatusVisualInput<HelpBarModel, HelpBarStylePart>;
+type StatusPaintInput<TPart extends StatusVisualPart> = Pick<
+  ComponentRenderInput<object, TPart>, 'style' | 'frameSource'
 >;
 
 
 function statusBarSections(
-  input: StatusVisualInput & { readonly model: StatusBarModel },
+  input: StatusBarVisualInput,
 ): readonly [
   readonly RenderSpan[],
   readonly RenderSpan[],
@@ -287,7 +276,7 @@ function statusBarMeasureSpans(
 }
 
 function statusBarSectionSpans(
-  input: StatusVisualInput,
+  input: StatusBarVisualInput,
   section: StatusBarSection,
   items: readonly StatusBarItem[],
 ): readonly RenderSpan[] {
@@ -332,7 +321,7 @@ function statusBarSectionSpans(
 }
 
 function statusInlineSpans(
-  input: StatusVisualInput,
+  input: StatusBarVisualInput,
   content: InlineContent | undefined,
   partName: string,
   part: 'leading' | 'trailing',
@@ -358,7 +347,7 @@ function statusInlineSpans(
 }
 
 function placedStatusBarSections(
-  input: StatusVisualInput,
+  input: StatusBarVisualInput,
   leadingInput: readonly RenderSpan[],
   centerInput: readonly RenderSpan[],
   trailingInput: readonly RenderSpan[],
@@ -395,21 +384,21 @@ function placedStatusBarSections(
   return output;
 }
 
-function statusGap(input: StatusVisualInput, partName: string): RenderSpan {
+function statusGap(input: StatusPaintInput<'marker' | 'value'>, partName: string): RenderSpan {
   return statusSpan(input, '  ', 'marker', partName, { cellRole: 'separator' });
 }
 
-function fillSpans(input: StatusVisualInput, cells: number): readonly RenderSpan[] {
+function fillSpans(input: StatusPaintInput<'marker' | 'value'>, cells: number): readonly RenderSpan[] {
   return cells <= 0 ? [] : [statusSpan(input, ' '.repeat(cells), 'value', 'fill', {
     cellRole: 'decoration',
     base: { bg: { kind: 'theme', token: 'surface.bar.background' } },
   })];
 }
 
-function statusSpan(
-  input: StatusVisualInput,
+function statusSpan<TPart extends StatusVisualPart>(
+  input: StatusPaintInput<TPart>,
   textValue: string,
-  part: StatusVisualPart,
+  part: TPart,
   partName: string,
   options: {
     readonly itemId?: string;
@@ -484,7 +473,7 @@ function createHelpGroupModel(value: HelpGroup, index: number): HelpGroupModel {
 }
 
 function helpBarSpans(
-  input: StatusVisualInput & { readonly model: HelpBarModel },
+  input: HelpBarVisualInput,
 ): readonly RenderSpan[] {
   return input.model.groups.flatMap((group, groupIndex): readonly RenderSpan[] => [
     ...(groupIndex === 0 ? [] : [statusGap(input, `group.${group.id}.separator`)]),
@@ -538,7 +527,7 @@ function helpBarMeasureSpans(
 }
 
 function fitHelpBarSpans(
-  input: StatusVisualInput & { readonly model: HelpBarModel },
+  input: HelpBarVisualInput,
   maxCells: number,
 ): readonly RenderSpan[] {
   if (maxCells <= 0) return [];
@@ -663,15 +652,7 @@ type ActivityIndicatorOwnOptions =
 
 type ActivityIndicatorFactory = (options: ActivityIndicatorOptions) => Element;
 
-export const activityIndicator: ActivityIndicatorFactory = defineComponent<
-  ActivityIndicatorOwnOptions,
-  ActivityIndicatorModel,
-  never,
-  ActivityIndicatorStylePart,
-  readonly [],
-  'optional',
-  readonly ['styles', 'layer']
->({
+export const activityIndicator: ActivityIndicatorFactory = defineComponent<ActivityIndicatorOwnOptions>()({
   name: 'terminal-ui/components/activity-indicator',
   identity: 'optional',
   structure: 'leaf',
@@ -848,8 +829,7 @@ export const progressBar: SemanticLeafComponentFactory<
   readonly [],
   'optional',
   readonly ['styles', 'layer']
-> = defineComponent<
-  Pick<
+> = defineComponent<Pick<
     ProgressBarOptions,
     | 'label'
     | 'mode'
@@ -860,14 +840,7 @@ export const progressBar: SemanticLeafComponentFactory<
     | 'remainingMs'
     | 'status'
     | 'valueScale'
-  >,
-  ProgressBarModel,
-  never,
-  ProgressBarStylePart,
-  readonly [],
-  'optional',
-  readonly ['styles', 'layer']
->({
+  >>()({
   name: 'terminal-ui/components/progress-bar',
   identity: 'optional',
   structure: 'leaf',

@@ -14,7 +14,7 @@ test('tabs render only the selected panel as focusable content', () => {
         label: 'First',
         panel: textInput({ meta: { accessibleName: "Text input" },
           id: 'first-input',
-          state: { value: 'hidden', cursor: 0 },
+          state: { text: 'hidden', cursor: 0 },
           onTransition: (action) => action
         })
       },
@@ -24,7 +24,7 @@ test('tabs render only the selected panel as focusable content', () => {
         description: 'Visible editor panel',
         panel: textInput({ meta: { accessibleName: "Text input" },
           id: 'second-input',
-          state: { value: 'visible', cursor: 0 },
+          state: { text: 'visible', cursor: 0 },
           onTransition: (action) => action
         })
       }

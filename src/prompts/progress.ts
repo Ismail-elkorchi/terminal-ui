@@ -1,12 +1,17 @@
 import { createAccessibleSnapshot } from '../accessibility/index.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { ProgressOptions, ProgressSnapshot, ProgressState } from './types.ts';
-import { isNonArrayObject } from '../foundation/validation.ts';
+import { assertSupportedFields, isNonArrayObject } from '../foundation/validation.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 
 export function createProgress(options: ProgressOptions): ProgressState;
 export function createProgress(options: unknown): ProgressState {
   if (!isNonArrayObject(options)) throw new TypeError('Progress options must be an object.');
+  assertSupportedFields(options,
+    options['kind'] === 'determinate'
+      ? ['id', 'label', 'kind', 'status', 'value', 'max']
+      : ['id', 'label', 'kind', 'status'],
+    'progress');
   const suppliedId = options['id'];
   const id = suppliedId === undefined
     ? 'progress'
@@ -15,7 +20,11 @@ export function createProgress(options: unknown): ProgressState {
   return makeProgressState(
     id,
     label,
-    decodeProgressSnapshot(options),
+    decodeProgressSnapshot({
+      kind: options['kind'],
+      status: options['status'],
+      ...(options['kind'] === 'determinate' ? { value: options['value'], max: options['max'] } : {}),
+    }),
   );
 }
 
@@ -53,8 +62,11 @@ function makeProgressState(
   return Object.freeze({ id, label, ...progress, ...methods });
 }
 
-export function decodeProgressSnapshot(progress: unknown): ProgressSnapshot {
+export function decodeProgressSnapshot(progress: unknown, path = 'progress'): ProgressSnapshot {
   if (!isNonArrayObject(progress)) throw new TypeError('Progress snapshot must be an object.');
+  assertSupportedFields(progress,
+    progress['kind'] === 'determinate' ? ['kind', 'status', 'value', 'max'] : ['kind', 'status'],
+    path);
   const status = progress['status'];
   if (status !== undefined && typeof status !== 'string') {
     throw new TypeError('Progress status must be a string when provided.');

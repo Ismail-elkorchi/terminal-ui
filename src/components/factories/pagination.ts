@@ -37,16 +37,7 @@ const instantiatePagination: SemanticLeafComponentFactory<
   'required',
   readonly ['focus', 'layer', 'styles'],
   readonly ['focused', 'hovered', 'pressed', 'disabled']
-> = defineComponent<
-  Pick<PaginationOptions<ComponentMessage>, 'pageNumber' | 'pageCount' | 'label'>,
-  PaginationModel,
-  PaginationControlTransition,
-  PaginationStylePart,
-  readonly [],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['focused', 'hovered', 'pressed', 'disabled']
->({
+> = defineComponent<Pick<PaginationOptions<ComponentMessage>, 'pageNumber' | 'pageCount' | 'label'>, PaginationControlTransition>()({
   name: 'terminal-ui/components/pagination',
   identity: 'required',
   structure: 'leaf',

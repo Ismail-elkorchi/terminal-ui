@@ -8,7 +8,10 @@ import {
 import { createPtyTerminalHarness,
   createTerminalHarness,
   isPtyHarnessUnavailable,
+  InteractionScriptError,
+  keyInput,
   pasteInput,
+  pointerInput,
   replayTranscript,
   runInteractionScript,
   wheelInput } from '../../dist/testing/index.js';
@@ -24,7 +27,8 @@ import {
 import { column } from '../../dist/layout/index.js';
 import { waitUntil } from '../helpers/async.ts';
 import { ignoreMessage } from '../../dist/component/index.js';
-import { createTreeSource, createTreeView } from '../../dist/behavior/index.js';
+import { createTreeSource, textInputReducer } from '../../dist/behavior/index.js';
+import { encodeHarnessInputEvent } from '../../dist/testing/input-events.js';
 
 test('testing harness records input and output deterministically', async () => {
   const harness = createTerminalHarness();
@@ -90,23 +94,120 @@ test('PTY unavailability predicate proves the unavailable result variant', () =>
   assert.equal(isPtyHarnessUnavailable({ status: 'available' }), false);
 });
 
-test('interaction script assertion failures return typed diagnostics instead of throwing', async () => {
+test('PTY harness owns app readiness, semantic input settlement, and cleanup', async () => {
+  const result = createPtyTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
+  assert.equal(result.status, 'available');
+  const harness = result.harness;
+  const app = defineTui({
+    id: 'pty-owned-app',
+    init: () => ({ state: 0 }),
+    update: (state) => ({ state: state + 1 }),
+    view: (state) => button({ id: 'advance', label: String(state), onPress: () => 'advance' }),
+  });
+  try {
+    await harness.runApp(app, async (runtime) => {
+      assert.equal(runtime.state(), 0);
+      assert.equal(harness.frames().length, 1);
+      await harness.input(keyInput('enter'));
+      assert.equal(runtime.state(), 1);
+      assert.equal(harness.frames().length, 2);
+      assert.equal(harness.snapshot().source, 'tui');
+    });
+  } finally {
+    await harness.dispose();
+  }
+});
+
+test('interaction script assertion failures reject with the step and captured result', async () => {
   const harness = createTerminalHarness();
   await harness.run(async (host) => {
     await host.write({ text: 'ready' });
   });
 
-  const result = await runInteractionScript(harness, {
-    id: 'script-failure',
-    steps: [{ kind: 'assertOutput', includes: 'missing' }]
-  });
+  await assert.rejects(
+    runInteractionScript(harness, {
+      id: 'script-failure',
+      steps: [{ kind: 'assertOutput', includes: 'missing' }]
+    }),
+    (cause) => {
+      assert.ok(cause instanceof InteractionScriptError);
+      assert.equal(cause.stepIndex, 0);
+      assert.equal(cause.stepKind, 'assertOutput');
+      assert.equal(cause.result.diagnostics[0]?.diagnostic.code, 'INTERACTION_SCRIPT_FAILED');
+      assert.equal(cause.result.diagnostics[0]?.diagnostic.target, 'steps[0]');
+      assert.equal(cause.result.output, 'ready');
+      return true;
+    }
+  );
+});
 
-  assert.equal(result.diagnostics[0]?.diagnostic.code, 'INTERACTION_SCRIPT_FAILED');
-  assert.equal(result.diagnostics[0]?.diagnostic.target, 'steps[0]');
-  assert.equal(result.diagnostics[0]?.diagnostic.data?.scriptId, 'script-failure');
-  assert.equal(result.diagnostics[0]?.diagnostic.data?.stepKind, 'assertOutput');
-  assert.equal(result.transcript.diagnostics[0], result.diagnostics[0]);
-  assert.equal(result.output, 'ready');
+test('input helpers encode printable keys, pointers, and wheel magnitude before recording', async () => {
+  const harness = createTerminalHarness();
+  await harness.input(keyInput('a'));
+  await harness.input(pointerInput({ action: 'press', row: 2, column: 3, button: 'right' }));
+  await harness.input(wheelInput({ row: 2, column: 3, deltaRows: -2 }));
+  const input = harness.transcript.snapshot().steps.filter((step) => step.kind === 'input');
+  assert.equal(input.length, 3);
+  assert.equal(input[0]?.event.kind, 'key');
+  assert.equal(input[1]?.event.kind, 'mouse');
+  assert.equal(input[2]?.event.kind, 'mouse');
+  assert.equal(encodeHarnessInputEvent(keyInput('a')), 'a');
+  assert.equal(encodeHarnessInputEvent(pointerInput({ action: 'press', row: 2, column: 3, button: 'right' })), '\u001B[<2;3;2M');
+  assert.equal(encodeHarnessInputEvent(wheelInput({ row: 2, column: 3, deltaRows: -2 })), '\u001B[<64;3;2M\u001B[<64;3;2M');
+});
+
+test('runApp owns readiness and settles semantic helper inputs before returning', async () => {
+  const app = defineTui({
+    id: 'owned-harness-app',
+    init: () => ({ state: { text: '', cursor: 0 } }),
+    update: (state, transition) => ({ state: textInputReducer(state, transition) }),
+    view: (state) => textInput({
+      id: 'field', meta: { accessibleName: 'Field' }, state,
+      onTransition: (transition) => transition,
+    }),
+  });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
+  await harness.runApp(app, async (runtime) => {
+    await harness.input(keyInput('a'));
+    assert.equal(runtime.state().text, 'a');
+    await harness.input(keyInput('b', { eventType: 'repeat' }));
+    assert.equal(runtime.state().text, 'ab');
+    await harness.input(keyInput('b', { eventType: 'release' }));
+    assert.equal(runtime.state().text, 'ab');
+    await harness.input(pointerInput({ action: 'press', row: 1, column: 5 }));
+    assert.match(renderFramePlain(runtime.frame()), /ab/u);
+  });
+});
+
+test('script clock advances wait for the next owned app commit', async () => {
+  const app = defineTui({
+    id: 'clock-commit-harness',
+    init: () => ({ state: { phase: 'idle' } }),
+    update: (state, message) => message.kind === 'start'
+      ? {
+          state: { phase: 'loading' },
+          effects: [{
+            id: 'finish', concurrency: 'keep-first',
+            async run({ clock, signal }) {
+              await clock.sleep(5, signal);
+              return { kind: 'message', message: { kind: 'done' } };
+            },
+          }],
+        }
+      : { state: { ...state, phase: 'done' } },
+    view: (state) => button({ id: 'clock-button', label: state.phase,
+      onPress: () => ({ kind: 'start' }) }),
+  });
+  const harness = createTerminalHarness({ terminalSize: { columns: 16, rows: 2 } });
+  await harness.runApp(app, async (runtime) => {
+    await harness.input(keyInput('enter'));
+    assert.equal(runtime.state().phase, 'loading');
+    await runInteractionScript(harness, {
+      id: 'clock-commit',
+      steps: [{ kind: 'waitForCommit', ms: 5 }, { kind: 'assertVisibleText', assertion: { text: 'done' } }],
+    });
+    assert.equal(runtime.state().phase, 'done');
+  });
 });
 
 test('terminal harness delivers normalized input events to prompt runtimes', async () => {
@@ -140,7 +241,7 @@ test('terminal harness delivers normalized key events to TUI runtimes', async ()
     update: (_state, message) => ({ state: { submitted: message.submitted }, exit: {} }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'submit',
-      state: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
+      state: { text: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
       onTransition: () => ignoreMessage(),
       onSubmit: () => ({ submitted: true })
     })
@@ -216,11 +317,13 @@ test('testing harnesses reject invalid events before delivery or transcript reco
   const ptyResult = createPtyTerminalHarness();
   if (ptyResult.status === 'unavailable') return;
   try {
+    await ptyResult.harness.input({ kind: 'resize', terminalSize: { columns: 44, rows: 12 } });
+    assert.deepEqual(ptyResult.harness.host.getTerminalSize(), { columns: 44, rows: 12 });
     assert.throws(
       () => ptyResult.harness.input({ kind: 'signal', signal: 'SIGUSR1' }),
       /supported terminal signal/u
     );
-    assert.equal(ptyResult.harness.transcript.snapshot().steps.length, 0);
+    assert.equal(ptyResult.harness.transcript.snapshot().steps.length, 1);
     assert.equal(validateTranscript(ptyResult.harness.transcript.snapshot()).status, 'success');
   } finally {
     await ptyResult.harness.dispose();
@@ -280,7 +383,7 @@ test('terminal harness resize events drive active TUI resize handling', async ()
     update: (_state, message) => ({ state: { done: message.done }, exit: {} }),
     view: (_state, context) => textInput({ meta: { accessibleName: "Text input" },
       id: 'resize-field',
-      state: { value: `columns:${context.terminalSize.columns}`, cursor: 0 },
+      state: { text: `columns:${context.terminalSize.columns}`, cursor: 0 },
       onTransition: () => ignoreMessage(),
       onSubmit: () => ({ done: true })
     })
@@ -327,7 +430,7 @@ test('interaction scripts assert styled text focus selection and hit targets aga
     tree({ meta: { accessibleName: "Tree" },
       id: 'tree',
       state: treeState,
-      view: createTreeView(treeSource, treeState),
+      source: treeSource,
       onTransition: (action) => ({ kind: 'tree', action })
     }),
     button({

@@ -1,13 +1,31 @@
 import { spawn } from 'node:child_process';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import { relative, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 
 import { discoverTestFiles, testLaneDirectories } from './test-discovery.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const files = await discoverTestFiles(testLaneDirectories(root, 'unit'));
-const testFiles = files.map((file) => relative(root, file));
+const testFiles = await Promise.all(files.map(async (file) => {
+  const source = relative(resolve(root, 'src'), file);
+  if (source.startsWith('..')) return relative(root, file);
+  const output = resolve(root, 'dist', source.replace(/\.ts$/u, '.js'));
+  const compiled = ts.transpileModule(await readFile(file, 'utf8'), {
+    fileName: file,
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2024,
+      rewriteRelativeImportExtensions: true,
+    },
+  }).outputText;
+  await mkdir(dirname(output), { recursive: true });
+  await writeFile(output, compiled);
+  return relative(root, output);
+}));
 const arguments_ = [
   '--experimental-test-coverage',
   '--test-coverage-include=dist/**/*.js',

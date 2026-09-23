@@ -5,13 +5,12 @@ import {
 } from '../../component/index.ts';
 import type { ComponentMessage } from '../../component/index.ts';
 import type { Element, ElementMessage } from '../../element/index.ts';
-import { assertOptionalEnum, assertRequiredCallback } from '../../foundation/validation.ts';
+import { assertOptionalEnum, assertRequiredPropertyCallback } from '../../foundation/validation.ts';
 import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
 import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
 import type { LinkActivateEvent } from '../foundation-controls.ts';
 import type { ElementKeyEvent } from '../../element/metadata.ts';
 import type { RoutedPointerEvent } from '../../input/index.ts';
-import type { LinkStylePart } from '../style-parts.ts';
 import type { LinkOptions, ToggleButtonOptions, ToolbarOptions } from '../options/foundations.ts';
 import { instantiateToggleButton } from './action-button.ts';
 
@@ -26,16 +25,7 @@ interface LinkComponentAction {
   readonly event: LinkActivateEvent;
 }
 
-const instantiateLink = defineComponent<
-  LinkModel,
-  LinkModel,
-  LinkComponentAction,
-  LinkStylePart,
-  readonly ['disabled', 'busy', 'inert'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['focused', 'hovered', 'pressed', 'disabled', 'busy']
->({
+const instantiateLink = defineComponent<LinkModel, LinkComponentAction>()({
   name: 'terminal-ui/components/link',
   identity: 'required',
   structure: 'leaf',
@@ -108,16 +98,18 @@ export function link<const TMessage extends ComponentMessage = never>(
     href,
     id: options.id,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+    ...(options.inert === undefined ? {} : { inert: options.inert }),
     ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
-  if (options.disabled === true) return instantiateLink({
+  if (options.disabled === true && options.onActivate === undefined) return instantiateLink({
     ...model,
     disabled: true,
     ...(options.inert === undefined ? {} : { inert: options.inert }),
   });
-  if (options.inert === true) return instantiateLink({ ...model, inert: true });
-  assertRequiredCallback(options.onActivate, 'link onActivate');
+  if (options.inert === true && options.onActivate === undefined) return instantiateLink({ ...model, inert: true });
+  assertRequiredPropertyCallback(options, 'onActivate', 'link onActivate');
   return instantiateLink({
     ...model,
     onAction: (action) => options.onActivate(action.event),
@@ -137,16 +129,18 @@ export function toggleButton<const TMessage extends ComponentMessage = never>(
     pressed: options.pressed,
     id: options.id,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+    ...(options.inert === undefined ? {} : { inert: options.inert }),
     ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
-  if (options.disabled === true) return instantiateToggleButton({
+  if (options.disabled === true && options.onTransition === undefined) return instantiateToggleButton({
     ...model,
     disabled: true,
     ...(options.inert === undefined ? {} : { inert: options.inert }),
   });
-  if (options.inert === true) return instantiateToggleButton({ ...model, inert: true });
-  assertRequiredCallback(options.onTransition, 'toggleButton onTransition');
+  if (options.inert === true && options.onTransition === undefined) return instantiateToggleButton({ ...model, inert: true });
+  assertRequiredPropertyCallback(options, 'onTransition', 'toggleButton onTransition');
   return instantiateToggleButton({
     ...model,
     onAction: () => options.onTransition({ kind: 'setPressed', pressed: !options.pressed }),
@@ -162,16 +156,7 @@ const toolbarSlots = {
   content: { cardinality: 'one', owner: 'caller', messages: 'bubble' },
 } as const;
 
-const instantiateToolbar = defineComponent<
-  ToolbarModel,
-  ToolbarModel,
-  never,
-  never,
-  readonly [],
-  'required',
-  readonly ['focus', 'layer'],
-  typeof toolbarSlots
->({
+const instantiateToolbar = defineComponent<ToolbarModel>()({
   name: 'terminal-ui/components/toolbar',
   identity: 'required',
   structure: 'composite',

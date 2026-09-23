@@ -35,7 +35,7 @@ function dashboardElement(state) {
         textInput({
           id: 'action-field',
           meta: { accessibleName: 'Action' },
-          state: { value: state.submitted ? 'Submitted' : 'Press enter', cursor: 0 },
+          state: { text: state.submitted ? 'Submitted' : 'Press enter', cursor: 0 },
           onTransition: () => ignoreMessage(),
           onSubmit: () => ({ type: 'submit' })
         })

@@ -1,5 +1,79 @@
 import type { CanvasPoint } from './paths.ts';
 
+export interface CanvasClip {
+  readonly width: number;
+  readonly height: number;
+}
+
+/** Bounds work by the visible raster, leaving the public point helpers materializing. */
+export function* clippedEllipseInteriorPoints(
+  center: CanvasPoint, radiusX: number, radiusY: number, clip: CanvasClip,
+): Iterable<CanvasPoint> {
+  const fromX = Math.max(0, Math.floor(center.x - radiusX));
+  const toX = Math.min(clip.width - 1, Math.ceil(center.x + radiusX));
+  const fromY = Math.max(0, Math.floor(center.y - radiusY));
+  const toY = Math.min(clip.height - 1, Math.ceil(center.y + radiusY));
+  for (let y = fromY; y <= toY; y += 1) {
+    for (let x = fromX; x <= toX; x += 1) {
+      const nx = radiusX === 0 ? 0 : (x - center.x) / radiusX;
+      const ny = radiusY === 0 ? 0 : (y - center.y) / radiusY;
+      if (nx * nx + ny * ny <= 1) yield { x, y };
+    }
+  }
+}
+
+export function* clippedEllipseStrokePoints(
+  center: CanvasPoint, radiusX: number, radiusY: number, clip: CanvasClip,
+  startAngle = 0, endAngle = Math.PI * 2,
+): Iterable<CanvasPoint> {
+  if (center.x + radiusX < 0 || center.x - radiusX >= clip.width
+    || center.y + radiusY < 0 || center.y - radiusY >= clip.height) return;
+  const visible = (x: number, y: number): boolean => x >= 0 && x < clip.width
+    && y >= 0 && y < clip.height && angleInArc(x, y, center, startAngle, endAngle);
+  const fromY = Math.max(0, Math.ceil(center.y - radiusY));
+  const toY = Math.min(clip.height - 1, Math.floor(center.y + radiusY));
+  for (let y = fromY; y <= toY; y += 1) {
+    const offset = radiusY === 0 ? radiusX : radiusX * Math.sqrt(Math.max(0, 1 - ((y - center.y) / radiusY) ** 2));
+    for (const x of [Math.round(center.x - offset), Math.round(center.x + offset)]) {
+      if (visible(x, y)) yield { x, y };
+    }
+  }
+  const fromX = Math.max(0, Math.ceil(center.x - radiusX));
+  const toX = Math.min(clip.width - 1, Math.floor(center.x + radiusX));
+  for (let x = fromX; x <= toX; x += 1) {
+    const offset = radiusX === 0 ? radiusY : radiusY * Math.sqrt(Math.max(0, 1 - ((x - center.x) / radiusX) ** 2));
+    for (const y of [Math.round(center.y - offset), Math.round(center.y + offset)]) {
+      if (visible(x, y)) yield { x, y };
+    }
+  }
+}
+
+export function* clippedPolygonInteriorPoints(points: readonly CanvasPoint[], clip: CanvasClip): Iterable<CanvasPoint> {
+  if (points.length < 3) return;
+  const bounds = pointBounds(points);
+  const fromX = Math.max(0, bounds.minX);
+  const toX = Math.min(clip.width - 1, bounds.maxX);
+  const fromY = Math.max(0, bounds.minY);
+  const toY = Math.min(clip.height - 1, bounds.maxY);
+  for (let y = fromY; y <= toY; y += 1) {
+    for (let x = fromX; x <= toX; x += 1) {
+      if (pointInPolygon({ x, y }, points)) yield { x, y };
+    }
+  }
+}
+
+function angleInArc(
+  x: number, y: number, center: CanvasPoint, startAngle: number, endAngle: number,
+): boolean {
+  const span = endAngle - startAngle;
+  if (span === 0 || Math.abs(span) >= Math.PI * 2) return true;
+  const turn = Math.PI * 2;
+  const angle = Math.atan2(y - center.y, x - center.x);
+  const directed = span > 0 ? angle - startAngle : startAngle - angle;
+  const distance = ((directed % turn) + turn) % turn;
+  return distance <= Math.abs(span);
+}
+
 export function rectInteriorPoints(
   bounds: CanvasPoint & { readonly width: number; readonly height: number }
 ): readonly CanvasPoint[] {

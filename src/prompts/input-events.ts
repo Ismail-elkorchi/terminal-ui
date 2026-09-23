@@ -1,6 +1,7 @@
 import { createInputAmbiguityDeadline, createInputPipeline } from '../input/index.ts';
 import type { TerminalHost, TerminalInputChunk } from '../host/index.ts';
 import type { InputEvent, InputPendingState } from '../input/index.ts';
+import { raisePromptCleanupFailure } from './session.ts';
 
 type InputRead =
   | { readonly kind: 'input'; readonly value: IteratorResult<TerminalInputChunk> }
@@ -17,6 +18,8 @@ export async function* promptInputEvents(
   const ambiguity = createInputAmbiguityDeadline<InputRead>(host.clock, pipeline.profile.escapeDelayMs);
   let pendingRead: Promise<IteratorResult<TerminalInputChunk>> | undefined;
   let pending: InputPendingState = { kind: 'none' };
+  let readFailure: unknown;
+  let readFailed = false;
 
   try {
     for (;;) {
@@ -48,11 +51,19 @@ export async function* promptInputEvents(
       for (const event of batch.events) yield event;
       if (!isAmbiguous(pending)) ambiguity.cancel();
     }
+  } catch (cause) {
+    readFailure = cause;
+    readFailed = true;
+    throw cause;
   } finally {
     ambiguity.cancel();
     lifetime.controller.abort();
     lifetime.detach();
-    await input.return?.();
+    try {
+      await input.return?.();
+    } catch (cleanup) {
+      raisePromptCleanupFailure(readFailure, cleanup, readFailed);
+    }
   }
 }
 

@@ -2,7 +2,7 @@ import { defineComponent } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
 import type { CanvasOptions, ImageOptions } from '../options/drawing.ts';
 import { isNonArrayObject } from '../../foundation/validation.ts';
-import { decodeMeasurement, createLocalCanvas2D, span } from '../../renderer/index.ts';
+import { decodeMeasurement, createComponentCanvas2D, span } from '../../renderer/index.ts';
 import type { CanvasPainter, Measurement, TerminalStyle } from '../../renderer/index.ts';
 import { sanitizeTerminalText } from '../../text/index.ts';
 import type { CanvasStylePart } from '../style-parts.ts';
@@ -10,6 +10,7 @@ import type { ImageStylePart } from '../style-parts.ts';
 import { isRasterImage } from '../../graphics/index.ts';
 import type { ImageFit, RasterImage } from '../../graphics/index.ts';
 import { inlineSegmentText, normalizeInlineContent } from '../../visual/inline-content.ts';
+import { executeSynchronousRenderCallback } from '../../component/execution-error.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
 
 interface CanvasModel {
@@ -20,15 +21,7 @@ interface CanvasModel {
 
 type CanvasOwnOptions = Pick<CanvasOptions, 'painter' | 'measurement' | 'label' | 'decorative'>;
 
-const semanticCanvas = defineComponent<
-  CanvasOwnOptions,
-  CanvasModel,
-  never,
-  CanvasStylePart,
-  readonly [],
-  'optional',
-  readonly ['styles', 'layer']
->({
+const semanticCanvas = defineComponent<CanvasOwnOptions>()({
   name: 'terminal-ui/components/canvas',
   identity: 'optional',
   structure: 'leaf',
@@ -61,13 +54,7 @@ const semanticCanvas = defineComponent<
   },
 });
 
-const decorativeCanvas = defineComponent<
-  Pick<CanvasOwnOptions, 'painter' | 'measurement' | 'decorative'>,
-  CanvasModel,
-  CanvasStylePart,
-  'optional',
-  readonly ['styles', 'layer']
->({
+const decorativeCanvas = defineComponent<Pick<CanvasOwnOptions, 'painter' | 'measurement' | 'decorative'>>()({
   name: 'terminal-ui/components/decorative-canvas',
   identity: 'optional',
   structure: 'leaf',
@@ -103,15 +90,7 @@ interface SemanticImageModel extends ImageModel {
 
 type ImageOwnOptions = Pick<ImageOptions, 'image' | 'measurement' | 'fit' | 'fallback' | 'label' | 'decorative'>;
 
-const semanticImage = defineComponent<
-  ImageOwnOptions,
-  SemanticImageModel,
-  never,
-  ImageStylePart,
-  readonly [],
-  'optional',
-  readonly ['styles', 'layer']
->({
+const semanticImage = defineComponent<ImageOwnOptions>()({
   name: 'terminal-ui/components/image',
   identity: 'optional',
   structure: 'leaf',
@@ -119,7 +98,7 @@ const semanticImage = defineComponent<
   accessibleRole: 'image',
   metadata: ['styles', 'layer'],
   parts: ['fallback'],
-  createModel(value) {
+  createModel(value): SemanticImageModel {
     const model = createImageModel(value);
     if (value.decorative === true) throw new TypeError('Semantic image decorative must be false or absent.');
     if (model.label === undefined) throw new TypeError('Semantic image requires a non-empty label.');
@@ -132,13 +111,7 @@ const semanticImage = defineComponent<
   },
 });
 
-const decorativeImage = defineComponent<
-  Pick<ImageOwnOptions, 'image' | 'measurement' | 'fit' | 'fallback' | 'decorative'>,
-  ImageModel,
-  ImageStylePart,
-  'optional',
-  readonly ['styles', 'layer']
->({
+const decorativeImage = defineComponent<Pick<ImageOwnOptions, 'image' | 'measurement' | 'fit' | 'fallback' | 'decorative'>>()({
   name: 'terminal-ui/components/decorative-image',
   identity: 'optional',
   structure: 'leaf',
@@ -190,7 +163,7 @@ function decodeImageFit(value: unknown): ImageFit {
 
 function renderImage(
   input: import('../../component/index.ts').ComponentRenderInput<ImageModel, ImageStylePart>,
-): void {
+): undefined {
   if (input.bounds.width <= 0 || input.bounds.height <= 0) return;
   if (input.model.fallback.length > 0) {
     input.target.write(0, 0, input.model.fallback.map((segment, index) => {
@@ -245,12 +218,12 @@ function isCanvasPainter(value: unknown): value is CanvasPainter {
 
 function paintCanvas(
   input: import('../../component/index.ts').ComponentRenderInput<CanvasModel, CanvasStylePart>,
-): void {
-  input.model.painter({
-    canvas: createLocalCanvas2D(input.target, input.bounds),
+): undefined {
+  executeSynchronousRenderCallback(input.model.painter, {
+    canvas: createComponentCanvas2D(input.target),
     bounds: input.bounds,
     theme: input.theme,
     style: input.style,
     frameSource: input.frameSource,
-  });
+  }, 'Canvas painter');
 }

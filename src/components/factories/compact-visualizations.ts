@@ -69,8 +69,7 @@ export const sparkline: SemanticLeafComponentFactory<
   readonly [],
   'optional',
   readonly ['styles', 'layer']
-> = defineComponent<
-  Pick<
+> = defineComponent<Pick<
     SparklineOptions,
     | 'label'
     | 'values'
@@ -81,14 +80,7 @@ export const sparkline: SemanticLeafComponentFactory<
     | 'emptyText'
     | 'loadingText'
     | 'errorText'
-  >,
-  SparklineModel,
-  never,
-  SparklineStylePart,
-  readonly [],
-  'optional',
-  readonly ['styles', 'layer']
->({
+  >>()({
   name: 'terminal-ui/components/sparkline',
   identity: 'optional',
   structure: 'leaf',
@@ -277,15 +269,7 @@ export const meter: SemanticLeafComponentFactory<
   readonly [],
   'optional',
   readonly ['styles', 'layer']
-> = defineComponent<
-  Pick<MeterOptions, 'label' | 'value' | 'min' | 'max' | 'width' | 'variant' | 'status'>,
-  MeterModel,
-  never,
-  MeterStylePart,
-  readonly [],
-  'optional',
-  readonly ['styles', 'layer']
->({
+> = defineComponent<Pick<MeterOptions, 'label' | 'value' | 'min' | 'max' | 'width' | 'variant' | 'status'>>()({
   name: 'terminal-ui/components/meter',
   identity: 'optional',
   structure: 'leaf',

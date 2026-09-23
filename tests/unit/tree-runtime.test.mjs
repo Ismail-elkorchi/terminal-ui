@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { createTreeSource, createTreeView, treeReducer } from '../../dist/behavior/index.js';
+import { createTreeSource, treeReducer } from '../../dist/behavior/index.js';
 import { renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
 import { tree } from '../../dist/components/index.js';
 
@@ -44,11 +44,11 @@ test('treeReducer keeps disclosure state separate from immutable input nodes', (
   const state = { expandedIds: [], selection: { mode: 'single' } };
   const source = createTreeSource(nodes);
   const expanded = treeReducer(state, { kind: 'toggle', id: 'root' }, {
-    view: createTreeView(source, state),
+    source: source,
   });
   const frame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
     id: 'tree',
-    view: createTreeView(source, expanded),
+    source: source,
     state: expanded,
     onTransition: (action) => action
   }), { columns: 24, rows: 3 });
@@ -86,7 +86,7 @@ test('tree pointer selection and double-click activation match keyboard semantic
     update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
     view: () => tree({ meta: { accessibleName: "Tree" },
       id: 'activation-tree',
-      view: createTreeView(source, treeState),
+      source: source,
       state: treeState,
       onTransition: (action) => action,
       onActivate: (event) => event
@@ -127,7 +127,7 @@ test('tree filters through descendants and exposes selected disabled metadata-ri
   const frame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
     id: 'tree',
     state: treeState,
-    view: createTreeView(source, treeState),
+    source: source,
     onTransition: (action) => action,
   }), { columns: 32, rows: 4 });
 
@@ -171,7 +171,7 @@ test('tree owns retained multiple-selection state at construction', () => {
   ]);
   const element = tree({ meta: { accessibleName: "Tree" },
     id: 'owned-tree-selection',
-    view: createTreeView(source, treeState),
+    source: source,
     state: treeState,
     onTransition: (transition) => transition
   });
@@ -195,7 +195,7 @@ test('tree renders lazy placeholders and clips tiny viewports safely', () => {
   }]);
   const frame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
     id: 'lazy-tree',
-    view: createTreeView(source, treeState),
+    source: source,
     state: treeState,
     onTransition: (action) => action
   }), { columns: 14, rows: 2 });

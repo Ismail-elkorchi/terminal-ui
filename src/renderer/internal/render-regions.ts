@@ -1,12 +1,13 @@
 import { createCompositingFrameBuffer } from '../frame-buffer.ts';
 import { createDirtyRegionSet } from './dirty-regions.ts';
 import type { TerminalSize } from '../../geometry/types.ts';
+import { intersectRects } from '../../geometry/rect.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FrameBuffer, FrameBufferSnapshot, FrameBufferSnapshotOptions } from '../frame-buffer.ts';
 import { frameSnapshotMetadata, registerFrameSnapshotMetadata } from './frame-snapshot.ts';
 import type { FrameSnapshotMetadata } from './frame-snapshot.ts';
-import type { FrameCell, FrameHitTarget } from '../contracts.ts';
+import type { FrameCell, FrameHitTarget, RenderInstrumentation } from '../contracts.ts';
 import type { GraphicPlacement } from '../../graphics/index.ts';
 import type { FocusPath, LayoutFocusTarget } from './focus.ts';
 import type { ResolvedPointerFocusIntent } from '../../interaction/focus.ts';
@@ -22,6 +23,7 @@ import {
 
 export interface RenderRegionHitTarget<TMessage = unknown> extends FrameHitTarget, ScrollRoutable<TMessage> {
   readonly ownerIdentity: string;
+  readonly sensitiveOrigin: boolean;
   readonly accepts?: readonly PointerEventKind[];
   message(event: RoutedPointerEvent): MessageResolution<TMessage>;
 }
@@ -44,11 +46,13 @@ export function toRegionHitTarget<TMessage>(
   hitTarget: HitTarget<TMessage>,
   region: { readonly zIndex: number },
   ownerIdentity: string,
-  focus: ResolvedPointerFocusIntent | undefined
+  focus: ResolvedPointerFocusIntent | undefined,
+  sensitiveOrigin: boolean,
 ): RenderRegionHitTarget<TMessage> {
   return {
     id: hitTarget.id,
     ownerIdentity,
+    sensitiveOrigin,
     bounds: hitTarget.bounds,
     ...(hitTarget.accepts === undefined ? {} : { accepts: hitTarget.accepts }),
     ...(focus === undefined ? {} : { focus }),
@@ -97,9 +101,10 @@ export function createDraftRenderRegion(
     readonly underlay: LayerUnderlay;
     readonly backdropBounds?: Rect;
     readonly widthProfile: TextWidthProfile;
+    readonly instrumentation?: Pick<RenderInstrumentation, 'recordWork'>;
   }
 ): DraftRenderRegion {
-  const { id, zIndex, order, terminalSize, bounds, underlay, backdropBounds, widthProfile } = input;
+  const { id, zIndex, order, terminalSize, bounds, underlay, backdropBounds, widthProfile, instrumentation } = input;
   const regionBounds = normalizeRegionBounds(terminalSize, bounds);
   return {
     id,
@@ -108,13 +113,22 @@ export function createDraftRenderRegion(
     bounds: regionBounds,
     underlay,
     ...(backdropBounds === undefined ? {} : { backdropBounds }),
-    buffer: createRegionFrameBuffer(terminalSize, regionBounds, widthProfile)
+    buffer: createRegionFrameBuffer(terminalSize, regionBounds, widthProfile, instrumentation)
   };
 }
 
-function createRegionFrameBuffer(terminalSize: TerminalSize, bounds: Rect, widthProfile: TextWidthProfile): FrameBuffer {
-  const local = createCompositingFrameBuffer(bounds.width, bounds.height, { widthProfile });
+function createRegionFrameBuffer(
+  terminalSize: TerminalSize,
+  bounds: Rect,
+  widthProfile: TextWidthProfile,
+  instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
+): FrameBuffer {
+  const local = createCompositingFrameBuffer(bounds.width, bounds.height, {
+    widthProfile,
+    ...(instrumentation === undefined ? {} : { instrumentation })
+  });
   return {
+    coordinateSpace: 'frame',
     width: terminalSize.columns,
     height: terminalSize.rows,
     widthProfile: local.widthProfile,
@@ -191,16 +205,6 @@ function normalizeRegionBounds(terminalSize: TerminalSize, bounds: Rect): Rect {
     width: 0,
     height: 0
   };
-}
-
-function intersectRects(left: Rect, right: Rect): Rect | undefined {
-  const row = Math.max(left.row, right.row);
-  const column = Math.max(left.column, right.column);
-  const bottom = Math.min(left.row + left.height, right.row + right.height);
-  const rightEdge = Math.min(left.column + left.width, right.column + right.width);
-  const width = Math.max(0, rightEdge - column);
-  const height = Math.max(0, bottom - row);
-  return width === 0 || height === 0 ? undefined : { row, column, width, height };
 }
 
 function cellInside(cell: FrameCell, bounds: Rect): boolean {

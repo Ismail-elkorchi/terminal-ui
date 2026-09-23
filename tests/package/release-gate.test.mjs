@@ -101,12 +101,26 @@ test('documentation local links resolve', async () => {
     ...await sourceFiles(new URL('../../docs/', import.meta.url), '.md')
   ];
 
+  const anchors = new Map();
+  for (const file of docs) {
+    const source = await readFile(file, 'utf8');
+    anchors.set(file.href, documentationAnchors(source));
+  }
   for (const file of docs) {
     const source = await readFile(file, 'utf8');
     for (const link of markdownLinks(source)) {
       if (!isLocalDocumentationLink(link)) continue;
       const target = linkTarget(file, link);
       await access(target);
+      const hash = link.split('#')[1];
+      if (hash !== undefined && hash !== '' && target.pathname.endsWith('.md')) {
+        let targetAnchors = anchors.get(target.href);
+        if (targetAnchors === undefined) {
+          targetAnchors = documentationAnchors(await readFile(target, 'utf8'));
+          anchors.set(target.href, targetAnchors);
+        }
+        assert.ok(targetAnchors.has(decodeURIComponent(hash)), `${file.pathname}: missing ${link}`);
+      }
     }
   }
 });
@@ -228,11 +242,35 @@ function markdownLinks(source) {
 }
 
 function isLocalDocumentationLink(link) {
-  return !link.startsWith('#')
-    && !link.startsWith('http://')
+  return !link.startsWith('http://')
     && !link.startsWith('https://')
     && !link.startsWith('mailto:')
     && !link.startsWith('file:');
+}
+
+function documentationAnchors(source) {
+  const anchors = new Set([...source.matchAll(/<a\s+id="([^"]+)"\s*><\/a>/gu)]
+    .map((match) => match[1]));
+  const used = new Map();
+  let inFence = false;
+  for (const line of source.split('\n')) {
+    if (line.startsWith('```')) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+    const heading = /^#{1,6}\s+(.+)$/u.exec(line)?.[1];
+    if (heading === undefined) continue;
+    const base = heading.toLowerCase()
+      .replace(/\[([^\]]+)\]\([^)]+\)/gu, '$1')
+      .replace(/<[^>]+>/gu, '')
+      .replace(/[^\p{L}\p{N}_ -]/gu, '')
+      .replace(/ /gu, '-');
+    const count = used.get(base) ?? 0;
+    used.set(base, count + 1);
+    anchors.add(count === 0 ? base : `${base}-${String(count)}`);
+  }
+  return anchors;
 }
 
 function linkTarget(file, link) {

@@ -6,15 +6,20 @@ import {
   type ComponentMeasureInput,
   type ComponentRenderInput,
   type DecorativeLeafComponentDefinition,
+  type SemanticCompositeComponentDefinition,
   type SemanticLeafComponentDefinition
 } from '@ismail-elkorchi/terminal-ui/component';
 import {
   mergeTerminalStyles as mergeRendererTerminalStyles,
+  createCanvas2D,
+  createComponentCanvas2D,
+  createFrameBuffer,
   renderElementFrame,
   renderFramePlain,
   span,
   type Canvas2D,
   type CanvasPainterInput,
+  type CanvasPainter,
   type DiffFramesOptions,
   type Frame,
   type FrameCellSource,
@@ -68,6 +73,25 @@ const diffOptions: DiffFramesOptions = { dirtyRegions: [absoluteRect] };
 // @ts-expect-error Canvas2D uses x/y local coordinates
 drawing.rect(absoluteRect, { fill: { text: '*' } });
 drawing.rect({ x: 0, y: 0, width: 2, height: 2 }, { fill: { text: '*' } });
+const syncPainter: CanvasPainter = ({ canvas }) => { canvas.point(0, 0, { text: '*' }); };
+// @ts-expect-error canvas painters must finish before rendering returns
+const asyncPainter: CanvasPainter = async () => undefined;
+// @ts-expect-error transform scopes cannot outlive the callback
+drawing.withTransform({ translateX: 1 }, async () => undefined);
+drawing.withTransform({ translateX: 1 }, (inner) => {
+  inner.withTransform({ translateX: 1 }, (nested) => { nested.point(0, 0, { text: '*' }); });
+});
+// @ts-expect-error leaf paint hooks must be synchronous
+const asyncLeafRender: SemanticLeafComponentDefinition['render'] = async () => undefined;
+// @ts-expect-error composite paint hooks must be synchronous
+const asyncBeforeChildren: NonNullable<SemanticCompositeComponentDefinition['renderBeforeChildren']> = async () => undefined;
+// @ts-expect-error composite after hooks must be synchronous
+const asyncAfterChildren: NonNullable<SemanticCompositeComponentDefinition['renderAfterChildren']> = async () => undefined;
+void syncPainter;
+void asyncPainter;
+void asyncLeafRender;
+void asyncBeforeChildren;
+void asyncAfterChildren;
 
 const writeOnly = defineComponent({
   name: 'terminal-ui-tests/components/write-only',
@@ -113,6 +137,13 @@ void rendererWithUnsupportedPlacement;
 
 declare const componentRenderInput: ComponentRenderInput<Record<never, never>>;
 componentRenderInput.target.write(0, 0, [{ text: 'ok' }]);
+createComponentCanvas2D(componentRenderInput.target);
+// @ts-expect-error component-local targets cannot use the one-based frame constructor
+createCanvas2D(componentRenderInput.target, componentRenderInput.bounds);
+const frameTarget = createFrameBuffer(2, 2);
+createCanvas2D(frameTarget, { row: 1, column: 1, width: 2, height: 2 });
+// @ts-expect-error frame targets cannot use zero-based component coordinates
+createComponentCanvas2D(frameTarget, { row: 0, column: 0, width: 2, height: 2 });
 declare const componentMeasureInput: ComponentMeasureInput<Record<never, never>>;
 // @ts-expect-error measurement occurs before viewport resolution
 const componentMeasureViewport = componentMeasureInput.viewport;

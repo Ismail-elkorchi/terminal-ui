@@ -26,7 +26,7 @@ test('defineTui rejects duplicate binding identities and duplicate triggers with
   assert.throws(() => defineTui({
     init: () => ({ state: null }),
     update: (state) => ({ state }),
-    view: () => textInput({ meta: { accessibleName: "Text input" }, state: { value: '', cursor: 0 } }),
+    view: () => textInput({ meta: { accessibleName: "Text input" }, state: { text: '', cursor: 0 } }),
     inputBindings: [
       { id: 'submit', triggers: [trigger], message: 'first' },
       { id: 'submit', triggers: [{ kind: 'key', key: 'escape' }], message: 'second' }
@@ -35,7 +35,7 @@ test('defineTui rejects duplicate binding identities and duplicate triggers with
   assert.throws(() => defineTui({
     init: () => ({ state: null }),
     update: (state) => ({ state }),
-    view: () => textInput({ meta: { accessibleName: "Text input" }, state: { value: '', cursor: 0 } }),
+    view: () => textInput({ meta: { accessibleName: "Text input" }, state: { text: '', cursor: 0 } }),
     inputBindings: [{ id: 'submit', triggers: [trigger, trigger], message: 'submit' }]
   }), /duplicate trigger/u);
 });
@@ -49,7 +49,7 @@ test('defineTui owns input bindings and validates the fields it consumes', async
     update: (_state, message) => ({ state: message }),
     view: () => createTextInput({ meta: { accessibleName: "Text input" },
       id: 'exact-field',
-      state: { value: '', cursor: 0 },
+      state: { text: '', cursor: 0 },
       onTransition: () => ignoreMessage()
     }),
     inputBindings: bindings
@@ -67,11 +67,11 @@ test('defineTui owns input bindings and validates the fields it consumes', async
   assert.equal(Object.isFrozen(tuiBindingHelp(app)[0]?.bindings), true);
   assert.equal(Object.isFrozen(tuiBindingHelp(app)[0]?.bindings[0]?.binding), true);
 
-  assert.doesNotThrow(() => defineTui({ ...definition, unsupported: true }));
-  assert.doesNotThrow(() => defineTui({
+  assert.throws(() => defineTui({ ...definition, unsupported: true }), /tui\.unsupported/u);
+  assert.throws(() => defineTui({
     ...definition,
     inputBindings: [{ ...bindings[0], typo: true }]
-  }));
+  }), /tui\.inputBindings\[0\]\.typo/u);
   assert.throws(() => defineTui({
     ...definition,
     inputBindings: [{ ...bindings[0], phase: 'capture' }]
@@ -158,7 +158,7 @@ test('editable controls opt cursor movement into Kitty key repeat', async () => 
     update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
     view: () => createTextInput({ meta: { accessibleName: "Text input" },
       id: 'editor',
-      state: { value: 'ab', cursor: 1 },
+      state: { text: 'ab', cursor: 1 },
       onTransition: (action) => action
     })
   });
@@ -182,7 +182,7 @@ test('editable controls opt cursor movement into Kitty key repeat', async () => 
   ]);
 });
 
-test('TUI runtime reduces Kitty repeat bursts before the render boundary', async () => {
+test('TUI runtime resolves each Kitty repeat against the preceding committed state', async () => {
   const items = Array.from({ length: 10 }, (_value, index) => `item-${String(index)}`);
   const reducerOptions = { items, toOption: (item) => ({ id: item, label: item }) };
   const app = defineTui({
@@ -219,17 +219,17 @@ test('TUI runtime reduces Kitty repeat bursts before the render boundary', async
   const burst = await runtime.handleInputChunk({
     data: `\u001B[B${'\u001B[1;1:2B'.repeat(99)}`
   });
-  assert.equal(burst.results.length, 1);
+  assert.equal(burst.results.length, 100);
   assert.equal(runtime.state().activeId, 'item-9');
-  assert.equal(runtime.metrics().frameCommits, 2);
+  assert.equal(runtime.metrics().frameCommits, 10);
 
   const released = await runtime.handleInputChunk({
     data: `${'\u001B[1;1:2B'.repeat(100)}\u001B[1;1:3B`
   });
-  assert.equal(released.results.length, 2);
+  assert.equal(released.results.length, 101);
   assert.equal(released.results.at(-1)?.handled, false);
   assert.equal(runtime.state().activeId, 'item-9');
-  assert.equal(runtime.metrics().frameCommits, 2);
+  assert.equal(runtime.metrics().frameCommits, 10);
   assert.equal(runtime.metrics().decodedInputEvents, 201);
 });
 
@@ -291,7 +291,7 @@ test('TUI runtime exposes input-profile fallback diagnostics', async () => {
     update: (state) => ({ state }),
     view: () => createTextInput({ meta: { accessibleName: "Text input" },
       id: 'profile-field',
-      state: { value: 'ready', cursor: 0 },
+      state: { text: 'ready', cursor: 0 },
       onTransition: () => ignoreMessage()
     })
   });
@@ -367,7 +367,7 @@ test('TUI runtime routes default app key bindings after focused elements', async
       { id: 'close', triggers: [{ kind: 'key', key: 'escape' }], message: { active: 'closed' } }
     ],
     update: (_state, message) => ({ state: { active: message.active } }),
-    view: (state) => textInput({ meta: { accessibleName: "Text input" }, id: 'field', state: { value: state.active, cursor: 0 } })
+    view: (state) => textInput({ meta: { accessibleName: "Text input" }, id: 'field', state: { text: state.active, cursor: 0 } })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -452,7 +452,7 @@ test('TUI runtime does not steal printable text for default app bindings', async
     update: (state, message) => ({ state: { value: `${state.value}${message.value}` } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'field',
-          state: { value: state.value, cursor: 0 },
+          state: { text: state.value, cursor: 0 },
           onTransition: (action) => ({
             value: action.kind === 'edit' && action.operation.kind === 'insert'
               ? action.operation.text
@@ -482,7 +482,7 @@ test('TUI runtime routes committed text before after-focus app bindings', async 
     update: (state, message) => ({ state: { value: `${state.value}${message.value}` } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'field',
-      state: { value: state.value, cursor: state.value.length },
+      state: { text: state.value, cursor: state.value.length },
       onTransition: (action) => ({
         value: action.kind === 'edit' && action.operation.kind === 'insert'
           ? action.operation.text
@@ -518,7 +518,7 @@ test('TUI runtime routes committed text through app text bindings', async () => 
     update: (_state, message) => ({ state: message }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'field',
-      state: { value: state.value, cursor: 0 }
+      state: { text: state.value, cursor: 0 }
     })
   });
   const runtime = createTuiRuntime({
@@ -619,7 +619,7 @@ test('TUI runtime keeps scanning app key bindings when earlier matches decline',
       }
     ],
     update: (_state, message) => ({ state: { active: message.active } }),
-    view: (state) => textInput({ meta: { accessibleName: "Text input" }, id: 'field', state: { value: state.active, cursor: 0 } })
+    view: (state) => textInput({ meta: { accessibleName: "Text input" }, id: 'field', state: { text: state.active, cursor: 0 } })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 32, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -675,7 +675,7 @@ test('TUI runtime routes focused text and paste through one edit-operation chann
     }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'field',
-      state: { value: state.value, cursor: 0 },
+      state: { text: state.value, cursor: 0 },
       onTransition: (action) => action.kind === 'edit'
         ? { operation: action.operation }
         : ignoreMessage()
@@ -701,7 +701,7 @@ test('TUI runtime routes single-space input chunks as text for editable focused 
     update: (state, message) => ({ state: { value: `${state.value}${message.text}` } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'field',
-      state: { value: state.value, cursor: 0 },
+      state: { text: state.value, cursor: 0 },
       onTransition: (action) => ({ text: action.kind === 'edit' && action.operation.kind === 'insert' ? action.operation.text : '' })
     })
   });
@@ -747,7 +747,7 @@ test('TUI runtime decodes input chunks through the configured input pipeline', a
     update: (state, message) => ({ state: { value: `${state.value}${message.text}` } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'pipeline-field',
-      state: { value: state.value, cursor: 0 },
+      state: { text: state.value, cursor: 0 },
       onTransition: (action) => ({
         text: action.kind === 'edit' && action.operation.kind === 'insert'
           ? action.operation.text
@@ -770,7 +770,7 @@ test('TUI runtime decodes input chunks through the configured input pipeline', a
   assert.match(renderFramePlain(runtime.frame()), /pastedtext/);
 });
 
-test('character bindings isolate bound graphemes and retain unmatched text runs', async () => {
+test('character bindings resolve each grapheme against current state', async () => {
   const app = defineTui({
     id: 'bounded-character-routing',
     init: () => ({ state: ({ actions: [] }) }),
@@ -783,7 +783,7 @@ test('character bindings isolate bound graphemes and retain unmatched text runs'
     update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
     view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'field',
-      state: { value: '', cursor: 0 },
+      state: { text: '', cursor: 0 },
       onTransition: (action) =>
         action.kind === 'edit' && action.operation.kind === 'insert'
           ? { kind: 'insert', text: action.operation.text }
@@ -798,12 +798,46 @@ test('character bindings isolate bound graphemes and retain unmatched text runs'
   await runtime.start();
   const batch = await runtime.handleInputChunk({ data: 'abqcd' });
 
-  assert.equal(batch.results.length, 3);
+  assert.equal(batch.results.length, 5);
   assert.deepEqual(runtime.state().actions, [
-    { kind: 'insert', text: 'ab' },
+    { kind: 'insert', text: 'a' },
+    { kind: 'insert', text: 'b' },
     { kind: 'shortcut', text: 'q' },
-    { kind: 'insert', text: 'cd' }
+    { kind: 'insert', text: 'c' },
+    { kind: 'insert', text: 'd' }
   ]);
+});
+
+test('text bindings after a focus change are identical across chunk partitions', async () => {
+  async function actionsFor(chunks) {
+    const app = defineTui({
+      id: 'focus-dependent-text-routing',
+      init: () => ({ state: { actions: [] }, focus: { kind: 'element', elementId: 'first' } }),
+      update: (state, message) => ({
+        state: { actions: [...state.actions, message] },
+        ...(message === 'switch' ? { focus: { kind: 'element', elementId: 'second' } } : {}),
+      }),
+      view: () => column([
+        testKeyInput({ id: 'first', state: { value: '', cursor: 0 }, keys: {
+          text: { a: () => 'switch' },
+        } }),
+        testKeyInput({ id: 'second', state: { value: '', cursor: 0 }, keys: {
+          text: { b: () => 'second-b' },
+        } }),
+      ]),
+    });
+    const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
+    await runtime.start();
+    for (const chunk of chunks) await runtime.handleInputChunk({ data: chunk });
+    await runtime.flushInput();
+    const result = { actions: runtime.state().actions, focusPath: runtime.frame().focusPath };
+    await runtime.dispose();
+    return result;
+  }
+
+  const joined = await actionsFor(['ab']);
+  assert.deepEqual(joined.actions, ['switch', 'second-b']);
+  assert.deepEqual(await actionsFor(['a', 'b']), joined);
 });
 
 test('character routing applies the decode event budget before dispatch', async () => {
@@ -818,7 +852,7 @@ test('character routing applies the decode event budget before dispatch', async 
     update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
     view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'field',
-      state: { value: '', cursor: 0 },
+      state: { text: '', cursor: 0 },
       onTransition: (action) =>
         action.kind === 'edit' && action.operation.kind === 'insert'
           ? { kind: 'insert', text: action.operation.text }

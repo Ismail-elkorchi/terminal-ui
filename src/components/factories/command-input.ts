@@ -23,7 +23,7 @@ import { portal, surface } from '../../layout/index.ts';
 import {
   assertOptionalCallback,
   assertOptionalEnum,
-  assertRequiredCallback,
+  assertRequiredPropertyCallback,
   isNonArrayObject,
 } from '../../foundation/validation.ts';
 import {
@@ -34,7 +34,6 @@ import {
   createTerminalTextIndex,
   editTextBuffer,
   measureTextCells,
-  sanitizeTerminalText,
   segmentGraphemes,
 } from '../../text/index.ts';
 import type { TextSelection } from '../../text/index.ts';
@@ -62,7 +61,9 @@ import {
   compileCollectionQuery,
   indexQueryCandidate,
 } from '../../text/query.ts';
-import type { CompiledCollectionQuery, QueryMatchRange } from '../../text/query.ts';
+import type { CompiledCollectionQuery } from '../../text/query.ts';
+import { queryLabelSpans } from '../internal/query-label-spans.ts';
+import { clean, nonEmpty, nonNegativeInteger, positiveInteger } from '../internal/picker-validation.ts';
 import type { CommandInputStylePart } from '../style-parts.ts';
 import type {
   CommandInputOptions,
@@ -113,17 +114,7 @@ type CommandInputComponentAction =
   | { readonly kind: 'submit'; readonly event: CommandInputSubmitEvent }
   | { readonly kind: 'contextMenu'; readonly event: TextContextMenuEvent };
 
-const instantiateCommandInput = defineComponent<
-  CommandInputComponentOptions,
-  CommandInputModel,
-  CommandInputComponentAction,
-  CommandInputStylePart,
-  readonly ['disabled', 'readOnly'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  typeof commandSlots,
-  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'readOnly']
->({
+const instantiateCommandInput = defineComponent<CommandInputComponentOptions, CommandInputComponentAction>()({
   name: 'terminal-ui/components/command-input',
   identity: 'required',
   structure: 'composite',
@@ -376,11 +367,14 @@ export const commandInput: CommandInputFactory = (options) => {
     ...(options.placement === undefined ? {} : { placement: options.placement }),
     ...(options.maxVisibleSuggestions === undefined ? {} : { maxVisibleSuggestions: options.maxVisibleSuggestions }),
     ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
+    ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
     ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
-  if (options.disabled === true) return instantiateCommandInput({ ...shared, disabled: true });
-  assertRequiredCallback(options.onTransition, 'commandInput onTransition');
+  assertOptionalCallback(options.onSubmit, 'command-input onSubmit');
+  assertOptionalCallback(options.onContextMenu, 'command-input onContextMenu');
+  if (options.disabled === true && options.onTransition === undefined) return instantiateCommandInput({ ...shared, disabled: true });
+  assertRequiredPropertyCallback(options, 'onTransition', 'commandInput onTransition');
   assertOptionalCallback(options.onSubmit, 'commandInput onSubmit');
   return instantiateCommandInput({
     ...shared,
@@ -468,7 +462,7 @@ const emptyCommandInputSuggestions = createListboxView(
 
 function paintCommandInput(
   input: ComponentRenderInput<CommandInputModel, CommandInputStylePart>,
-): void {
+): undefined {
   const rowOffset = commandInputRow(input.model, input.bounds.height);
   const fieldBase: TerminalStyle = {
     fg: { kind: 'theme', token: 'control.foreground' },
@@ -794,45 +788,6 @@ function commandSuggestionSpans(
   return spans;
 }
 
-function queryLabelSpans(
-  label: string,
-  ranges: readonly QueryMatchRange[],
-  baseStyle: TerminalStyle | undefined,
-  matchStyle: TerminalStyle | undefined,
-  source: (matched: boolean) => import('../../visual/frame-source.ts').FrameCellSource,
-): import('../../visual/render-content.ts').RenderSpan[] {
-  if (ranges.length === 0) {
-    return [span(label, {
-      ...(baseStyle === undefined ? {} : { style: baseStyle }),
-      source: source(false),
-    })];
-  }
-  const spans: import('../../visual/render-content.ts').RenderSpan[] = [];
-  let cursor = 0;
-  for (const range of ranges) {
-    if (range.start > cursor) {
-      spans.push(span(label.slice(cursor, range.start), {
-        ...(baseStyle === undefined ? {} : { style: baseStyle }),
-        source: source(false),
-      }));
-    }
-    if (range.end > range.start) {
-      spans.push(span(label.slice(range.start, range.end), {
-        ...(matchStyle === undefined ? {} : { style: matchStyle }),
-        source: source(true),
-      }));
-    }
-    cursor = Math.max(cursor, range.end);
-  }
-  if (cursor < label.length) {
-    spans.push(span(label.slice(cursor), {
-      ...(baseStyle === undefined ? {} : { style: baseStyle }),
-      source: source(false),
-    }));
-  }
-  return spans;
-}
-
 function commandInputHitTargets(
   input: ComponentInput<CommandInputModel>,
 ): readonly HitTarget<CommandInputComponentAction>[] {
@@ -944,30 +899,6 @@ function decodePlacement(
   assertOptionalEnum(value, ['above', 'below', 'left', 'right', 'auto', 'cursor'], owner);
   return value;
 }
-function clean(value: unknown, owner: string): string | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value !== 'string') throw new TypeError(`${owner} must be a string.`);
-  return sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ');
-}
-function nonEmpty(value: unknown, owner: string): string {
-  const result = clean(value, owner);
-  if (result === undefined || result.trim() === '') {
-    throw new TypeError(`${owner} must be non-empty.`);
-  }
-  return result;
-}
-function nonNegativeInteger(value: unknown, owner: string): number {
-  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
-    throw new RangeError(`${owner} must be a non-negative safe integer.`);
-  }
-  return value;
-}
 function optionalNonNegativeInteger(value: unknown, owner: string): number | undefined {
   return value === undefined ? undefined : nonNegativeInteger(value, owner);
-}
-function positiveInteger(value: unknown, owner: string): number | undefined {
-  if (value === undefined) return undefined;
-  const result = nonNegativeInteger(value, owner);
-  if (result < 1) throw new RangeError(`${owner} must be positive.`);
-  return result;
 }

@@ -453,6 +453,17 @@ test('runPrompt uses non-TTY line fallback for input prompts', async () => {
   assert.equal((await host.getCapabilities()).isTty, false);
 });
 
+test('non-TTY line fallback decodes UTF-8 across byte chunks and flushes at EOF', async () => {
+  for (const ending of ['', '\r\n']) {
+    const host = createMemoryTerminalHost({ isTty: false });
+    for (const byte of new TextEncoder().encode(`é🙂${ending}`)) host.input(Uint8Array.of(byte));
+    host.endInput();
+    const result = await runPrompt(input({ label: 'Name' }), host);
+    assert.equal(result.status, 'submitted');
+    assert.equal(result.value, 'é🙂');
+  }
+});
+
 test('runPrompt includes non-TTY hints when line fallback receives no input', async () => {
   const host = createMemoryTerminalHost({ isTty: false });
   host.endInput();

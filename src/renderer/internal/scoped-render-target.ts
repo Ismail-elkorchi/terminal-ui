@@ -8,7 +8,7 @@ import {
 import type { FrameCellSource } from '../../visual/frame-source.ts';
 import { decodeTerminalStyle } from '../../visual/terminal-style.ts';
 import { decodeTerminalLink } from '../../visual/render-content.ts';
-import type { RenderTarget, RenderTargetCell } from '../contracts.ts';
+import type { ComponentRenderTarget, RenderTarget, RenderTargetCell } from '../contracts.ts';
 import { intersectRects } from './rect.ts';
 import { transferFrameBufferSpans } from '../frame-buffer.ts';
 
@@ -18,34 +18,40 @@ export function createLocalComponentRenderTarget(
   bounds: Rect,
   viewport: Rect,
   owner: ScopedRenderOwner
-): RenderTarget {
+): { readonly target: ComponentRenderTarget; readonly close: () => void } {
   const absolute = createBoundedRenderTarget(target, bounds, viewport, owner);
+  let active = true;
+  const assertActive = (): void => {
+    if (!active) throw new Error(`Component "${owner.name}" drawing target is closed.`);
+  };
   const toAbsoluteRect = (rect: Rect): Rect => ({
     row: bounds.row + rect.row,
     column: bounds.column + rect.column,
     width: rect.width,
     height: rect.height
   });
-  return Object.freeze({
+  const local = Object.freeze({
+    coordinateSpace: 'component' as const,
     width: bounds.width,
     height: bounds.height,
     widthProfile: target.widthProfile,
-    write: (row, column, spans) => { absolute.write(bounds.row + row, bounds.column + column, spans); },
-    writeLine: (row, column, line) => { absolute.writeLine(bounds.row + row, bounds.column + column, line); },
-    writeBlock: (row, column, block) => { absolute.writeBlock(bounds.row + row, bounds.column + column, block); },
-    writeCell: (cell) => { absolute.writeCell({
+    write: (row, column, spans) => { assertActive(); absolute.write(bounds.row + row, bounds.column + column, spans); },
+    writeLine: (row, column, line) => { assertActive(); absolute.writeLine(bounds.row + row, bounds.column + column, line); },
+    writeBlock: (row, column, block) => { assertActive(); absolute.writeBlock(bounds.row + row, bounds.column + column, block); },
+    writeCell: (cell) => { assertActive(); absolute.writeCell({
       ...cell,
       row: bounds.row + cell.row,
       column: bounds.column + cell.column
     }); },
-    placeGraphic: (placement) => { absolute.placeGraphic({
+    placeGraphic: (placement) => { assertActive(); absolute.placeGraphic({
       ...placement,
       id: `${owner.graphicId ?? owner.id ?? owner.name}:${placement.id}`,
       bounds: toAbsoluteRect(placement.bounds),
       ...(placement.clip === undefined ? {} : { clip: toAbsoluteRect(placement.clip) })
     }); },
-    clear: (rect) => { absolute.clear(rect === undefined ? undefined : toAbsoluteRect(rect)); }
-  } satisfies RenderTarget);
+    clear: (rect) => { assertActive(); absolute.clear(rect === undefined ? undefined : toAbsoluteRect(rect)); }
+  } satisfies ComponentRenderTarget);
+  return { target: local, close: () => { active = false; } };
 }
 
 export function createClippedRenderTarget(
@@ -68,6 +74,7 @@ function createBoundedRenderTarget(
     writeClippedSpans(target, writableBounds, row, column, spans, owner);
   };
   return Object.freeze({
+    ...(target.coordinateSpace === undefined ? {} : { coordinateSpace: target.coordinateSpace }),
     width: target.width,
     height: target.height,
     widthProfile: target.widthProfile,

@@ -23,7 +23,6 @@ import {
   createScrollState,
   createLogHistory,
   createTreeSource,
-  createTreeView,
   type UnscrolledComboboxState,
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import { createCollectionInteractionIndex } from '@ismail-elkorchi/terminal-ui/interaction';
@@ -73,13 +72,13 @@ const scrollableListbox = listbox({
 });
 const unscrolledTree = tree({
   id: 'unscrolled-tree',
-  view: createTreeView(treeSource, { ...interaction, expandedIds: [] }),
+  source: treeSource,
   state: { ...interaction, expandedIds: [] },
   onTransition: (transition) => ({ kind: 'unscrolledTree' as const, transition }),
 });
 const scrollableTree = tree({
   id: 'scrollable-tree',
-  view: createTreeView(treeSource, { ...interaction, expandedIds: [], scroll }),
+  source: treeSource,
   state: { ...interaction, expandedIds: [], scroll },
   scrollbar: { visible: 'auto' },
   onTransition: (transition) => ({ kind: 'scrollableTree' as const, transition }),

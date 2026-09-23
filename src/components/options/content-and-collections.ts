@@ -1,3 +1,4 @@
+import type { RetainedCallbacks } from './availability.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
 import type { ComponentMessage } from '../../component/index.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
@@ -25,7 +26,7 @@ import type {
   WindowedTableCollection,
 } from '../../behavior/table.ts';
 import type {
-  TreeView,
+  TreeSource,
   TreeActivateEvent,
   TreeControlTransition,
   ScrollableTreeState,
@@ -111,22 +112,23 @@ export interface ActiveDisclosureOptions<
   TChild extends Element<ComponentMessage>
 >
   extends DisclosureOptionsBase<TChild> {
-  readonly disabled?: false;
+  readonly disabled?: boolean;
   readonly onTransition: (transition: DisclosureTransition) => MessageResolution<TMessage>;
 }
 
-export interface DisabledDisclosureOptions<TChild extends Element<ComponentMessage>>
-  extends DisclosureOptionsBase<TChild> {
+export type DisabledDisclosureOptions<
+  TChild extends Element<ComponentMessage>,
+  TMessage extends ComponentMessage = never,
+> = DisclosureOptionsBase<TChild> & {
   readonly disabled: true;
-  readonly onTransition?: never;
-}
+} & RetainedCallbacks<ActiveDisclosureOptions<TMessage, TChild>>;
 
 export type DisclosureOptions<
   TMessage extends ComponentMessage = never,
   TChild extends Element<ComponentMessage> = Element
 > =
   | ActiveDisclosureOptions<TMessage, TChild>
-  | DisabledDisclosureOptions<TChild>;
+  | DisabledDisclosureOptions<TChild, TMessage>;
 
 export type DisclosureMessage<
   TMessage extends ComponentMessage,
@@ -162,14 +164,14 @@ type ListboxDataOptions<TValue> =
     };
 
 interface ActiveListboxCallbacks<TMessage extends ComponentMessage> {
-  readonly disabled?: false;
-  readonly inert?: false;
+  readonly disabled?: boolean;
+  readonly inert?: boolean;
   readonly onTransition: (transition: ListboxTransition) => MessageResolution<TMessage>;
   readonly onActivate?: (event: ListboxActivateEvent) => MessageResolution<TMessage>;
 }
 
 interface InertListboxCallbacks {
-  readonly disabled?: false;
+  readonly disabled?: boolean;
   readonly inert: true;
   readonly onTransition?: never;
   readonly onActivate?: never;
@@ -177,9 +179,9 @@ interface InertListboxCallbacks {
 
 interface DisabledListboxCallbacks {
   readonly disabled: true;
+  readonly busy?: never;
   readonly onTransition?: never;
   readonly onActivate?: never;
-  readonly busy?: never;
 }
 
 type UnavailableListboxCallbacks = DisabledListboxCallbacks | InertListboxCallbacks;
@@ -212,7 +214,7 @@ interface TreeCommonOptions {
 }
 
 type TreeBaseOptions<TMetadata extends Readonly<Record<string, unknown>>> = TreeCommonOptions & {
-  readonly view: TreeView<TMetadata>;
+  readonly source: TreeSource<TMetadata>;
 };
 
 export type TreeOptions<
@@ -226,27 +228,30 @@ interface ActiveTreeCallbacks<
   TTransitionMessage extends ComponentMessage,
   TActivateMessage extends ComponentMessage,
 > {
-  readonly disabled?: false;
-  readonly inert?: false;
+  readonly disabled?: boolean;
+  readonly inert?: boolean;
   readonly onTransition: (transition: TreeTransition) => MessageResolution<TTransitionMessage>;
   readonly onActivate?: (event: TreeActivateEvent) => MessageResolution<TActivateMessage>;
 }
 
-interface InertTreeCallbacks {
-  readonly disabled?: false;
+type TreeCallbacks<TTransition, TTransitionMessage extends ComponentMessage, TActivateMessage extends ComponentMessage> =
+  Omit<ActiveTreeCallbacks<TTransitionMessage, TActivateMessage>, 'onTransition'> & {
+    readonly onTransition: (transition: TTransition) => MessageResolution<TTransitionMessage>;
+  };
+
+type InertTreeCallbacks<TTransition, TTransitionMessage extends ComponentMessage, TActivateMessage extends ComponentMessage> = {
+  readonly disabled?: boolean;
   readonly inert: true;
-  readonly onTransition?: never;
-  readonly onActivate?: never;
-}
+} & RetainedCallbacks<TreeCallbacks<TTransition, TTransitionMessage, TActivateMessage>>;
 
-interface DisabledTreeCallbacks {
+type DisabledTreeCallbacks<TTransition, TTransitionMessage extends ComponentMessage, TActivateMessage extends ComponentMessage> = {
   readonly disabled: true;
-  readonly onTransition?: never;
-  readonly onActivate?: never;
   readonly busy?: never;
-}
+} & RetainedCallbacks<TreeCallbacks<TTransition, TTransitionMessage, TActivateMessage>>;
 
-type UnavailableTreeCallbacks = DisabledTreeCallbacks | InertTreeCallbacks;
+type UnavailableTreeCallbacks<TTransition, TTransitionMessage extends ComponentMessage, TActivateMessage extends ComponentMessage> =
+  DisabledTreeCallbacks<TTransition, TTransitionMessage, TActivateMessage>
+  | InertTreeCallbacks<TTransition, TTransitionMessage, TActivateMessage>;
 
 export type UnscrolledTreeOptions<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
@@ -256,9 +261,7 @@ export type UnscrolledTreeOptions<
   readonly state: UnscrolledTreeState;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
-} & (Omit<ActiveTreeCallbacks<TTransitionMessage, TActivateMessage>, 'onTransition'> & {
-  readonly onTransition: (transition: TreeControlTransition) => MessageResolution<TTransitionMessage>;
-} | UnavailableTreeCallbacks);
+} & (TreeCallbacks<TreeControlTransition, TTransitionMessage, TActivateMessage> | UnavailableTreeCallbacks<TreeControlTransition, TTransitionMessage, TActivateMessage>);
 
 export type ScrollableTreeOptions<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
@@ -268,7 +271,7 @@ export type ScrollableTreeOptions<
   readonly state: ScrollableTreeState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-} & (ActiveTreeCallbacks<TTransitionMessage, TActivateMessage> | UnavailableTreeCallbacks);
+} & (ActiveTreeCallbacks<TTransitionMessage, TActivateMessage> | UnavailableTreeCallbacks<TreeTransition, TTransitionMessage, TActivateMessage>);
 
 interface TableCommonOptions {
   readonly id: string;
@@ -333,11 +336,6 @@ interface DataGridCallbacks<
   readonly onActivate?: (event: DataGridActivateEvent) => MessageResolution<TActivateMessage>;
 }
 
-interface UnavailableDataGridCallbacks {
-  readonly onTransition?: never;
-  readonly onActivate?: never;
-}
-
 interface DataGridBaseOptions extends TableCommonOptions {
   readonly disabled?: boolean;
   readonly busy?: boolean;
@@ -352,17 +350,17 @@ type DataGridAvailability<
   TActivateMessage extends ComponentMessage,
 > =
     | (DataGridCallbacks<TTransition, TTransitionMessage, TActivateMessage> & {
-        readonly disabled?: false;
-        readonly inert?: false;
+        readonly disabled?: boolean;
+        readonly inert?: boolean;
       })
-    | (UnavailableDataGridCallbacks & (
+    | (RetainedCallbacks<DataGridCallbacks<TTransition, TTransitionMessage, TActivateMessage>> & (
         | {
             readonly disabled: true;
             readonly inert?: boolean;
           }
         | {
             readonly inert: true;
-            readonly disabled?: false;
+            readonly disabled?: boolean;
           }
       ));
 
@@ -422,12 +420,12 @@ interface TextAreaBaseOptions {
 export type TextAreaOptions<TMessage extends ComponentMessage = never> =
   | UnscrolledTextAreaOptions<TMessage>
   | ScrollableTextAreaOptions<TMessage>
-  | DisabledTextAreaOptions;
+  | DisabledTextAreaOptions<TMessage>;
 
 export type UnscrolledTextAreaOptions<TMessage extends ComponentMessage = never> =
   & TextAreaBaseOptions
   & {
-    readonly disabled?: false;
+    readonly disabled?: boolean;
     readonly state: UnscrolledTextAreaControlState;
     readonly scrollbar?: never;
     readonly scrollPolicy?: never;
@@ -438,7 +436,7 @@ export type UnscrolledTextAreaOptions<TMessage extends ComponentMessage = never>
 export type ScrollableTextAreaOptions<TMessage extends ComponentMessage = never> =
   & TextAreaBaseOptions
   & {
-    readonly disabled?: false;
+    readonly disabled?: boolean;
     readonly state: ScrollableTextAreaControlState;
     readonly scrollbar?: ScrollbarOptions;
     readonly scrollPolicy?: ScrollPolicy;
@@ -446,22 +444,20 @@ export type ScrollableTextAreaOptions<TMessage extends ComponentMessage = never>
     readonly onContextMenu?: (event: TextContextMenuEvent) => MessageResolution<TMessage>;
   };
 
-export type DisabledTextAreaOptions = TextAreaBaseOptions & {
+export type DisabledTextAreaOptions<TMessage extends ComponentMessage = never> = TextAreaBaseOptions & {
   readonly disabled: true;
   readonly readOnly?: never;
-  readonly onTransition?: never;
-  readonly onContextMenu?: never;
 } & (
   | {
       readonly state: UnscrolledTextAreaControlState;
       readonly scrollbar?: never;
       readonly scrollPolicy?: never;
-    }
+    } & RetainedCallbacks<UnscrolledTextAreaOptions<TMessage>>
   | {
       readonly state: ScrollableTextAreaControlState;
       readonly scrollbar?: ScrollbarOptions;
       readonly scrollPolicy?: ScrollPolicy;
-  }
+    } & RetainedCallbacks<ScrollableTextAreaOptions<TMessage>>
 );
 
 export type {

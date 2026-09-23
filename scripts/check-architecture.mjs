@@ -38,6 +38,10 @@ const timerRestrictedLayers = new Set([...deterministicGlobalLayers, 'tui']);
 const componentDefinitionPrivateRendererDependencies = new Set([
   'renderer/internal/render-tree/component-node.ts'
 ]);
+const componentRendererAdapters = new Set([
+  'component/definition.ts',
+  'component/definition-adapter.ts',
+]);
 const componentSharedRendererDependencies = new Set([
   'renderer/contracts.ts',
   'renderer/measurement.ts',
@@ -100,10 +104,10 @@ const architectureDependencies = new Map([
   ['result.ts', new Set(['diagnostics.ts'])],
   ['testing', new Set([
     'accessibility', 'diagnostics.ts', 'element', 'foundation', 'host', 'input',
-    'interaction', 'renderer', 'text', 'theme', 'transcript'
+    'interaction', 'renderer', 'text', 'theme', 'transcript', 'tui'
   ])],
   ['text', new Set()],
-  ['theme', new Set(['text', 'visual'])],
+  ['theme', new Set(['foundation', 'text', 'visual'])],
   ['transcript', new Set([
     'accessibility', 'diagnostics.ts', 'foundation', 'graphics', 'host', 'input',
     'interaction', 'protocol', 'renderer', 'result.ts', 'text', 'visual'
@@ -381,6 +385,9 @@ function expressionProducesComponent(expression, seen) {
     return expressionProducesComponent(expression.left, new Set(seen))
       && expressionProducesComponent(expression.right, new Set(seen));
   }
+  if (ts.isCallExpression(expression) && ts.isCallExpression(expression.expression)) {
+    return expressionProducesComponent(expression.expression, seen);
+  }
   if (ts.isCallExpression(expression) || ts.isIdentifier(expression)) {
     const location = ts.isCallExpression(expression) ? expression.expression : expression;
     const symbol = checker.getSymbolAtLocation(location);
@@ -513,7 +520,7 @@ function forbiddenPrivateDependency(sourceFile, sourceLayer, targetFile) {
   }
   if (sourceLayer === 'component' && targetPath.startsWith('renderer/')) {
     if (componentSharedRendererDependencies.has(targetPath)) return false;
-    return sourcePath !== 'component/definition.ts'
+    return !componentRendererAdapters.has(sourcePath)
       || !componentDefinitionPrivateRendererDependencies.has(targetPath);
   }
   if (sourceLayer === 'components'

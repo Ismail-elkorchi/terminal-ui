@@ -35,7 +35,6 @@ export interface RenderBudget {
   addAccessibilityRelationships(count: number): void;
   addAccessibilityStrings(codeUnits: number): void;
   addGraphicsPlacements(count: number): void;
-  nodeCount(): number;
 }
 
 export function createRenderBudget(value?: unknown, graphics = createGraphicsBudget()): RenderBudget {
@@ -80,7 +79,6 @@ export function createRenderBudget(value?: unknown, graphics = createGraphicsBud
     addGraphicsPlacements(count: number) {
       graphics.addPlacement(count);
     },
-    nodeCount: () => counts.nodes,
   });
 
   function add(field: keyof typeof counts, count: number, limit: number): void {

@@ -37,7 +37,6 @@ import {
   createSearchPickerIndex,
   tabsReducer,
   createTreeSource,
-  createTreeView,
   treeReducer
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { CommandInputState, UnscrolledSearchPickerState } from '@ismail-elkorchi/terminal-ui/behavior';
@@ -191,7 +190,7 @@ function updateWorkspace(
   switch (message.kind) {
     case 'tree': {
       const nextTree = treeReducer(state.tree, message.transition, {
-        view: createTreeView(navigationTreeSource, state.tree),
+        source: navigationTreeSource,
       });
       const queue = queueFromSelection(selectedTreeId(nextTree));
       const rows = ticketsForQueue(queue);
@@ -373,7 +372,7 @@ function navigationPane(state: WorkspaceState) {
     tree({
       id: 'workspace-tree',
       meta: { accessibleName: 'Project navigation' },
-      view: createTreeView(navigationTreeSource, state.tree),
+      source: navigationTreeSource,
       state: state.tree,
       scrollbar: { visible: 'auto' },
       onTransition: (transition): WorkspaceMessage => ({ kind: 'tree', transition }),

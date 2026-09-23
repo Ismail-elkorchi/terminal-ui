@@ -6,8 +6,9 @@ import type {
 } from '../interaction/focus.ts';
 import { isIgnoredMessage } from '../interaction/message.ts';
 import {
-  collectRenderNodeLayoutTargets,
+  renderNodeLayoutAncestorsForFocus,
   focusedTargetIdForLayoutNode,
+  renderNodeKeyChainForFocus,
 } from '../renderer/internal/focus.ts';
 import type { LayoutNode } from '../renderer/contracts.ts';
 import type { RenderNode, RenderNodeOfKind } from '../renderer/internal/render-tree/index.ts';
@@ -18,6 +19,11 @@ interface FocusLifecycleTarget<TMessage> {
   readonly depth: number;
   readonly renderNode: RenderNodeOfKind<TMessage, 'component'>;
   readonly targetId?: string;
+}
+
+export interface FocusLifecycleMessage<TMessage> {
+  readonly message: TMessage;
+  readonly sensitiveOrigin: boolean;
 }
 
 export function focusLifecycleMessages<TMessage>(input: {
@@ -31,7 +37,7 @@ export function focusLifecycleMessages<TMessage>(input: {
     readonly layout: LayoutNode;
     readonly focusPath?: FocusPath;
   };
-}): readonly TMessage[] {
+}): readonly FocusLifecycleMessage<TMessage>[] {
   if (focusPathsEqual(input.previous?.focusPath, input.next.focusPath)) return [];
   const previous = lifecycleTargets(
     input.previous?.node,
@@ -39,6 +45,11 @@ export function focusLifecycleMessages<TMessage>(input: {
     input.previous?.focusPath,
   );
   const next = lifecycleTargets(input.next.node, input.next.layout, input.next.focusPath);
+  const previousSensitive = input.previous !== undefined
+    && renderNodeKeyChainForFocus(input.previous.node, input.previous.layout, input.previous.focusPath)
+      .some((node) => node.kind === 'component' && node.definition.sensitiveInput);
+  const nextSensitive = renderNodeKeyChainForFocus(input.next.node, input.next.layout, input.next.focusPath)
+    .some((node) => node.kind === 'component' && node.definition.sensitiveInput);
   const previousKeys = new Set(previous.map((target) => target.key));
   const nextKeys = new Set(next.map((target) => target.key));
   const previousByKey = new Map(previous.map((target) => [target.key, target]));
@@ -48,10 +59,10 @@ export function focusLifecycleMessages<TMessage>(input: {
   const targetEnters = next.filter((target) => target.targetId !== undefined
     && previousByKey.get(target.key)?.targetId !== target.targetId);
   return Object.freeze([
-    ...targetMessagesFor(targetLeaves, 'focusTargetLeave'),
-    ...messagesFor(previous.filter((target) => !nextKeys.has(target.key)), { kind: 'focusLeave' }),
-    ...messagesFor(next.filter((target) => !previousKeys.has(target.key)).toReversed(), { kind: 'focusEnter' }),
-    ...targetMessagesFor(targetEnters.toReversed(), 'focusTargetEnter'),
+    ...targetMessagesFor(targetLeaves, 'focusTargetLeave', previousSensitive),
+    ...messagesFor(previous.filter((target) => !nextKeys.has(target.key)), { kind: 'focusLeave' }, previousSensitive),
+    ...messagesFor(next.filter((target) => !previousKeys.has(target.key)).toReversed(), { kind: 'focusEnter' }, nextSensitive),
+    ...targetMessagesFor(targetEnters.toReversed(), 'focusTargetEnter', nextSensitive),
   ]);
 }
 
@@ -62,13 +73,12 @@ function lifecycleTargets<TMessage>(
 ): readonly FocusLifecycleTarget<TMessage>[] {
   if (node === undefined || layout === undefined || focusPath === undefined) return [];
   const occurrences = new Map<string, number>();
-  return collectRenderNodeLayoutTargets(node, layout)
+  return renderNodeLayoutAncestorsForFocus(node, layout, focusPath)
     .filter((target): target is typeof target & {
       readonly renderNode: RenderNodeOfKind<TMessage, 'component'>;
     } => target.renderNode.kind === 'component'
       && (target.renderNode.focusLifecycle !== undefined
-        || target.renderNode.focusTargetLifecycle !== undefined)
-      && pathStartsWith(focusPath, target.path))
+        || target.renderNode.focusTargetLifecycle !== undefined))
     .map((target) => {
       const base = `${target.path.join('\u0000')}\u0001${target.renderNode.definition.name}\u0001${target.renderNode.id ?? ''}`;
       const occurrence = occurrences.get(base) ?? 0;
@@ -91,31 +101,29 @@ function lifecycleTargets<TMessage>(
 function targetMessagesFor<TMessage>(
   targets: readonly FocusLifecycleTarget<TMessage>[],
   kind: FocusTargetLifecycleEvent['kind'],
-): readonly TMessage[] {
+  sensitiveOrigin: boolean,
+): readonly FocusLifecycleMessage<TMessage>[] {
   return targets.flatMap((target) => {
     if (target.targetId === undefined || target.renderNode.focusTargetLifecycle === undefined) return [];
     const message = resolveRenderNodeMessage(
       target.renderNode,
       target.renderNode.focusTargetLifecycle({ kind, targetId: target.targetId }),
     );
-    return isIgnoredMessage(message) ? [] : [message as TMessage];
+    return isIgnoredMessage(message) ? [] : [{ message: message as TMessage, sensitiveOrigin }];
   });
 }
 
 function messagesFor<TMessage>(
   targets: readonly FocusLifecycleTarget<TMessage>[],
   event: FocusLifecycleEvent,
-): readonly TMessage[] {
+  sensitiveOrigin: boolean,
+): readonly FocusLifecycleMessage<TMessage>[] {
   return targets.flatMap((target) => {
     if (target.renderNode.focusLifecycle === undefined) return [];
     const message = resolveRenderNodeMessage(
       target.renderNode,
       target.renderNode.focusLifecycle(event),
     );
-    return isIgnoredMessage(message) ? [] : [message as TMessage];
+    return isIgnoredMessage(message) ? [] : [{ message: message as TMessage, sensitiveOrigin }];
   });
-}
-
-function pathStartsWith(path: FocusPath, prefix: FocusPath): boolean {
-  return path.length >= prefix.length && prefix.every((segment, index) => path[index] === segment);
 }

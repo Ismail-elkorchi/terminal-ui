@@ -76,11 +76,8 @@ deno add jsr:@ismail-elkorchi/terminal-ui
 
 - [Component definitions](./guides/component-definitions.md) is the public
   authoring contract for reusable leaf, composite, and composed components.
-- [Building polished components](./guides/building-polished-components.md)
-  covers interaction, tiny bounds, styling anatomy, accessibility, and
-  conformance.
-- [Element and component model](./guides/element-and-component-model.md)
-  explains opaque elements, public inspection, and the construction boundary.
+- [Architecture](./guides/architecture.md) explains opaque elements, public
+  inspection, and the renderer boundary.
 
 ## Reference and Internals
 

@@ -10,6 +10,97 @@ import {
 import { button, tabs, text, textArea, textInput } from '../../dist/components/index.js';
 import { row } from '../../dist/layout/index.js';
 import { createTextDocument, textCaretAt } from '../../dist/text/index.js';
+import { overlay } from '../../dist/layout/index.js';
+import { renderElementInternal, rerenderElementInternal } from '../../dist/renderer/internal/render-element.js';
+import { collectLayoutFocusTargets } from '../../dist/renderer/internal/focus.js';
+
+test('initial focus is resolved before the first paint and snapshot', async () => {
+  const stages = [];
+  const app = defineTui({
+    id: 'initial-focus-single-paint',
+    init: () => ({ state: 0 }),
+    update: (state) => ({ state }),
+    view: () => row([
+      button({ id: 'first', label: 'First', onPress: () => 1 }),
+      button({ id: 'second', label: 'Second', onPress: () => 2 }),
+    ]),
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 2 } }),
+    initialFocus: { kind: 'element', elementId: 'second' },
+    instrumentation: {
+      now: () => 1,
+      record: (sample) => { stages.push(sample.stage); },
+    },
+  });
+  try {
+    const frame = await runtime.start();
+    assert.ok(frame.focusPath?.includes('second'));
+    assert.equal(stages.filter((stage) => stage === 'snapshot').length, 1);
+    assert.equal(stages.filter((stage) => stage === 'regions').length, 1);
+  } finally {
+    await runtime.dispose();
+  }
+});
+
+test('focus repaint retains unaffected regions and matches a fresh render', () => {
+  const element = overlay([
+    textInput({ id: 'first', meta: { accessibleName: 'First', layer: { zIndex: 2 } },
+      state: { text: 'first', cursor: 0 }, onTransition: () => ({ kind: 'edit' }) }),
+    textInput({ id: 'second', meta: { accessibleName: 'Second', layer: { zIndex: 2 } },
+      state: { text: 'second', cursor: 0 }, onTransition: () => ({ kind: 'edit' }) }),
+    text({ id: 'static', content: 'static', meta: { layer: { zIndex: 3 } } })
+  ], { id: 'layers' });
+  const size = { columns: 20, rows: 2 };
+  const initial = renderElementInternal(element, size);
+  const targets = collectLayoutFocusTargets(initial.layout);
+  const other = targets.find((target) => target.path.includes('first'))?.path;
+  assert.ok(other);
+  const reused = rerenderElementInternal(initial, { focusPath: other });
+  const fresh = renderElementInternal(element, size, { focusPath: other });
+  assert.deepEqual(reused.frame, fresh.frame);
+  const staticRegion = initial.regions.find((region) => region.zIndex === 3);
+  assert.ok(staticRegion);
+  assert.strictEqual(reused.regions.find((region) => region.id === staticRegion.id), staticRegion);
+});
+
+test('explicit redraw replaces view callbacks even when layout bounds are unchanged', async () => {
+  let version = 1;
+  let viewCalls = 0;
+  const app = defineTui({
+    id: 'redraw-view-refresh',
+    init: () => ({ state: { selected: 0 } }),
+    update: (_state, message) => ({ state: { selected: message.selected } }),
+    view: () => {
+      viewCalls += 1;
+      const selected = version;
+      return button({ id: 'refresh-button', label: `Pick ${selected}`,
+        onPress: () => ({ selected }) });
+    },
+  });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 16, rows: 2 } });
+  const runtime = createTuiRuntime({ app, host, input: { mouseReporting: 'drag' } });
+  await runtime.start();
+  version = 2;
+  const refreshed = await runtime.redraw();
+  assert.equal(viewCalls, 2);
+  assert.match(refreshed.cells.map((cell) => cell.text).join(''), /Pick 2/u);
+  const target = refreshed.hitTargets?.find((item) => item.id.startsWith('refresh-button'));
+  assert.ok(target);
+  await runtime.handleInput({
+    kind: 'mouse', action: 'press', button: 'left', row: target.bounds.row,
+    column: target.bounds.column, sequence: '', encoding: 'sgr', rawCode: 0,
+    modifiers: { shift: false, alt: false, ctrl: false },
+  });
+  await runtime.handleInput({
+    kind: 'mouse', action: 'release', button: 'left', row: target.bounds.row,
+    column: target.bounds.column, sequence: '', encoding: 'sgr', rawCode: 0,
+    modifiers: { shift: false, alt: false, ctrl: false },
+  });
+  assert.equal(runtime.state().selected, 2);
+  await runtime.dispose();
+});
 
 test('TUI tabs expose clickable tab hit targets', async () => {
   const app = defineTui({
@@ -50,12 +141,12 @@ test('TUI pointer presses focus the declared target before application actions',
     view: (state) => row([
       textInput({ meta: { accessibleName: "Text input" },
         id: 'first-field',
-        state: { value: `first ${String(state.pointerActions)}`, cursor: 0 },
+        state: { text: `first ${String(state.pointerActions)}`, cursor: 0 },
         onTransition: () => ({ kind: 'pointer' })
       }),
       textInput({ meta: { accessibleName: "Text input" },
         id: 'second-field',
-        state: { value: 'second', cursor: 0 },
+        state: { text: 'second', cursor: 0 },
         onTransition: () => ({ kind: 'pointer' })
       })
     ], { id: 'pointer-focus-fields', sizes: [{ kind: 'fill' }, { kind: 'fill' }] })
@@ -142,11 +233,11 @@ test('TUI runtime routes mouse input through the committed render cache', async 
   assert.notEqual(target, undefined);
   await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}M` });
   assert.equal(runtime.state()?.count, 0);
-  assert.equal(viewCalls, 2);
+  assert.equal(viewCalls, 1);
   await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}m` });
 
   assert.equal(runtime.state()?.count, 1);
-  assert.equal(viewCalls, 3);
+  assert.equal(viewCalls, 2);
 });
 
 test('TUI runtime uses committed hit targets without recomputing renderer hit targets', async () => {

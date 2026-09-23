@@ -1,13 +1,13 @@
-import { createAccessibleSnapshot } from '../accessibility/index.ts';
 import { createMemoryTerminalHost } from '../host/index.ts';
 import { decodeInputChunk, decodeInputEvent } from '../input/index.ts';
 import { createTranscriptRecorder } from '../transcript/index.ts';
 import { encodeHarnessInputEvent } from './input-events.ts';
-import type { AccessibleSnapshot } from '../accessibility/index.ts';
+import { latestRecordedSnapshot, recordedHarnessCommit } from './recording.ts';
+import { createTuiRuntime } from '../tui/runtime.ts';
+import type { TuiRuntime } from '../tui/types.ts';
 import type { MemoryTerminalHost } from '../host/index.ts';
 import type { RecordedInputEvent } from '../input/index.ts';
 import type { Frame, FrameDescriptor, RenderDiff, RenderDiffDescriptor } from '../renderer/index.ts';
-import type { InteractionTranscriptStep, TranscriptRuntimeCommit } from '../transcript/index.ts';
 import type { TerminalHarness, TerminalHarnessOptions } from './types.ts';
 
 export function createTerminalHarness(options: TerminalHarnessOptions = {}): TerminalHarness {
@@ -17,6 +17,8 @@ export function createTerminalHarness(options: TerminalHarnessOptions = {}): Ter
   let pendingFrame: Frame | undefined;
   let commitSequence = 1;
   let replayRestorePhase: 'checkpoint' | 'shutdown' | undefined;
+  let activeRuntime: TuiRuntime<unknown, unknown> | undefined;
+  const commitWaiters: { readonly resolve: (frame: Frame) => void; readonly reject: (cause: Error) => void }[] = [];
   const host = createMemoryTerminalHost({
     ...(options.terminalSize === undefined ? {} : { terminalSize: options.terminalSize }),
     observer: {
@@ -27,14 +29,17 @@ export function createTerminalHarness(options: TerminalHarnessOptions = {}): Ter
       recordDiff(diff) {
         const typedDiff = diff as RenderDiff;
         diffs.push(typedDiff);
-        if (pendingFrame !== undefined) {
+        if (pendingFrame !== undefined && activeRuntime === undefined) {
           transcript.record({
             kind: 'commit',
-            commit: harnessCommit(`harness:commit:${String(commitSequence)}`, commitSequence - 1, pendingFrame, typedDiff)
+            commit: recordedHarnessCommit(`harness:commit:${String(commitSequence)}`, commitSequence - 1, pendingFrame, typedDiff)
           });
           commitSequence += 1;
-          pendingFrame = undefined;
         }
+        if (pendingFrame !== undefined && activeRuntime !== undefined) {
+          for (const waiter of commitWaiters.splice(0)) waiter.resolve(pendingFrame);
+        }
+        pendingFrame = undefined;
       },
       recordRestore(checkpoint) {
         transcript.record({
@@ -51,11 +56,27 @@ export function createTerminalHarness(options: TerminalHarnessOptions = {}): Ter
     transcript,
     input(event) {
       if (typeof event === 'string') {
+        const runtime = activeRuntime;
+        if (runtime !== undefined) {
+          return runtime.handleInputChunk({ data: event })
+            .then(() => runtime.flushInput()).then(() => undefined);
+        }
         host.input(event);
         for (const decoded of decodeInputChunk({ data: event })) transcript.record({ kind: 'input', event: decoded });
         return Promise.resolve();
       }
       const admitted = decodeInputEvent(event);
+      const runtime = activeRuntime;
+      if (runtime !== undefined) {
+        if (admitted.kind === 'resize') {
+          return runtime.resize(admitted.terminalSize).then(() => undefined);
+        }
+        if (admitted.kind === 'signal' || admitted.kind === 'end') {
+          throw new TypeError(`An attached TUI runtime cannot receive ${admitted.kind} as a semantic input event.`);
+        }
+        return runtime.handleInput(admitted)
+          .then(() => runtime.flushInput()).then(() => undefined);
+      }
       deliverHarnessInputEvent(host, admitted);
       transcript.record({ kind: 'input', event: admitted });
       return Promise.resolve();
@@ -63,15 +84,40 @@ export function createTerminalHarness(options: TerminalHarnessOptions = {}): Ter
     resize(terminalSize) {
       const admitted = decodeInputEvent({ kind: 'resize', terminalSize });
       if (admitted.kind !== 'resize') throw new Error('Expected a decoded resize event.');
+      if (activeRuntime !== undefined) return activeRuntime.resize(admitted.terminalSize).then(() => undefined);
       deliverHarnessResize(host, admitted.terminalSize);
       transcript.record({ kind: 'input', event: admitted });
       return Promise.resolve();
     },
+    nextCommit() {
+      if (activeRuntime === undefined) throw new Error('nextCommit requires an attached TUI app.');
+      return new Promise<Frame>((resolve, reject) => { commitWaiters.push({ resolve, reject }); });
+    },
     async run(operation) {
       return operation(host);
     },
+    async runApp(app, operation) {
+      if (activeRuntime !== undefined) throw new Error('A TUI runtime is already attached to this harness.');
+      const runtime = createTuiRuntime({ app, host, transcript });
+      activeRuntime = runtime;
+      try {
+        await runtime.start();
+        return await operation(runtime);
+      } finally {
+        try {
+          await runtime.dispose();
+        } finally {
+          for (const waiter of commitWaiters.splice(0)) {
+            waiter.reject(new Error('TUI app exited before the expected commit.'));
+          }
+          activeRuntime = undefined;
+        }
+      }
+    },
     snapshot() {
-      return latestHarnessSnapshot(transcript.snapshot().steps, frames);
+      return latestRecordedSnapshot(transcript.snapshot().steps, frames, {
+        source: 'test_harness', id: 'terminal-harness', label: 'Terminal harness',
+      });
     },
     frames: () => [...frames],
     diffs: () => [...diffs],
@@ -113,32 +159,4 @@ function deliverHarnessInputEvent(host: MemoryTerminalHost, event: RecordedInput
 function deliverHarnessResize(host: MemoryTerminalHost, terminalSize: { readonly columns: number; readonly rows: number }): void {
   void host.terminalSizeControl?.setTerminalSize(terminalSize);
   host.signals.emit('resize');
-}
-
-function latestHarnessSnapshot(
-  steps: readonly InteractionTranscriptStep[],
-  frames: readonly FrameDescriptor[]
-): AccessibleSnapshot {
-  for (let index = steps.length - 1; index >= 0; index -= 1) {
-    const step = steps[index];
-    if (step?.kind === 'snapshot') return step.snapshot;
-    if (step?.kind === 'commit') return step.commit.frame.accessibility;
-  }
-  const lastFrame = frames.at(-1);
-  if (lastFrame !== undefined) return lastFrame.accessibility;
-  return createAccessibleSnapshot({
-    source: 'test_harness',
-    root: { id: 'terminal-harness', role: 'group', label: 'Terminal harness' }
-  });
-}
-
-function harnessCommit(id: string, stateVersion: number, frame: Frame, diff: RenderDiff): TranscriptRuntimeCommit {
-  return {
-    id,
-    stateVersion,
-    terminalSize: { columns: frame.width, rows: frame.height },
-    ...(frame.focusPath === undefined ? {} : { focusPath: frame.focusPath }),
-    frame,
-    diff
-  };
 }

@@ -59,16 +59,7 @@ const instantiateButton = defineActionButtonComponent('terminal-ui/components/bu
 export const instantiateToggleButton = defineActionButtonComponent('terminal-ui/components/toggle-button');
 
 function defineActionButtonComponent(name: `${string}/${string}`): ActionButtonComponentFactory {
-  return defineComponent<
-  ButtonOwnOptions,
-  ButtonModel,
-  ButtonComponentAction,
-  ButtonStylePart,
-  readonly ['disabled', 'busy', 'inert'],
-  'required',
-  readonly ['styles', 'layer', 'focus'],
-  readonly ['focused', 'hovered', 'pressed', 'disabled', 'busy']
->({
+  return defineComponent<ButtonOwnOptions, ButtonComponentAction>()({
   name,
   identity: 'required',
   structure: 'leaf',
@@ -175,10 +166,11 @@ export const button: ButtonFactory = (options) => {
     ...(options.tone === undefined ? {} : { tone: options.tone }),
     ...(options.density === undefined ? {} : { density: options.density }),
     ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
     ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
-  if (options.disabled === true) return instantiateButton({ ...own, disabled: true });
+  if (options.disabled === true && options.onPress === undefined) return instantiateButton({ ...own, disabled: true });
   assertPressCallback(options, 'button');
   return instantiateButton({
     ...own,

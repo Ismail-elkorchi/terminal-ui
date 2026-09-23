@@ -24,7 +24,7 @@ test('editable components share one read-only mutation policy', async () => {
       name: 'textInput',
       element: (onTransition) => textInput({ meta: { accessibleName: "Text input" },
         id: 'control',
-        state: { value: 'abc', cursor: 1 },
+        state: { text: 'abc', cursor: 1 },
         readOnly: true,
         onTransition
       }),
@@ -34,7 +34,7 @@ test('editable components share one read-only mutation policy', async () => {
       name: 'passwordInput',
       element: (onTransition) => passwordInput({ meta: { accessibleName: "Password input" },
         id: 'control',
-        state: { value: 'abc', cursor: 1 },
+        state: { text: 'abc', cursor: 1 },
         readOnly: true,
         onTransition
       }),

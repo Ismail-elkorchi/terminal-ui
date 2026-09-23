@@ -2,6 +2,7 @@ import { decodeInputTrigger, inputTriggerIdentity } from '../input/index.ts';
 import type { TuiBindingHelpItem } from './types.ts';
 import type { InputTrigger } from '../input/index.ts';
 import type { TuiApp, TuiDefinition, TuiInputBinding } from './types.ts';
+import { assertSupportedFields, isNonArrayObject } from '../foundation/validation.ts';
 
 const tuiDefinitions = new WeakMap<object, object>();
 
@@ -15,6 +16,10 @@ export function defineTui<TState, TMessage extends NonNullable<unknown>>(
     throw new TypeError('TUI definition must be an object.');
   }
   const supplied = definition as Readonly<Record<string, unknown>>;
+  assertSupportedFields(supplied, [
+    'id', 'init', 'update', 'view', 'inputBindings', 'subscriptions', 'resizeMessage',
+    'onExit', 'transcript', 'nonTty'
+  ], 'tui');
   const suppliedId = supplied['id'];
   const init = supplied['init'];
   const update = supplied['update'];
@@ -108,7 +113,7 @@ function normalizeInputBindings<TState, TMessage>(
       throw new TypeError(`TUI input binding id ${JSON.stringify(binding.id)} is duplicated.`);
     }
     ids.add(binding.id);
-    const triggers = decodeBindingTriggers(binding.id, binding.triggers);
+    const triggers = decodeBindingTriggers(binding.id, binding.triggers, index);
     const base = {
       id: binding.id,
       triggers,
@@ -140,6 +145,9 @@ function decodeInputBinding(value: unknown, index: number): DecodedInputBinding 
     throw new TypeError(`${subject} must be an object.`);
   }
   const candidate = value as Readonly<Record<string, unknown>>;
+  assertSupportedFields(candidate, [
+    'id', 'triggers', 'phase', 'label', 'enabled', 'message', 'toMessage'
+  ], `tui.inputBindings[${String(index)}]`);
   const id = candidate['id'];
   const triggers = candidate['triggers'];
   const phase = candidate['phase'];
@@ -229,9 +237,24 @@ function checkedMessageMapper(
   };
 }
 
-function decodeBindingTriggers(id: string, values: readonly unknown[]): readonly InputTrigger[] {
+function decodeBindingTriggers(id: string, values: readonly unknown[], bindingIndex: number): readonly InputTrigger[] {
   const identities = new Set<string>();
-  return Object.freeze(values.map((value) => {
+  return Object.freeze(values.map((value, index) => {
+    if (isNonArrayObject(value)) {
+      const path = `tui.inputBindings[${String(bindingIndex)}].triggers[${String(index)}]`;
+      const shared = ['kind', 'modifiers', 'eventType', 'location'];
+      const fields = value['kind'] === 'text' ? ['kind', 'text']
+        : value['kind'] === 'focus' ? ['kind', 'focused']
+          : value['kind'] === 'key' ? [...shared, 'key']
+            : value['kind'] === 'codePoint' ? [...shared, 'codePoint', 'source']
+              : [...shared, 'codePoint'];
+      assertSupportedFields(value, fields, path);
+      if (isNonArrayObject(value['modifiers'])) {
+        assertSupportedFields(value['modifiers'], [
+          'kind', 'ctrl', 'alt', 'shift', 'meta', 'super', 'hyper', 'capsLock', 'numLock'
+        ], `${path}.modifiers`);
+      }
+    }
     const trigger = decodeInputTrigger(value);
     const identity = inputTriggerIdentity(trigger);
     if (identities.has(identity)) {
@@ -248,6 +271,7 @@ function decodeNonTty(value: unknown): TuiDefinition<unknown, unknown>['nonTty']
     throw new TypeError('TUI nonTty must be an object.');
   }
   const candidate = value as Readonly<Record<string, unknown>>;
+  assertSupportedFields(candidate, ['mode', 'diagnosticHint'], 'tui.nonTty');
   const mode = candidate['mode'];
   if (mode !== 'reject' && mode !== 'transcript_only' && mode !== 'last_frame') {
     throw new TypeError('TUI nonTty mode is unsupported.');

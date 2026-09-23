@@ -53,14 +53,14 @@ function scheduleTextValidation<TChoice>(
   const version = state.validationVersion + 1;
   state.validationVersion = version;
   const value = state.buffer.text;
-  void (async () => {
+  hooks.owner.track(async () => {
     const validation = await validatePromptValue({
       prompt,
       value,
       host,
       signal: controller.signal
     });
-    if (controller.signal.aborted || state.completed || version !== state.validationVersion) return;
+    if (controller.signal.aborted || state.completed || !hooks.owner.active || version !== state.validationVersion) return;
     if (validation.status === 'valid') {
       state.validationStatus = 'valid';
       delete state.validationDiagnostic;
@@ -69,7 +69,7 @@ function scheduleTextValidation<TChoice>(
       state.validationDiagnostic = validation.diagnostic;
     }
     await hooks.render(host, prompt, state);
-  })();
+  });
 }
 
 function clearValidationState<TChoice>(state: PromptRuntimeState<TChoice>): void {

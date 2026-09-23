@@ -302,11 +302,11 @@ test('textArea renders multiline windows and exposes cursor/accessibility state'
 test('editable text controls expose source metadata for frame, value, placeholder, and selection', () => {
   const inputFrame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'email',
-    state: { value: 'abc', cursor: 0, selection: { startOffset: 1, endOffsetExclusive: 2 } },
+    state: { text: 'abc', cursor: 0, selection: { startOffset: 1, endOffsetExclusive: 2 } },
   }), { columns: 12, rows: 1 });
   const placeholderFrame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'empty',
-    state: { value: '', cursor: 0 },
+    state: { text: '', cursor: 0 },
     placeholder: 'Email'
   }), { columns: 12, rows: 1 });
   const numberFrame = renderElementFrame(numberInput({ meta: { accessibleName: "Number input" },
@@ -329,11 +329,11 @@ test('text components map Unicode cursor positions through the shared text contr
   const value = 'a🙂界b';
   const textInputFrame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'unicode-input',
-    state: { value, cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length } }
+    state: { text: value, cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length } }
   }), { columns: 12, rows: 1 }, { focusPath: ['unicode-input'] });
   const secondaryInputFrame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'unicode-field',
-    state: { value: 'go🙂', cursor: 'go🙂'.length }
+    state: { text: 'go🙂', cursor: 'go🙂'.length }
   }), { columns: 12, rows: 1 }, { focusPath: ['unicode-field'] });
   const commandFrame = renderElementFrame(commandInput({ meta: { accessibleName: "Command input" },
     id: 'unicode-command',
@@ -1038,7 +1038,7 @@ test('editable text controls remain readable in high contrast and no-color rende
   const element = column([
     textInput({ meta: { accessibleName: "Text input" },
       id: 'contrast-input',
-      state: { value: 'alpha', cursor: 0, selection: { startOffset: 1, endOffsetExclusive: 4 } },
+      state: { text: 'alpha', cursor: 0, selection: { startOffset: 1, endOffsetExclusive: 4 } },
       error: 'Invalid value'
     }),
     commandInput({ meta: { accessibleName: "Command input" },
@@ -1075,7 +1075,7 @@ test('editable text controls remain identifiable when the theme has no field fil
   const frame = renderElementFrame(column([
     textInput({
       id: 'no-color-input',
-      state: { value: 'alpha', cursor: 0 },
+      state: { text: 'alpha', cursor: 0 },
       meta: { accessibleName: "Text input", focus: { disabled: true } }
     }),
     commandInput({
@@ -1096,7 +1096,7 @@ test('editable text controls remain identifiable when the theme has no field fil
 test('disabled textInput exposes no mouse hit target', () => {
   const frame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'disabled-input',
-    state: { value: 'locked', cursor: 0 },
+    state: { text: 'locked', cursor: 0 },
     disabled: true
   }), { columns: 16, rows: 1 });
 
@@ -1106,7 +1106,7 @@ test('disabled textInput exposes no mouse hit target', () => {
 test('textInput maps pointer positions to text offsets when opted in', () => {
   const regions = renderElementRegions(textInput({ meta: { accessibleName: "Text input" },
     id: 'editable-input',
-    state: { value: 'alpha', cursor: 0 },
+    state: { text: 'alpha', cursor: 0 },
     onTransition: (action) => ({ action })
   }), { columns: 16, rows: 1 });
   const target = targetById(regions, 'editable-input:text');
@@ -1128,7 +1128,7 @@ test('editable text targets share word selection and non-mutating context menus'
   const regions = renderElementRegions(createTextInput({ meta: { accessibleName: 'Text input' },
     id: 'shared-text-pointer',
     state: {
-      value: 'alpha bravo',
+      text: 'alpha bravo',
       cursor: 3,
       selection: { startOffset: 0, endOffsetExclusive: 5 },
     },
@@ -1183,7 +1183,7 @@ test('numberInput exposes the shared text pointer editing contract', () => {
 test('single-line text controls share cursor-relative rendering and pointer geometry', () => {
   const textElement = createTextInput({ meta: { accessibleName: 'Text input' },
     id: 'windowed-text-input',
-    state: { value: 'abcdef', cursor: 6 },
+    state: { text: 'abcdef', cursor: 6 },
     onTransition: (action) => ({ action }),
   });
   const textFrame = renderElementFrame(textElement, { columns: 6, rows: 1 }, {
@@ -1237,7 +1237,7 @@ test('single-line text controls share cursor-relative rendering and pointer geom
 test('disabled textInput exposes no editable pointer targets', () => {
   const frame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'disabled-editable-input',
-    state: { value: 'locked', cursor: 0 },
+    state: { text: 'locked', cursor: 0 },
     disabled: true
   }), { columns: 16, rows: 1 });
 

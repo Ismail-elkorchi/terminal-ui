@@ -12,7 +12,7 @@ import {
   text,
   textInput,
 } from '../../dist/index.js';
-import { textInputReducer, textInputState } from '../../dist/behavior/index.js';
+import { textInputReducer } from '../../dist/behavior/index.js';
 import { createNodeTerminalHost } from '../../dist/host/index.js';
 import { noColorTheme } from '../../dist/theme/index.js';
 
@@ -83,7 +83,7 @@ const probeApp = defineTui({
     text({ id: 'emulator-ready', content: 'TERMINAL_UI_EMULATOR_READY' }),
     textInput({
       id: 'emulator-input',
-      state: textInputState(state.input),
+      state: state.input,
       onTransition: (transition) => ({ kind: 'input', transition }),
       meta: { accessibleName: 'Emulator text input' },
     }),

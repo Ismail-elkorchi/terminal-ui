@@ -1,3 +1,4 @@
+import type { RetainedCallbacks } from './availability.ts';
 import type { ComponentMessage, ComponentMetadataOptions } from '../../component/index.ts';
 import type {
   ScrollPolicy,
@@ -39,25 +40,21 @@ export type ListViewScrollbarOptions = Omit<ScrollbarOptions, 'axis'> & {
 };
 
 interface ActiveListViewOptions<TTransition, TMessage extends ComponentMessage> {
-  readonly disabled?: false;
-  readonly inert?: false;
+  readonly disabled?: boolean;
+  readonly inert?: boolean;
   readonly onTransition: (transition: TTransition) => MessageResolution<TMessage>;
   readonly onActivate?: (event: ListViewActivateEvent) => MessageResolution<TMessage>;
 }
 
-interface InertListViewOptions {
-  readonly disabled?: false;
+type InertListViewOptions<TTransition, TMessage extends ComponentMessage> = {
+  readonly disabled?: boolean;
   readonly inert: true;
-  readonly onTransition?: never;
-  readonly onActivate?: never;
-}
+} & RetainedCallbacks<ActiveListViewOptions<TTransition, TMessage>>;
 
-interface DisabledListViewOptions {
+type DisabledListViewOptions<TTransition, TMessage extends ComponentMessage> = {
   readonly disabled: true;
   readonly busy?: never;
-  readonly onTransition?: never;
-  readonly onActivate?: never;
-}
+} & RetainedCallbacks<ActiveListViewOptions<TTransition, TMessage>>;
 
 /** @beta */
 export type ListViewOptions<
@@ -75,7 +72,7 @@ export type UnscrolledListViewOptions<
   readonly state: UnscrolledListViewState;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
-} & (ActiveListViewOptions<ListViewControlTransition, TMessage> | DisabledListViewOptions | InertListViewOptions);
+} & (ActiveListViewOptions<ListViewControlTransition, TMessage> | DisabledListViewOptions<ListViewControlTransition, TMessage> | InertListViewOptions<ListViewControlTransition, TMessage>);
 
 /** @beta */
 export type ScrollableListViewOptions<
@@ -86,7 +83,7 @@ export type ScrollableListViewOptions<
   readonly state: ScrollableListViewState;
   readonly scrollbar?: ListViewScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-} & (ActiveListViewOptions<ListViewTransition, TMessage> | DisabledListViewOptions | InertListViewOptions);
+} & (ActiveListViewOptions<ListViewTransition, TMessage> | DisabledListViewOptions<ListViewTransition, TMessage> | InertListViewOptions<ListViewTransition, TMessage>);
 
 export type {
   ListViewActivateEvent,

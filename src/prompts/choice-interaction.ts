@@ -39,7 +39,7 @@ export async function applySelectEvent<TValue>(
     await hooks.render(host, prompt, state);
     return undefined;
   }
-  if (await maybeLoadNextChoicePage(prompt, host, state, event, hooks)) return undefined;
+  if (maybeLoadNextChoicePage(prompt, host, state, event, hooks)) return undefined;
   if (event.kind === 'text') {
     let changed = false;
     for (const grapheme of segmentGraphemes(event.text)) {
@@ -95,7 +95,7 @@ export async function applyMultiSelectEvent<TValue>(
     await hooks.render(host, prompt, state);
     return undefined;
   }
-  if (await maybeLoadNextChoicePage(prompt, host, state, event, hooks)) return undefined;
+  if (maybeLoadNextChoicePage(prompt, host, state, event, hooks)) return undefined;
   if (event.kind === 'text') {
     let changed = false;
     for (const grapheme of segmentGraphemes(event.text)) {
@@ -137,7 +137,7 @@ export async function applyAutocompleteEvent<TValue>(
     await hooks.render(host, prompt, state);
     return undefined;
   }
-  if (await maybeLoadNextChoicePage(prompt, host, state, event, hooks)) return undefined;
+  if (maybeLoadNextChoicePage(prompt, host, state, event, hooks)) return undefined;
   const changed = applyAutocompleteTextEvent(state, event);
   if (!changed) return undefined;
   await hooks.render(host, prompt, state);

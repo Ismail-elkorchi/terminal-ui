@@ -1,3 +1,4 @@
+import type { RetainedCallbacks } from './availability.ts';
 import type { Element } from '../../element/index.ts';
 import type { ComponentMessage, ComponentMetadataOptions } from '../../component/index.ts';
 import type { LayoutFlowOptions } from '../../geometry/types.ts';
@@ -34,31 +35,27 @@ interface TabsBaseOptions<TId extends string, TMessage extends ComponentMessage>
 }
 
 interface ActiveTabsOptions<TId extends string, TMessage extends ComponentMessage> {
-  readonly disabled?: false;
-  readonly inert?: false;
+  readonly disabled?: boolean;
+  readonly inert?: boolean;
   readonly onTransition: (transition: TabsTransition<TId>) => MessageResolution<TMessage>;
   readonly onClose?: (event: TabCloseEvent<TId>) => MessageResolution<TMessage>;
 }
 
-interface InertTabsOptions {
-  readonly disabled?: false;
+type InertTabsOptions<TId extends string, TMessage extends ComponentMessage> = {
+  readonly disabled?: boolean;
   readonly inert: true;
-  readonly onTransition?: never;
-  readonly onClose?: never;
-}
+} & RetainedCallbacks<ActiveTabsOptions<TId, TMessage>>;
 
-interface DisabledTabsOptions {
+type DisabledTabsOptions<TId extends string, TMessage extends ComponentMessage> = {
   readonly disabled: true;
   readonly busy?: never;
-  readonly onTransition?: never;
-  readonly onClose?: never;
-}
+} & RetainedCallbacks<ActiveTabsOptions<TId, TMessage>>;
 
 export type TabsOptions<
   TId extends string = string,
   TMessage extends ComponentMessage = never,
 > = TabsBaseOptions<TId, TMessage>
-  & (ActiveTabsOptions<TId, TMessage> | DisabledTabsOptions | InertTabsOptions);
+  & (ActiveTabsOptions<TId, TMessage> | DisabledTabsOptions<TId, TMessage> | InertTabsOptions<TId, TMessage>);
 
 export type {
   TabCloseEvent,

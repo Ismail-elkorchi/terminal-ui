@@ -73,7 +73,7 @@ export type {
   RangeSliderTransition,
   RangeSliderValue,
 } from '../behavior/range-slider.ts';
-export type { TextInputTransition, TextInputState } from '../behavior/text-input.ts';
+export type { TextInputTransition } from '../behavior/text-input.ts';
 export type {
   TextAreaTransition,
   TextAreaControlTransition,

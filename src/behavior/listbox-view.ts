@@ -5,15 +5,26 @@ import type {
 } from './listbox.ts';
 import { compileCollectionQuery, indexQueryCandidate, queryIndexedCandidates } from '../text/query.ts';
 import { createCollectionInteractionIndex } from '../interaction/collection-interaction.ts';
-import type { CollectionQuery, CompiledCollectionQuery } from '../text/query.ts';
+import type { CollectionQuery, CompiledCollectionQuery, IndexedQueryCandidate, QueryMatchRange } from '../text/query.ts';
+import type { ListboxCollectionItem } from './listbox.ts';
 
 interface ListboxViewIndex<TValue> {
   readonly view: ListboxView<TValue>;
-  readonly selectablePositions: ReadonlyMap<string, number>;
   readonly scrollPositions: ReadonlyMap<string, number>;
 }
 
 const views = new WeakMap<object, Map<string, ListboxViewIndex<unknown>>>();
+const indexedSources = new WeakMap<object, IndexedListboxSource<unknown>>();
+
+interface IndexedListboxSource<TValue> {
+  readonly itemsById: ReadonlyMap<string, ListboxCollectionItem<TValue>>;
+  readonly candidates: readonly IndexedQueryCandidate[];
+}
+
+interface MatchedListboxItem<TValue> {
+  readonly item: ListboxCollectionItem<TValue>;
+  readonly matches?: readonly QueryMatchRange[];
+}
 
 export function createListboxView<TValue>(
   collection: ListboxCollection<TValue>,
@@ -24,13 +35,6 @@ export function createListboxView<TValue>(
   }
   const query = queryFor(collection, options?.query);
   return viewIndex(collection, query).view;
-}
-
-export function listboxViewSelectablePosition<TValue>(
-  view: ListboxView<TValue>,
-  id: string,
-): number | undefined {
-  return viewIndex(view.source, view.query).selectablePositions.get(id);
 }
 
 export function listboxViewScrollPosition<TValue>(
@@ -52,34 +56,13 @@ function viewIndex<TValue>(
   const key = queryKey(query);
   const cached = byQuery.get(key) as ListboxViewIndex<TValue> | undefined;
   if (cached !== undefined) return cached;
-  const visibleItems = query.text.length === 0
-    ? collection.items
+  const visibleItems: readonly MatchedListboxItem<TValue>[] = collection.kind === 'window' || query.text.length === 0
+    ? collection.items.map((item) => ({ item }))
     : matchedItems(collection, query);
-
-  function matchedItems(
-    source: ListboxCollection<TValue>,
-    compiledQuery: CompiledCollectionQuery,
-  ): readonly ListboxCollection<TValue>['items'][number][] {
-    const items = new Map(source.items.map((item) => [item.id, item] as const));
-    return queryIndexedCandidates(source.items.map((item) => indexQueryCandidate({
-        id: item.id,
-        primary: item.option.label,
-        secondary: [
-          item.option.description,
-          ...(item.option.keywords ?? []),
-        ].filter((value): value is string => value !== undefined),
-        ...(item.sectionId === undefined ? {} : { group: item.sectionId }),
-      })), compiledQuery).flatMap((match) => {
-        const item = items.get(match.id);
-        return item === undefined ? [] : [item];
-      });
-  }
-  const selectablePositions = new Map<string, number>();
   const scrollPositions = new Map<string, number>();
   let selectableIndex = 0;
-  const entries = Object.freeze(visibleItems.map((item, visibleIndex): ListboxViewEntry<TValue> => {
+  const entries = Object.freeze(visibleItems.map(({ item, matches }, visibleIndex): ListboxViewEntry<TValue> => {
     const selectable = item.option.disabled ? undefined : selectableIndex++;
-    if (selectable !== undefined) selectablePositions.set(item.id, selectable);
     scrollPositions.set(item.id, collection.kind === 'window' ? item.itemIndex : visibleIndex);
     return Object.freeze({
       id: item.id,
@@ -88,6 +71,7 @@ function viewIndex<TValue>(
       ...(selectable === undefined ? {} : { selectableIndex: selectable }),
       value: item.value,
       option: item.option,
+      ...(matches === undefined ? {} : { matches }),
     });
   }));
   const selectable = Object.freeze(entries.filter((entry) => entry.selectableIndex !== undefined));
@@ -101,9 +85,41 @@ function viewIndex<TValue>(
     startIndex: collection.kind === 'window' ? collection.startIndex : 0,
     totalCount: collection.kind === 'window' ? collection.totalCount : entries.length,
   });
-  const index = Object.freeze({ view, selectablePositions, scrollPositions });
+  const index = Object.freeze({ view, scrollPositions });
   retainView(byQuery, key, index);
   return index;
+}
+
+function matchedItems<TValue>(
+  collection: ListboxCollection<TValue>,
+  query: CompiledCollectionQuery,
+): readonly MatchedListboxItem<TValue>[] {
+  const source = indexedSource(collection);
+  return queryIndexedCandidates(source.candidates, query).flatMap((match) => {
+    const item = source.itemsById.get(match.id);
+    if (item === undefined) return [];
+    const matches = Object.freeze(match.ranges.filter((range) => range.field === 'primary'));
+    return [{ item, ...(matches.length === 0 ? {} : { matches }) }];
+  });
+}
+
+function indexedSource<TValue>(collection: ListboxCollection<TValue>): IndexedListboxSource<TValue> {
+  const cached = indexedSources.get(collection) as IndexedListboxSource<TValue> | undefined;
+  if (cached !== undefined) return cached;
+  const itemsById = new Map<string, ListboxCollectionItem<TValue>>();
+  const candidates = collection.items.map((item) => {
+    itemsById.set(item.id, item);
+    const { label, description, keywords } = item.option;
+    return indexQueryCandidate({
+      id: item.id,
+      primary: label,
+      secondary: [[label, description, ...(keywords ?? [])].filter(Boolean).join(' ')],
+      ...(item.sectionId === undefined ? {} : { group: item.sectionId }),
+    });
+  });
+  const source = Object.freeze({ itemsById, candidates: Object.freeze(candidates) });
+  indexedSources.set(collection, source);
+  return source;
 }
 
 function retainView(

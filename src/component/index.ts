@@ -47,6 +47,7 @@ export type {
   SemanticLeafComponentFactory,
   SemanticLeafComponentDefinition,
   SemanticLeafDefinition,
+  StagedComponentFactory,
 } from './definition.ts';
 export type {
   FocusLifecycleEvent,

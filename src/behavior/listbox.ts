@@ -1,6 +1,7 @@
 import type { ScrollRequest, ScrollState } from '../interaction/scroll.ts';
 import type { CollectionInteractionTransition, CollectionInteractionState } from '../interaction/collection-interaction.ts';
 import type { CollectionInteractionIndex } from '../interaction/collection-interaction.ts';
+import type { QueryMatchRange } from '../text/query.ts';
 import type {
   CollectionSnapshot,
   CollectionItem,
@@ -34,6 +35,7 @@ export interface ListboxViewEntry<TValue> {
   readonly selectableIndex?: number;
   readonly value: TValue;
   readonly option: ListboxCollectionItem<TValue>['option'];
+  readonly matches?: readonly QueryMatchRange[];
 }
 
 export interface ListboxView<TValue> {

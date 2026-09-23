@@ -7,6 +7,8 @@ import { scrollRouteDescriptor } from '../../interaction/scroll-route.ts';
 import type { ScrollState } from '../../interaction/scroll.ts';
 import type { Rect } from '../contracts.ts';
 import type { RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
+import { createRowSpatialIndex } from './region-target-index.ts';
+import type { RowSpatialIndex } from './region-target-index.ts';
 
 export interface PointerRouteResult<TMessage> {
   readonly event: RoutedPointerEvent;
@@ -29,7 +31,16 @@ export interface PointerRouter<TMessage> {
   cancel(regions: readonly RenderRegion<TMessage>[]): readonly PointerRouteResult<TMessage>[];
   visuals(): PointerVisualSnapshot;
   revision(): number;
+  snapshot(): PointerRouterSnapshot;
+  restore(snapshot: PointerRouterSnapshot): void;
   reset(): void;
+}
+
+export interface PointerRouterSnapshot {
+  readonly press: PointerPress | undefined;
+  readonly hover: PointerHover | undefined;
+  readonly previousClick: CompletedPointerClick | undefined;
+  readonly visualRevision: number;
 }
 
 export interface PointerRouterOptions {
@@ -41,6 +52,42 @@ export interface PointerRouterOptions {
 interface QualifiedHit<TMessage> {
   readonly identity: string;
   readonly target: RenderRegionHitTarget<TMessage>;
+}
+
+interface IndexedPointerHit<TMessage> extends QualifiedHit<TMessage> {
+  readonly bounds: Rect;
+  readonly region: RenderRegion<TMessage>;
+  readonly index: number;
+  readonly zIndex: number;
+}
+
+interface PointerHitIndex<TMessage> {
+  readonly spatial: RowSpatialIndex<IndexedPointerHit<TMessage>>;
+  readonly byIdentity: ReadonlyMap<string, IndexedPointerHit<TMessage>>;
+}
+
+const committedHitIndexes = new WeakMap<object, PointerHitIndex<unknown>>();
+
+function pointerHitIndex<TMessage>(regions: readonly RenderRegion<TMessage>[]): PointerHitIndex<TMessage> {
+  if (Object.isFrozen(regions)) {
+    const cached = committedHitIndexes.get(regions);
+    if (cached !== undefined) return cached as PointerHitIndex<TMessage>;
+  }
+  const targets = regions.flatMap((region) => region.hitTargets.map((target, index) => ({
+    identity: qualifiedTargetIdentity(region.id, target.ownerIdentity, target.id),
+    target,
+    bounds: target.bounds,
+    region,
+    index,
+    zIndex: target.zIndex ?? region.zIndex,
+  })));
+  const byIdentity = new Map<string, IndexedPointerHit<TMessage>>();
+  for (const target of targets) {
+    if (!byIdentity.has(target.identity)) byIdentity.set(target.identity, target);
+  }
+  const result = { spatial: createRowSpatialIndex(targets), byIdentity };
+  if (Object.isFrozen(regions)) committedHitIndexes.set(regions, result);
+  return result;
 }
 
 interface PointerPress {
@@ -214,6 +261,13 @@ export function createPointerRouter<TMessage>(options: PointerRouterOptions): Po
       });
     },
     revision: () => visualRevision,
+    snapshot: () => ({ press, hover, previousClick, visualRevision }),
+    restore(snapshot) {
+      press = snapshot.press;
+      hover = snapshot.hover;
+      previousClick = snapshot.previousClick;
+      visualRevision = snapshot.visualRevision;
+    },
     reset() {
       if (press !== undefined || hover !== undefined) visualRevision += 1;
       press = undefined;
@@ -422,16 +476,8 @@ function hitsAt<TMessage>(
   column: number,
   acceptedKinds: readonly PointerEventKind[],
 ): readonly QualifiedHit<TMessage>[] {
-  return regions.flatMap((region) => region.hitTargets
-    .filter((target) => containsPoint(target.bounds, row, column))
-    .filter((target) => acceptedKinds.some((kind) => targetAccepts(target, kind)))
-    .map((target, index) => ({
-      identity: qualifiedTargetIdentity(region.id, target.ownerIdentity, target.id),
-      target,
-      region,
-      index,
-      zIndex: target.zIndex ?? region.zIndex
-    })))
+  return pointerHitIndex(regions).spatial.query({ row, column, width: 1, height: 1 })
+    .filter(({ target }) => acceptedKinds.some((kind) => targetAccepts(target, kind)))
     .toSorted((left, right) => right.zIndex - left.zIndex
       || right.region.zIndex - left.region.zIndex
       || right.region.order - left.region.order
@@ -447,11 +493,9 @@ function routeContextMenuThroughAncestors<TMessage>(
   const candidates = hitsAt(regions, event.row, event.column, ['contextMenu']);
   const deepest = candidates[0];
   if (deepest === undefined) return [];
-  const chain = candidates.filter((candidate) =>
+  const chain = uniqueOwnerHits(candidates.filter((candidate) =>
     deepest.target.ownerIdentity.startsWith(candidate.target.ownerIdentity)
-  ).filter((candidate, index, values) =>
-    values.findIndex((other) => other.target.ownerIdentity === candidate.target.ownerIdentity) === index
-  ).toSorted((left, right) => right.target.ownerIdentity.length - left.target.ownerIdentity.length);
+  )).toSorted((left, right) => right.target.ownerIdentity.length - left.target.ownerIdentity.length);
   for (const candidate of chain) {
     const result = routeResult(event, candidate, 'contextMenu', press);
     if (!isIgnoredMessage(result.message)) return [result];
@@ -470,11 +514,9 @@ function routeWheelThroughAncestors<TMessage>(
     ? candidates[0]
     : candidates.find((candidate) => candidate.identity === targetIdentity);
   if (deepest === undefined) return [routeResult(event, undefined, 'scroll', press)];
-  const chain = candidates.filter((candidate) =>
+  const chain = uniqueOwnerHits(candidates.filter((candidate) =>
     deepest.target.ownerIdentity.startsWith(candidate.target.ownerIdentity)
-  ).filter((candidate, index, values) =>
-    values.findIndex((other) => other.target.ownerIdentity === candidate.target.ownerIdentity) === index
-  ).toSorted((left, right) => right.target.ownerIdentity.length - left.target.ownerIdentity.length);
+  )).toSorted((left, right) => right.target.ownerIdentity.length - left.target.ownerIdentity.length);
   const stateByIdentity = new Map<string, ScrollState>();
   const resultByIdentity = new Map<string, PointerRouteResult<TMessage>>();
   const orderedIdentities: string[] = [];
@@ -505,6 +547,16 @@ function routeWheelThroughAncestors<TMessage>(
   return orderedIdentities.flatMap((identity) => {
     const result = resultByIdentity.get(identity);
     return result === undefined ? [] : [result];
+  });
+}
+
+function uniqueOwnerHits<TMessage>(hits: readonly QualifiedHit<TMessage>[]): QualifiedHit<TMessage>[] {
+  const seen = new Set<string>();
+  return hits.filter((hit) => {
+    const owner = hit.target.ownerIdentity;
+    if (seen.has(owner)) return false;
+    seen.add(owner);
+    return true;
   });
 }
 
@@ -542,25 +594,11 @@ function hitByIdentity<TMessage>(
   regions: readonly RenderRegion<TMessage>[],
   identity: string
 ): QualifiedHit<TMessage> | undefined {
-  for (const region of regions) {
-    for (const target of region.hitTargets) {
-      if (qualifiedTargetIdentity(region.id, target.ownerIdentity, target.id) === identity) {
-        return { identity, target };
-      }
-    }
-  }
-  return undefined;
+  return pointerHitIndex(regions).byIdentity.get(identity);
 }
 
 function qualifiedTargetIdentity(regionId: string, ownerIdentity: string, targetId: string): string {
   return `${String(regionId.length)}:${regionId}${String(ownerIdentity.length)}:${ownerIdentity}${targetId}`;
-}
-
-function containsPoint(bounds: Rect, row: number, column: number): boolean {
-  return row >= bounds.row
-    && row < bounds.row + bounds.height
-    && column >= bounds.column
-    && column < bounds.column + bounds.width;
 }
 
 function localPoint(bounds: Rect, row: number, column: number): { readonly row: number; readonly column: number } {

@@ -61,3 +61,5 @@ export function executeComponentPhase<TValue>(
     });
   }
 }
+
+export { executeSynchronousRenderCallback } from '../foundation/synchronous-render.ts';

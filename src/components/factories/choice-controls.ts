@@ -18,7 +18,7 @@ import type { CheckboxGroupTransition, ColorSwatchPickerTransition, RadioGroupTr
 import type { ChoiceStylePart, ColorSwatchPickerStylePart } from '../style-parts.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
 import type { CheckboxGroupOptions, ColorSwatchPickerOptions, RadioGroupOptions } from '../options/forms.ts';
-import { assertTransitionCallback } from './form-control-helpers.ts';
+import { assertTransitionCallback, withoutTransitionCallback } from './form-control-helpers.ts';
 import {
   assertUnique,
   cleanString,
@@ -61,16 +61,7 @@ type CheckboxGroupFactory = <TValue, const TMessage extends ComponentMessage = n
   options: CheckboxGroupOptions<TValue, TMessage>,
 ) => Element<TMessage>;
 
-const instantiateCheckboxGroup = defineComponent<
-  CheckboxGroupComponentOptions,
-  ChoiceModel,
-  CheckboxGroupTransition,
-  ChoiceStylePart,
-  readonly ['disabled'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['focused', 'active', 'selected', 'disabled']
->({
+const instantiateCheckboxGroup = defineComponent<CheckboxGroupComponentOptions, CheckboxGroupTransition>()({
   ...choiceDefinitionBase('checkbox-group'),
   accessibleRole: 'group',
   createModel: (value) => createChoiceModel(value, 'checkboxGroup', true),
@@ -84,8 +75,9 @@ const instantiateCheckboxGroup = defineComponent<
 });
 
 export const checkboxGroup: CheckboxGroupFactory = (options) => {
-  if (options.disabled === true) {
-    return instantiateCheckboxGroup(options);
+  if (options.disabled === true && options.onTransition === undefined) {
+    const rest = withoutTransitionCallback(options);
+    return instantiateCheckboxGroup({ ...rest, disabled: true });
   }
   assertTransitionCallback(options, 'checkboxGroup');
   const { onTransition, ...rest } = options;
@@ -106,16 +98,7 @@ type RadioGroupFactory = <TValue, const TMessage extends ComponentMessage = neve
   options: RadioGroupOptions<TValue, TMessage>,
 ) => Element<TMessage>;
 
-const instantiateRadioGroup = defineComponent<
-  RadioGroupComponentOptions,
-  ChoiceModel,
-  RadioGroupTransition,
-  ChoiceStylePart,
-  readonly ['disabled'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['focused', 'active', 'selected', 'disabled']
->({
+const instantiateRadioGroup = defineComponent<RadioGroupComponentOptions, RadioGroupTransition>()({
   ...choiceDefinitionBase('radio-group'),
   accessibleRole: 'radiogroup',
   createModel: (value) => createChoiceModel(value, 'radioGroup', false),
@@ -129,8 +112,9 @@ const instantiateRadioGroup = defineComponent<
 });
 
 export const radioGroup: RadioGroupFactory = (options) => {
-  if (options.disabled === true) {
-    return instantiateRadioGroup(options);
+  if (options.disabled === true && options.onTransition === undefined) {
+    const rest = withoutTransitionCallback(options);
+    return instantiateRadioGroup({ ...rest, disabled: true });
   }
   assertTransitionCallback(options, 'radioGroup');
   const { onTransition, ...rest } = options;
@@ -165,16 +149,7 @@ type ColorSwatchPickerFactory = <
   options: ColorSwatchPickerOptions<TValue, TMessage>,
 ) => Element<TMessage>;
 
-const instantiateColorSwatchPicker = defineComponent<
-  Omit<ColorSwatchPickerOptions<unknown, ComponentMessage>, 'id' | 'disabled' | 'onTransition' | 'styles' | 'meta'>,
-  SwatchModel,
-  ColorSwatchPickerTransition,
-  ColorSwatchPickerStylePart,
-  readonly ['disabled'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['focused', 'active', 'selected', 'disabled']
->({
+const instantiateColorSwatchPicker = defineComponent<Omit<ColorSwatchPickerOptions<unknown, ComponentMessage>, 'id' | 'disabled' | 'onTransition' | 'styles' | 'meta'>, ColorSwatchPickerTransition>()({
   name: 'terminal-ui/components/color-swatch-picker',
   identity: 'required',
   structure: 'leaf',
@@ -235,8 +210,9 @@ const instantiateColorSwatchPicker = defineComponent<
 });
 
 export const colorSwatchPicker: ColorSwatchPickerFactory = (options) => {
-  if (options.disabled === true) {
-    return instantiateColorSwatchPicker(options);
+  if (options.disabled === true && options.onTransition === undefined) {
+    const rest = withoutTransitionCallback(options);
+    return instantiateColorSwatchPicker({ ...rest, disabled: true });
   }
   assertTransitionCallback(options, 'colorSwatchPicker');
   const { onTransition, ...rest } = options;

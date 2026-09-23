@@ -4,7 +4,6 @@ import type {
   CompleteListboxCollection,
   ListboxCollection,
   ListboxCollectionItem,
-  ListboxOption,
   ListboxOptionMapper,
   ListboxState,
   ScrollableListboxState,
@@ -17,7 +16,7 @@ import {
   listboxViewScrollPosition,
   createListboxView
 } from './listbox-view.ts';
-import { createCompleteCollection, createWindowedCollection } from '../collection/snapshot.ts';
+import { createCompleteCollection, createWindowedCollection, isCollectionSnapshot } from '../collection/snapshot.ts';
 import type { CollectionWindow } from '../collection/snapshot.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import { collectionInteractionReducer } from '../interaction/collection-interaction.ts';
@@ -127,18 +126,55 @@ export function createListboxCollection<TValue>(
     : createWindowedCollection({ items, window });
 }
 
-function ownListboxOption(option: ListboxOption): ListboxCollectionItem<unknown>['option'] {
-  const clean = (value: string): string => sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ');
+function ownListboxOption(option: unknown): ListboxCollectionItem<unknown>['option'] {
+  if (option === null || typeof option !== 'object' || Array.isArray(option)) {
+    throw new TypeError('Listbox option must be an object.');
+  }
+  const candidate = option as Record<string, unknown>;
+  const clean = (value: unknown, field: string): string => {
+    if (typeof value !== 'string') throw new TypeError(`Listbox option ${field} must be a string.`);
+    return sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ');
+  };
+  const id = clean(candidate['id'], 'id');
+  if (id.trim().length === 0) throw new TypeError('Listbox option id must be non-empty.');
+  const label = clean(candidate['label'], 'label');
+  const description = candidate['description'] === undefined
+    ? undefined
+    : clean(candidate['description'], 'description');
+  const keywords = candidate['keywords'] === undefined
+    ? undefined
+    : Array.isArray(candidate['keywords'])
+      ? Object.freeze(candidate['keywords'].map((keyword) => clean(keyword, 'keyword')))
+      : undefined;
+  if (candidate['keywords'] !== undefined && keywords === undefined) {
+    throw new TypeError('Listbox option keywords must be an array of strings.');
+  }
+  if (candidate['disabled'] !== undefined && typeof candidate['disabled'] !== 'boolean') {
+    throw new TypeError('Listbox option disabled must be a boolean.');
+  }
   return Object.freeze({
-    id: clean(option.id),
-    label: clean(option.label),
-    ...(option.description === undefined ? {} : { description: clean(option.description) }),
-    ...(option.keywords === undefined ? {} : { keywords: Object.freeze(option.keywords.map(clean)) }),
-    disabled: option.disabled === true
+    id,
+    label,
+    ...(description === undefined ? {} : { description }),
+    ...(keywords === undefined ? {} : { keywords }),
+    disabled: candidate['disabled'] === true
   });
 }
 
 export function listboxViewForOptions<TValue>(options: ListboxReducerOptions<TValue>): ListboxView<TValue> {
+  const supplied = options as unknown as Record<string, unknown>;
+  const candidateCollection = supplied['collection'];
+  const hasCollection = candidateCollection !== undefined;
+  const hasItems = supplied['items'] !== undefined || supplied['toOption'] !== undefined;
+  if (hasCollection === hasItems) {
+    throw new TypeError('listbox requires either items with toOption, or collection.');
+  }
+  if (hasCollection && !isCollectionSnapshot(candidateCollection)) {
+    throw new TypeError('listbox collection must be created with createListboxCollection().');
+  }
+  if (!hasCollection && (!Array.isArray(supplied['items']) || typeof supplied['toOption'] !== 'function')) {
+    throw new TypeError('listbox requires items and toOption together.');
+  }
   if (options.collection?.kind === 'window') return createListboxView(options.collection);
   const collection = options.collection ?? createListboxCollection(options.items, options.toOption);
   return createListboxView(collection, options.query === undefined ? {} : { query: options.query });

@@ -86,6 +86,12 @@ creating a private render node. The renderer can then rely on the private
 node's TypeScript contract instead of silently dropping or replacing invalid
 caller-supplied values.
 
+Factories return frozen, opaque `Element<TMessage>` handles. Applications
+compose them; the renderer resolves private nodes when it measures and paints.
+Use `inspectElement()` for a read-only view of an element's identity, role,
+declared state, and child structure before rendering. It does not expose
+callbacks, private props, or sensitive component models.
+
 Runtime checks remain where TypeScript cannot establish truth: component hook
 output, terminal host results, input and protocol decoding, serialized data,
 and state-dependent accessibility descriptions.
@@ -96,9 +102,10 @@ and state-dependent accessibility descriptions.
 
 - the lifecycle owns phase transitions, lifetime cancellation, startup, and
   idempotent disposal;
-- the store owns initialized state, state versions, and message reduction;
-- the commit coordinator owns the committed render, terminal size, focus
-  restoration, frame writes, and commit ids;
+- the transition queue serializes input, reduction, candidate construction,
+  output receipt, and publication;
+- the reducer plans state and effects; the commit coordinator owns one
+  committed record with state, frame, focus, terminal size, and commit id;
 - the diagnostics service owns occurrences and diagnostic-triggered refresh;
 - the change channel owns frame/exit publication and cancelled waiters.
 

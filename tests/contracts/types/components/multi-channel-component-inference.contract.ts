@@ -13,7 +13,7 @@ import {
   type TreeActivateEvent,
   type TreeControlTransition,
 } from '@ismail-elkorchi/terminal-ui/components';
-import { createSearchPickerIndex, createTreeSource, createTreeView } from '@ismail-elkorchi/terminal-ui/behavior';
+import { createSearchPickerIndex, createTreeSource } from '@ismail-elkorchi/terminal-ui/behavior';
 import { createTextDocument, textCaretAt } from '@ismail-elkorchi/terminal-ui/text';
 
 export type MessageOf<TElement> = TElement extends Element<infer TMessage> ? TMessage : never;
@@ -21,7 +21,7 @@ export type Assert<TValue extends true> = TValue;
 
 const explorer = tree({
   id: 'explorer',
-  view: createTreeView(createTreeSource([{ id: 'src', label: 'src', kind: 'lazy' }]), { activeId: 'src', selection: { mode: 'none' }, expandedIds: [] }),
+  source: createTreeSource([{ id: 'src', label: 'src', kind: 'lazy' }]),
   state: { activeId: 'src', selection: { mode: 'none' }, expandedIds: [] },
   onTransition: (transition) => ({ kind: 'treeTransition' as const, transition }),
   onActivate: (event) => ({ kind: 'treeActivate' as const, event }),

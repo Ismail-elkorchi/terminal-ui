@@ -96,8 +96,8 @@ test('overlay preserves declaration order within one layer and z-order across la
 
 test('overlay accessibility and initial focus follow topmost visual order', () => {
   const element = overlay([
-    focusInput({ id: 'lower-field', state: { value: 'lower', cursor: 0 } }),
-    focusInput({ id: 'upper-field', state: { value: 'upper', cursor: 0 } })
+    focusInput({ id: 'lower-field', state: { text: 'lower', cursor: 0 } }),
+    focusInput({ id: 'upper-field', state: { text: 'upper', cursor: 0 } })
   ], { id: 'focus-overlay' });
   const zElement = overlay([
     text({ content: 'LOW', id: 'low-layer',
@@ -163,7 +163,7 @@ test('layers render top z-index content last and hide invisible elements', () =>
 test('focus is scoped to the topmost visible focus layer', () => {
   const element = overlay([
     focusInput({
-    id: 'lower-input', state: { value: 'lower', cursor: 0 },
+    id: 'lower-input', state: { text: 'lower', cursor: 0 },
     meta: {
         layer: {
             zIndex: 0
@@ -171,7 +171,7 @@ test('focus is scoped to the topmost visible focus layer', () => {
     }
 }),
     focusInput({
-    id: 'upper-input', state: { value: 'upper', cursor: 0 },
+    id: 'upper-input', state: { text: 'upper', cursor: 0 },
     meta: {
         layer: {
             zIndex: 8

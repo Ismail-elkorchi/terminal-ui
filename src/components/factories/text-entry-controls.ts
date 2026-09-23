@@ -19,24 +19,26 @@ import { layoutSingleLineTextWindow } from '../internal/single-line-text-window.
 import type { SingleLineTextWindow } from '../internal/single-line-text-window.ts';
 import type { Element } from '../../element/index.ts';
 import type { Measurement } from '../../renderer/index.ts';
-import { isNonArrayObject, isStringMember } from '../../foundation/validation.ts';
+import { assertOptionalCallback, isNonArrayObject, isStringMember } from '../../foundation/validation.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import {
   createTerminalTextIndex,
   measureTextCells,
+  normalizeTextCursor,
   normalizeTextSelection,
   segmentGraphemes,
   terminalTextWidth,
 } from '../../text/index.ts';
-import type { TextSelection, TextWidthProfile } from '../../text/index.ts';
+import type { TextEditBuffer, TextSelection, TextWidthProfile } from '../../text/index.ts';
+import { projectTerminalSingleLineText } from '../../text/sanitize.ts';
 import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
 import type { NumberInputControlTransition, NumberInputView } from '../../behavior/number-input.ts';
 import type { NumberInputStylePart, TextEntryStylePart } from '../style-parts.ts';
-import type { TextInputSubmitEvent, TextInputTransition, TextInputState } from '../../behavior/text-input.ts';
+import type { TextInputSubmitEvent, TextInputTransition } from '../../behavior/text-input.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
 import type { NumberInputOptions, PasswordInputOptions, TextInputOptions } from '../options/forms.ts';
 import { inspectTextSelection, inspectTextValue, inspectValidation } from '../internal/inspection.ts';
-import { assertTransitionCallback } from './form-control-helpers.ts';
+import { assertTransitionCallback, withoutTransitionCallback } from './form-control-helpers.ts';
 import {
   cleanString,
   nonNegativeInteger,
@@ -46,14 +48,14 @@ import {
 } from './input-control-helpers.ts';
 
 interface TextEntryModel {
-  readonly state: TextInputState;
+  readonly state: TextEditBuffer;
   readonly displayedValue: string;
+  readonly displayedCursor: number;
   readonly placeholder: string;
   readonly required: boolean;
   readonly error: string;
-  readonly sourceValue: string;
   readonly displayedSelection?: TextSelection;
-  readonly maskCodeUnits?: number;
+  readonly sourceOffsetForDisplay: (offset: number) => number;
 }
 
 const textInputDefinition = textEntryDefinition<
@@ -66,8 +68,12 @@ const passwordInputDefinition = textEntryDefinition<
 export function textInput<const TMessage extends ComponentMessage = never>(
   options: TextInputOptions<TMessage>,
 ): Element<TMessage> {
-  if (options.disabled === true) {
-    return textInputDefinition(options);
+  assertOptionalCallback(options.onSubmit, 'textInput onSubmit');
+  assertOptionalCallback(options.onContextMenu, 'textInput onContextMenu');
+  if (options.onTransition === undefined) {
+    if (options.disabled !== true) assertTransitionCallback(options, 'textInput');
+    const rest = withoutTransitionCallback(options);
+    return textInputDefinition({ ...rest, disabled: true });
   }
   assertTransitionCallback(options, 'textInput');
   const { onTransition, onSubmit, onContextMenu, ...rest } = options;
@@ -84,8 +90,12 @@ export function textInput<const TMessage extends ComponentMessage = never>(
 export function passwordInput<const TMessage extends ComponentMessage = never>(
   options: PasswordInputOptions<TMessage>,
 ): Element<TMessage> {
-  if (options.disabled === true) {
-    return passwordInputDefinition(options);
+  assertOptionalCallback(options.onSubmit, 'passwordInput onSubmit');
+  assertOptionalCallback(options.onContextMenu, 'passwordInput onContextMenu');
+  if (options.onTransition === undefined) {
+    if (options.disabled !== true) assertTransitionCallback(options, 'passwordInput');
+    const rest = withoutTransitionCallback(options);
+    return passwordInputDefinition({ ...rest, disabled: true });
   }
   assertTransitionCallback(options, 'passwordInput');
   const { onTransition, onSubmit, onContextMenu, ...rest } = options;
@@ -110,16 +120,7 @@ type NumberInputFactory = <const TMessage extends ComponentMessage = never>(
   options: NumberInputOptions<TMessage>,
 ) => Element<TMessage>;
 
-const instantiateNumberInput = defineComponent<
-  Omit<NumberInputOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onTransition' | 'onContextMenu' | 'styles' | 'meta'>,
-  NumberModel,
-  NumberInputComponentAction,
-  NumberInputStylePart,
-  readonly ['disabled', 'readOnly'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['focused', 'selected', 'disabled', 'readOnly']
->({
+const instantiateNumberInput = defineComponent<Omit<NumberInputOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onTransition' | 'onContextMenu' | 'styles' | 'meta'>, NumberInputComponentAction>()({
   name: 'terminal-ui/components/number-input',
   identity: 'required',
   structure: 'leaf',
@@ -224,8 +225,11 @@ const instantiateNumberInput = defineComponent<
 });
 
 export const numberInput: NumberInputFactory = (options) => {
-  if (options.disabled === true) {
-    return instantiateNumberInput(options);
+  assertOptionalCallback(options.onContextMenu, 'numberInput onContextMenu');
+  if (options.onTransition === undefined) {
+    if (options.disabled !== true) assertTransitionCallback(options, 'numberInput');
+    const rest = withoutTransitionCallback(options);
+    return instantiateNumberInput({ ...rest, disabled: true });
   }
   assertTransitionCallback(options, 'numberInput');
   const { onTransition, onContextMenu, ...rest } = options;
@@ -272,16 +276,7 @@ function textEntryDefinition<
   name: 'text-input' | 'password-input',
   password: boolean,
 ): TextEntryFactory<TOptions> {
-  return defineComponent<
-    TOptions,
-    TextEntryModel,
-    TextEntryComponentAction,
-    TextEntryStylePart,
-    readonly ['disabled', 'readOnly'],
-    'required',
-    readonly ['focus', 'layer', 'styles'],
-    readonly ['focused', 'selected', 'disabled', 'readOnly']
-  >({
+  return defineComponent<TOptions, TextEntryComponentAction>()({
     name: `terminal-ui/components/${name}`,
     identity: 'required',
     structure: 'leaf',
@@ -294,11 +289,11 @@ function textEntryDefinition<
     sensitiveInput: password,
     inspection: ({ model }) => ({
       ...(password ? { redacted: true as const } : {
-        value: inspectTextValue(model.sourceValue),
-        ...(model.state.selection === undefined
+        value: inspectTextValue(model.displayedValue),
+        ...(model.displayedSelection === undefined
           ? {}
-          : { selection: inspectTextSelection(model.state.selection) }),
-        details: { caretOffset: model.state.cursor },
+          : { selection: inspectTextSelection(model.displayedSelection) }),
+        details: { caretOffset: model.displayedCursor },
       }),
       validation: inspectValidation(model.required, model.error),
     }),
@@ -322,7 +317,7 @@ function textEntryDefinition<
     keys: ({ model, readOnly }) => ({
       triggers: textEditingTriggers(readOnly, false),
       ...(readOnly ? {} : {
-        enter: () => ({ kind: 'submit', value: model.sourceValue }),
+        enter: () => ({ kind: 'submit', value: model.state.text }),
       }),
     }),
     onInput: ({ text, readOnly }) =>
@@ -392,7 +387,7 @@ function textEntryDefinition<
             input.widthProfile,
           );
         },
-        wordSelectionAt: (offset) => createTerminalTextIndex(input.model.sourceValue, {
+        wordSelectionAt: (offset) => createTerminalTextIndex(input.model.state.text, {
           widthProfile: input.widthProfile,
         }).wordSelectionAt(offset),
         onPointer: (transition) => ({ kind: 'pointer', transition }),
@@ -409,12 +404,12 @@ function textEntryDefinition<
         children: [{ id: `${id}:error`, role: 'text' as const, value: model.error }],
       }),
       ...(password ? {} : {
-        value: model.sourceValue,
+        value: model.displayedValue,
         textPosition: {
-          caretOffset: model.state.cursor,
-          ...(model.state.selection === undefined
+          caretOffset: model.displayedCursor,
+          ...(model.displayedSelection === undefined
             ? {}
-            : { selection: model.state.selection }),
+            : { selection: model.displayedSelection }),
         },
       }),
       ...(
@@ -448,46 +443,58 @@ function createTextEntryModel(
   if (
     mask !== undefined && (segmentGraphemes(mask).length !== 1 || terminalTextWidth(mask) !== 1)
   ) throw new RangeError('passwordInput mask must be one printable one-cell grapheme.');
-  const graphemes = segmentGraphemes(state.value);
-  const displayedValue = mask === undefined ? state.value : mask.repeat(graphemes.length);
-  const displayedCursor = mask === undefined
-    ? state.cursor
-    : graphemes.filter((part) => part.endOffsetExclusive <= state.cursor).length *
-      mask.length;
-  const selection = state.selection;
-  const displayedSelection = selection === undefined
-    ? undefined
-    : mask === undefined
-    ? selection
-    : {
-      startOffset:
-        graphemes.filter((part) => part.endOffsetExclusive <= selection.startOffset).length *
-        mask.length,
-      endOffsetExclusive:
-        graphemes.filter((part) => part.endOffsetExclusive <= selection.endOffsetExclusive).length *
-        mask.length,
-    };
   return {
-    state: { ...state, cursor: displayedCursor },
-    displayedValue,
+    state,
+    ...textEntryDisplay(state, mask),
     placeholder: optionalString(value.placeholder, `${owner} placeholder`) ?? '',
     required: optionalBoolean(value.required, `${owner} required`) ?? false,
     error: optionalString(value.error, `${owner} error`) ?? '',
-    sourceValue: state.value,
-    ...(displayedSelection === undefined ? {} : { displayedSelection }),
-    ...(mask === undefined ? {} : { maskCodeUnits: mask.length }),
+  };
+}
+
+function textEntryDisplay(
+  state: TextEditBuffer,
+  mask: string | undefined,
+): Pick<TextEntryModel, 'displayedValue' | 'displayedCursor' | 'displayedSelection' | 'sourceOffsetForDisplay'> {
+  if (mask === undefined) {
+    const projection = projectTerminalSingleLineText(state.text);
+    const selection = state.selection;
+    return {
+      displayedValue: projection.text,
+      displayedCursor: projection.sourceOffsetToDisplay(state.cursor),
+      ...(selection === undefined ? {} : { displayedSelection: {
+        startOffset: projection.sourceOffsetToDisplay(selection.startOffset),
+        endOffsetExclusive: projection.sourceOffsetToDisplay(selection.endOffsetExclusive),
+      } }),
+      sourceOffsetForDisplay: (offset) => projection.displayOffsetToSource(offset),
+    };
+  }
+  const graphemes = segmentGraphemes(state.text);
+  const maskedOffset = (offset: number): number =>
+    graphemes.filter((part) => part.endOffsetExclusive <= offset).length * mask.length;
+  const selection = state.selection;
+  return {
+    displayedValue: mask.repeat(graphemes.length),
+    displayedCursor: maskedOffset(state.cursor),
+    ...(selection === undefined ? {} : { displayedSelection: {
+      startOffset: maskedOffset(selection.startOffset),
+      endOffsetExclusive: maskedOffset(selection.endOffsetExclusive),
+    } }),
+    sourceOffsetForDisplay: (offset) =>
+      graphemes[Math.floor(offset / mask.length)]?.startOffset ?? state.text.length,
   };
 }
 
 function decodeTextInputState(
-  value: TextInputState,
+  value: TextEditBuffer,
   owner: string,
-): TextInputState {
-  const raw = cleanString(value.value, `${owner} value`);
+): TextEditBuffer {
+  if (typeof value.text !== 'string') throw new TypeError(`${owner} text must be a string.`);
+  const raw = value.text;
   const cursor = nonNegativeInteger(value.cursor, `${owner} cursor`);
   if (cursor > raw.length) throw new RangeError(`${owner} cursor exceeds value length.`);
   const selection = decodeTextSelection(value.selection, raw, owner);
-  return { value: raw, cursor, ...(selection === undefined ? {} : { selection }) };
+  return { text: raw, cursor: normalizeTextCursor(raw, cursor), ...(selection === undefined ? {} : { selection }) };
 }
 
 function decodeTextSelection(
@@ -511,7 +518,7 @@ function decodeTextSelection(
   });
 }
 
-function paintTextEntry(input: ComponentRenderInput<TextEntryModel, TextEntryStylePart>): void {
+function paintTextEntry(input: ComponentRenderInput<TextEntryModel, TextEntryStylePart>): undefined {
   if (input.bounds.width === 0 || input.bounds.height === 0) return;
   const plan = textEntryRenderPlan(input);
   input.target.write(0, 0, plan.value);
@@ -745,7 +752,7 @@ function textEntryVisual(
 ): SingleLineTextWindow {
   return layoutSingleLineTextWindow(
     model.displayedValue,
-    model.state.cursor,
+    model.displayedCursor,
     Math.max(0, width - 2),
     widthProfile,
   );
@@ -765,11 +772,7 @@ function sourceOffsetAtColumn(
     cells += width;
     index += 1;
   }
-  if (model.maskCodeUnits === undefined) {
-    return displayed[index]?.startOffset ?? model.sourceValue.length;
-  }
-  const source = segmentGraphemes(model.sourceValue);
-  return source[index]?.startOffset ?? model.sourceValue.length;
+  return model.sourceOffsetForDisplay(displayed[index]?.startOffset ?? model.displayedValue.length);
 }
 
 function createNumberInputModel(
@@ -834,7 +837,7 @@ function measureNumberInput(input: ComponentMeasureInput<NumberModel>): Measurem
   };
 }
 
-function paintNumberInput(input: ComponentRenderInput<NumberModel, NumberInputStylePart>): void {
+function paintNumberInput(input: ComponentRenderInput<NumberModel, NumberInputStylePart>): undefined {
   if (input.bounds.width === 0 || input.bounds.height === 0) return;
   const plan = numberInputRenderPlan(input);
   input.target.write(0, 0, plan.value);

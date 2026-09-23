@@ -1,15 +1,10 @@
-import { segmentGraphemes } from './graphemes.ts';
+import { graphemeAt } from './graphemes.ts';
 import type { TextEditBuffer, TextSelection } from './types.ts';
 
 export function normalizeTextCursor(text: string, cursor: number): number {
   const bounded = clampTextOffset(cursor, text.length);
   if (bounded === 0 || bounded === text.length) return bounded;
-  if (isSimpleGraphemeBoundary(text, bounded)) return bounded;
-  for (const segment of segmentGraphemes(text)) {
-    if (bounded === segment.startOffset || bounded === segment.endOffsetExclusive) return bounded;
-    if (bounded > segment.startOffset && bounded < segment.endOffsetExclusive) return segment.startOffset;
-  }
-  return bounded;
+  return graphemeAt(text, bounded)?.startOffset ?? bounded;
 }
 
 export function normalizeTextSelection(text: string, selection: TextSelection | undefined): TextSelection | undefined {
@@ -35,29 +30,15 @@ export function replaceTextRange(text: string, selection: TextSelection, replace
 
 export function previousGraphemeBoundary(text: string, cursor: number): number {
   const bounded = normalizeTextCursor(text, cursor);
-  let previous = 0;
-  for (const segment of segmentGraphemes(text)) {
-    if (segment.endOffsetExclusive >= bounded) return segment.startOffset;
-    previous = segment.startOffset;
-  }
-  return previous;
+  return graphemeAt(text, bounded - 1)?.startOffset ?? 0;
 }
 
 export function nextGraphemeBoundary(text: string, cursor: number): number {
   const bounded = normalizeTextCursor(text, cursor);
-  for (const segment of segmentGraphemes(text)) {
-    if (segment.endOffsetExclusive > bounded) return segment.endOffsetExclusive;
-  }
-  return text.length;
+  return graphemeAt(text, bounded)?.endOffsetExclusive ?? text.length;
 }
 
 export function clampTextOffset(value: number, length: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(length, Math.floor(value)));
-}
-
-function isSimpleGraphemeBoundary(text: string, offset: number): boolean {
-  const previous = text.charCodeAt(offset - 1);
-  const next = text.charCodeAt(offset);
-  return previous < 0x80 && next < 0x80 && !(previous === 0x0d && next === 0x0a);
 }

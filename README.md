@@ -107,9 +107,11 @@ if (exit.status === 'interrupted') {
 }
 ```
 
-Save this as `counter.ts` and run it with `node counter.ts`,
-`deno run counter.ts`, or `bun counter.ts`. Use Tab and Shift+Tab to move
-focus and Enter to activate a button.
+Save this as `counter.ts` and run it in a terminal with `node counter.ts`,
+`deno run counter.ts`, or `bun counter.ts`. The screen starts with `Count: 0`,
+followed by **Increment** and **Quit**. Use Tab and Shift+Tab to move focus,
+Enter to increment, and the Quit button to exit. For redirected input or output,
+set an explicit `nonTty` policy on the app; see [non-TTY behavior](./docs/guides/non-tty.md).
 
 `runTui()` resolves for application completion, cancellation, and host
 interruption. Operational failures reject with `TuiRunError`, whose `exit`
@@ -168,7 +170,8 @@ harnesses.
 - [API overview and entrypoints](./docs/api/index.md)
 - [Generated API reference](./docs/api/reference.md)
 
-Runnable applications are in [examples](./examples). Reusable component
+Runnable applications include the [interactive workspace](./examples/tui/interactive-workspace.ts)
+and [test harness](./examples/testing/harness.mjs). Reusable component
 authors can continue with
 [Component definitions](./docs/guides/component-definitions.md).
 

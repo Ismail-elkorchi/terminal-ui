@@ -13,7 +13,7 @@ import type { Element, ElementChildrenMessage } from '../../element/index.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { FieldOptions, FormOptions, LabelOptions } from '../options/forms.ts';
 import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
-import type { FieldStylePart, LabelStylePart } from '../style-parts.ts';
+import type { LabelStylePart } from '../style-parts.ts';
 import type { LayoutFlowOptions, Rect } from '../../geometry/types.ts';
 import { layoutContentBounds, decodeLayoutFlowOptions, splitTracks } from '../../layout/index.ts';
 
@@ -32,16 +32,7 @@ const formSlots = {
   content: { cardinality: 'many', owner: 'caller', messages: 'bubble' },
 } as const;
 
-export const form: FormFactory = defineComponent<
-  FormOwnOptions,
-  FormModel,
-  never,
-  'title',
-  readonly [],
-  'optional',
-  readonly ['styles', 'layer'],
-  typeof formSlots
->({
+export const form: FormFactory = defineComponent<FormOwnOptions>()({
   name: 'terminal-ui/components/form',
   identity: 'optional',
   structure: 'composite',
@@ -153,16 +144,7 @@ type FieldFactory = <TChild extends Element<ComponentMessage>>(
   options: FieldOptions<TChild>,
 ) => Element<import('../../element/index.ts').ElementMessage<TChild>>;
 
-const instantiateField = defineComponent<
-  { readonly label: string; readonly description?: string } & LayoutFlowOptions,
-  FieldModel,
-  never,
-  FieldStylePart,
-  readonly [],
-  'required',
-  readonly ['styles', 'layer'],
-  typeof fieldSlots
->({
+const instantiateField = defineComponent<{ readonly label: string; readonly description?: string } & LayoutFlowOptions>()({
   name: 'terminal-ui/components/field',
   identity: 'required',
   structure: 'composite',
@@ -309,15 +291,7 @@ export const label: SemanticLeafComponentFactory<
   readonly [],
   'required',
   readonly ['styles', 'layer']
-> = defineComponent<
-  Pick<LabelOptions, 'text' | 'forId'>,
-  LabelModel,
-  never,
-  LabelStylePart,
-  readonly [],
-  'required',
-  readonly ['styles', 'layer']
->({
+> = defineComponent<Pick<LabelOptions, 'text' | 'forId'>>()({
   name: 'terminal-ui/components/label',
   identity: 'required',
   structure: 'leaf',
@@ -325,7 +299,7 @@ export const label: SemanticLeafComponentFactory<
   accessibleRole: 'text',
   metadata: ['styles', 'layer'],
   parts: ['label'],
-  createModel(value) {
+  createModel(value): LabelModel {
     const textValue = value.text;
     const forId = value.forId;
     if (typeof textValue !== 'string') throw new TypeError('label text must be a string.');

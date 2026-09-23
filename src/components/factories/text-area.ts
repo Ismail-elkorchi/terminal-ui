@@ -18,12 +18,14 @@ import type {
 import type { Element } from '../../element/index.ts';
 import type { Measurement, Rect } from '../../renderer/index.ts';
 import {
-  assertRequiredCallback,
+  assertOptionalCallback,
+  assertRequiredPropertyCallback,
   isNonArrayObject,
   isStringMember,
 } from '../../foundation/validation.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
+import { withoutTransitionCallback } from './form-control-helpers.ts';
 import { scrollReducer } from '../../behavior/scroll.ts';
 import {
   assertTextDocument,
@@ -126,16 +128,7 @@ type TextAreaFactory = <const TMessage extends ComponentMessage = never>(
   options: TextAreaOptions<TMessage>,
 ) => Element<TMessage>;
 
-const instantiateTextArea = defineComponent<
-  Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onTransition' | 'onContextMenu' | 'styles' | 'meta'>,
-  TextAreaModel,
-  TextAreaComponentAction,
-  TextAreaStylePart,
-  readonly ['disabled', 'readOnly'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['focused', 'hovered', 'active', 'selected', 'disabled', 'readOnly']
->({
+const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onTransition' | 'onContextMenu' | 'styles' | 'meta'>, TextAreaComponentAction>()({
   name: 'terminal-ui/components/text-area',
   identity: 'required',
   structure: 'leaf',
@@ -172,8 +165,14 @@ const instantiateTextArea = defineComponent<
   render: paintTextArea,
   keys: (input) => ({
     triggers: [
-      ...textEditingTriggers(input.readOnly, true),
-      ...textAreaPageTriggers(input),
+      ...textEditingTriggers(input.readOnly, true).filter((binding) =>
+        binding.trigger.kind !== 'key' || !(
+          binding.trigger.key === 'arrowUp'
+          || binding.trigger.key === 'arrowDown'
+          || binding.trigger.key === 'home'
+          || binding.trigger.key === 'end'
+        )),
+      ...textAreaVisualTriggers(input),
       ...(input.readOnly ? [] : textAreaHistoryTriggers())
     ],
     ...(input.readOnly ? {} : {
@@ -344,8 +343,13 @@ const instantiateTextArea = defineComponent<
 });
 
 export const textArea: TextAreaFactory = (options) => {
-  if (options.disabled === true) return instantiateTextArea(options);
-  assertRequiredCallback(options.onTransition, 'textArea onTransition');
+  assertOptionalCallback(options.onContextMenu, 'text-area onContextMenu');
+  if (options.disabled === true && options.onTransition === undefined) {
+    const { onContextMenu, ...rest } = withoutTransitionCallback(options);
+    void onContextMenu;
+    return instantiateTextArea({ ...rest, disabled: true });
+  }
+  assertRequiredPropertyCallback(options, 'onTransition', 'textArea onTransition');
   if (!isScrollableTextArea(options)) {
     const { onTransition, onContextMenu, ...componentOptions } = options;
     return instantiateTextArea({
@@ -593,8 +597,9 @@ function textAreaGeometry(input: ComponentInput<TextAreaModel>): TextAreaGeometr
   };
 }
 
-function textAreaPageTriggers(input: ComponentInput<TextAreaModel>) {
-  return (['pageUp', 'pageDown'] as const).flatMap((key) =>
+function textAreaVisualTriggers(input: ComponentInput<TextAreaModel>) {
+  const visualKeys = ['arrowUp', 'arrowDown', 'pageUp', 'pageDown', 'home', 'end'] as const;
+  const movement = visualKeys.flatMap((key) =>
     ([false, true] as const).flatMap((shift) =>
       (['press', 'repeat'] as const).map((eventType) => ({
         trigger: { kind: 'key' as const, key, modifiers: { shift }, eventType },
@@ -602,25 +607,30 @@ function textAreaPageTriggers(input: ComponentInput<TextAreaModel>) {
           const geometry = textAreaGeometry(input);
           const caret = projectedCaret(geometry.projection, input.model.caret);
           const current = geometry.layout.cursorAt(caret.position.offset, caret.position.affinity);
-          const preferredColumnCells = caret.preferredColumnCells ?? current.columnCells;
-          const delta = Math.max(1, geometry.scrollbar.contentBounds.height) * (key === 'pageUp' ? -1 : 1);
+          const vertical = key === 'arrowUp' || key === 'arrowDown'
+            || key === 'pageUp' || key === 'pageDown';
+          const preferredColumnCells = vertical
+            ? caret.preferredColumnCells ?? current.columnCells
+            : undefined;
+          const delta = key === 'arrowUp' ? -1
+            : key === 'arrowDown' ? 1
+            : key === 'pageUp' ? -Math.max(1, geometry.scrollbar.contentBounds.height)
+            : key === 'pageDown' ? Math.max(1, geometry.scrollbar.contentBounds.height)
+            : 0;
           const row = Math.max(0, Math.min(geometry.layout.contentRows - 1, current.rowIndex + delta));
           const line = geometry.layout.lineAtRow(row);
           if (line === undefined) return ignoreMessage();
-          const local = line.index.graphemeIndexToCodeUnitOffset(
-            line.index.visualColumnToGraphemeIndex(preferredColumnCells),
-          );
-          const affinity = local === line.text.length ? 'upstream' as const : 'downstream' as const;
+          const destinationColumn = key === 'home' ? 0
+            : key === 'end' ? line.index.cells
+            : preferredColumnCells ?? 0;
+          const destination = visualCaretAt(geometry, row, destinationColumn);
           return {
             kind: 'edit' as const,
             operation: {
               kind: 'moveTo' as const,
               caret: {
-                position: {
-                  offset: geometry.projection.sourceOffsetAtDisplayOffset(line.start + local, affinity),
-                  affinity,
-                },
-                preferredColumnCells,
+                position: destination.position,
+                ...(preferredColumnCells === undefined ? {} : { preferredColumnCells }),
               },
               extendSelection: shift,
             },
@@ -629,9 +639,44 @@ function textAreaPageTriggers(input: ComponentInput<TextAreaModel>) {
       })),
     ),
   );
+  return [
+    ...movement,
+    ...(['home', 'end'] as const).flatMap((key) =>
+      ([false, true] as const).map((shift) => ({
+        trigger: { kind: 'key' as const, key, modifiers: { ctrl: true, shift } },
+        onKey: () => ({
+          kind: 'edit' as const,
+          operation: {
+            kind: key === 'home' ? 'moveDocumentStart' as const : 'moveDocumentEnd' as const,
+            extendSelection: shift,
+          },
+        }),
+      }))),
+  ];
 }
 
-function paintTextArea(input: ComponentRenderInput<TextAreaModel, TextAreaStylePart>): void {
+function visualCaretAt(
+  geometry: TextAreaGeometry,
+  row: number,
+  columnCells: number,
+): TextCaret {
+  const line = geometry.layout.lineAtRow(row);
+  if (line === undefined) return {
+    position: { offset: 0, affinity: 'downstream' },
+  };
+  const local = line.index.graphemeIndexToCodeUnitOffset(
+    line.index.visualColumnToGraphemeIndex(Math.max(0, columnCells)),
+  );
+  const affinity = local === line.text.length ? 'upstream' as const : 'downstream' as const;
+  return {
+    position: {
+      offset: geometry.projection.sourceOffsetAtDisplayOffset(line.start + local, affinity),
+      affinity,
+    },
+  };
+}
+
+function paintTextArea(input: ComponentRenderInput<TextAreaModel, TextAreaStylePart>): undefined {
   const geometry = textAreaGeometry(input);
   const content = geometry.scrollbar.contentBounds;
   const availabilityStates = textAreaAvailabilityStates(input);
@@ -783,11 +828,10 @@ function pointerOffset(input: ComponentInput<TextAreaModel>, row: number, column
     0,
     column - 1 - geometry.prefixWidth + geometry.scrollbar.scroll.offsetColumn,
   );
-  const grapheme = line.index.visualColumnToGraphemeIndex(visualColumn);
-  return normalizeTextDocumentOffset(input.model.document, geometry.projection.sourceOffsetAtDisplayOffset(
-    line.start + line.index.graphemeIndexToCodeUnitOffset(grapheme),
-    'downstream'
-  ));
+  return normalizeTextDocumentOffset(
+    input.model.document,
+    visualCaretAt(geometry, rowIndex, visualColumn).position.offset,
+  );
 }
 
 function textAreaDragScrollRequest(

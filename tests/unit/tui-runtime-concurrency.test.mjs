@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
+import { failTuiRuntimeTerminalOwnership, tuiRuntimeRunner } from '../../dist/tui/runtime.js';
 import {
   committedTerminalWrite,
   createMemoryTerminalHost,
@@ -10,7 +11,7 @@ import {
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { createTranscriptRecorder, validateTranscript } from '../../dist/transcript/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
-import { text, textInput as createTextInput } from '../../dist/components/index.js';
+import { button, text, textInput as createTextInput } from '../../dist/components/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
 import { diagnostic } from '../../dist/diagnostics.js';
 import { column, surface } from '../../dist/layout/index.js';
@@ -80,6 +81,282 @@ test('dispatchMany reduces one ordered transaction and commits once', async () =
       .map((step) => step.message.value),
     ['one', 'two', 'three'],
   );
+  await runtime.dispose();
+});
+
+test('blocked dispatch commits before Tab and state-dependent input routing', async () => {
+  const transcript = createTranscriptRecorder({ id: 'serialized-input', source: 'tui' });
+  const app = defineTui({
+    id: 'serialized-input',
+    init: () => ({ state: { count: 0, observed: [] }, focus: { kind: 'element', elementId: 'first' } }),
+    update: (state, message) => message.kind === 'increment'
+      ? { state: { ...state, count: state.count + 1 } }
+      : { state: { ...state, observed: [...state.observed, message.value] } },
+    inputBindings: [{
+      id: 'inspect',
+      triggers: [{ kind: 'key', key: 'x' }, { kind: 'key', key: 'arrowDown' }],
+      toMessage: ({ state, focusPath }) => ({
+        kind: 'observed', value: `${String(state.count)}:${focusPath?.at(-1) ?? ''}`
+      })
+    }],
+    view: (state) => column([
+      ...(state.count === 0 ? [button({ id: 'first', label: 'First', onPress: () => ignoreMessage() })] : []),
+      button({ id: 'second', label: 'Second', onPress: () => ignoreMessage() }),
+      button({ id: 'third', label: 'Third', onPress: () => ignoreMessage() }),
+      text({ content: state.observed.join(',') })
+    ])
+  });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 5 } });
+  const runtime = createTuiRuntime({ app, host, transcript });
+  await runtime.start();
+  const write = host.write.bind(host);
+  const started = deferred();
+  const release = deferred();
+  let writes = 0;
+  host.write = async (output, context) => {
+    writes += 1;
+    if (writes === 1) {
+      started.release();
+      await release.promise;
+    }
+    return write(output, context);
+  };
+  const increment = runtime.dispatch({ kind: 'increment' });
+  await started.promise;
+  const arrow = runtime.handleInput(keyEvent('arrowDown'));
+  const tab = runtime.handleInput(keyEvent('tab'));
+  const inspect = runtime.handleInput(keyEvent('x'));
+  assert.equal(runtime.state().count, 0);
+  assert.equal(runtime.frame().focusPath.at(-1), 'first');
+  assert.equal(writes, 1);
+  release.release();
+  await Promise.all([increment, arrow, tab, inspect]);
+  assert.deepEqual(runtime.state(), { count: 1, observed: ['1:second', '1:third'] });
+  assert.equal(runtime.frame().focusPath.at(-1), 'third');
+  const commits = transcript.snapshot().steps.filter((step) => step.kind === 'commit').map((step) => step.commit);
+  assert.deepEqual(commits.map((commit) => commit.stateVersion), [0, 1, 2, 2, 3]);
+  assert.equal(new Set(commits.map((commit) => commit.id)).size, commits.length);
+  await runtime.dispose();
+});
+
+test('input admitted before an external dispatch resolves first', async () => {
+  const app = defineTui({
+    id: 'input-admission-order',
+    init: () => ({ state: { count: 0, seen: [] } }),
+    update: (state, message) => message.kind === 'increment'
+      ? { state: { ...state, count: state.count + 1 } }
+      : { state: { ...state, seen: [...state.seen, message.value] } },
+    inputBindings: [{
+      id: 'read-count', triggers: [{ kind: 'key', key: 'x' }],
+      toMessage: ({ state }) => ({ kind: 'seen', value: state.count })
+    }],
+    view: (state) => text({ content: `${String(state.count)}:${state.seen.join(',')}` })
+  });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
+  await runtime.start();
+  const input = runtime.handleInput(keyEvent('x'));
+  const external = runtime.dispatch({ kind: 'increment' });
+  await Promise.all([input, external]);
+  assert.deepEqual(runtime.state(), { count: 1, seen: [0] });
+  await runtime.dispose();
+});
+
+test('resize observes the state committed by an earlier blocked write', async () => {
+  const app = defineTui({
+    id: 'serialized-resize',
+    init: () => ({ state: { count: 0, resizeSeen: [] } }),
+    update: (state, message) => message.kind === 'increment'
+      ? { state: { ...state, count: state.count + 1 } }
+      : { state: { ...state, resizeSeen: [...state.resizeSeen, message.count] } },
+    resizeMessage: (state) => ({ kind: 'resized', count: state.count }),
+    view: (state, context) => text({ content: `${String(state.count)}:${String(context.terminalSize.columns)}` })
+  });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host });
+  await runtime.start();
+  const write = host.write.bind(host);
+  const started = deferred();
+  const release = deferred();
+  let block = true;
+  host.write = async (output, context) => {
+    if (block) {
+      block = false;
+      started.release();
+      await release.promise;
+    }
+    return write(output, context);
+  };
+  const increment = runtime.dispatch({ kind: 'increment' });
+  await started.promise;
+  const resize = runtime.resize({ columns: 25, rows: 3 });
+  assert.deepEqual(runtime.state(), { count: 0, resizeSeen: [] });
+  release.release();
+  await Promise.all([increment, resize]);
+  assert.deepEqual(runtime.state(), { count: 1, resizeSeen: [1] });
+  assert.equal(runtime.frame().width, 25);
+  await runtime.dispose();
+});
+
+test('input admitted during subscription planning resolves after candidate publication', async () => {
+  let runtime;
+  let admittedInput;
+  let admitted = false;
+  const app = defineTui({
+    id: 'subscription-planning-input',
+    init: () => ({ state: { count: 0, seen: [] } }),
+    update: (state, message) => message.kind === 'increment'
+      ? { state: { ...state, count: state.count + 1 } }
+      : { state: { ...state, seen: [...state.seen, message.value] } },
+    subscriptions: (state) => {
+      if (state.count === 1 && !admitted) {
+        admitted = true;
+        admittedInput = runtime.handleInput(keyEvent('x'));
+      }
+      return [];
+    },
+    inputBindings: [{
+      id: 'inspect-planned-state', triggers: [{ kind: 'key', key: 'x' }],
+      toMessage: ({ state }) => ({ kind: 'observed', value: state.count })
+    }],
+    view: (state) => text({ content: `${String(state.count)}:${state.seen.join(',')}` })
+  });
+  const host = createMemoryTerminalHost();
+  runtime = createTuiRuntime({ app, host });
+  await runtime.start();
+  const write = host.write.bind(host);
+  const started = deferred();
+  const release = deferred();
+  let block = true;
+  host.write = async (output, context) => {
+    if (block) {
+      block = false;
+      started.release();
+      await release.promise;
+    }
+    return write(output, context);
+  };
+  const increment = runtime.dispatch({ kind: 'increment' });
+  await started.promise;
+  assert.notEqual(admittedInput, undefined);
+  assert.deepEqual(runtime.state(), { count: 0, seen: [] });
+  release.release();
+  await Promise.all([increment, admittedInput]);
+  assert.deepEqual(runtime.state(), { count: 1, seen: [1] });
+  await runtime.dispose();
+});
+
+test('focus loss cancels the committed pointer capture after a blocked write', async () => {
+  const app = defineTui({
+    id: 'serialized-blur',
+    init: () => ({ state: { label: 'before', clicks: 0 } }),
+    update: (state, message) => message === 'rename'
+      ? { state: { ...state, label: 'after' } }
+      : { state: { ...state, clicks: state.clicks + 1 } },
+    view: (state) => button({ id: 'target', label: state.label, onPress: () => 'click' })
+  });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 18, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host, input: { mouseReporting: 'drag' } });
+  await runtime.start();
+  await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+  assert.equal(runtime.frame().cells.some((cell) => cell.source?.interactionState === 'pressed'), true);
+  const write = host.write.bind(host);
+  const started = deferred();
+  const release = deferred();
+  let block = true;
+  host.write = async (output, context) => {
+    if (block) {
+      block = false;
+      started.release();
+      await release.promise;
+    }
+    return write(output, context);
+  };
+  const rename = runtime.dispatch('rename');
+  await started.promise;
+  const blur = runtime.handleInput({ kind: 'focus', focused: false });
+  assert.equal(runtime.state().label, 'before');
+  release.release();
+  await Promise.all([rename, blur]);
+  assert.equal(runtime.state().label, 'after');
+  assert.equal(runtime.frame().cells.some((cell) => cell.source?.interactionState === 'pressed'), false);
+  await runtime.handleInputChunk({ data: '\u001B[<0;1;1m' });
+  assert.equal(runtime.state().clicks, 0);
+  await runtime.dispose();
+});
+
+test('runner suspension waits for a pending commit and resumes at a full baseline', async () => {
+  const app = defineTui({
+    id: 'serialized-suspension',
+    init: () => ({ state: 0 }),
+    update: (state) => ({ state: state + 1 }),
+    view: (state) => text({ content: String(state) })
+  });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 8, rows: 2 } });
+  const runtime = createTuiRuntime({ app, host });
+  await runtime.start();
+  for (const control of ['replaceTerminalProfile', 'resetInput', 'suspendOutput', 'resumeOutput']) {
+    assert.equal(control in runtime, false);
+  }
+  const write = host.write.bind(host);
+  const started = deferred();
+  const release = deferred();
+  let writes = 0;
+  host.write = async (output, context) => {
+    writes += 1;
+    if (writes === 1) {
+      started.release();
+      await release.promise;
+    }
+    return write(output, context);
+  };
+  const increment = runtime.dispatch('increment');
+  await started.promise;
+  const suspension = tuiRuntimeRunner(runtime).suspendOutput();
+  assert.equal(runtime.state(), 0);
+  release.release();
+  await Promise.all([increment, suspension]);
+  assert.equal(runtime.state(), 1);
+  const writesBeforeSuspendedDispatch = writes;
+  await runtime.dispatch('increment');
+  assert.equal(runtime.state(), 2);
+  assert.equal(writes, writesBeforeSuspendedDispatch);
+  await tuiRuntimeRunner(runtime).resumeOutput();
+  await runtime.redraw();
+  assert.ok(writes > writesBeforeSuspendedDispatch);
+  assert.match(renderFramePlain(runtime.frame()), /2/u);
+  await runtime.dispose();
+});
+
+test('failed pointer candidate restores capture and visual state', async () => {
+  const app = defineTui({
+    id: 'failed-pointer-candidate',
+    init: () => ({ state: { clicks: 0 } }),
+    update: (state) => ({ state: { clicks: state.clicks + 1 } }),
+    view: (state) => button({ id: 'target', label: `Clicks ${String(state.clicks)}`, onPress: () => 'click' })
+  });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 18, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host, input: { mouseReporting: 'drag' } });
+  await runtime.start();
+  const initial = runtime.frame();
+  const write = host.write.bind(host);
+  host.write = async () => failedTerminalWrite(host.id, new Error('pointer output failed'));
+  await assert.rejects(runtime.handleInputChunk({ data: '\u001B[<0;1;1M' }), /Terminal output failed/u);
+  assert.equal(runtime.frame(), initial);
+  assert.deepEqual(runtime.state(), { clicks: 0 });
+  host.write = write;
+  await runtime.redraw();
+  assert.equal(runtime.frame().cells.some((cell) => cell.source?.interactionState === 'pressed'), false);
+  await runtime.handleInputChunk({ data: '\u001B[<0;1;1m' });
+  assert.deepEqual(runtime.state(), { clicks: 0 });
+  await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+  const pressed = runtime.frame();
+  host.write = async () => failedTerminalWrite(host.id, new Error('blur output failed'));
+  await assert.rejects(runtime.handleInput({ kind: 'focus', focused: false }), /Terminal output failed/u);
+  assert.equal(runtime.frame(), pressed);
+  assert.deepEqual(runtime.state(), { clicks: 0 });
+  host.write = write;
+  await runtime.handleInputChunk({ data: '\u001B[<0;1;1m' });
+  assert.deepEqual(runtime.state(), { clicks: 1 });
   await runtime.dispose();
 });
 
@@ -188,6 +465,35 @@ test('a committed terminal write publishes render and application state despite 
   assert.match(renderFramePlain(runtime.frame()), /Count 1/u);
   assert.equal(harness.frames().length, 2);
   await assert.rejects(runtime.dispatch({ kind: 'late' }), /disposed/u);
+});
+
+test('terminal ownership failure reports the state of a preceding committed write', async () => {
+  const app = defineTui({
+    id: 'ownership-failure-after-commit',
+    init: () => ({ state: 0 }),
+    update: (state) => ({ state: state + 1 }),
+    view: (state) => text({ content: `Count ${String(state)}` })
+  });
+  const host = createMemoryTerminalHost();
+  const runtime = createTuiRuntime({ app, host });
+  await runtime.start();
+  const started = deferred();
+  const release = deferred();
+  host.write = async () => {
+    started.release();
+    await release.promise;
+    return committedTerminalWrite();
+  };
+  const dispatching = runtime.dispatch('increment');
+  await started.promise;
+  failTuiRuntimeTerminalOwnership(runtime, new Error('lost terminal'));
+  release.release();
+  assert.equal(await dispatching, 1);
+  await waitUntil(() => runtime.exit() !== undefined);
+  assert.equal(runtime.exit().status, 'error');
+  assert.equal(runtime.exit().state, 1);
+  assert.match(renderFramePlain(runtime.frame()), /Count 1/u);
+  await runtime.dispose();
 });
 
 test('invalid effect cancellation identities fail before output or state publication', async () => {
@@ -309,11 +615,11 @@ test('TUI runtime preserves unchanged same-reference state when a focus render c
     view: () => column([
       textInput({ meta: { accessibleName: "Text input" },
         id: 'first-same-reference-field',
-        state: { value: 'first', cursor: 0 }
+        state: { text: 'first', cursor: 0 }
       }),
       textInput({ meta: { accessibleName: "Text input" },
         id: 'second-same-reference-field',
-        state: { value: 'second', cursor: 0 }
+        state: { text: 'second', cursor: 0 }
       })
     ])
   });
@@ -925,6 +1231,14 @@ function deferred() {
     release = resolve;
   });
   return { promise, release };
+}
+
+function keyEvent(key) {
+  return {
+    kind: 'key', key,
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press', location: 'standard'
+  };
 }
 
 test('TUI effects may dispatch terminal exit without deadlocking disposal', async () => {

@@ -2,7 +2,7 @@ import { diagnostic } from '../diagnostics.ts';
 import { errorFromUnknown } from '../errors.ts';
 import { tuiSnapshot } from './lifecycle.ts';
 import { completedExit, exitWithStatus } from './exit.ts';
-import { retireTuiRuntimeInput } from './runtime.ts';
+import { retireTuiRuntimeInput, tuiRuntimeRunner } from './runtime.ts';
 import type {
   TerminalHost,
   TerminalInput,
@@ -122,7 +122,7 @@ export async function runTuiInputLoop<TState, TMessage>(
       inputController.abort('terminal_input_suspended');
       await releaseTerminalInput(suspendingInput, releaseInput);
       input = undefined;
-      runtime.resetInput();
+      await tuiRuntimeRunner(runtime).resetInput();
       suspendedRequest = request;
       request.paused();
       watchResume(request);

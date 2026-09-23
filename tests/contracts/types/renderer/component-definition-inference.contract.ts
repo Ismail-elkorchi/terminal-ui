@@ -7,6 +7,36 @@ import {
 } from '@ismail-elkorchi/terminal-ui/component';
 import { row } from '@ismail-elkorchi/terminal-ui/layout';
 
+interface StagedBadgeOptions { readonly label: string }
+const stagedBadge = defineComponent<StagedBadgeOptions>()({
+  name: 'terminal-ui-tests/components/staged-badge',
+  identity: 'optional',
+  structure: 'leaf',
+  semantics: 'semantic',
+  accessibleRole: 'status',
+  parts: ['value'],
+  metadata: ['styles'],
+  measure: ({ model }) => ({ minWidth: 1, minHeight: 1, preferredWidth: model.label.length, preferredHeight: 1 }),
+  render: ({ model, target }) => { target.write(0, 0, [span(model.label)]); },
+  accessibility: ({ id, model }) => ({ id, role: 'status', label: model.label }),
+});
+stagedBadge({ label: 'Ready', styles: { parts: { value: { bold: true } } } });
+// @ts-expect-error staged inference keeps the declared part set closed
+stagedBadge({ label: 'Ready', styles: { parts: { missing: { bold: true } } } });
+
+interface NormalizedOptions { readonly raw: string }
+const normalizedBadge = defineComponent<NormalizedOptions>()({
+  name: 'terminal-ui-tests/components/normalized-badge',
+  identity: 'optional', structure: 'leaf', semantics: 'semantic', accessibleRole: 'status',
+  createModel: ({ raw }) => ({ label: raw.trim(), width: raw.trim().length }),
+  measure: ({ model }) => ({ minWidth: 0, minHeight: 1, preferredWidth: model.width, preferredHeight: 1 }),
+  render: ({ model, target }) => { target.write(0, 0, [span(model.label)]); },
+  accessibility: ({ id, model }) => ({ id, role: 'status', label: model.label }),
+});
+normalizedBadge({ raw: ' Ready ' });
+// @ts-expect-error model-only fields do not leak into factory options
+normalizedBadge({ raw: 'Ready', width: 5 });
+
 type MessageOf<TElement> = TElement extends Element<infer TMessage> ? TMessage : never;
 type Equal<TLeft, TRight> =
   (<T>() => T extends TLeft ? 1 : 2) extends
@@ -16,16 +46,7 @@ type Assert<TValue extends true> = TValue;
 const actionRowSlots = {
   actions: { cardinality: 'many', owner: 'caller', messages: 'bubble' }
 } as const;
-const actionRow = defineComponent<
-  Record<never, never>,
-  Record<never, never>,
-  never,
-  never,
-  readonly [],
-  'required',
-  readonly [],
-  typeof actionRowSlots
->({
+const actionRow = defineComponent<Record<never, never>, never>()({
   name: 'terminal-ui-tests/components/action-row',
   identity: 'required',
   structure: 'composite',
@@ -68,11 +89,7 @@ type InteractiveAction =
   | { readonly kind: 'paste' }
   | { readonly kind: 'key' };
 
-const interactive = defineComponent<
-  Record<never, never>,
-  Record<never, never>,
-  InteractiveAction
->({
+const interactive = defineComponent<Record<never, never>, InteractiveAction>()({
   name: 'terminal-ui-tests/components/interactive',
   identity: 'required',
   structure: 'leaf',
@@ -102,13 +119,52 @@ const instanceHandlerMessageType: Assert<Equal<
 >> = true;
 void instanceHandlerMessageType;
 
-const inertInteractive = defineComponent<
-  Record<never, never>,
-  Record<never, never>,
-  { readonly kind: 'activate' },
-  never,
-  readonly ['inert']
->({
+const stagedInteractive = defineComponent<Record<never, never>, InteractiveAction>()({
+  name: 'terminal-ui-tests/components/staged-interactive',
+  identity: 'required',
+  structure: 'leaf',
+  semantics: 'semantic',
+  accessibleRole: 'button',
+  states: ['disabled'],
+  measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
+  render: () => undefined,
+  focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
+  keys: () => ({ enter: () => ({ kind: 'key' }) }),
+  accessibility: ({ id }) => ({ id, role: 'button', label: 'Staged' }),
+});
+const stagedAction = stagedInteractive({
+  id: 'staged', disabled: false,
+  onAction: (action) => ({ kind: 'staged' as const, action }),
+});
+const stagedActionType: Assert<Equal<
+  MessageOf<typeof stagedAction>,
+  { readonly kind: 'staged'; readonly action: InteractiveAction }
+>> = true;
+void stagedActionType;
+// @ts-expect-error undeclared state capabilities remain unavailable
+stagedInteractive({ id: 'staged', busy: true, onAction: () => ({ kind: 'staged' }) });
+
+const stagedActionRow = defineComponent<Record<never, never>>()({
+  name: 'terminal-ui-tests/components/staged-action-row',
+  identity: 'required',
+  structure: 'composite',
+  semantics: 'semantic',
+  accessibleRole: 'group',
+  slots: actionRowSlots,
+  measure: ({ slots }) => slots.measure('actions'),
+  layout: ({ bounds, slots }) => ({
+    actions: Array.from({ length: slots.count('actions') }, () => bounds),
+  }),
+  accessibility: ({ id, children }) => ({ id, role: 'group', label: 'Actions', children }),
+});
+const stagedComposite = stagedActionRow({ id: 'staged-row', slots: { actions: [save, cancel] as const } });
+const stagedCompositeType: Assert<Equal<
+  MessageOf<typeof stagedComposite>,
+  { readonly kind: 'save' } | { readonly kind: 'cancel' }
+>> = true;
+void stagedCompositeType;
+
+const inertInteractive = defineComponent<Record<never, never>, { readonly kind: 'activate' }>()({
   name: 'terminal-ui-tests/components/inert-interactive',
   identity: 'required',
   states: ['inert'],
@@ -122,21 +178,26 @@ const inertInteractive = defineComponent<
   accessibility: ({ id }) => ({ id, role: 'button', label: 'Action' })
 });
 inertInteractive({ id: 'inert', inert: true });
+const inertFlag = Boolean(Date.now());
+const retainedInert = inertInteractive({
+  id: 'inert-with-handler',
+  inert: inertFlag,
+  onAction: (action) => ({ kind: 'mapped' as const, action })
+});
+const retainedInertMessage: Assert<Equal<
+  MessageOf<typeof retainedInert>,
+  { readonly kind: 'mapped'; readonly action: { readonly kind: 'activate' } }
+>> = true;
+void retainedInertMessage;
 // @ts-expect-error inert components cannot route actions
 inertInteractive({ id: 'inert-with-handler', inert: true, onTransition: () => ({ kind: 'mapped' }) });
 // @ts-expect-error available actionful components require an action mapper
 inertInteractive({ id: 'available-without-handler' });
+// @ts-expect-error an inert boolean can become available, so it needs an action mapper
+inertInteractive({ id: 'sometimes-available', inert: inertFlag });
 
 interface BadgeOptions { readonly label: string }
-interface BadgeModel { readonly label: string }
-const badge = defineComponent<
-  BadgeOptions,
-  BadgeModel,
-  never,
-  never,
-  readonly [],
-  'optional'
->({
+const badge = defineComponent<BadgeOptions, never>()({
   name: 'terminal-ui-tests/components/badge',
   identity: 'optional',
   structure: 'leaf',
@@ -171,33 +232,23 @@ badge({ label: 'Ready', lable: 'typo' });
 interface GenericBoxOptions {
   readonly values: readonly string[];
 }
-interface GenericBoxModel {
-  readonly values: readonly string[];
-}
 type GenericBoxFactory = <TValue>(options: {
     readonly values: readonly TValue[];
     readonly label: (value: TValue) => string;
   }) => Element;
-const instantiateGenericBox = defineComponent<
-  GenericBoxOptions,
-  GenericBoxModel,
-  never,
-  never,
-  readonly [],
-  'optional',
-  readonly []
->({
+const instantiateGenericBox = defineComponent<GenericBoxOptions, never>()({
   name: 'terminal-ui-tests/components/generic-box',
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
   accessibleRole: 'list',
   createModel(value) {
-    if (!Array.isArray(value.values)
-      || value.values.some((entry) => typeof entry !== 'string')) {
+    const values: unknown = value.values;
+    if (!Array.isArray(values)
+      || !values.every((entry: unknown): entry is string => typeof entry === 'string')) {
       throw new TypeError('generic box values must be strings');
     }
-    return { values: value.values };
+    return { values };
   },
   measure: ({ model }) => ({
     minWidth: 0,
@@ -278,16 +329,7 @@ void targetlessLifecycle;
 const captureSlots = {
   content: { cardinality: 'one', owner: 'caller', messages: 'capture' }
 } as const;
-const capturing = defineComponent<
-  Record<never, never>,
-  Record<never, never>,
-  { readonly kind: 'captured'; readonly message: unknown },
-  never,
-  readonly [],
-  'required',
-  readonly [],
-  typeof captureSlots
->({
+const capturing = defineComponent<Record<never, never>, { readonly kind: 'captured'; readonly message: unknown }>()({
   name: 'terminal-ui-tests/components/capturing',
   identity: 'required',
   structure: 'composite',
@@ -313,16 +355,7 @@ void capturedMessageType;
 const noneSlots = {
   content: { cardinality: 'one', owner: 'caller', messages: 'none' }
 } as const;
-const nonInteractiveWrapper = defineComponent<
-  Record<never, never>,
-  Record<never, never>,
-  never,
-  never,
-  readonly [],
-  'required',
-  readonly [],
-  typeof noneSlots
->({
+const nonInteractiveWrapper = defineComponent<Record<never, never>, never>()({
   name: 'terminal-ui-tests/components/non-interactive-wrapper',
   identity: 'required',
   structure: 'composite',

@@ -179,7 +179,7 @@ test('theme catalogs are immutable and symbol mode selects a complete repertoire
 test('undefined color overrides are rejected instead of deleting base tokens', () => {
   assert.throws(() => defineTheme({
     tokens: { colors: { 'text.default': undefined } }
-  }), /Theme color text\.default must be an object/u);
+  }), /theme\.tokens\.colors\.text\.default must be an object/u);
 });
 
 test('rich text components preserve render spans and render their plain text into frames', () => {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import test from 'node:test';
-import { structuralBudgetViolations } from '../../scripts/performance-contract.mjs';
+import { evidenceViolations, structuralBudgetViolations } from '../../scripts/performance-contract.mjs';
 
 test('interactive benchmark emits reproducible structural evidence', async () => {
   const result = await runBenchmark();
@@ -13,8 +13,13 @@ test('interactive benchmark emits reproducible structural evidence', async () =>
   assert.equal(report.metadata.warmupCount, 1);
   assert.ok(report.scenarios.length >= 10);
   assert.ok(report.scenarios.some((scenario) => scenario.name === 'input-to-commit'));
+  assert.ok(report.scenarios.some((scenario) => scenario.name === 'focus-navigation-32'));
+  assert.ok(report.scenarios.some((scenario) => scenario.name === 'focus-navigation-128'));
   assert.ok(report.scenarios.some((scenario) => scenario.name === 'resize-storm'));
   assert.ok(report.scenarios.some((scenario) => scenario.name === 'memory-host-write'));
+  for (const name of ['unchanged-focus-tree-32', 'unchanged-focus-tree-128', 'long-single-line', 'fragmented-damage', 'same-layer-regions']) {
+    assert.ok(report.scenarios.some((scenario) => scenario.name === name));
+  }
   assert.ok(report.scenarios.every((scenario) => scenario.scale > 0));
   assert.ok(report.scenarios.filter((scenario) => scenario.kind === 'render').every((scenario) => (
     scenario.work !== undefined
@@ -31,6 +36,9 @@ test('interactive benchmark emits reproducible structural evidence', async () =>
     && stage.coefficientOfVariation >= 0
   ))));
   assert.ok(report.dominantStages.length > 0);
+  assert.deepEqual(evidenceViolations(report), []);
+  assert.ok(report.scenarios.filter((scenario) => scenario.kind === 'runtime').every((scenario) =>
+    scenario.work.render_hooks.max > 0));
   assert.deepEqual(structuralBudgetViolations(report), []);
 });
 

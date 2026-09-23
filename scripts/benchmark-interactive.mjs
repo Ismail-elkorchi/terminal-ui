@@ -8,6 +8,7 @@ import {
   renderElementFrame
 } from '../dist/renderer/index.js';
 import {
+  button,
   canvas,
   dataGrid,
   searchPicker,
@@ -40,6 +41,9 @@ import { defaultTheme } from '../dist/theme/index.js';
 import { createTuiRuntime, defineTui } from '../dist/tui/index.js';
 import { searchPickerIndexStatistics } from '../dist/behavior/search-picker-index.js';
 import { summarizeSamples } from './benchmark-statistics.mjs';
+import { requiredWorkKinds } from './performance-contract.mjs';
+
+const REQUIRED_WORK = requiredWorkKinds;
 
 const quick = process.env['TERMINAL_UI_BENCHMARK_QUICK'] === '1';
 const sampleCount = quick ? 4 : 40;
@@ -83,6 +87,8 @@ for (const app of [btopMonitorApp, ideEditorApp, interactiveWorkspaceApp]) {
 }
 results.push(await runHostWriteScenario());
 results.push(await runInputToCommitScenario());
+results.push(await runFocusTreeScenario(32));
+results.push(await runFocusTreeScenario(128));
 results.push(await runPointerRoutingScenario());
 results.push(await runResizeStormScenario());
 await benchmarkHost.dispose();
@@ -121,6 +127,9 @@ function renderScenarios() {
     keywords: [`group-${String(index % 25)}`]
   }));
   const searchPickerIndex = createSearchPickerIndex(entries);
+  const stableFocusTrees = [32, 128].map((count) => column(Array.from(
+    { length: count }, (_value, index) => text({ id: `stable-${String(index)}`, content: `item ${String(index)}` })
+  )));
   const treeNodes = Array.from({ length: quick ? 2_000 : 50_000 }, (_value, index) => ({
     id: `node-${String(index)}`,
     kind: 'leaf',
@@ -137,6 +146,41 @@ function renderScenarios() {
     (_value, index) => `line ${String(index)} contains selectable text`
   ).join('\n'));
   return [
+    ...stableFocusTrees.map((element, index) => ({
+      name: index === 0 ? 'unchanged-focus-tree-32' : 'unchanged-focus-tree-128',
+      scale: index === 0 ? 32 : 128,
+      createElement: () => element
+    })),
+    {
+      name: 'long-single-line',
+      scale: quick ? 10_000 : 100_000,
+      createElement(index) {
+        return text({ content: `${'x'.repeat(quick ? 9_999 : 99_999)}${String(index % 10)}` });
+      }
+    },
+    {
+      name: 'fragmented-damage',
+      scale: 16,
+      createElement(index) {
+        return column(Array.from({ length: 16 }, (_value, row) =>
+          text({ content: `${'x'.repeat(20)}${String((index + row) % 10)}` })
+        ));
+      },
+      dirtyRegions() {
+        return Array.from({ length: 16 }, (_value, row) => ({ row: row + 1, column: 21, width: 1, height: 1 }));
+      }
+    },
+    {
+      name: 'same-layer-regions',
+      scale: 16,
+      createElement(index) {
+        return overlay(Array.from({ length: 16 }, (_value, item) => text({
+          id: `region-${String(item)}`,
+          content: `${String(item)}:${String(index)}`,
+          meta: { layer: { zIndex: 1 } }
+        })));
+      }
+    },
     {
       name: 'scrolling-text-area',
       scale: textDocumentLineCount(selectionDocument),
@@ -196,7 +240,7 @@ function renderScenarios() {
         return tree({
           id: 'scrolling-tree',
           meta: { accessibleName: 'Scrolling tree' },
-          view: treeView,
+          source: treeSource,
           state: {
             ...treeState,
             scroll: createScrollState({ offsetRow: index + 100 })
@@ -390,7 +434,7 @@ function runRenderScenario(scenario) {
     const element = scenario.createElement(value);
     const elementConstructionDuration = performance.now() - elementConstructionStarted;
     const currentStages = new Map();
-    const currentWork = new Map();
+    const currentWork = new Map(REQUIRED_WORK.map((kind) => [kind, 0]));
     const scenarioWorkBefore = scenario.workSnapshot?.() ?? {};
     const instrumentation = {
       recordWork(sample) {
@@ -409,7 +453,10 @@ function runRenderScenario(scenario) {
       }
     });
     const diffStarted = performance.now();
-    const diff = diffFrames(previous, frame, { instrumentation });
+    const diff = diffFrames(previous, frame, {
+      instrumentation,
+      ...(scenario.dirtyRegions === undefined ? {} : { dirtyRegions: scenario.dirtyRegions(value) })
+    });
     const diffDuration = performance.now() - diffStarted;
     const outputStarted = performance.now();
     renderDiffAnsi(diff, { capabilities: benchmarkContext.capabilities, instrumentation });
@@ -466,20 +513,24 @@ async function runHostWriteScenario() {
 
 async function runApplicationRenderScenario(app) {
   const host = createMemoryTerminalHost({ terminalSize });
-  const runtime = createTuiRuntime({ app, host });
+  const recorder = createRuntimeRecorder();
+  const runtime = createTuiRuntime({ app, host, instrumentation: recorder.instrumentation });
   await runtime.start();
   const samples = [];
+  const workSamples = new Map();
   for (let index = -warmupCount; index < sampleCount; index += 1) {
+    recorder.reset();
     const started = performance.now();
     await runtime.redraw();
-    if (index >= 0) samples.push(performance.now() - started);
+    if (index >= 0) { samples.push(performance.now() - started); recorder.appendTo(workSamples); }
   }
   await runtime.dispose();
   return Object.freeze({
     kind: 'runtime',
     name: `real-example-${app.id}`,
     scale: 1,
-    stages: { redraw: summarizeSamples(samples) }
+    stages: { redraw: summarizeSamples(samples) },
+    work: Object.fromEntries([...workSamples].map(([kind, values]) => [kind, summarizeWork(values)]))
   });
 }
 
@@ -508,20 +559,61 @@ async function runInputToCommitScenario() {
     })
   });
   const host = createMemoryTerminalHost({ terminalSize });
-  const runtime = createTuiRuntime({ app, host });
+  const recorder = createRuntimeRecorder();
+  const runtime = createTuiRuntime({ app, host, instrumentation: recorder.instrumentation });
   await runtime.start();
   const samples = [];
+  const workSamples = new Map();
   for (let index = -warmupCount; index < sampleCount; index += 1) {
+    recorder.reset();
     const started = performance.now();
     await runtime.handleInput(keyEvent(index % 2 === 0 ? 'arrowDown' : 'arrowUp'));
-    if (index >= 0) samples.push(performance.now() - started);
+    if (index >= 0) { samples.push(performance.now() - started); recorder.appendTo(workSamples); }
   }
   await runtime.dispose();
   return Object.freeze({
     kind: 'runtime',
     name: 'input-to-commit',
     scale: rows.length,
-    stages: { inputToCommit: summarizeSamples(samples) }
+    stages: { inputToCommit: summarizeSamples(samples) },
+    work: Object.fromEntries([...workSamples].map(([kind, values]) => [kind, summarizeWork(values)]))
+  });
+}
+
+async function runFocusTreeScenario(count) {
+  const buttons = column(Array.from({ length: count }, (_value, index) => button({
+    id: `focus-${String(index)}`,
+    label: `Action ${String(index)}`,
+    onPress: () => index
+  })));
+  const app = defineTui({
+    id: `benchmark-focus-${String(count)}`,
+    init: () => ({ state: 0 }),
+    update: (state) => ({ state }),
+    view: () => buttons
+  });
+  const host = createMemoryTerminalHost({ terminalSize });
+  const recorder = createRuntimeRecorder();
+  const runtime = createTuiRuntime({ app, host, instrumentation: recorder.instrumentation });
+  await runtime.start();
+  const samples = [];
+  const workSamples = new Map();
+  for (let index = -warmupCount; index < sampleCount; index += 1) {
+    recorder.reset();
+    const started = performance.now();
+    await runtime.handleInput(keyEvent('tab'));
+    if (index >= 0) {
+      samples.push(performance.now() - started);
+      recorder.appendTo(workSamples);
+    }
+  }
+  await runtime.dispose();
+  return Object.freeze({
+    kind: 'runtime',
+    name: `focus-navigation-${String(count)}`,
+    scale: count,
+    stages: { inputToCommit: summarizeSamples(samples) },
+    work: Object.fromEntries([...workSamples].map(([kind, values]) => [kind, summarizeWork(values)]))
   });
 }
 
@@ -550,22 +642,27 @@ async function runPointerRoutingScenario() {
     })
   });
   const host = createMemoryTerminalHost({ terminalSize });
-  const runtime = createTuiRuntime({ app, host });
+  const recorder = createRuntimeRecorder();
+  const runtime = createTuiRuntime({ app, host, instrumentation: recorder.instrumentation });
   await runtime.start();
   const samples = [];
+  const workSamples = new Map();
   for (let index = -warmupCount; index < sampleCount; index += 1) {
     const row = 2 + (Math.max(0, index) % 10);
+    recorder.reset();
     const started = performance.now();
+    await runtime.handleInput(mouseEvent('move', row));
     await runtime.handleInput(mouseEvent('press', row));
     await runtime.handleInput(mouseEvent('release', row));
-    if (index >= 0) samples.push(performance.now() - started);
+    if (index >= 0) { samples.push(performance.now() - started); recorder.appendTo(workSamples); }
   }
   await runtime.dispose();
   return Object.freeze({
     kind: 'runtime',
     name: 'pointer-route-to-commit',
     scale: rows.length,
-    stages: { inputToCommit: summarizeSamples(samples) }
+    stages: { inputToCommit: summarizeSamples(samples) },
+    work: Object.fromEntries([...workSamples].map(([kind, values]) => [kind, summarizeWork(values)]))
   });
 }
 
@@ -577,24 +674,28 @@ async function runResizeStormScenario() {
     view: (state) => text({ content: state.label })
   });
   const host = createMemoryTerminalHost({ terminalSize });
-  const runtime = createTuiRuntime({ app, host });
+  const recorder = createRuntimeRecorder();
+  const runtime = createTuiRuntime({ app, host, instrumentation: recorder.instrumentation });
   await runtime.start();
   const stormSize = quick ? 8 : 40;
   const samples = [];
+  const workSamples = new Map();
   for (let index = -warmupCount; index < sampleCount; index += 1) {
+    recorder.reset();
     const started = performance.now();
     await Promise.all(Array.from({ length: stormSize }, (_value, offset) => runtime.resize({
-      columns: 100 + (offset % 20),
-      rows: 30 + (offset % 10)
+      columns: 100 + (offset % 20) + (index & 1),
+      rows: 30 + (offset % 10) + (index & 1)
     })));
-    if (index >= 0) samples.push(performance.now() - started);
+    if (index >= 0) { samples.push(performance.now() - started); recorder.appendTo(workSamples); }
   }
   await runtime.dispose();
   return Object.freeze({
     kind: 'runtime',
     name: 'resize-storm',
     scale: stormSize,
-    stages: { inputToCommit: summarizeSamples(samples) }
+    stages: { inputToCommit: summarizeSamples(samples) },
+    work: Object.fromEntries([...workSamples].map(([kind, values]) => [kind, summarizeWork(values)]))
   });
 }
 
@@ -655,4 +756,17 @@ function outputArgument(args) {
   const value = args[index + 1];
   if (value === undefined || value.length === 0) throw new TypeError('--output requires a path.');
   return value;
+}
+
+function createRuntimeRecorder() {
+  let work = new Map();
+  return {
+    instrumentation: {
+      now: () => performance.now(),
+      record() {},
+      recordWork(sample) { work.set(sample.kind, (work.get(sample.kind) ?? 0) + sample.count); }
+    },
+    reset() { work = new Map(REQUIRED_WORK.map((kind) => [kind, 0])); },
+    appendTo(samples) { for (const [kind, count] of work) append(samples, kind, count); }
+  };
 }

@@ -25,6 +25,7 @@ import type {
   LogViewerSelection,
 } from '../../behavior/log-viewer.ts';
 import type { ComponentMessage, ComponentMetadataOptions } from '../../component/index.ts';
+import type { RetainedCallbacks } from './availability.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
 import type {
@@ -95,12 +96,13 @@ export type CommandInputOptions<
   | {
       readonly disabled: true;
       readonly readOnly?: never;
-      readonly onTransition?: never;
-      readonly onSubmit?: never;
-      readonly onContextMenu?: never;
-    }
+    } & RetainedCallbacks<{
+      readonly onTransition: (transition: CommandInputTransition) => MessageResolution<TTransitionMessage>;
+      readonly onSubmit?: (event: CommandInputSubmitEvent) => MessageResolution<TSubmitMessage>;
+      readonly onContextMenu?: (event: TextContextMenuEvent) => MessageResolution<TTransitionMessage>;
+    }>
   | {
-      readonly disabled?: false;
+      readonly disabled?: boolean;
       readonly readOnly?: boolean;
       readonly onTransition: (transition: CommandInputTransition) => MessageResolution<TTransitionMessage>;
       readonly onSubmit?: (event: CommandInputSubmitEvent) => MessageResolution<TSubmitMessage>;
@@ -124,34 +126,28 @@ interface ActiveSearchPickerCallbacks<
   TAcceptMessage extends ComponentMessage,
   TTransition,
 > {
-  readonly disabled?: false;
+  readonly disabled?: boolean;
   readonly readOnly?: boolean;
   readonly busy?: boolean;
-  readonly inert?: false;
+  readonly inert?: boolean;
   readonly onTransition: (transition: TTransition) => MessageResolution<TTransitionMessage>;
   readonly onAccept?: (event: SearchPickerAcceptEvent) => MessageResolution<TAcceptMessage>;
   readonly onContextMenu?: (event: TextContextMenuEvent) => MessageResolution<TTransitionMessage>;
 }
 
-interface InertSearchPickerCallbacks {
-  readonly disabled?: false;
+type InertSearchPickerCallbacks<TTransitionMessage extends ComponentMessage, TAcceptMessage extends ComponentMessage, TTransition> = {
+  readonly disabled?: boolean;
   readonly readOnly?: never;
   readonly busy?: boolean;
   readonly inert: true;
-  readonly onTransition?: never;
-  readonly onAccept?: never;
-  readonly onContextMenu?: never;
-}
+} & RetainedCallbacks<ActiveSearchPickerCallbacks<TTransitionMessage, TAcceptMessage, TTransition>>;
 
-interface DisabledSearchPickerCallbacks {
+type DisabledSearchPickerCallbacks<TTransitionMessage extends ComponentMessage, TAcceptMessage extends ComponentMessage, TTransition> = {
   readonly disabled: true;
   readonly readOnly?: never;
   readonly busy?: never;
   readonly inert?: never;
-  readonly onTransition?: never;
-  readonly onAccept?: never;
-  readonly onContextMenu?: never;
-}
+} & RetainedCallbacks<ActiveSearchPickerCallbacks<TTransitionMessage, TAcceptMessage, TTransition>>;
 
 export type UnscrolledSearchPickerOptions<
   TValue = string,
@@ -165,7 +161,7 @@ export type UnscrolledSearchPickerOptions<
   TTransitionMessage,
   TAcceptMessage,
   SearchPickerControlTransition
-> | DisabledSearchPickerCallbacks | InertSearchPickerCallbacks);
+> | DisabledSearchPickerCallbacks<TTransitionMessage, TAcceptMessage, SearchPickerControlTransition> | InertSearchPickerCallbacks<TTransitionMessage, TAcceptMessage, SearchPickerControlTransition>);
 
 export type ScrollableSearchPickerOptions<
   TValue = string,
@@ -179,7 +175,7 @@ export type ScrollableSearchPickerOptions<
   TTransitionMessage,
   TAcceptMessage,
   SearchPickerTransition
-> | DisabledSearchPickerCallbacks | InertSearchPickerCallbacks);
+> | DisabledSearchPickerCallbacks<TTransitionMessage, TAcceptMessage, SearchPickerTransition> | InertSearchPickerCallbacks<TTransitionMessage, TAcceptMessage, SearchPickerTransition>);
 
 export type SearchPickerOptions<
   TValue = string,

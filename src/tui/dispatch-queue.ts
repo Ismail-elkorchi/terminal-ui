@@ -1,5 +1,5 @@
 export interface SerializedDispatchQueue {
-  run<TValue>(operation: () => Promise<TValue>): Promise<TValue>;
+  run<TValue>(operation: () => TValue | Promise<TValue>): Promise<TValue>;
   drain(): Promise<void>;
 }
 

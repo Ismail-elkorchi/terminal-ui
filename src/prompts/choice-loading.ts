@@ -4,6 +4,7 @@ import { setChoiceTotal } from './state.ts';
 import type { TerminalHost } from '../host/index.ts';
 import type { InputEvent } from '../input/index.ts';
 import type { PromptRenderHook } from './interaction-hooks.ts';
+import type { PromptTaskOwner } from './session.ts';
 import type { PromptRuntimeState } from './state.ts';
 import type { AutocompletePromptDefinition, ChoicePromptDefinition, PromptChoice } from './types.ts';
 
@@ -16,25 +17,25 @@ export function scheduleAutocompleteChoiceRefresh<TValue>(
   state.choiceDebounceController?.abort();
   const delayMs = Math.max(0, prompt.debounceMs ?? 0);
   if (delayMs === 0) {
-    void refreshAutocompleteChoices(prompt, host, state, hooks);
+    hooks.owner.track(() => refreshAutocompleteChoices(prompt, host, state, hooks));
     return;
   }
   const controller = new AbortController();
   state.choiceDebounceController = controller;
-  void (async () => {
+  hooks.owner.track(async () => {
     const outcome = await host.clock.sleep(delayMs, controller.signal);
-    if (outcome === 'aborted' || state.completed || state.choiceDebounceController !== controller) return;
+    if (outcome === 'aborted' || state.completed || !hooks.owner.active || state.choiceDebounceController !== controller) return;
     await refreshAutocompleteChoices(prompt, host, state, hooks);
-  })();
+  });
 }
 
-export async function maybeLoadNextChoicePage<TValue>(
+export function maybeLoadNextChoicePage<TValue>(
   prompt: ChoicePromptDefinition<TValue>,
   host: TerminalHost,
   state: PromptRuntimeState<TValue>,
   event: InputEvent,
   hooks: PromptRenderHook<TValue, ChoicePromptDefinition<TValue>>
-): Promise<boolean> {
+): boolean {
   if (event.kind !== 'key' || event.key !== 'pageDown') return false;
   if (typeof prompt.choices !== 'function' || !state.choiceHasMore || state.choiceLoading) return true;
   state.choiceController?.abort();
@@ -45,38 +46,42 @@ export async function maybeLoadNextChoicePage<TValue>(
   const version = state.choiceLoadVersion + 1;
   state.choiceLoadVersion = version;
   const previousLength = state.choices.length;
-  await hooks.render(host, prompt, state);
-  try {
-    const result = await prompt.choices({
-      query: prompt.kind === 'autocomplete' ? state.buffer.text : '',
-      offset: state.choices.length,
-      limit: 50,
-      signal: controller.signal
-    });
-    if (controller.signal.aborted || state.completed || version !== state.choiceLoadVersion) return true;
-    assertAccumulatedChoiceIds(state.choices, result.choices);
-    const nextChoices = [...state.choices, ...result.choices];
-    setChoiceTotal(state, result.total);
-    state.choices = nextChoices;
-    state.choiceDiagnostics = result.diagnostics ?? [];
-    state.choiceHasMore = result.hasMore ?? false;
-    state.focusedChoiceIndex = firstEnabledChoiceIndexFrom(state.choices, previousLength)
-      ?? firstEnabledChoiceIndex(state.choices)
-      ?? 0;
-  } catch (cause) {
-    if (controller.signal.aborted || state.completed || version !== state.choiceLoadVersion) return true;
-    state.choiceDiagnostics = [
-      diagnostic('PROMPT_DATA_SOURCE_FAILED', 'Prompt choice page failed.', {
-        cause,
-        target: prompt.id ?? prompt.kind
-      })
-    ];
-  } finally {
-    if (!controller.signal.aborted && !state.completed && version === state.choiceLoadVersion) {
-      state.choiceLoading = false;
-      await hooks.render(host, prompt, state);
+  const source = prompt.choices;
+  hooks.owner.track(async () => {
+    await hooks.render(host, prompt, state);
+    if (!choiceLoadIsCurrent(state, hooks.owner, controller, version)) return;
+    try {
+      const result = await source({
+        query: prompt.kind === 'autocomplete' ? state.buffer.text : '',
+        offset: state.choices.length,
+        limit: 50,
+        signal: controller.signal
+      });
+      if (!choiceLoadIsCurrent(state, hooks.owner, controller, version)) return;
+      assertAccumulatedChoiceIds(state.choices, result.choices);
+      const nextChoices = [...state.choices, ...result.choices];
+      setChoiceTotal(state, result.total);
+      state.choices = nextChoices;
+      state.choiceDiagnostics = result.diagnostics ?? [];
+      state.choiceHasMore = result.hasMore ?? false;
+      state.focusedChoiceIndex = firstEnabledChoiceIndexFrom(state.choices, previousLength)
+        ?? firstEnabledChoiceIndex(state.choices)
+        ?? 0;
+    } catch (cause) {
+      if (!choiceLoadIsCurrent(state, hooks.owner, controller, version)) return;
+      state.choiceDiagnostics = [
+        diagnostic('PROMPT_DATA_SOURCE_FAILED', 'Prompt choice page failed.', {
+          cause,
+          target: prompt.id ?? prompt.kind
+        })
+      ];
+    } finally {
+      if (choiceLoadIsCurrent(state, hooks.owner, controller, version)) {
+        state.choiceLoading = false;
+        await hooks.render(host, prompt, state);
+      }
     }
-  }
+  });
   return true;
 }
 
@@ -100,6 +105,7 @@ async function refreshAutocompleteChoices<TValue>(
   state: PromptRuntimeState<TValue>,
   hooks: PromptRenderHook<TValue, AutocompletePromptDefinition<TValue>>
 ): Promise<void> {
+  if (!hooks.owner.active || state.completed) return;
   if (typeof prompt.choices !== 'function') {
     state.choices = filterStaticChoices(prompt.choices, state.buffer.text);
     state.choiceDiagnostics = [];
@@ -124,14 +130,14 @@ async function refreshAutocompleteChoices<TValue>(
       limit: 50,
       signal: controller.signal
     });
-    if (controller.signal.aborted || state.completed || version !== state.choiceLoadVersion) return;
+    if (!choiceLoadIsCurrent(state, hooks.owner, controller, version)) return;
     state.choices = result.choices;
     state.choiceDiagnostics = result.diagnostics ?? [];
     state.choiceHasMore = result.hasMore ?? false;
     setChoiceTotal(state, result.total);
     state.focusedChoiceIndex = firstEnabledChoiceIndex(state.choices) ?? 0;
   } catch (cause) {
-    if (controller.signal.aborted || state.completed || version !== state.choiceLoadVersion) return;
+    if (!choiceLoadIsCurrent(state, hooks.owner, controller, version)) return;
     state.choices = [];
     state.choiceDiagnostics = [
       diagnostic('PROMPT_DATA_SOURCE_FAILED', 'Autocomplete data source failed.', {
@@ -141,11 +147,20 @@ async function refreshAutocompleteChoices<TValue>(
     ];
     state.choiceHasMore = false;
   } finally {
-    if (!controller.signal.aborted && !state.completed && version === state.choiceLoadVersion) {
+    if (choiceLoadIsCurrent(state, hooks.owner, controller, version)) {
       state.choiceLoading = false;
       await hooks.render(host, prompt, state);
     }
   }
+}
+
+function choiceLoadIsCurrent<TValue>(
+  state: PromptRuntimeState<TValue>,
+  owner: PromptTaskOwner,
+  controller: AbortController,
+  version: number
+): boolean {
+  return !controller.signal.aborted && !state.completed && owner.active && version === state.choiceLoadVersion;
 }
 
 function firstEnabledChoiceIndexFrom<TValue>(

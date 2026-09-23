@@ -16,6 +16,8 @@ if (result.status === 'submitted' && result.value) {
 }
 ```
 
+## Results and hosts
+
 Prompts return typed results instead of throwing for ordinary cancellation,
 timeout, validation failure, or deterministic non-TTY denial.
 `runPrompt(prompt)` creates and disposes a runtime host for the call. An
@@ -27,17 +29,6 @@ snapshot for submitted and aborted prompts.
 The explicit `transcript_only` non-TTY mode still returns a snapshot transcript
 because that mode is itself a transcript contract.
 
-Available prompt primitives include:
-
-- `confirm()`
-- `input()`
-- `password()`
-- `select()`
-- `multiselect()`
-- `autocomplete()`
-- `editor()`
-- `progress()`
-
 | Need | Primitive |
 | --- | --- |
 | Boolean confirmation | `confirm()` |
@@ -46,6 +37,30 @@ Available prompt primitives include:
 | Search-backed choice | `autocomplete()` |
 | External multiline editing | `editor()` |
 | Managed task progress | `progress()` |
+
+## Validate input
+
+Validators may be async. They receive an `AbortSignal` in the context; check
+it before using a delayed result. The prompt cancels superseded work and keeps
+the latest result. `required: true` runs before a custom validator.
+
+```ts
+import { input, runPrompt } from '@ismail-elkorchi/terminal-ui/prompts';
+
+const name = await runPrompt(input({
+  label: 'Name',
+  required: true,
+  validate: async (value, { signal }) => {
+    if (signal?.aborted) return { status: 'valid' };
+    return value.length < 3
+      ? { status: 'invalid', message: 'Use at least three characters.' }
+      : { status: 'valid' };
+  }
+}));
+if (name.status === 'submitted') console.log(name.value);
+```
+
+## Secrets and external editing
 
 `password()` masks rendered input with `mask` when configured and keeps the
 submitted value out of snapshots, transcripts, diagnostics, and terminal
@@ -61,6 +76,8 @@ and cleanup. The prompt resolves command preference as `editorCommand`, then
 without command interpolation.
 When `timeoutMs` expires, the adapter receives an aborted signal and the prompt
 returns typed timeout diagnostics.
+
+## Choice lists
 
 Async choice prompts use the data-source `offset`, `limit`, and `hasMore`
 contract. When more choices are available, PageDown requests the next page and
@@ -79,11 +96,9 @@ styling, and non-color hosts receive plain text. Prompts default to
 `minimalTheme`; they accept either a canonical `TerminalTheme` or a partial
 `TerminalThemeDefinition` merged onto that minimal base.
 Interactive `input()` and `password()` prompts show pending and failing
-validation status while the user types. Async validators receive an
-`AbortSignal`; stale validation results are ignored, so a slower response for an
-older value cannot overwrite the current prompt state. Password validation
-feedback is redacted before it reaches terminal output, diagnostics, snapshots,
-or transcripts.
+validation status while the user types. Older async results cannot replace the
+latest value. Password validation feedback is redacted from output,
+diagnostics, snapshots, and transcripts.
 `required: true` is enforced by the shared validation path before custom
 validators, so interactive input, text/password/confirm non-TTY defaults, and
 provided values produce the same typed validation result for empty values.
@@ -101,6 +116,8 @@ and stale requests are cancelled so older results cannot overwrite newer input.
 `multiselect()` supports Shift+Arrow/Home/End range selection when
 `rangeSelection: true` is configured. Range selection skips disabled choices and
 keeps submitted values in deterministic choice order.
+
+## Progress
 
 `createProgress()` clamps finite determinate values into their declared positive
 range and rejects invalid maxima or non-finite numbers. `progress()`

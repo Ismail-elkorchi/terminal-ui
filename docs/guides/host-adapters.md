@@ -3,6 +3,8 @@
 Host adapters are the boundary between runtime streams and the runtime-agnostic
 terminal interaction core.
 
+## Choose an adapter
+
 Available adapters include:
 
 - Node host
@@ -27,6 +29,8 @@ resize hook. Raw input is reported only when the input stream provides a
 `setRawMode()` hook; otherwise `enableRawInput()` returns a typed unsupported
 protocol diagnostic.
 It is also available through `createTerminalHost({ adapter: 'pty', ... })`.
+
+## Capabilities and startup
 
 Hosts expose input, output, signals, environment, terminal size, capabilities,
 clock, and session-managed terminal restoration. `getTerminalSize()` reads the
@@ -72,6 +76,8 @@ environment families are evidence, not a substitute for observed mode state;
 in particular GNU Screen does not establish alternate-screen support by name.
 Custom hosts may provide explicit capability facts when their transport or
 terminal dialect has stronger knowledge.
+## Output and restoration
+
 Output writes are asynchronous and ordered. A resolved write has crossed the
 adapter's native backpressure boundary; `flush()` settles every write accepted
 before it. Node adapters wait for write callbacks and `drain`, Web Stream
@@ -103,6 +109,8 @@ non-cooperative restore cannot block terminal recovery behind itself. It is for
 bounded failure handling, not ordinary session closure.
 Built-in host `dispose()` methods also restore active sessions with the
 `disposed` reason before releasing host-owned state.
+
+## Input ownership
 
 Input `release()` settles only after the current source read and iterator
 closure can no longer consume bytes. A chunk received during that handoff is

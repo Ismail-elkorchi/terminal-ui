@@ -65,7 +65,7 @@ Its optional interaction state is limited to focused, hovered, pressed,
 selected, disabled, and active; cleanup and transcript validation reject other
 values.
 Component renderers should create source metadata through
-`ComponentRenderInput.source()`, which binds the component identity and accepts
+`ComponentRenderInput.frameSource()`, which binds the component identity and accepts
 only semantic cell and part metadata. Low-level renderer extensions can use
 `frameCellSource()` when they already own the complete provenance record.
 Render-node identity and derived-part helpers are renderer implementation

@@ -28,7 +28,7 @@ test('element inspection exposes an immutable factory description without implem
   const element = surface(column([
     textInput({ meta: { accessibleName: "Text input" },
       id: 'query',
-      state: { value: '', cursor: 0 },
+      state: { text: '', cursor: 0 },
       onTransition: (action) => ({ kind: 'query', action }),
       styles: {
           parts: { value: { bold: true } },
@@ -96,7 +96,7 @@ test('element inspection identifies defined components without exposing their de
 test('element inspection never exposes sensitive component model', () => {
   const inspection = inspectElement(passwordInput({ meta: { accessibleName: "Password input" },
     id: 'secret',
-    state: { value: 'correct horse battery staple', cursor: 28 },
+    state: { text: 'correct horse battery staple', cursor: 28 },
     required: true,
     disabled: true
   }));
@@ -111,7 +111,7 @@ test('built-in inspection summarizes valid values larger than its tooling budget
   const value = 'x'.repeat(5_000);
   const inputInspection = inspectElement(textInput({ meta: { accessibleName: "Text input" },
     id: 'large-input',
-    state: { value, cursor: value.length },
+    state: { text: value, cursor: value.length },
     disabled: true
   }));
   const areaInspection = inspectElement(textArea({ meta: { accessibleName: "Text area" },

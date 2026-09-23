@@ -5,7 +5,7 @@ import { createAccessibleSnapshot } from '../accessibility/index.ts';
 import { createProgress } from './progress.ts';
 import { progressDisplayLine } from './progress-view.ts';
 import { nonTtyDiagnosticOptions } from './non-tty.ts';
-import { setupPromptSession, restoreReasonForPrompt } from './session.ts';
+import { runOwnedPrompt, type PromptTaskOwner } from './session.ts';
 import { submitPrompt } from './submit.ts';
 import { promptInputEvents } from './input-events.ts';
 import {
@@ -13,11 +13,10 @@ import {
   createTranscriptOnlyPromptTranscript,
   recordPromptResult,
   transcriptEvent,
-  withPromptDiagnostics,
   withPromptTranscript
 } from './transcript.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { TerminalHost, TerminalRestoreReason } from '../host/index.ts';
+import type { TerminalHost } from '../host/index.ts';
 import type { InputEvent } from '../input/index.ts';
 import type { TranscriptRecorder } from '../transcript/index.ts';
 import type {
@@ -54,49 +53,37 @@ export async function runProgressPrompt(
   const transcript = interactive
     ? createPromptTranscript(prompt)
     : createTranscriptOnlyPromptTranscript(prompt);
-  const session = interactive ? await host.beginSession({ id: prompt.id ?? 'prompt-progress' }) : undefined;
-  const setup = session === undefined
-    ? { diagnostics: [], bracketedPaste: false }
-    : await setupPromptSession(session);
-  const abortController = new AbortController();
-  let restoreReason: TerminalRestoreReason;
-  let result: PromptResult<ProgressResult> | undefined;
-  const progressRuntime = createProgressRuntime(
-    prompt,
+  const deadline = prompt.timeoutMs === undefined || host === undefined
+    ? undefined
+    : host.clock.monotonicNow() + prompt.timeoutMs;
+  let progressRuntime: ReturnType<typeof createProgressRuntime> | undefined;
+  const result = await runOwnedPrompt<ProgressResult>(
     host,
-    transcript,
-    abortController.signal,
-    setup.bracketedPaste
+    prompt.id ?? 'prompt-progress',
+    async (owner) => {
+      progressRuntime = createProgressRuntime(prompt, host, transcript, owner);
+      await owner.wait(progressRuntime.publish());
+      const outcome = await owner.wait(progressRuntime.run(deadline));
+      return owner.wait(progressResultFromOutcome(prompt, host, progressRuntime.current(), outcome, owner));
+    },
+    (cause) => failedProgress(prompt, progressRuntime?.snapshot() ?? progressSnapshot(createProgress({
+      id: prompt.accessibility?.id ?? prompt.id ?? 'prompt-progress', label: prompt.label, ...prompt.progress
+    })), cause),
+    interactive
   );
-
-  try {
-    await progressRuntime.publish();
-    const outcome = await progressRuntime.run();
-    result = await progressResultFromOutcome(prompt, host, progressRuntime.current(), outcome);
-    restoreReason = restoreReasonForPrompt(result);
-  } catch (cause) {
-    restoreReason = 'error';
-    result = failedProgress(prompt, progressRuntime.snapshot(), cause);
-  } finally {
-    abortController.abort();
-  }
-
-  const restore = session === undefined ? { diagnostics: [] } : await session.restore(restoreReason);
-  const finalResult = withPromptDiagnostics(result, [...setup.diagnostics, ...restore.diagnostics]);
-  recordPromptResult(transcript, finalResult);
-  return withPromptTranscript(finalResult, transcript?.snapshot());
+  recordPromptResult(transcript, result);
+  return withPromptTranscript(result, transcript?.snapshot());
 }
 
 function createProgressRuntime(
   prompt: ProgressPromptDefinition,
   host: TerminalHost | undefined,
   transcript: TranscriptRecorder | undefined,
-  signal: AbortSignal,
-  bracketedPaste: boolean
+  owner: PromptTaskOwner
 ): {
   current(): ProgressState;
   publish(): Promise<void>;
-  run(): Promise<ProgressOutcome>;
+  run(deadline: number | undefined): Promise<ProgressOutcome>;
   snapshot(): AccessibleSnapshot;
 } {
   let progress = createProgress({
@@ -105,23 +92,20 @@ function createProgressRuntime(
     ...prompt.progress
   });
   let closed = false;
-  let publishQueue = Promise.resolve();
-
-  const publish = async (): Promise<void> => {
-    const snapshot = progressSnapshot(progress);
-    transcript?.record({ kind: 'snapshot', snapshot });
+  const publish = (current: ProgressState): Promise<void> => owner.publish(async () => {
+    if (!owner.active) return;
     if (host?.stdin.isTty() === true) {
-      requireCommittedTerminalWrite(await host.write({ text: `\r\u001B[2K${progressDisplayLine(progress)}` }));
+      requireCommittedTerminalWrite(await host.write({ text: `\r\u001B[2K${progressDisplayLine(current)}` }));
     }
-  };
+    if (publicationActive(owner)) transcript?.record({ kind: 'snapshot', snapshot: progressSnapshot(current) });
+  });
 
   const controller: ProgressController = {
-    signal,
+    signal: owner.signal,
     async update(next) {
-      if (closed) return progress;
+      if (closed || !owner.active || owner.failed) return progress;
       progress = progress.update(next);
-      publishQueue = publishQueue.then(publish);
-      await publishQueue;
+      await publish(progress);
       return progress;
     },
     snapshot() {
@@ -132,21 +116,24 @@ function createProgressRuntime(
   return {
     current: () => progress,
     async publish() {
-      await publish();
+      await publish(progress);
     },
-    async run() {
+    async run(deadline) {
       const task = progressTaskOutcome(prompt, controller);
-      const input = progressInputOutcome(prompt, host, transcript, signal, bracketedPaste);
-      const timeout = progressTimeoutOutcome(prompt, host, signal);
+      const input = progressInputOutcome(prompt, host, transcript, owner.signal, owner.bracketedPaste);
+      const timeout = progressTimeoutOutcome(host, owner.signal, deadline);
       const outcome = await Promise.race([task, input, timeout]);
       closed = true;
-      await publishQueue;
       return outcome;
     },
     snapshot() {
       return progressSnapshot(progress);
     }
   };
+}
+
+function publicationActive(owner: PromptTaskOwner): boolean {
+  return owner.active;
 }
 
 async function progressTaskOutcome(
@@ -178,12 +165,14 @@ async function progressInputOutcome(
 }
 
 async function progressTimeoutOutcome(
-  prompt: ProgressPromptDefinition,
   host: TerminalHost | undefined,
-  signal: AbortSignal
+  signal: AbortSignal,
+  deadline: number | undefined
 ): Promise<ProgressOutcome> {
-  if (prompt.timeoutMs === undefined || host === undefined) return never();
-  const outcome = await host.clock.sleep(prompt.timeoutMs, signal);
+  if (deadline === undefined || host === undefined) return never();
+  const remaining = deadline - host.clock.monotonicNow();
+  if (remaining <= 0) return { kind: 'timeout' };
+  const outcome = await host.clock.sleep(remaining, signal);
   if (outcome === 'aborted') return never();
   return { kind: 'timeout' };
 }
@@ -198,12 +187,15 @@ async function progressResultFromOutcome(
   prompt: ProgressPromptDefinition,
   host: TerminalHost | undefined,
   progress: ProgressState,
-  outcome: ProgressOutcome
+  outcome: ProgressOutcome,
+  owner: PromptTaskOwner
 ): Promise<PromptResult<ProgressResult>> {
   const snapshot = progressSnapshot(progress);
   switch (outcome.kind) {
     case 'completed':
-      if (host?.stdin.isTty() === true) requireCommittedTerminalWrite(await host.write({ text: '\n' }));
+      if (host?.stdin.isTty() === true) await owner.publish(async () => {
+        requireCommittedTerminalWrite(await host.write({ text: '\n' }));
+      });
       return submitPrompt(prompt, outcome.value, snapshot, host);
     case 'cancelled':
       return abortedProgress('cancelled', 'INPUT_CANCELLED', 'Prompt cancelled by user input.', snapshot);

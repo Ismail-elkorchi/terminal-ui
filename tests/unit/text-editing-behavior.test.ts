@@ -4,7 +4,6 @@ import test from 'node:test';
 import {
   textAreaReducer,
   createTextAreaState,
-  textInputState,
   textInputReducer
 } from '../../dist/behavior/index.js';
 import { createScrollState } from '../../dist/behavior/index.js';
@@ -26,8 +25,8 @@ void test('textInputReducer applies edits and grapheme-aware pointer selections'
   });
 
   assert.deepEqual(placed, { text: 'a🙂bc', cursor: 1 });
-  assert.deepEqual(textInputState(selected), {
-    value: 'a🙂bc',
+  assert.deepEqual(selected, {
+    text: 'a🙂bc',
     cursor: 4,
     selection: { startOffset: 1, endOffsetExclusive: 4 }
   });

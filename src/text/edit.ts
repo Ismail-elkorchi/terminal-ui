@@ -8,12 +8,12 @@ import {
 import {
   lineEndOffset,
   lineOffsetByDelta,
-  lineStartOffset
+  lineStartOffset,
+  standaloneWordBoundaryIndex
 } from './word-boundaries.ts';
-import { createTerminalTextIndex } from './terminal-text-index.ts';
+import type { WordBoundaryIndex } from './word-boundaries.ts';
 import { sanitizeTerminalSingleLineText } from './sanitize.ts';
 import type {
-  TerminalTextIndex,
   TextBoundaryOptions,
   TextEditBuffer,
   TextEditOperation,
@@ -25,13 +25,9 @@ export function editTextBuffer(
   operation: TextEditOperation,
   options: TextBoundaryOptions = {}
 ): TextEditBuffer {
-  const words = isWordOperation(operation) ? createTerminalTextIndex(buffer.text, options) : undefined;
-  const cursor = words === undefined
-    ? normalizeTextCursor(buffer.text, buffer.cursor)
-    : normalizeIndexedOffset(words, buffer.cursor);
-  const selection = words === undefined
-    ? normalizeTextSelection(buffer.text, buffer.selection)
-    : normalizeIndexedSelection(words, buffer.selection);
+  const words = isWordOperation(operation) ? standaloneWordBoundaryIndex(buffer.text, options) : undefined;
+  const cursor = normalizeTextCursor(buffer.text, buffer.cursor);
+  const selection = normalizeTextSelection(buffer.text, buffer.selection);
   switch (operation.kind) {
     case 'insert': {
       return replaceTextRange(
@@ -68,7 +64,7 @@ export function editTextBuffer(
     case 'deleteWordBackward':
       if (selection !== undefined) return replaceTextRange(buffer.text, selection, '');
       {
-        const startOffset = requiredWordIndex(words).previousWordBoundary(cursor);
+        const startOffset = requiredWordIndex(words).previous(cursor);
         return {
           text: `${buffer.text.slice(0, startOffset)}${buffer.text.slice(cursor)}`,
           cursor: startOffset
@@ -78,7 +74,7 @@ export function editTextBuffer(
       if (selection !== undefined) return replaceTextRange(buffer.text, selection, '');
       return {
         text: `${buffer.text.slice(0, cursor)}${buffer.text.slice(
-          requiredWordIndex(words).nextWordBoundary(cursor)
+          requiredWordIndex(words).next(cursor)
         )}`,
         cursor
       };
@@ -92,8 +88,7 @@ export function editTextBuffer(
         cursor,
         selection,
         wordLeftTarget(requiredWordIndex(words), cursor, selection, operation.extendSelection),
-        operation.extendSelection,
-        words
+        operation.extendSelection
       );
     case 'moveWordRight':
       return moveTo(
@@ -101,8 +96,7 @@ export function editTextBuffer(
         cursor,
         selection,
         wordRightTarget(requiredWordIndex(words), cursor, selection, operation.extendSelection),
-        operation.extendSelection,
-        words
+        operation.extendSelection
       );
     case 'moveHome':
       return moveTo(buffer.text, cursor, selection, lineStartOffset(buffer.text, cursor), operation.extendSelection);
@@ -144,17 +138,12 @@ function moveTo(
   cursor: number,
   selection: TextSelection | undefined,
   target: number,
-  extendSelection: boolean | undefined,
-  index?: TerminalTextIndex
+  extendSelection: boolean | undefined
 ): TextEditBuffer {
-  const nextCursor = index === undefined
-    ? normalizeTextCursor(text, target)
-    : normalizeIndexedOffset(index, target);
+  const nextCursor = normalizeTextCursor(text, target);
   if (extendSelection !== true) return { text, cursor: nextCursor };
   const anchor = selectionAnchor(selection, cursor);
-  const nextSelection = index === undefined
-    ? normalizeTextSelection(text, { startOffset: anchor, endOffsetExclusive: nextCursor })
-    : normalizeIndexedSelection(index, { startOffset: anchor, endOffsetExclusive: nextCursor });
+  const nextSelection = normalizeTextSelection(text, { startOffset: anchor, endOffsetExclusive: nextCursor });
   return {
     text,
     cursor: nextCursor,
@@ -190,23 +179,23 @@ function rightTarget(
 }
 
 function wordLeftTarget(
-  index: TerminalTextIndex,
+  index: WordBoundaryIndex,
   cursor: number,
   selection: TextSelection | undefined,
   extendSelection: boolean | undefined
 ): number {
   if (extendSelection !== true && selection !== undefined) return selection.startOffset;
-  return index.previousWordBoundary(cursor);
+  return index.previous(cursor);
 }
 
 function wordRightTarget(
-  index: TerminalTextIndex,
+  index: WordBoundaryIndex,
   cursor: number,
   selection: TextSelection | undefined,
   extendSelection: boolean | undefined
 ): number {
   if (extendSelection !== true && selection !== undefined) return selection.endOffsetExclusive;
-  return index.nextWordBoundary(cursor);
+  return index.next(cursor);
 }
 
 function isWordOperation(operation: TextEditOperation): boolean {
@@ -216,23 +205,7 @@ function isWordOperation(operation: TextEditOperation): boolean {
     || operation.kind === 'moveWordRight';
 }
 
-function requiredWordIndex(index: TerminalTextIndex | undefined): TerminalTextIndex {
-  if (index === undefined) throw new Error('Word editing requires a terminal text index.');
+function requiredWordIndex(index: WordBoundaryIndex | undefined): WordBoundaryIndex {
+  if (index === undefined) throw new Error('Word editing requires a word boundary index.');
   return index;
-}
-
-function normalizeIndexedOffset(index: TerminalTextIndex, offset: number): number {
-  return index.graphemeIndexToCodeUnitOffset(index.codeUnitOffsetToGraphemeIndex(offset));
-}
-
-function normalizeIndexedSelection(
-  index: TerminalTextIndex,
-  selection: TextSelection | undefined
-): TextSelection | undefined {
-  if (selection === undefined) return undefined;
-  const first = normalizeIndexedOffset(index, selection.startOffset);
-  const second = normalizeIndexedOffset(index, selection.endOffsetExclusive);
-  const startOffset = Math.min(first, second);
-  const endOffsetExclusive = Math.max(first, second);
-  return startOffset === endOffsetExclusive ? undefined : { startOffset, endOffsetExclusive };
 }

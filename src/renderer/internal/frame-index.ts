@@ -1,4 +1,4 @@
-import type { FrameCell, FrameDescriptor } from '../contracts.ts';
+import type { FrameCell, FrameDescriptor, RenderInstrumentation } from '../contracts.ts';
 import { frameSnapshotMetadata } from './frame-snapshot.ts';
 
 export interface FrameRowIndex {
@@ -15,9 +15,10 @@ export interface FrameIndex {
 
 const indexes = new WeakMap<FrameDescriptor, FrameIndex>();
 
-export function frameIndex(frame: FrameDescriptor): FrameIndex {
+export function frameIndex(frame: FrameDescriptor, instrumentation?: Pick<RenderInstrumentation, 'recordWork'>): FrameIndex {
   const cached = indexes.get(frame);
   if (cached !== undefined) return cached;
+  instrumentation?.recordWork?.({ kind: 'frame_index_builds', count: 1 });
   const created = createFrameIndex(frame);
   indexes.set(frame, created);
   return created;

@@ -30,6 +30,15 @@ export function findUnsupportedField(
   return undefined;
 }
 
+export function assertSupportedFields(
+  value: Readonly<Record<string, unknown>>,
+  fields: readonly string[],
+  path: string,
+): void {
+  const field = findUnsupportedField(value, new Set(fields));
+  if (field !== undefined) throw new TypeError(`Unsupported configuration field: ${path}.${field}.`);
+}
+
 export function assertOptionalEnum<TValue extends string>(
   value: unknown,
   values: readonly TValue[],
@@ -52,8 +61,19 @@ export function assertFiniteNumber(value: unknown, label: string): asserts value
   throw new RangeError(`${label} must be finite.`);
 }
 
-export function assertRequiredCallback(value: unknown, label: string): void {
+export function assertRequiredCallback<T>(
+  value: T,
+  label: string,
+): asserts value is T & ((...args: never[]) => unknown) {
   if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`);
+}
+
+export function assertRequiredPropertyCallback<T extends object, K extends keyof T>(
+  value: T,
+  key: K,
+  label: string,
+): asserts value is T & { readonly [P in K]-?: NonNullable<T[P]> } {
+  assertRequiredCallback(value[key], label);
 }
 
 export function assertOptionalCallback(

@@ -18,10 +18,18 @@ export function keyInput(
   key: KeyEventLike['key'],
   options: Omit<KeyEventLike, 'key'> = {},
 ): KeyEvent {
+  const modifiers = Object.freeze({ ...noKeyModifiers, ...options.modifiers });
+  const printable = key.length === 1 && /^[ -~]$/u.test(key)
+    && !modifiers.ctrl && !modifiers.alt && !modifiers.meta
+    && modifiers.super !== true && modifiers.hyper !== true;
+  const committedText = options.committedText
+    ?? (printable && options.eventType !== 'release'
+      ? modifiers.shift ? key.toUpperCase() : key
+      : undefined);
   return Object.freeze({
     kind: 'key',
     key,
-    modifiers: Object.freeze({ ...noKeyModifiers, ...options.modifiers }),
+    modifiers,
     eventType: options.eventType ?? 'press',
     location: options.location ?? 'standard',
     ...(options.keyCodePoint === undefined ? {} : { keyCodePoint: options.keyCodePoint }),
@@ -29,7 +37,7 @@ export function keyInput(
     ...(options.alternateCodePoints === undefined ? {} : {
       alternateCodePoints: Object.freeze({ ...options.alternateCodePoints }),
     }),
-    ...(options.committedText === undefined ? {} : { committedText: options.committedText }),
+    ...(committedText === undefined ? {} : { committedText }),
   });
 }
 
@@ -147,6 +155,7 @@ export function encodeHarnessInputEvent(event: InputEvent): string {
     case 'key':
       return encodeKeyEvent(event);
     case 'mouse':
+      return encodeMouseEvent(event);
     case 'unknown':
       return event.sequence;
     case 'focus':
@@ -167,14 +176,52 @@ function encodeKeyEvent(event: KeyEvent): string {
   if (onlyModifiers(event, { shift: true })) {
     const shifted = shiftedKeySequences.get(event.key);
     if (shifted !== undefined) return shifted;
+    if (event.key.length === 1 && /^[a-z]$/u.test(event.key)) return event.key.toUpperCase();
   }
   if (onlyModifiers(event, {})) {
     const encoded = keySequences.get(event.key);
     if (encoded !== undefined) return encoded;
+    if (event.key.length === 1 && /^[ -~]$/u.test(event.key)) return event.key;
   }
   throw new TypeError(
     `Testing harness cannot encode key "${event.key}" with this legacy profile; provide its terminal sequence.`,
   );
+}
+
+function encodeMouseEvent(event: MousePointerEvent | MouseWheelEvent): string {
+  if (!Number.isSafeInteger(event.row) || event.row < 1
+    || !Number.isSafeInteger(event.column) || event.column < 1) {
+    throw new RangeError('Testing harness mouse coordinates must be positive safe integers.');
+  }
+  const modifiers = (event.modifiers.shift ? 4 : 0)
+    + (event.modifiers.alt ? 8 : 0)
+    + (event.modifiers.ctrl ? 16 : 0);
+  const packet = (code: number, suffix = 'M') =>
+    `\u001B[<${String(code + modifiers)};${String(event.column)};${String(event.row)}${suffix}`;
+  if (event.action === 'wheel') {
+    const rows = event.deltaRows;
+    const columns = event.deltaColumns;
+    if (!Number.isSafeInteger(rows) || !Number.isSafeInteger(columns)) {
+      throw new RangeError('Testing harness wheel deltas must be safe integers.');
+    }
+    if (rows === 0 && columns === 0) {
+      throw new RangeError('Testing harness wheel event must have a non-zero delta.');
+    }
+    if (Math.abs(rows) + Math.abs(columns) > 1_024) {
+      throw new RangeError('Testing harness wheel event exceeds 1,024 steps.');
+    }
+    return packet(rows < 0 ? 64 : 65).repeat(Math.abs(rows))
+      + packet(columns < 0 ? 66 : 67).repeat(Math.abs(columns));
+  }
+  const button = event.button === 'left' ? 0
+    : event.button === 'middle' ? 1
+      : event.button === 'right' ? 2
+        : event.button === 'none' ? 3
+          : undefined;
+  if (button === undefined) throw new TypeError('Testing harness cannot encode this pointer button.');
+  if (event.action === 'press') return packet(button);
+  if (event.action === 'release') return packet(button, 'm');
+  return packet(button + 32);
 }
 
 function controlSequence(event: KeyEvent): string | undefined {

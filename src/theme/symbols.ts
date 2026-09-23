@@ -1,5 +1,6 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { TerminalSymbolMode } from '../visual/inline-content.ts';
+import { assertSupportedFields } from '../foundation/validation.ts';
 
 export interface BorderGlyphSet {
   readonly topLeft: string;
@@ -156,14 +157,15 @@ export const unicodeSymbols: TerminalSymbols = ownSymbols({
 export function mergeSymbols(base: TerminalSymbols, override: unknown): TerminalSymbols {
   if (override === undefined) return base;
   const definition = record(override, 'Terminal symbol definition');
+  assertSupportedFields(definition, ['mode', 'borderSingle', 'borderRounded', ...terminalSymbolValueFields], 'theme.tokens.symbols');
   const requestedMode = definition['mode'];
   const repertoire = requestedMode === undefined || requestedMode === base.mode
     ? base
     : requestedMode === 'ascii' ? asciiSymbols : unicodeSymbols;
   const merged: Record<string, unknown> = {
     mode: requestedMode ?? repertoire.mode,
-    borderSingle: mergeBorder(repertoire.borderSingle, definition['borderSingle']),
-    borderRounded: mergeBorder(repertoire.borderRounded, definition['borderRounded']),
+    borderSingle: mergeBorder(repertoire.borderSingle, definition['borderSingle'], 'borderSingle'),
+    borderRounded: mergeBorder(repertoire.borderRounded, definition['borderRounded'], 'borderRounded'),
   };
   for (const field of terminalSymbolValueFields) merged[field] = definition[field] ?? repertoire[field];
   return decodeTerminalSymbols(merged);
@@ -203,14 +205,15 @@ export function decodeTerminalSymbols(value: unknown): TerminalSymbols {
   const symbols = record(value, 'Terminal symbols');
   const existing = sanitizedTerminalSymbols.get(symbols);
   if (existing !== undefined) return existing;
+  assertSupportedFields(symbols, ['mode', 'borderSingle', 'borderRounded', ...terminalSymbolValueFields], 'theme.tokens.symbols');
   const mode = symbols['mode'];
   if (mode !== 'ascii' && mode !== 'unicode') {
     throw new TypeError('Terminal symbol mode must be ascii or unicode.');
   }
   const normalized = Object.freeze({
     mode,
-    borderSingle: sanitizeBorder(symbols['borderSingle']),
-    borderRounded: sanitizeBorder(symbols['borderRounded']),
+    borderSingle: sanitizeBorder(symbols['borderSingle'], 'borderSingle'),
+    borderRounded: sanitizeBorder(symbols['borderRounded'], 'borderRounded'),
     treeExpanded: cleanSymbol(symbols['treeExpanded']),
     treeCollapsed: cleanSymbol(symbols['treeCollapsed']),
     pointer: cleanSymbol(symbols['pointer']),
@@ -278,8 +281,9 @@ export function symbolEntries(symbols: TerminalSymbols): readonly unknown[] {
   ];
 }
 
-function mergeBorder(base: BorderGlyphSet, value: unknown): Readonly<Record<string, unknown>> {
+function mergeBorder(base: BorderGlyphSet, value: unknown, name: string): Readonly<Record<string, unknown>> {
   const override = value === undefined ? undefined : record(value, 'Terminal border symbols');
+  if (override !== undefined) assertSupportedFields(override, borderFields, `theme.tokens.symbols.${name}`);
   return {
     topLeft: override?.['topLeft'] ?? base.topLeft,
     topRight: override?.['topRight'] ?? base.topRight,
@@ -290,8 +294,9 @@ function mergeBorder(base: BorderGlyphSet, value: unknown): Readonly<Record<stri
   };
 }
 
-function sanitizeBorder(value: unknown): BorderGlyphSet {
+function sanitizeBorder(value: unknown, name: string): BorderGlyphSet {
   const border = record(value, 'Terminal border symbols');
+  assertSupportedFields(border, borderFields, `theme.tokens.symbols.${name}`);
   return Object.freeze({
     topLeft: cleanSymbol(border['topLeft']),
     topRight: cleanSymbol(border['topRight']),
@@ -301,6 +306,8 @@ function sanitizeBorder(value: unknown): BorderGlyphSet {
     vertical: cleanSymbol(border['vertical'])
   });
 }
+
+const borderFields = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight', 'horizontal', 'vertical'];
 
 function borderEntries(border: BorderGlyphSet): readonly unknown[] {
   return [

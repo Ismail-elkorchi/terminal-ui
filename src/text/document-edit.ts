@@ -9,23 +9,25 @@ import {
   textDocumentSelectionRange
 } from './document.ts';
 import { createTerminalTextIndex } from './terminal-text-index.ts';
+import { sameDocumentSelection, sameTextCaret } from './comparison.ts';
+import { textWidthProfileKey } from './width-profile.ts';
+import { standaloneWordBoundaryIndex } from './word-boundaries.ts';
 import {
   nextGraphemeBoundary,
   previousGraphemeBoundary
 } from './text-range.ts';
 import type {
   TextCaret,
-  TextBoundaryOptions,
+  TextIndexOptions,
   TextDocumentSelection,
   TextEditOperation,
   TextPosition
 } from './types.ts';
 import type { TextDocument } from './document.ts';
 
-const documentLineIndexes = new WeakMap<TextDocument, Map<string, {
-  readonly text: string;
-  readonly index: ReturnType<typeof createTerminalTextIndex>;
-}>>();
+const lineIndexCacheLimit = 33_554_432;
+const lineIndexCache = new Map<string, ReturnType<typeof createTerminalTextIndex>>();
+let lineIndexCacheBytes = 0;
 
 export interface TextDocumentEditState {
   readonly document: TextDocument;
@@ -44,7 +46,7 @@ export interface TextDocumentEditResult extends TextDocumentEditState {
 export function editTextDocument(
   state: TextDocumentEditState,
   operation: TextEditOperation,
-  options: TextBoundaryOptions = {}
+  options: TextIndexOptions = {}
 ): TextDocumentEditResult {
   const caret = normalizeTextCaret(state.document, state.caret);
   const selection = normalizeTextDocumentSelection(state.document, state.selection);
@@ -139,9 +141,9 @@ export function editTextDocument(
       return move(state, caret, selection, line.endOffsetExclusive, 'upstream', operation.extendSelection);
     }
     case 'moveLineUp':
-      return moveByLine(state, caret, selection, -1, operation.extendSelection);
+      return moveByLine(state, caret, selection, -1, operation.extendSelection, options);
     case 'moveLineDown':
-      return moveByLine(state, caret, selection, 1, operation.extendSelection);
+      return moveByLine(state, caret, selection, 1, operation.extendSelection, options);
     case 'moveDocumentStart':
       return move(state, caret, selection, 0, 'downstream', operation.extendSelection);
     case 'moveDocumentEnd':
@@ -182,7 +184,7 @@ function replaceOffsets(
   const change = textDocumentEdit(state.document, { startOffset, endOffsetExclusive }, insertion);
   const offset = change.replaced.startOffset + change.insertedLength;
   const nextCaret = caretAt(offset, 'downstream');
-  if (change.document === state.document && sameCaret(nextCaret, state.caret) && state.selection === undefined) {
+  if (change.document === state.document && sameTextCaret(nextCaret, state.caret) && state.selection === undefined) {
     return state;
   }
   return {
@@ -220,10 +222,11 @@ function moveByLine(
   caret: TextCaret,
   selection: TextDocumentSelection | undefined,
   delta: number,
-  selecting: boolean | undefined
+  selecting: boolean | undefined,
+  options: TextIndexOptions
 ): TextDocumentEditResult {
   const current = lineContaining(state.document, caret.position.offset);
-  const currentIndex = textIndexForLine(state.document, current);
+  const currentIndex = textIndexForLine(current, options);
   const local = Math.max(0, Math.min(current.text.length, caret.position.offset - current.startOffset));
   const preferred = caret.preferredColumnCells
     ?? currentIndex.graphemeIndexToVisualColumn(currentIndex.codeUnitOffsetToGraphemeIndex(local));
@@ -232,7 +235,7 @@ function moveByLine(
     Math.min(textDocumentLineCount(state.document) - 1, current.lineIndex + delta)
   );
   const target = textDocumentLineAt(state.document, targetIndex) ?? current;
-  const targetText = textIndexForLine(state.document, target);
+  const targetText = textIndexForLine(target, options);
   const grapheme = targetText.visualColumnToGraphemeIndex(preferred);
   const offset = target.startOffset + targetText.graphemeIndexToCodeUnitOffset(grapheme);
   return move(state, caret, selection, offset, 'downstream', selecting, preferred);
@@ -274,13 +277,13 @@ function rightOffset(
 function previousWordOffset(
   document: TextDocument,
   offset: number,
-  options: TextBoundaryOptions
+  options: TextIndexOptions
 ): number {
   const line = lineContaining(document, offset);
   if (offset === line.startOffset && line.lineIndex > 0) {
     return textDocumentLineAt(document, line.lineIndex - 1)?.endOffsetExclusive ?? offset;
   }
-  return line.startOffset + textIndexForLine(document, line, options).previousWordBoundary(
+  return line.startOffset + standaloneWordBoundaryIndex(line.text, options).previous(
     offset - line.startOffset
   );
 }
@@ -288,33 +291,43 @@ function previousWordOffset(
 function nextWordOffset(
   document: TextDocument,
   offset: number,
-  options: TextBoundaryOptions
+  options: TextIndexOptions
 ): number {
   const line = lineContaining(document, offset);
   if (offset === line.endOffsetExclusive
     && line.lineIndex < textDocumentLineCount(document) - 1) {
     return textDocumentLineAt(document, line.lineIndex + 1)?.startOffset ?? offset;
   }
-  return line.startOffset + textIndexForLine(document, line, options).nextWordBoundary(
+  return line.startOffset + standaloneWordBoundaryIndex(line.text, options).next(
     offset - line.startOffset
   );
 }
 
 function textIndexForLine(
-  document: TextDocument,
   line: NonNullable<ReturnType<typeof textDocumentLineAt>>,
-  options: TextBoundaryOptions = {}
+  options: TextIndexOptions = {}
 ): ReturnType<typeof createTerminalTextIndex> {
-  let indexes = documentLineIndexes.get(document);
-  if (indexes === undefined) {
-    indexes = new Map();
-    documentLineIndexes.set(document, indexes);
+  const key = `${options.locale ?? 'en'}\u0000${textWidthProfileKey(options.widthProfile)}\u0000${line.text}`;
+  const cached = lineIndexCache.get(key);
+  if (cached !== undefined) {
+    lineIndexCache.delete(key);
+    lineIndexCache.set(key, cached);
+    return cached;
   }
-  const key = `${options.locale ?? 'en'}\u0000${String(line.lineIndex)}`;
-  const cached = indexes.get(key);
-  if (cached?.text === line.text) return cached.index;
   const index = createTerminalTextIndex(line.text, options);
-  indexes.set(key, { text: line.text, index });
+  // Grapheme objects and offsets dominate retained memory. Reject an oversized
+  // line rather than letting one entry defeat the global revision budget.
+  const weight = key.length * 2 + index.graphemes.length * 160;
+  if (weight <= lineIndexCacheLimit / 2) {
+    lineIndexCache.set(key, index);
+    lineIndexCacheBytes += weight;
+    while (lineIndexCacheBytes > lineIndexCacheLimit) {
+      const oldest = lineIndexCache.entries().next().value;
+      if (oldest === undefined) break;
+      lineIndexCache.delete(oldest[0]);
+      lineIndexCacheBytes -= oldest[0].length * 2 + oldest[1].graphemes.length * 160;
+    }
+  }
   return index;
 }
 
@@ -338,8 +351,8 @@ function stateResult(
 ): TextDocumentEditResult {
   if (
     previous?.document === document
-    && sameCaret(previous.caret, caret)
-    && sameSelection(previous.selection, selection)
+    && sameTextCaret(previous.caret, caret)
+    && sameDocumentSelection(previous.selection, selection)
   ) return previous;
   return { document, caret, ...(selection === undefined ? {} : { selection }) };
 }
@@ -358,18 +371,4 @@ function caretAt(offset: number, affinity: TextPosition['affinity']): TextCaret 
 
 function positionAt(offset: number, affinity: TextPosition['affinity']): TextPosition {
   return Object.freeze({ offset: Math.max(0, Math.floor(offset)), affinity });
-}
-
-function sameCaret(left: TextCaret, right: TextCaret): boolean {
-  return left.position.offset === right.position.offset
-    && left.position.affinity === right.position.affinity
-    && left.preferredColumnCells === right.preferredColumnCells;
-}
-
-function sameSelection(left: TextDocumentSelection | undefined, right: TextDocumentSelection | undefined): boolean {
-  if (left === undefined || right === undefined) return left === right;
-  return left.anchor.offset === right.anchor.offset
-    && left.anchor.affinity === right.anchor.affinity
-    && left.focus.offset === right.focus.offset
-    && left.focus.affinity === right.focus.affinity;
 }

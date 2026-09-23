@@ -1,14 +1,13 @@
 import { createTranscriptRecorder } from '../transcript/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { InputEvent } from '../input/index.ts';
+import { inputEventContainsSensitiveText, redactSensitiveInputEvent } from '../input/sensitive.ts';
 import type { InteractionTranscript, TranscriptRecorder } from '../transcript/index.ts';
 import type { PromptDefinition, PromptResult } from './types.ts';
 
 export function transcriptEvent<TChoice>(prompt: PromptDefinition<TChoice>, event: InputEvent): InputEvent {
   if (prompt.kind !== 'password') return event;
-  if (event.kind === 'text') return { ...event, text: '[redacted]' };
-  if (event.kind === 'paste') return { ...event, text: '[redacted]' };
-  return event;
+  return inputEventContainsSensitiveText(event) ? redactSensitiveInputEvent(event) : event;
 }
 
 export function createPromptTranscript<TChoice>(prompt: PromptDefinition<TChoice>): TranscriptRecorder | undefined {

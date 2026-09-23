@@ -10,10 +10,10 @@ import type {
 import {
   assertOptionalCallback,
   assertOptionalEnum,
-  assertRequiredCallback,
+  assertRequiredPropertyCallback,
   isStringMember,
 } from '../../foundation/validation.ts';
-import { createLocalCanvas2D, drawAreaSeries, drawLineSeries } from '../../renderer/index.ts';
+import { createComponentCanvas2D, drawAreaSeries, drawLineSeries } from '../../renderer/index.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import {
   fillTextCells,
@@ -40,6 +40,7 @@ import {
   assertCollectionInteractionReferences,
   decodeSelectionState,
   createCollectionInteractionIndex,
+  selectionContains,
   type SelectionState,
 } from '../../interaction/collection-interaction.ts';
 import type { ChartStylePart } from '../style-parts.ts';
@@ -108,27 +109,9 @@ const barChartBase = {
   }),
 };
 
-const passiveBarChart = defineComponent<
-  BarChartComponentOptions,
-  BarChartModel,
-  never,
-  ChartStylePart,
-  readonly ['busy'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['active', 'selected', 'disabled', 'busy']
->({ ...barChartBase, createModel: createBarChartModel });
+const passiveBarChart = defineComponent<BarChartComponentOptions>()({ ...barChartBase, createModel: createBarChartModel });
 
-const activeBarChart = defineComponent<
-  BarChartComponentOptions,
-  BarChartModel,
-  BarChartComponentAction,
-  ChartStylePart,
-  readonly ['disabled', 'busy', 'inert'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['active', 'selected', 'disabled', 'busy']
->({
+const activeBarChart = defineComponent<BarChartComponentOptions, BarChartComponentAction>()({
   ...barChartBase,
   states: ['disabled', 'busy', 'inert'],
   createModel: createBarChartModel,
@@ -175,11 +158,13 @@ export function barChart<const TMessage extends ComponentMessage = never>(
   if (options.state === undefined) {
     return passiveBarChart(withoutVisualizationBehavior(options));
   }
-  if (options.disabled === true || options.inert === true) {
-    return activeBarChart(withoutVisualizationBehavior(options));
+  const componentOptions = withoutVisualizationBehavior(options);
+  assertOptionalCallback(options.onActivate, 'barChart onActivate');
+  if (options.onTransition === undefined) {
+    if (!visualizationUnavailable(options)) assertVisualizationCallbacks(options, 'barChart');
+    return activeBarChart({ ...componentOptions, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }) });
   }
   assertVisualizationCallbacks(options, 'barChart');
-  const componentOptions = withoutVisualizationBehavior(options);
   return activeBarChart({
     ...componentOptions,
     onAction: (action) => {
@@ -245,7 +230,7 @@ function measureBarChart(input: ComponentMeasureInput<BarChartModel>) {
   };
 }
 
-function paintBarChart(input: ComponentRenderInput<BarChartModel, ChartStylePart>): void {
+function paintBarChart(input: ComponentRenderInput<BarChartModel, ChartStylePart>): undefined {
   if (paintStatus(input, input.model)) return;
   const plan = barChartPlan(input.model, input.bounds.height);
   for (const [row, item] of plan.items.entries()) {
@@ -428,27 +413,9 @@ const chartBase = {
   }),
 };
 
-const passiveChart = defineComponent<
-  ChartComponentOptions,
-  ChartModel,
-  never,
-  ChartStylePart,
-  readonly ['busy'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['active', 'selected', 'disabled', 'busy']
->({ ...chartBase, createModel: createChartModel });
+const passiveChart = defineComponent<ChartComponentOptions>()({ ...chartBase, createModel: createChartModel });
 
-const activeChart = defineComponent<
-  ChartComponentOptions,
-  ChartModel,
-  ChartComponentAction,
-  ChartStylePart,
-  readonly ['disabled', 'busy', 'inert'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['active', 'selected', 'disabled', 'busy']
->({
+const activeChart = defineComponent<ChartComponentOptions, ChartComponentAction>()({
   ...chartBase,
   states: ['disabled', 'busy', 'inert'],
   createModel: createChartModel,
@@ -479,11 +446,13 @@ export function chart<const TMessage extends ComponentMessage = never>(
   if (options.state === undefined) {
     return passiveChart(withoutVisualizationBehavior(options));
   }
-  if (options.disabled === true || options.inert === true) {
-    return activeChart(withoutVisualizationBehavior(options));
+  const componentOptions = withoutVisualizationBehavior(options);
+  assertOptionalCallback(options.onActivate, 'chart onActivate');
+  if (options.onTransition === undefined) {
+    if (!visualizationUnavailable(options)) assertVisualizationCallbacks(options, 'chart');
+    return activeChart({ ...componentOptions, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }) });
   }
   assertVisualizationCallbacks(options, 'chart');
-  const componentOptions = withoutVisualizationBehavior(options);
   return activeChart({
     ...componentOptions,
     onAction: (action) => {
@@ -622,12 +591,12 @@ function measureChart(input: ComponentMeasureInput<ChartModel>) {
   };
 }
 
-function paintChart(input: ComponentRenderInput<ChartModel, ChartStylePart>): void {
+function paintChart(input: ComponentRenderInput<ChartModel, ChartStylePart>): undefined {
   if (paintStatus(input, input.model)) return;
   const layout = chartLayout(input.model, input.bounds.width, input.bounds.height);
   paintChartLabels(input, layout);
   if (layout.plotWidth <= 0 || layout.plotHeight <= 0) return;
-  const canvas = createLocalCanvas2D(input.target, {
+  const canvas = createComponentCanvas2D(input.target, {
     row: layout.plotRow,
     column: 0,
     width: layout.plotWidth,
@@ -671,7 +640,7 @@ function paintChart(input: ComponentRenderInput<ChartModel, ChartStylePart>): vo
 
 function paintChartPointMarker(
   input: ComponentRenderInput<ChartModel, ChartStylePart>,
-  canvas: ReturnType<typeof createLocalCanvas2D>,
+  canvas: ReturnType<typeof createComponentCanvas2D>,
   target: { readonly series: ChartSeriesModel; readonly point: ChartPointModel },
   plotWidth: number,
   plotHeight: number,
@@ -749,7 +718,7 @@ function paintChartLabels(
 
 function paintChartSeries(
   input: ComponentRenderInput<ChartModel, ChartStylePart>,
-  canvas: ReturnType<typeof createLocalCanvas2D>,
+  canvas: ReturnType<typeof createComponentCanvas2D>,
   series: ChartSeriesModel,
   height: number,
 ): void {
@@ -1179,27 +1148,9 @@ const heatmapBase = {
   }),
 };
 
-const passiveHeatmap = defineComponent<
-  HeatmapComponentOptions,
-  HeatmapModel,
-  never,
-  ChartStylePart,
-  readonly ['busy'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['active', 'selected', 'disabled', 'busy']
->({ ...heatmapBase, createModel: createHeatmapModel });
+const passiveHeatmap = defineComponent<HeatmapComponentOptions>()({ ...heatmapBase, createModel: createHeatmapModel });
 
-const activeHeatmap = defineComponent<
-  HeatmapComponentOptions,
-  HeatmapModel,
-  HeatmapComponentAction,
-  ChartStylePart,
-  readonly ['disabled', 'busy', 'inert'],
-  'required',
-  readonly ['focus', 'layer', 'styles'],
-  readonly ['active', 'selected', 'disabled', 'busy']
->({
+const activeHeatmap = defineComponent<HeatmapComponentOptions, HeatmapComponentAction>()({
   ...heatmapBase,
   states: ['disabled', 'busy', 'inert'],
   createModel: createHeatmapModel,
@@ -1259,11 +1210,13 @@ export function heatmap<TValue, const TMessage extends ComponentMessage = never>
   if (options.state === undefined) {
     return passiveHeatmap(withoutVisualizationBehavior(options));
   }
-  if (options.disabled === true || options.inert === true) {
-    return activeHeatmap(withoutVisualizationBehavior(options));
+  const componentOptions = withoutVisualizationBehavior(options);
+  assertOptionalCallback(options.onActivate, 'heatmap onActivate');
+  if (options.onTransition === undefined) {
+    if (!visualizationUnavailable(options)) assertVisualizationCallbacks(options, 'heatmap');
+    return activeHeatmap({ ...componentOptions, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }) });
   }
   assertVisualizationCallbacks(options, 'heatmap');
-  const componentOptions = withoutVisualizationBehavior(options);
   return activeHeatmap({
     ...componentOptions,
     onAction: (action) => {
@@ -1273,20 +1226,24 @@ export function heatmap<TValue, const TMessage extends ComponentMessage = never>
   });
 }
 
-function assertVisualizationCallbacks(
-  options: {
+function assertVisualizationCallbacks<TOptions extends {
     readonly onTransition?: unknown;
     readonly onActivate?: unknown;
-  },
+  }>(
+  options: TOptions,
   component: string,
-): void {
-  assertRequiredCallback(options.onTransition, `${component} onTransition`);
+): asserts options is TOptions & { readonly onTransition: NonNullable<TOptions['onTransition']> } {
+  assertRequiredPropertyCallback(options, 'onTransition', `${component} onTransition`);
   assertOptionalCallback(options.onActivate, `${component} onActivate`);
 }
 
 type WithoutVisualizationBehavior<TOptions> = TOptions extends unknown
   ? Omit<TOptions, 'onTransition' | 'onActivate'>
   : never;
+
+function visualizationUnavailable(options: { readonly disabled?: boolean; readonly inert?: boolean }): boolean {
+  return options.disabled === true || options.inert === true;
+}
 
 function withoutVisualizationBehavior<TOptions extends {
   readonly onTransition?: unknown;
@@ -1372,7 +1329,7 @@ function measureHeatmap(input: ComponentMeasureInput<HeatmapModel>) {
   };
 }
 
-function paintHeatmap(input: ComponentRenderInput<HeatmapModel, ChartStylePart>): void {
+function paintHeatmap(input: ComponentRenderInput<HeatmapModel, ChartStylePart>): undefined {
   if (paintStatus(input, input.model)) return;
   const plan = heatmapPlan(input.model, input.bounds.height);
   for (const [rowOffset, row] of plan.rows.entries()) {
@@ -1708,12 +1665,6 @@ function visibleWindow(total: number, height: number, preferred: number) {
   const center = Math.max(0, Math.min(total - 1, preferred));
   const start = Math.max(0, Math.min(total - count, center - Math.floor(count / 2)));
   return { start, end: start + count };
-}
-
-function selectionContains(selection: SelectionState, id: string): boolean {
-  return selection.mode === 'single'
-    ? selection.selectedId === id
-    : selection.mode === 'multiple' && selection.selectedIds.includes(id);
 }
 
 function optionalGlyph(value: unknown, owner: string): { readonly glyph?: string } {

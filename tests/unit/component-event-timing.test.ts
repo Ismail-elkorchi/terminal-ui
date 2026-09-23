@@ -63,7 +63,7 @@ void test('component key handlers run at dispatch time with the normalized event
     readonly kind: 'enter';
     readonly event: { readonly input: InputEvent; readonly focusPath: readonly string[] };
   }
-  const field = defineComponent<Record<never, never>, Record<never, never>, FieldAction>({
+  const field = defineComponent<Record<never, never>, FieldAction>()({
     name: 'terminal-ui-tests/components/deferred-key-field',
     identity: 'required',
     structure: 'leaf',
@@ -119,7 +119,7 @@ void test('component key handlers run at dispatch time with the normalized event
 void test('component focus lifecycle reports enter and leave transitions in order', async () => {
   interface Message { readonly event: string }
   const observed: string[] = [];
-  const focusable = defineComponent<Record<never, never>, Record<never, never>, string>({
+  const focusable = defineComponent<Record<never, never>, string>()({
     name: 'terminal-ui-tests/components/focus-lifecycle',
     identity: 'required',
     structure: 'leaf',
@@ -173,7 +173,7 @@ void test('component focus lifecycle reports enter and leave transitions in orde
 void test('component focus-target lifecycle reports internal target transitions', async () => {
   interface Message { readonly event: string }
   const observed: string[] = [];
-  const targets = defineComponent<Record<never, never>, Record<never, never>, string>({
+  const targets = defineComponent<Record<never, never>, string>()({
     name: 'terminal-ui-tests/components/focus-target-lifecycle',
     identity: 'required',
     structure: 'leaf',

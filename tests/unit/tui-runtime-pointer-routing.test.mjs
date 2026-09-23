@@ -3,7 +3,6 @@ import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import {
   createTreeSource,
-  createTreeView,
 } from '../../dist/behavior/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import {
@@ -611,10 +610,12 @@ test('wheel batches retain their ingestion target across intervening renders', a
   const wheel = await runtime.handleInputChunk({ data: '\u001B[<64;1;1M' });
   assert.notEqual(wheel.pending, undefined);
   await runtime.dispatch({ kind: 'replace' });
+  const wheelResult = await wheel.pending;
   const settled = await runtime.flushInput();
 
-  assert.equal(settled[0]?.handled, false);
-  assert.deepEqual(runtime.state(), { owner: 'new', events: [] });
+  assert.equal(wheelResult[0]?.handled, true);
+  assert.deepEqual(settled, []);
+  assert.deepEqual(runtime.state(), { owner: 'new', events: ['old'] });
 });
 
 test('terminal focus loss cancels pressed and hovered pointer state', async () => {
@@ -709,7 +710,7 @@ test('TUI runtime routes tree row hit targets to node messages', async () => {
       return tree({ meta: { accessibleName: "Tree" },
         id: 'tree',
         state: treeState,
-        view: createTreeView(source, treeState),
+        source: source,
         onTransition: (action) => action.kind === 'setActive' ? { id: action.id } : undefined
       });
     }
@@ -744,7 +745,7 @@ test('TUI runtime routes tree disclosure and body hit targets separately', async
     view: () => tree({ meta: { accessibleName: "Tree" },
       id: 'tree',
       state: treeState,
-      view: createTreeView(source, treeState),
+      source: source,
       onTransition: (action) => ({ kind: 'tree', action })
     })
   });

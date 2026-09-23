@@ -16,7 +16,8 @@ import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
 import type { ComponentDensity } from '../density.ts';
 import type { NumberInputControlTransition, NumberInputView } from '../../behavior/number-input.ts';
 import type { NumericRange } from '../../behavior/range-slider.ts';
-import type { TextInputSubmitEvent, TextInputTransition, TextInputState } from '../../behavior/text-input.ts';
+import type { TextInputSubmitEvent, TextInputTransition } from '../../behavior/text-input.ts';
+import type { TextEditBuffer } from '../../text/index.ts';
 import type { CalendarView, CalendarControlTransition } from '../../behavior/calendar.ts';
 import type { CollectionInteractionState } from '../../interaction/collection-interaction.ts';
 import type {
@@ -50,6 +51,7 @@ import type {
   ToggleStylePart
 } from '../style-parts.ts';
 import type { ComponentMetadataOptions } from '../../component/index.ts';
+import type { RetainedCallbacks } from './availability.ts';
 
 export interface FormOptions<
   TContent extends readonly Element<ComponentMessage>[] = readonly Element<ComponentMessage>[],
@@ -102,10 +104,10 @@ export type ButtonOptions<
 > = ButtonOptionsBase & ButtonName & (
   | {
       readonly disabled: true;
-      readonly onPress?: never;
+      readonly onPress?: (event: ButtonPressEvent) => MessageResolution<TPressMessage>;
     }
   | {
-      readonly disabled?: false;
+      readonly disabled?: boolean;
       readonly onPress: (event: ButtonPressEvent) => MessageResolution<TPressMessage>;
     }
 );
@@ -122,17 +124,16 @@ interface CheckboxOptionsBase {
 
 export type CheckboxOptions<TMessage extends ComponentMessage = never> =
   | ActiveCheckboxOptions<TMessage>
-  | DisabledCheckboxOptions;
+  | DisabledCheckboxOptions<TMessage>;
 
 export interface ActiveCheckboxOptions<TMessage extends ComponentMessage> extends CheckboxOptionsBase {
   readonly onTransition: (transition: CheckboxTransition) => MessageResolution<TMessage>;
-  readonly disabled?: false;
+  readonly disabled?: boolean;
 }
 
-export type DisabledCheckboxOptions = CheckboxOptionsBase & {
-  readonly onTransition?: never;
+export type DisabledCheckboxOptions<TMessage extends ComponentMessage = never> = CheckboxOptionsBase & {
   readonly disabled: true;
-};
+} & RetainedCallbacks<ActiveCheckboxOptions<TMessage>>;
 
 interface SwitchOptionsBase {
   readonly id: string;
@@ -147,17 +148,16 @@ interface SwitchOptionsBase {
 
 export type SwitchOptions<TMessage extends ComponentMessage = never> =
   | ActiveSwitchOptions<TMessage>
-  | DisabledSwitchOptions;
+  | DisabledSwitchOptions<TMessage>;
 
 export interface ActiveSwitchOptions<TMessage extends ComponentMessage> extends SwitchOptionsBase {
   readonly onTransition: (transition: SwitchTransition) => MessageResolution<TMessage>;
-  readonly disabled?: false;
+  readonly disabled?: boolean;
 }
 
-export type DisabledSwitchOptions = SwitchOptionsBase & {
-  readonly onTransition?: never;
+export type DisabledSwitchOptions<TMessage extends ComponentMessage = never> = SwitchOptionsBase & {
   readonly disabled: true;
-};
+} & RetainedCallbacks<ActiveSwitchOptions<TMessage>>;
 
 interface SliderOptionsBase {
   readonly id: string;
@@ -174,17 +174,16 @@ interface SliderOptionsBase {
 
 export type SliderOptions<TMessage extends ComponentMessage = never> =
   | ActiveSliderOptions<TMessage>
-  | DisabledSliderOptions;
+  | DisabledSliderOptions<TMessage>;
 
 export interface ActiveSliderOptions<TMessage extends ComponentMessage> extends SliderOptionsBase {
   readonly onTransition: (transition: import('../../components/form-controls.ts').SliderTransition) => MessageResolution<TMessage>;
-  readonly disabled?: false;
+  readonly disabled?: boolean;
 }
 
-export type DisabledSliderOptions = SliderOptionsBase & {
-  readonly onTransition?: never;
+export type DisabledSliderOptions<TMessage extends ComponentMessage = never> = SliderOptionsBase & {
   readonly disabled: true;
-};
+} & RetainedCallbacks<ActiveSliderOptions<TMessage>>;
 
 interface RangeSliderOptionsBase {
   readonly id: string;
@@ -200,17 +199,16 @@ interface RangeSliderOptionsBase {
 
 export type RangeSliderOptions<TMessage extends ComponentMessage = never> =
   | ActiveRangeSliderOptions<TMessage>
-  | DisabledRangeSliderOptions;
+  | DisabledRangeSliderOptions<TMessage>;
 
 export interface ActiveRangeSliderOptions<TMessage extends ComponentMessage> extends RangeSliderOptionsBase {
   readonly onTransition: (transition: RangeSliderTransition) => MessageResolution<TMessage>;
-  readonly disabled?: false;
+  readonly disabled?: boolean;
 }
 
-export type DisabledRangeSliderOptions = RangeSliderOptionsBase & {
-  readonly onTransition?: never;
+export type DisabledRangeSliderOptions<TMessage extends ComponentMessage = never> = RangeSliderOptionsBase & {
   readonly disabled: true;
-};
+} & RetainedCallbacks<ActiveRangeSliderOptions<TMessage>>;
 
 interface CheckboxGroupOptionsBase<TValue> {
   readonly id: string;
@@ -225,18 +223,17 @@ interface CheckboxGroupOptionsBase<TValue> {
 
 export type CheckboxGroupOptions<TValue = string, TMessage extends ComponentMessage = never> =
   | ActiveCheckboxGroupOptions<TValue, TMessage>
-  | DisabledCheckboxGroupOptions<TValue>;
+  | DisabledCheckboxGroupOptions<TValue, TMessage>;
 
 export interface ActiveCheckboxGroupOptions<TValue, TMessage extends ComponentMessage>
   extends CheckboxGroupOptionsBase<TValue> {
   readonly onTransition: (transition: CheckboxGroupControlTransition) => MessageResolution<TMessage>;
-  readonly disabled?: false;
+  readonly disabled?: boolean;
 }
 
-export type DisabledCheckboxGroupOptions<TValue> = CheckboxGroupOptionsBase<TValue> & {
-  readonly onTransition?: never;
+export type DisabledCheckboxGroupOptions<TValue, TMessage extends ComponentMessage = never> = CheckboxGroupOptionsBase<TValue> & {
   readonly disabled: true;
-};
+} & RetainedCallbacks<ActiveCheckboxGroupOptions<TValue, TMessage>>;
 
 interface ColorSwatchPickerOptionsBase<TValue> {
   readonly id: string;
@@ -251,18 +248,17 @@ interface ColorSwatchPickerOptionsBase<TValue> {
 
 export type ColorSwatchPickerOptions<TValue = string, TMessage extends ComponentMessage = never> =
   | ActiveColorSwatchPickerOptions<TValue, TMessage>
-  | DisabledColorSwatchPickerOptions<TValue>;
+  | DisabledColorSwatchPickerOptions<TValue, TMessage>;
 
 export interface ActiveColorSwatchPickerOptions<TValue, TMessage extends ComponentMessage>
   extends ColorSwatchPickerOptionsBase<TValue> {
   readonly onTransition: (transition: ColorSwatchPickerControlTransition) => MessageResolution<TMessage>;
-  readonly disabled?: false;
+  readonly disabled?: boolean;
 }
 
-export type DisabledColorSwatchPickerOptions<TValue> = ColorSwatchPickerOptionsBase<TValue> & {
-  readonly onTransition?: never;
+export type DisabledColorSwatchPickerOptions<TValue, TMessage extends ComponentMessage = never> = ColorSwatchPickerOptionsBase<TValue> & {
   readonly disabled: true;
-};
+} & RetainedCallbacks<ActiveColorSwatchPickerOptions<TValue, TMessage>>;
 
 interface CalendarOptionsBase {
   readonly id: string;
@@ -275,17 +271,16 @@ interface CalendarOptionsBase {
 
 export type CalendarOptions<TMessage extends ComponentMessage = never> =
   | ActiveCalendarOptions<TMessage>
-  | DisabledCalendarOptions;
+  | DisabledCalendarOptions<TMessage>;
 
 export interface ActiveCalendarOptions<TMessage extends ComponentMessage> extends CalendarOptionsBase {
   readonly onTransition: (transition: CalendarControlTransition) => MessageResolution<TMessage>;
-  readonly disabled?: false;
+  readonly disabled?: boolean;
 }
 
-export type DisabledCalendarOptions = CalendarOptionsBase & {
-  readonly onTransition?: never;
+export type DisabledCalendarOptions<TMessage extends ComponentMessage = never> = CalendarOptionsBase & {
   readonly disabled: true;
-};
+} & RetainedCallbacks<ActiveCalendarOptions<TMessage>>;
 
 interface RadioGroupOptionsBase<TValue> {
   readonly id: string;
@@ -300,18 +295,17 @@ interface RadioGroupOptionsBase<TValue> {
 
 export type RadioGroupOptions<TValue = string, TMessage extends ComponentMessage = never> =
   | ActiveRadioGroupOptions<TValue, TMessage>
-  | DisabledRadioGroupOptions<TValue>;
+  | DisabledRadioGroupOptions<TValue, TMessage>;
 
 export interface ActiveRadioGroupOptions<TValue, TMessage extends ComponentMessage>
   extends RadioGroupOptionsBase<TValue> {
   readonly onTransition: (transition: RadioGroupControlTransition) => MessageResolution<TMessage>;
-  readonly disabled?: false;
+  readonly disabled?: boolean;
 }
 
-export type DisabledRadioGroupOptions<TValue> = RadioGroupOptionsBase<TValue> & {
-  readonly onTransition?: never;
+export type DisabledRadioGroupOptions<TValue, TMessage extends ComponentMessage = never> = RadioGroupOptionsBase<TValue> & {
   readonly disabled: true;
-};
+} & RetainedCallbacks<ActiveRadioGroupOptions<TValue, TMessage>>;
 
 interface ComboboxOptionsBase<TValue> {
   readonly id: string;
@@ -330,10 +324,10 @@ interface ActiveComboboxCallbacks<TTransition, TMessage extends ComponentMessage
   readonly onTransition: (transition: TTransition) => MessageResolution<TMessage>;
   readonly onCommit?: (event: ComboboxCommitEvent) => MessageResolution<TMessage>;
   readonly onContextMenu?: (event: TextContextMenuEvent) => MessageResolution<TMessage>;
-  readonly disabled?: false;
+  readonly disabled?: boolean;
   readonly readOnly?: boolean;
   readonly busy?: boolean;
-  readonly inert?: false;
+  readonly inert?: boolean;
 }
 
 type UnscrolledComboboxBase<TValue> = ComboboxOptionsBase<TValue> & {
@@ -350,35 +344,29 @@ export type ActiveComboboxOptions<TValue, TMessage extends ComponentMessage> =
   | UnscrolledComboboxBase<TValue> & ActiveComboboxCallbacks<ComboboxControlTransition, TMessage>
   | ScrollableComboboxBase<TValue> & ActiveComboboxCallbacks<ComboboxTransition, TMessage>;
 
-interface InertComboboxAvailability {
-  readonly onTransition?: never;
-  readonly onCommit?: never;
-  readonly onContextMenu?: never;
-  readonly disabled?: false;
+type InertComboboxAvailability<TTransition, TMessage extends ComponentMessage> = {
+  readonly disabled?: boolean;
   readonly readOnly?: never;
   readonly busy?: boolean;
   readonly inert: true;
-}
+} & RetainedCallbacks<ActiveComboboxCallbacks<TTransition, TMessage>>;
 
-export type InertComboboxOptions<TValue> =
-  | UnscrolledComboboxBase<TValue> & InertComboboxAvailability
-  | ScrollableComboboxBase<TValue> & InertComboboxAvailability;
+export type InertComboboxOptions<TValue, TMessage extends ComponentMessage = never> =
+  | UnscrolledComboboxBase<TValue> & InertComboboxAvailability<ComboboxControlTransition, TMessage>
+  | ScrollableComboboxBase<TValue> & InertComboboxAvailability<ComboboxTransition, TMessage>;
 
-interface DisabledComboboxAvailability {
-  readonly onTransition?: never;
-  readonly onCommit?: never;
-  readonly onContextMenu?: never;
+type DisabledComboboxAvailability<TTransition, TMessage extends ComponentMessage> = {
   readonly disabled: true;
   readonly readOnly?: never;
   readonly busy?: never;
   readonly inert?: never;
-}
+} & RetainedCallbacks<ActiveComboboxCallbacks<TTransition, TMessage>>;
 
-export type DisabledComboboxOptions<TValue> =
-  | UnscrolledComboboxBase<TValue> & DisabledComboboxAvailability & {
+export type DisabledComboboxOptions<TValue, TMessage extends ComponentMessage = never> =
+  | UnscrolledComboboxBase<TValue> & DisabledComboboxAvailability<ComboboxControlTransition, TMessage> & {
       readonly state: UnscrolledComboboxState & { readonly open: false };
     }
-  | ScrollableComboboxBase<TValue> & DisabledComboboxAvailability & {
+  | ScrollableComboboxBase<TValue> & DisabledComboboxAvailability<ComboboxTransition, TMessage> & {
       readonly state: ScrollableComboboxState & { readonly open: false };
     };
 
@@ -387,8 +375,8 @@ export type UnscrolledComboboxOptions<
   TMessage extends ComponentMessage = never,
 > = UnscrolledComboboxBase<TValue> & (
   | ActiveComboboxCallbacks<ComboboxControlTransition, TMessage>
-  | InertComboboxAvailability
-  | DisabledComboboxAvailability & {
+  | InertComboboxAvailability<ComboboxControlTransition, TMessage>
+  | DisabledComboboxAvailability<ComboboxControlTransition, TMessage> & {
       readonly state: UnscrolledComboboxState & { readonly open: false };
     }
 );
@@ -398,8 +386,8 @@ export type ScrollableComboboxOptions<
   TMessage extends ComponentMessage = never,
 > = ScrollableComboboxBase<TValue> & (
   | ActiveComboboxCallbacks<ComboboxTransition, TMessage>
-  | InertComboboxAvailability
-  | DisabledComboboxAvailability & {
+  | InertComboboxAvailability<ComboboxTransition, TMessage>
+  | DisabledComboboxAvailability<ComboboxTransition, TMessage> & {
       readonly state: ScrollableComboboxState & { readonly open: false };
     }
 );
@@ -432,13 +420,13 @@ export type AutocompleteComboboxOptions<
   TMessage extends ComponentMessage = never,
 > =
   | ActiveAutocompleteComboboxOptions<TValue, TMessage>
-  | UnscrolledAutocompleteComboboxBase<TValue> & InertComboboxAvailability
-  | ScrollableAutocompleteComboboxBase<TValue> & InertComboboxAvailability
-  | UnscrolledAutocompleteComboboxBase<TValue> & DisabledComboboxAvailability & {
+  | UnscrolledAutocompleteComboboxBase<TValue> & InertComboboxAvailability<AutocompleteComboboxControlTransition, TMessage>
+  | ScrollableAutocompleteComboboxBase<TValue> & InertComboboxAvailability<AutocompleteComboboxTransition, TMessage>
+  | UnscrolledAutocompleteComboboxBase<TValue> & DisabledComboboxAvailability<AutocompleteComboboxControlTransition, TMessage> & {
       readonly view: Extract<AutocompleteComboboxView, { readonly scroll?: never }>
         & { readonly open: false };
     }
-  | ScrollableAutocompleteComboboxBase<TValue> & DisabledComboboxAvailability & {
+  | ScrollableAutocompleteComboboxBase<TValue> & DisabledComboboxAvailability<AutocompleteComboboxTransition, TMessage> & {
       readonly view: Extract<AutocompleteComboboxView, { readonly scroll: unknown }>
         & { readonly open: false };
     };
@@ -450,7 +438,7 @@ export type AnyComboboxOptions<
 
 interface TextInputOptionsBase {
   readonly id: string;
-  readonly state: TextInputState;
+  readonly state: TextEditBuffer;
   readonly placeholder?: string;
   readonly required?: boolean;
   readonly error?: string;
@@ -461,25 +449,22 @@ interface TextInputOptionsBase {
 
 export type TextInputOptions<TMessage extends ComponentMessage = never> =
   | ActiveTextInputOptions<TMessage>
-  | DisabledTextInputOptions;
+  | DisabledTextInputOptions<TMessage>;
 
 export type ActiveTextInputOptions<TMessage extends ComponentMessage> = TextInputOptionsBase & {
-  readonly disabled?: false;
+  readonly disabled?: boolean;
   readonly onTransition: (transition: TextInputTransition) => MessageResolution<TMessage>;
   readonly onSubmit?: (event: TextInputSubmitEvent) => MessageResolution<TMessage>;
   readonly onContextMenu?: (event: TextContextMenuEvent) => MessageResolution<TMessage>;
 };
 
-export type DisabledTextInputOptions = TextInputOptionsBase & {
-  readonly onTransition?: never;
-  readonly onSubmit?: never;
-  readonly onContextMenu?: never;
+export type DisabledTextInputOptions<TMessage extends ComponentMessage = never> = TextInputOptionsBase & {
   readonly disabled: true;
   readonly readOnly?: never;
-};
+} & RetainedCallbacks<ActiveTextInputOptions<TMessage>>;
 
 export type PasswordInputOptions<TMessage extends ComponentMessage = never> =
-  (ActiveTextInputOptions<TMessage> | DisabledTextInputOptions) & { readonly mask?: string };
+  (ActiveTextInputOptions<TMessage> | DisabledTextInputOptions<TMessage>) & { readonly mask?: string };
 
 interface NumberInputOptionsBase {
   readonly id: string;
@@ -493,21 +478,19 @@ interface NumberInputOptionsBase {
 
 export type NumberInputOptions<TMessage extends ComponentMessage = never> =
   | ActiveNumberInputOptions<TMessage>
-  | DisabledNumberInputOptions;
+  | DisabledNumberInputOptions<TMessage>;
 
 export interface ActiveNumberInputOptions<TMessage extends ComponentMessage> extends NumberInputOptionsBase {
   readonly onTransition: (transition: NumberInputControlTransition) => MessageResolution<TMessage>;
   readonly onContextMenu?: (event: TextContextMenuEvent) => MessageResolution<TMessage>;
-  readonly disabled?: false;
+  readonly disabled?: boolean;
   readonly readOnly?: boolean;
 }
 
-export type DisabledNumberInputOptions = NumberInputOptionsBase & {
-  readonly onTransition?: never;
-  readonly onContextMenu?: never;
+export type DisabledNumberInputOptions<TMessage extends ComponentMessage = never> = NumberInputOptionsBase & {
   readonly disabled: true;
   readonly readOnly?: never;
-};
+} & RetainedCallbacks<ActiveNumberInputOptions<TMessage>>;
 
 export type {
   ButtonPressEvent,

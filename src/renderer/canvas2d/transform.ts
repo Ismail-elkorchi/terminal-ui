@@ -24,23 +24,29 @@ export function composeCanvasTransform(
 ): CanvasTransform {
   assertIntegerTransform(current);
   const normalized = canvasTransform(next);
-  return {
+  const composed = {
     translateX: current.translateX + normalized.translateX * current.scaleX,
     translateY: current.translateY + normalized.translateY * current.scaleY,
     scaleX: current.scaleX * normalized.scaleX,
     scaleY: current.scaleY * normalized.scaleY
   };
+  assertIntegerTransform(composed);
+  return composed;
 }
 
 export function transformCanvasPoint(transform: CanvasTransform, point: CanvasPoint): CanvasPoint {
   assertIntegerTransform(transform);
-  if (!Number.isInteger(point.x) || !Number.isInteger(point.y)) {
-    throw new RangeError('Canvas transform point coordinates must be finite integers.');
+  if (!Number.isSafeInteger(point.x) || !Number.isSafeInteger(point.y)) {
+    throw new RangeError('Canvas transform point coordinates must be safe integers.');
   }
-  return {
+  const result = {
     x: point.x * transform.scaleX + transform.translateX,
     y: point.y * transform.scaleY + transform.translateY
   };
+  if (!Number.isSafeInteger(result.x) || !Number.isSafeInteger(result.y)) {
+    throw new RangeError('Canvas transform point exceeds safe integer coordinates.');
+  }
+  return result;
 }
 
 export function transformCanvasRect(
@@ -48,20 +54,26 @@ export function transformCanvasRect(
   bounds: CanvasPoint & { readonly width: number; readonly height: number }
 ): CanvasPoint & { readonly width: number; readonly height: number } {
   if (
-    !Number.isInteger(bounds.width)
-    || !Number.isInteger(bounds.height)
+    !Number.isSafeInteger(bounds.width)
+    || !Number.isSafeInteger(bounds.height)
     || bounds.width < 0
     || bounds.height < 0
   ) {
     throw new RangeError('Canvas transform rectangle dimensions must be non-negative integers.');
   }
   const start = transformCanvasPoint(transform, bounds);
-  return {
-    x: start.x,
-    y: start.y,
-    width: Math.max(0, bounds.width * Math.abs(transform.scaleX)),
-    height: Math.max(0, bounds.height * Math.abs(transform.scaleY))
+  const width = bounds.width * Math.abs(transform.scaleX);
+  const height = bounds.height * Math.abs(transform.scaleY);
+  const result = {
+    x: start.x + (transform.scaleX < 0 && width > 0 ? 1 - width : 0),
+    y: start.y + (transform.scaleY < 0 && height > 0 ? 1 - height : 0),
+    width,
+    height,
   };
+  if (!Object.values(result).every(Number.isSafeInteger)) {
+    throw new RangeError('Canvas transform rectangle exceeds safe integer coordinates.');
+  }
+  return result;
 }
 
 function integer(
@@ -71,7 +83,7 @@ function integer(
   allowZero: boolean
 ): number {
   if (value === undefined) return fallback;
-  if (Number.isInteger(value) && (allowZero || value !== 0)) return value;
+  if (Number.isSafeInteger(value) && (allowZero || value !== 0)) return value;
   throw new RangeError(
     `Canvas transform ${name} must be ${allowZero ? 'an integer' : 'a non-zero integer'}.`
   );
@@ -79,10 +91,10 @@ function integer(
 
 function assertIntegerTransform(transform: CanvasTransform): void {
   if (
-    Number.isInteger(transform.translateX)
-    && Number.isInteger(transform.translateY)
-    && Number.isInteger(transform.scaleX)
-    && Number.isInteger(transform.scaleY)
+    Number.isSafeInteger(transform.translateX)
+    && Number.isSafeInteger(transform.translateY)
+    && Number.isSafeInteger(transform.scaleX)
+    && Number.isSafeInteger(transform.scaleY)
     && transform.scaleX !== 0
     && transform.scaleY !== 0
   ) {

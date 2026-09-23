@@ -7,7 +7,6 @@ import {
   createSearchPickerIndex,
   createLogHistory,
   createTreeSource,
-  createTreeView,
 } from '../../dist/behavior/index.js';
 import {
   createMeasuredCollection,
@@ -245,7 +244,7 @@ const cases = [
       const source = createTreeSource(treeNodes);
       return tree({ meta: { accessibleName: "Tree" },
         id: 'tree',
-        view: createTreeView(source, treeState),
+        source: source,
         state: treeState,
         onTransition: (action) => ({ kind: 'tree', action })
       });
@@ -293,7 +292,7 @@ const cases = [
     element: () => form({ meta: { accessibleName: "Form" }, slots: { content: [
       field({ control: textInput({ meta: { accessibleName: "Text input" },
         id: 'form-input',
-        state: { value: unsafe, cursor: 0 },
+        state: { text: unsafe, cursor: 0 },
         onTransition: (action) => action
       }), id: 'form-field', label: 'Name' }),
       button({ id: 'form-submit', label: 'Submit', onPress: () => ({ kind: 'submit' }) })
@@ -306,7 +305,7 @@ const cases = [
     name: 'field',
     element: () => field({ control: textInput({ meta: { accessibleName: "Text input" },
       id: 'field-input',
-      state: { value: unsafe, cursor: 0 },
+      state: { text: unsafe, cursor: 0 },
       onTransition: (action) => action
     }),
       id: 'field',
@@ -322,7 +321,7 @@ const cases = [
       label({ id: 'label', forId: 'label-target', text: unsafe }),
       textInput({ meta: { accessibleName: "Text input" },
         id: 'label-target',
-        state: { value: '', cursor: 0 },
+        state: { text: '', cursor: 0 },
         onTransition: (action) => action
       })
     ] }, id: 'label-form' }),
@@ -463,7 +462,7 @@ const cases = [
     name: 'textInput',
     element: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'text-input',
-      state: { value: unsafe, cursor: 2 },
+      state: { text: unsafe, cursor: 2 },
       onTransition: (action) => action
     }),
     expectText: /Unsafe red text/u,
@@ -473,7 +472,7 @@ const cases = [
     name: 'passwordInput',
     element: () => passwordInput({ meta: { accessibleName: "Password input" },
       id: 'password-input',
-      state: { value: 'secret', cursor: 6 },
+      state: { text: 'secret', cursor: 6 },
       onTransition: (action) => action
     }),
     expectText: /••••••/u,

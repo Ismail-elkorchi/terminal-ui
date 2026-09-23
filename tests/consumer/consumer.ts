@@ -65,10 +65,7 @@ function view(state: State): Element<Message> {
   const files: Element<{ readonly kind: 'tree'; readonly transition: TreeTransition }> = tree({
     id: 'files',
     meta: { accessibleName: 'Files' },
-    view: behavior.createTreeView(
-      behavior.createTreeSource([{ id: 'src', label: 'src', kind: 'leaf' }]),
-      treeState,
-    ),
+    source: behavior.createTreeSource([{ id: 'src', label: 'src', kind: 'leaf' }]),
     state: treeState,
     onTransition: (transition) => ({ kind: 'tree' as const, transition })
   });
@@ -94,7 +91,7 @@ function view(state: State): Element<Message> {
   const secret: Element<{ readonly kind: 'secret'; readonly action: TextInputTransition }> = passwordInput({
     id: 'secret',
     meta: { accessibleName: 'Secret' },
-    state: { value: 'private', cursor: 7 },
+    state: { text: 'private', cursor: 7 },
     onTransition: (action) => ({ kind: 'secret', action })
   });
   const content: Element<Message> = column([
