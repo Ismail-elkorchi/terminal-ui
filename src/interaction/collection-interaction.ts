@@ -1,6 +1,6 @@
-import { adjacentItemId } from './navigation.ts';
-import type { NavigationPolicy } from './navigation.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
+import type { NavigationPolicy } from './navigation.ts';
+import { adjacentItemId } from './navigation.ts';
 
 export type SelectionState =
   | { readonly mode: 'none' }

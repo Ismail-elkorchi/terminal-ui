@@ -1,12 +1,8 @@
-import { redactSecretLikeText } from './text/secrets.ts';
 import { sha256Hex } from './diagnostic-identity.ts';
-import { snapshotCanonicalJsonValue } from './foundation/json.ts';
-import {
-  findUnsupportedField,
-  isNonArrayObject,
-  isStringMember
-} from './foundation/validation.ts';
 import type { JsonValue } from './foundation/json.ts';
+import { snapshotCanonicalJsonValue } from './foundation/json.ts';
+import { findUnsupportedField, isNonArrayObject, isStringMember } from './foundation/validation.ts';
+import { redactSecretLikeText } from './text/secrets.ts';
 
 export type TerminalDiagnosticValue = JsonValue;
 

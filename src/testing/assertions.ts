@@ -1,12 +1,13 @@
-import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { FrameCell, FrameDescriptor, FrameHitTarget, TerminalStyle } from '../renderer/index.ts';
+import type { AccessibleSnapshot } from '../accessibility/types.ts';
+import type { FrameCell, FrameDescriptor, FrameHitTarget } from '../renderer/contracts.ts';
+import type { InteractionResult } from '../transcript/types.ts';
+import type { TerminalStyle } from '../visual/render-content.ts';
 import type {
   FocusAssertion,
   HitTargetAssertion,
-  InteractionResult,
   SelectedAssertion,
   SnapshotAssertion,
-  VisibleTextAssertion
+  VisibleTextAssertion,
 } from './types.ts';
 
 export function assertFocus(snapshot: AccessibleSnapshot, assertion: FocusAssertion): void {

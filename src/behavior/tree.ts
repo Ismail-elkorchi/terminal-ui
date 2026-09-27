@@ -1,13 +1,16 @@
-import type { CollectionInteractionTransition, CollectionInteractionState } from '../interaction/collection-interaction.ts';
-import type { ScrollRequest, ScrollState } from '../interaction/scroll.ts';
-import type { CollectionInteractionIndex } from '../interaction/collection-interaction.ts';
 import type { LabeledItem } from '../collection/item.ts';
 import type {
-  CollectionSnapshot,
   CollectionItem,
+  CollectionSnapshot,
   CompleteCollectionSnapshot,
   WindowedCollectionSnapshot,
 } from '../collection/snapshot.ts';
+import type {
+  CollectionInteractionIndex,
+  CollectionInteractionState,
+  CollectionInteractionTransition,
+} from '../interaction/collection-interaction.ts';
+import type { ScrollRequest, ScrollState } from '../interaction/scroll.ts';
 
 interface TreeNodeBase<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,

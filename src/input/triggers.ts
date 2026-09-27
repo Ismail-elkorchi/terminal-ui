@@ -1,14 +1,14 @@
+import { isNonArrayObject, isStringMember } from '../foundation/validation.ts';
+import { segmentGraphemes } from '../text/graphemes.ts';
 import type {
+  BindableKeyName,
   InputEvent,
   InputTrigger,
-  BindableKeyName,
   KeyEvent,
   KeyModifierTrigger,
-  KeyModifiers
+  KeyModifiers,
 } from './types.ts';
 import { keyEventTypes, keyLocations, keyNames } from './types.ts';
-import { isNonArrayObject, isStringMember } from '../foundation/validation.ts';
-import { segmentGraphemes } from '../text/index.ts';
 
 /** Decodes one dynamically supplied trigger at an authoring boundary. */
 export function decodeInputTrigger(value: unknown): InputTrigger {

@@ -1,10 +1,10 @@
+import { editTextBuffer } from '../text/edit.ts';
+import type { TextEditBuffer, TextEditOperation } from '../text/types.ts';
 import type {
-  NumberInputTransition,
   NumberInputAnalysis,
-  NumberInputView
+  NumberInputTransition,
+  NumberInputView,
 } from './number-input.ts';
-import { editTextBuffer } from '../text/index.ts';
-import type { TextEditBuffer, TextEditOperation } from '../text/index.ts';
 import { applyTextPointerTransition } from './text-editing.ts';
 
 export type { NumberInputAnalysis, NumberInputView } from './number-input.ts';

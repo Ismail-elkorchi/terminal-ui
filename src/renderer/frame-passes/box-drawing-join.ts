@@ -1,6 +1,6 @@
-import type { FrameCell } from '../frame.ts';
-import { mergeableFrameCells } from '../frame-buffer.ts';
+import type { FrameCell } from '../contracts.ts';
 import type { FrameBuffer } from '../frame-buffer.ts';
+import { mergeableFrameCells } from '../frame-buffer.ts';
 import type { FramePass } from './frame-pass.ts';
 
 type Direction = 'up' | 'right' | 'down' | 'left';

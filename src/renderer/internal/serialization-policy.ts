@@ -1,16 +1,10 @@
-import {
-  defaultTerminalOutputCapabilities,
-  type TerminalOutputCapabilityProfile
-} from '../../protocol/index.ts';
-import type { Rect } from '../contracts.ts';
-import type { CursorPosition } from '../contracts.ts';
+import type { Rect } from '../../geometry/types.ts';
+import type { TerminalOutputCapabilityProfile } from '../../protocol/output-capabilities.ts';
+import { defaultTerminalOutputCapabilities } from '../../protocol/output-capabilities.ts';
+import { ansi256ToBasicAnsi, rgbToAnsi256, rgbToBasicAnsi } from '../../visual/color-conversion.ts';
 import type { TerminalColor, TerminalLink, TerminalStyle } from '../../visual/render-content.ts';
 import { sameTerminalColor } from '../../visual/render-content.ts';
-import {
-  ansi256ToBasicAnsi,
-  rgbToAnsi256,
-  rgbToBasicAnsi
-} from '../../visual/color-conversion.ts';
+import type { CursorPosition } from '../contracts.ts';
 
 export interface TerminalSerializationPolicyInput {
   readonly capabilities?: TerminalOutputCapabilityProfile;

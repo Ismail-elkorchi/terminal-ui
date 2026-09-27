@@ -1,8 +1,9 @@
-import { collectLayoutFocusTargets, collectRenderNodeLayoutTargets } from './focus.ts';
-import type { LayoutFocusTarget, RenderNodeLayoutTarget } from './focus.ts';
-import type { RenderNode } from './render-tree/index.ts';
-import type { LayoutNode, Rect, RenderInstrumentation } from '../contracts.ts';
 import { rectsOverlap } from '../../geometry/rect.ts';
+import type { Rect } from '../../geometry/types.ts';
+import type { LayoutNode, RenderInstrumentation } from '../contracts.ts';
+import type { LayoutFocusTarget, RenderNodeLayoutTarget } from './focus.ts';
+import { collectLayoutFocusTargets, collectRenderNodeLayoutTargets } from './focus.ts';
+import type { RenderNode } from './render-tree/types.ts';
 
 export interface RegionTargetIndex<TMessage> {
   readonly layoutTargets: readonly RenderNodeLayoutTarget<TMessage>[];

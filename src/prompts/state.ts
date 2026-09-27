@@ -1,7 +1,7 @@
-import { firstEnabledChoiceIndex, initialSelectedChoiceIndexes } from './choices.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { TextEditBuffer } from '../text/index.ts';
+import type { TextEditBuffer } from '../text/types.ts';
 import type { ChoiceResolution } from './choices.ts';
+import { firstEnabledChoiceIndex, initialSelectedChoiceIndexes } from './choices.ts';
 import type { PromptChoice, PromptDataSourceResult, PromptDefinition } from './types.ts';
 
 export interface PromptRuntimeState<TChoice = never> {

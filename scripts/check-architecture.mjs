@@ -39,8 +39,11 @@ const componentDefinitionPrivateRendererDependencies = new Set([
   'renderer/internal/render-tree/component-node.ts'
 ]);
 const componentRendererAdapters = new Set([
-  'component/definition.ts',
-  'component/definition-adapter.ts',
+  'component/internal/compile-definition.ts',
+  'component/internal/definition-adapter.ts',
+  'component/internal/instance.ts',
+  'component/internal/runtime-contracts.ts',
+  'component/internal/slots.ts',
 ]);
 const componentSharedRendererDependencies = new Set([
   'renderer/contracts.ts',
@@ -81,12 +84,12 @@ const architectureDependencies = new Map([
   ['geometry', new Set(['foundation'])],
   ['graphics', new Set(['diagnostic-identity.ts', 'foundation', 'geometry'])],
   ['host', new Set(['diagnostics.ts', 'errors.ts', 'geometry', 'protocol', 'text'])],
-  ['index.ts', new Set([
+  ['index.ts', new Set(['renderer', 'geometry',
     'behavior', 'component', 'components', 'diagnostics.ts', 'element', 'errors.ts',
     'foundation', 'graphics', 'host', 'interaction', 'layout', 'result.ts', 'tui',
     'collection', 'visual'
   ])],
-  ['input', new Set(['diagnostics.ts', 'foundation', 'host', 'protocol', 'text'])],
+  ['input', new Set(['geometry', 'diagnostics.ts', 'foundation', 'host', 'protocol', 'text'])],
   ['interaction', new Set(['diagnostics.ts', 'foundation', 'geometry', 'input', 'text'])],
   ['layout', new Set([
     'behavior', 'collection', 'element', 'foundation', 'geometry', 'interaction', 'renderer',
@@ -102,17 +105,17 @@ const architectureDependencies = new Map([
     'input', 'interaction', 'protocol', 'text', 'theme', 'visual'
   ])],
   ['result.ts', new Set(['diagnostics.ts'])],
-  ['testing', new Set([
+  ['testing', new Set(['visual', 'geometry',
     'accessibility', 'diagnostics.ts', 'element', 'foundation', 'host', 'input',
     'interaction', 'renderer', 'text', 'theme', 'transcript', 'tui'
   ])],
   ['text', new Set()],
   ['theme', new Set(['foundation', 'text', 'visual'])],
-  ['transcript', new Set([
+  ['transcript', new Set(['geometry',
     'accessibility', 'diagnostics.ts', 'foundation', 'graphics', 'host', 'input',
     'interaction', 'protocol', 'renderer', 'result.ts', 'text', 'visual'
   ])],
-  ['tui', new Set([
+  ['tui', new Set(['visual',
     'accessibility', 'behavior', 'diagnostics.ts', 'element', 'errors.ts', 'foundation',
     'geometry', 'graphics', 'host', 'input', 'interaction', 'protocol', 'renderer',
     'text', 'theme', 'transcript'
@@ -150,6 +153,7 @@ for (const filePath of sourceFiles) {
   architectureDependencyGraph.set(filePath, architectureDependenciesForFile);
   inspectDeterministicGlobals(sourceFile, sourceLayer, filePath);
   inspectPublicBoundary(sourceFile, filePath, publicEntrypoints.sources);
+  inspectInternalFacadeImports(sourceFile);
 }
 
 inspectComponentCatalog(componentCatalogExports);
@@ -323,9 +327,9 @@ function inspectComponentCatalog(exports) {
   for (const exported of exports) {
     const declarations = exported.target.getDeclarations() ?? [];
     const origin = declarations.find((declaration) =>
-      sourceRelative(declaration.getSourceFile().fileName).startsWith('components/factories/'));
+      sourceRelative(declaration.getSourceFile().fileName).startsWith('components/'));
     if (origin === undefined) {
-      failures.push(`src/components/factories.ts exports component factory ${exported.name} outside components/factories`);
+      failures.push(`src/components/index.ts exports component factory ${exported.name} outside components`);
       continue;
     }
     if (!symbolProducesComponent(exported.target, new Set())) {
@@ -341,7 +345,7 @@ function symbolProducesComponent(symbol, seen) {
   if (symbolDeclaredIn(target, 'component/definition.ts', new Set(['defineComponent']))) return true;
   for (const declaration of target.getDeclarations() ?? []) {
     const declarationPath = sourceRelative(declaration.getSourceFile().fileName);
-    if (!declarationPath.startsWith('components/factories/')) continue;
+    if (!declarationPath.startsWith('components/')) continue;
     if (ts.isVariableDeclaration(declaration) && declaration.initializer !== undefined) {
       if (ts.isArrowFunction(declaration.initializer) || ts.isFunctionExpression(declaration.initializer)) {
         if (functionProducesComponent(declaration.initializer, seen)) return true;
@@ -405,17 +409,23 @@ function isFunctionLikeWithBody(node) {
 }
 
 function loadComponentCatalogExports(program, typeChecker) {
-  const entrypoint = path.resolve(root, 'components/factories.ts');
+  const entrypoint = path.resolve(root, 'components/index.ts');
   const sourceFile = program.getSourceFile(entrypoint);
-  if (sourceFile === undefined) throw new Error('Component catalog entrypoint is missing from the compiler program.');
+  const elementFile = program.getSourceFile(path.resolve(root, 'element/types.ts'));
+  if (sourceFile === undefined || elementFile === undefined) throw new Error('Component contracts are missing.');
   const moduleSymbol = typeChecker.getSymbolAtLocation(sourceFile);
-  if (moduleSymbol === undefined) throw new Error('Component catalog entrypoint has no module symbol.');
+  const elementModule = typeChecker.getSymbolAtLocation(elementFile);
+  const elementSymbol = elementModule === undefined ? undefined
+    : typeChecker.getExportsOfModule(elementModule).find((symbol) => symbol.name === 'ElementValue');
+  if (moduleSymbol === undefined || elementSymbol === undefined) throw new Error('Component contracts have no module symbols.');
+  const elementType = typeChecker.getDeclaredTypeOfSymbol(elementSymbol);
   return typeChecker.getExportsOfModule(moduleSymbol)
     .map((exported) => ({ name: exported.name, target: resolveAlias(exported, typeChecker) }))
     .filter(({ target }) => {
       const declaration = target.valueDeclaration ?? target.getDeclarations()?.[0];
-      return declaration !== undefined
-        && typeChecker.getTypeOfSymbolAtLocation(target, declaration).getCallSignatures().length > 0;
+      if (declaration === undefined) return false;
+      return typeChecker.getTypeOfSymbolAtLocation(target, declaration).getCallSignatures()
+        .some((signature) => typeChecker.isTypeAssignableTo(typeChecker.getReturnTypeOfSignature(signature), elementType));
     });
 }
 
@@ -779,11 +789,6 @@ function reportRuntimeCycles(graph) {
   const reported = new Set();
   for (const component of stronglyConnectedComponents(graph)) {
     if (component.length <= 1) continue;
-    const units = [...new Set(component.map(architectureUnit))];
-    const renderTreeOnly = units.length === 1
-      && units[0] === 'renderer'
-      && component.every((filePath) => sourceRelative(filePath).startsWith('renderer/internal/render-tree/'));
-    if (renderTreeOnly) continue;
     const key = cycleKey(component);
     reported.add(key);
     failures.push(`runtime dependency cycle: ${component.map(relative).sort().join(', ')}`);
@@ -796,8 +801,8 @@ function reportArchitecturalCycles(graph, runtimeCycles) {
     if (component.length <= 1) continue;
     const units = new Set(component.map(architectureUnit));
     const key = cycleKey(component);
-    if (units.size <= 1 || runtimeCycles.has(key)) continue;
-    failures.push(`type dependency cycle crosses architecture boundaries: ${component.map(relative).sort().join(', ')}`);
+    if (runtimeCycles.has(key)) continue;
+    failures.push(`${units.size > 1 ? 'type dependency cycle crosses architecture boundaries' : 'type dependency cycle'}: ${component.map(relative).sort().join(', ')}`);
   }
 }
 
@@ -853,4 +858,17 @@ function stronglyConnectedComponents(graph) {
 
   for (const node of graph.keys()) if (!indexes.has(node)) visit(node);
   return components;
+}
+
+function inspectInternalFacadeImports(sourceFile) {
+  for (const statement of sourceFile.statements) {
+    if (!ts.isImportDeclaration(statement) || isTypeOnlyDependency(statement)
+      || !ts.isStringLiteralLike(statement.moduleSpecifier)) continue;
+    const target = resolveSourceModule(statement.moduleSpecifier.text, sourceFile.fileName, compilerConfig.options);
+    if (target === undefined || !publicEntrypoints.sources.has(target)) continue;
+    const facade = sourceProgram.getSourceFile(target);
+    if (facade?.statements.every((item) => ts.isExportDeclaration(item) || ts.isImportDeclaration(item))) {
+      failures.push(`${relative(sourceFile.fileName)} imports public facade ${sourceRelative(target)}; import the implementation owner directly`);
+    }
+  }
 }

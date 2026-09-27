@@ -1,38 +1,39 @@
-import { finiteNonNegativeIntegerOr, isNonArrayObject } from '../../../../foundation/validation.ts';
-import type { TerminalTheme } from '../../../../theme/index.ts';
-import type {
-  RenderNodeKind,
-  RenderNodeOfKind,
-  RenderNodesOfKind
-} from '../../render-tree/index.ts';
 import { normalizeScrollState, scrollReducer } from '../../../../behavior/scroll.ts';
-import { renderScrollbars, scrollbarLayout } from '../../scrollbar.ts';
-import { viewportMeasurementState, viewportVisualState } from './viewport.ts';
-import type { RenderTarget } from '../../../contracts.ts';
-import type { LayoutNode, Measurement, Rect } from '../../../contracts.ts';
+import { finiteNonNegativeIntegerOr, isNonArrayObject } from '../../../../foundation/validation.ts';
+import { sameRect as rectsEqual } from '../../../../geometry/rect.ts';
+import type { Rect } from '../../../../geometry/types.ts';
 import type { RoutedPointerEvent } from '../../../../input/pointer.ts';
-import type { InputEvent } from '../../../../input/index.ts';
-import { ignoreMessage } from '../../../../interaction/message.ts';
+import type { InputEvent } from '../../../../input/types.ts';
 import type { MessageResolution } from '../../../../interaction/message.ts';
-import type {
-  ScrollTransition,
-  ScrollState,
-  ScrollRequest,
-  ScrollRequestSource,
-  ScrollRequestTarget
-} from '../../../../interaction/scroll.ts';
-import type {
-  ScrollbarLayout,
-  ScrollbarOptions,
-  ScrollbarState,
-  ScrollbarTrack,
-  ScrollbarVisualState
-} from '../../scrollbar.ts';
-import type { HitTarget } from '../../../contracts.ts';
+import { ignoreMessage } from '../../../../interaction/message.ts';
 import {
   scrollRouteDescriptor,
   type ScrollRoutable,
 } from '../../../../interaction/scroll-route.ts';
+import type {
+  ScrollRequest,
+  ScrollRequestSource,
+  ScrollRequestTarget,
+  ScrollState,
+  ScrollTransition,
+} from '../../../../interaction/scroll.ts';
+import type {
+  ScrollbarOptions,
+  ScrollbarState,
+  ScrollbarVisualState,
+} from '../../../../interaction/scrollbar.ts';
+import type { TerminalTheme } from '../../../../theme/theme.ts';
+import type {
+  HitTarget,
+  LayoutNode,
+  Measurement,
+  RenderNodeKind,
+  RenderTarget,
+} from '../../../contracts.ts';
+import type { RenderNodeOfKind, RenderNodesOfKind } from '../../render-tree/types.ts';
+import type { ScrollbarLayout, ScrollbarTrack } from '../../scrollbar.ts';
+import { renderScrollbars, scrollbarLayout } from '../../scrollbar.ts';
+import { viewportMeasurementState, viewportVisualState } from './viewport.ts';
 
 const WHEEL_SCROLL_LINES = 3;
 const WHEEL_SCROLL_COLUMNS = 3;
@@ -153,13 +154,6 @@ function reconciledScrollbarLayout(
     layout = next;
   }
   return layout;
-}
-
-function rectsEqual(left: Rect, right: Rect): boolean {
-  return left.row === right.row
-    && left.column === right.column
-    && left.width === right.width
-    && left.height === right.height;
 }
 
 function scrollMessageFactory<TMessage>(

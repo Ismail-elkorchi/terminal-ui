@@ -1,4 +1,4 @@
-import type { MouseButton, MouseEvent as TerminalMouseEvent, MouseModifiers } from './types.ts';
+import type { MouseButton, MouseModifiers, MouseEvent as TerminalMouseEvent } from './types.ts';
 
 export const pointerEventKinds = [
   'pointerDown',

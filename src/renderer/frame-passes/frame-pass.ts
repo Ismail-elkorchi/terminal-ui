@@ -1,7 +1,7 @@
 import type { TerminalSize } from '../../geometry/types.ts';
-import type { TerminalTheme } from '../../theme/index.ts';
-import type { FrameBuffer } from '../frame.ts';
-import type { TextWidthProfile } from '../../text/index.ts';
+import type { TextWidthProfile } from '../../text/types.ts';
+import type { TerminalTheme } from '../../theme/theme.ts';
+import type { FrameBuffer } from '../frame-buffer.ts';
 
 export type { FrameCellRole } from '../../visual/frame-source.ts';
 

@@ -1,7 +1,7 @@
-import { createAccessibleSnapshot } from '../accessibility/index.ts';
-import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { Frame, FrameDescriptor, RenderDiff } from '../renderer/index.ts';
-import type { InteractionTranscriptStep, TranscriptRuntimeCommit } from '../transcript/index.ts';
+import { createAccessibleSnapshot } from '../accessibility/snapshot.ts';
+import type { AccessibleSnapshot } from '../accessibility/types.ts';
+import type { Frame, FrameDescriptor, RenderDiff } from '../renderer/contracts.ts';
+import type { InteractionTranscriptStep, TranscriptRuntimeCommit } from '../transcript/types.ts';
 
 export function latestRecordedSnapshot(
   steps: readonly InteractionTranscriptStep[],

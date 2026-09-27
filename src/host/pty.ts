@@ -1,17 +1,23 @@
+import type { TerminalSize } from '../geometry/types.ts';
 import { resolveTerminalCapabilities } from './capabilities.ts';
-import { TerminalStateAuthorityBinding } from './terminal-state.ts';
-import { ObjectEnvironment, RuntimeClock, RuntimeInput, RuntimeOutput, RuntimeSignals } from './runtime-streams.ts';
-import { createTerminalHostOutputAuthority } from './ordered-output.ts';
-import { TerminalInputAuthority } from './input-authority.ts';
 import { TerminalCapabilityDetector } from './capability-detection.ts';
 import { settleResourceDisposal } from './dispose.ts';
+import { TerminalInputAuthority } from './input-authority.ts';
+import { createTerminalHostOutputAuthority } from './ordered-output.ts';
+import {
+  ObjectEnvironment,
+  RuntimeClock,
+  RuntimeInput,
+  RuntimeOutput,
+  RuntimeSignals,
+} from './runtime-streams.ts';
+import { TerminalStateAuthorityBinding } from './terminal-state.ts';
 import type {
   PtyTerminalHost,
   PtyTerminalHostOptions,
   RuntimeTerminalOutputOptions,
   TerminalOperationContext,
   TerminalOutput,
-  TerminalSize
 } from './types.ts';
 
 class PtyOutput implements TerminalOutput {

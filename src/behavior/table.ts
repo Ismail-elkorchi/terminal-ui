@@ -1,10 +1,10 @@
-import type { ScrollRequest, ScrollState } from '../interaction/scroll.ts';
 import type {
-  CollectionSnapshot,
   CollectionItem,
+  CollectionSnapshot,
   CompleteCollectionSnapshot,
   WindowedCollectionSnapshot,
 } from '../collection/snapshot.ts';
+import type { ScrollRequest, ScrollState } from '../interaction/scroll.ts';
 
 export interface TableCollectionRow<TRow> extends CollectionItem {
   readonly row: TRow;

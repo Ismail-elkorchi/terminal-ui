@@ -1,19 +1,17 @@
 import type {
-  ViewportRenderProps
-} from './viewport.ts';
-import type {
-  GridRenderProps,
   ColumnRenderProps,
   FlowRenderProps,
+  GridRenderProps,
   MeasuredColumnRenderProps,
-  SplitPaneRenderProps
+  SplitPaneRenderProps,
 } from './layout.ts';
 import type {
   AbsoluteRenderProps,
   AnchoredRenderProps,
   PortalRenderProps,
-  SurfaceRenderProps
+  SurfaceRenderProps,
 } from './surfaces.ts';
+import type { ViewportRenderProps } from './viewport.ts';
 
 export interface RenderNodePropsByKind<TMessage> {
   readonly column: ColumnRenderProps;
@@ -44,6 +42,18 @@ export interface ComponentRenderProps {
   readonly toActionMessage?: (action: unknown) => unknown;
 }
 
-export type * from './viewport.ts';
-export type * from './layout.ts';
-export type * from './surfaces.ts';
+export type {
+  ColumnRenderProps,
+  FlowRenderProps,
+  GridRenderProps,
+  MeasuredColumnRenderEntry,
+  MeasuredColumnRenderProps,
+  SplitPaneRenderProps,
+} from './layout.ts';
+export type {
+  AbsoluteRenderProps,
+  AnchoredRenderProps,
+  PortalRenderProps,
+  SurfaceRenderProps,
+} from './surfaces.ts';
+export type { ViewportRenderProps } from './viewport.ts';

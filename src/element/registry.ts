@@ -1,5 +1,5 @@
+import type { ElementInspection } from './inspection-contracts.ts';
 import type { Element, ElementValue } from './types.ts';
-import type { ElementInspection } from './inspection.ts';
 
 const internals = new WeakMap<object, unknown>();
 const inspections = new WeakMap<object, ElementInspection>();

@@ -1,18 +1,21 @@
-import { layoutElementFromRenderNode, toRenderNodes } from '../../renderer/internal/render-tree/element.ts';
 import type {
   Element,
   ElementChildren,
   ElementChildrenMessage,
   ElementMessage,
-  ElementValue
-} from '../../element/index.ts';
-import type { GridAreasOptions, GridOptions } from '../options.ts';
-import { renderNodeMeta as componentMetaProps } from '../../renderer/internal/render-tree/metadata.ts';
+  ElementValue,
+} from '../../element/types.ts';
 import {
+  layoutElementFromRenderNode,
   optionalRenderNodeId,
-  renderNodeChildren
+  renderNodeChildren,
+  toRenderNodes,
 } from '../../renderer/internal/render-tree/element.ts';
+import {
+  renderNodeMeta as componentMetaProps,
+} from '../../renderer/internal/render-tree/metadata.ts';
 import { renderNodeLayoutProps } from '../../renderer/internal/render-tree/props/shared-layout.ts';
+import type { GridAreasOptions, GridOptions } from '../options.ts';
 import { assertGridAreaChildren, gridAreaNames, parseGridAreas } from './grid-areas.ts';
 
 export function grid<const TChildren extends ElementChildren>(

@@ -1,6 +1,6 @@
-import type { GraphicPlacement } from '../graphics/index.ts';
-import type { Rect } from '../geometry/types.ts';
 import { intersectRects } from '../geometry/rect.ts';
+import type { Rect } from '../geometry/types.ts';
+import type { GraphicPlacement } from '../graphics/types.ts';
 
 /** @experimental */
 export interface TerminalCellPixels {

@@ -1,13 +1,4 @@
 /** Passive and interactive data visualizations. */
-export { barChart, chart, heatmap } from './factories/charts.ts';
-export { meter, sparkline } from './factories/compact-visualizations.ts';
-export type {
-  BarChartOptions,
-  ChartOptions,
-  HeatmapOptions,
-  MeterOptions,
-  SparklineOptions,
-} from './options/feedback-and-visualizations.ts';
 export type {
   BarChartItem,
   ChartDataStatus,
@@ -30,3 +21,9 @@ export type {
   VisualizationActivateEvent,
   VisualizationState,
 } from '../behavior/visualization.ts';
+export { barChart } from './charts/bar-chart.ts';
+export { chart } from './charts/chart.ts';
+export { heatmap } from './charts/heatmap.ts';
+export type { BarChartOptions, ChartOptions, HeatmapOptions } from './charts/options.ts';
+export { meter, sparkline } from './compact-visualizations/definition.ts';
+export type { MeterOptions, SparklineOptions } from './compact-visualizations/options.ts';

@@ -1,4 +1,4 @@
-import type { TerminalClock } from '../host/index.ts';
+import type { TerminalClock } from '../host/types.ts';
 
 export interface InputAmbiguityDeadline<TResult> {
   schedule(operation: () => Promise<TResult>): Promise<TResult | undefined>;

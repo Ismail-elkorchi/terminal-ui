@@ -1,4 +1,5 @@
-import type { Measurement, Rect } from '../../../contracts.ts';
+import type { Rect } from '../../../../geometry/types.ts';
+import type { Measurement } from '../../../contracts.ts';
 
 export interface FlowGeometry {
   readonly children: readonly Rect[];

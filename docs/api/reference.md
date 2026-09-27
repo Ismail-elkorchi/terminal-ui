@@ -205,17 +205,17 @@ See [API stability](../guides/api-stability.md) for stability labels.
 - [`CollectionInteractionOptions`](#component-collectioninteractionoptions), [`CollectionInteractionState`](#component-collectioninteractionstate), [`CollectionInteractionTransition`](#component-collectioninteractiontransition), [`CollectionQuery`](#component-collectionquery), [`CompiledCollectionQuery`](#component-compiledcollectionquery), [`ComponentAccessibilityInput`](#component-componentaccessibilityinput), [`ComponentCallerSlotValues`](#component-componentcallerslotvalues), [`ComponentCapturedMessageInput`](#component-componentcapturedmessageinput)
 - [`ComponentCompositionInput`](#component-componentcompositioninput), [`ComponentDefinition`](#component-componentdefinition), [`ComponentDefinitionName`](#component-componentdefinitionname), [`ComponentExecutionError`](#component-componentexecutionerror), [`ComponentExecutionPhase`](#component-componentexecutionphase), [`ComponentFrameSourceInput`](#component-componentframesourceinput), [`ComponentIdentity`](#component-componentidentity), [`ComponentImplementationSlotValues`](#component-componentimplementationslotvalues)
 - [`ComponentInput`](#component-componentinput), [`ComponentInspectionInput`](#component-componentinspectioninput), [`ComponentInspectionRecord`](#component-componentinspectionrecord), [`ComponentInspectionValue`](#component-componentinspectionvalue), [`ComponentInteractionInput`](#component-componentinteractioninput), [`ComponentKeyInput`](#component-componentkeyinput), [`ComponentLayoutInput`](#component-componentlayoutinput), [`ComponentMeasureConstraints`](#component-componentmeasureconstraints)
-- [`ComponentMeasureInput`](#component-componentmeasureinput), [`ComponentMessage`](#component-componentmessage), [`ComponentMetadataCapability`](#component-componentmetadatacapability), [`ComponentMetadataOptions`](#component-componentmetadataoptions), [`ComponentModelContext`](#component-componentmodelcontext), [`ComponentRenderInput`](#component-componentrenderinput), [`ComponentScrollbarLayout`](#component-componentscrollbarlayout), [`ComponentScrollbarPlan`](#component-componentscrollbarplan)
-- [`ComponentScrollbarThumb`](#component-componentscrollbarthumb), [`ComponentScrollbarTrack`](#component-componentscrollbartrack), [`ComponentSemanticInspection`](#component-componentsemanticinspection), [`ComponentSlotCardinality`](#component-componentslotcardinality), [`ComponentSlotDefinition`](#component-componentslotdefinition), [`ComponentSlotLayout`](#component-componentslotlayout), [`ComponentSlotMessagePolicy`](#component-componentslotmessagepolicy), [`ComponentSlotOwner`](#component-componentslotowner)
-- [`ComponentSlotShape`](#component-componentslotshape), [`ComponentSlotsDefinition`](#component-componentslotsdefinition), [`ComponentStateCapability`](#component-componentstatecapability), [`ComponentStyleInput`](#component-componentstyleinput), [`ComponentStylePartMapping`](#component-componentstylepartmapping), [`ComponentTextInput`](#component-componenttextinput), [`ComponentVisualState`](#component-componentvisualstate), [`DecorativeLeafComponentDefinition`](#component-decorativeleafcomponentdefinition)
-- [`DecorativeLeafComponentFactory`](#component-decorativeleafcomponentfactory), [`DecorativeLeafDefinition`](#component-decorativeleafdefinition), [`Element`](#component-element), [`ElementChildren`](#component-elementchildren), [`ElementChildrenMessage`](#component-elementchildrenmessage), [`ElementMessage`](#component-elementmessage), [`ElementStyles`](#component-elementstyles), [`ElementVisualState`](#component-elementvisualstate)
-- [`FocusLifecycleEvent`](#component-focuslifecycleevent), [`FocusNavigation`](#component-focusnavigation), [`FocusTargetLifecycleEvent`](#component-focustargetlifecycleevent), [`HitTarget`](#component-hittarget), [`IgnoredMessage`](#component-ignoredmessage), [`IndexedQueryCandidate`](#component-indexedquerycandidate), [`KeyboardBinding`](#component-keyboardbinding), [`MessageResolution`](#component-messageresolution)
-- [`PopupState`](#component-popupstate), [`PopupTransition`](#component-popuptransition), [`QueryCandidate`](#component-querycandidate), [`QueryMatch`](#component-querymatch), [`QueryMatchRange`](#component-querymatchrange), [`RenderBlock`](#component-renderblock), [`RenderLine`](#component-renderline), [`RenderSpan`](#component-renderspan)
-- [`SelectionState`](#component-selectionstate), [`SemanticComposedComponentDefinition`](#component-semanticcomposedcomponentdefinition), [`SemanticCompositeComponentDefinition`](#component-semanticcompositecomponentdefinition), [`SemanticCompositeComponentFactory`](#component-semanticcompositecomponentfactory), [`SemanticLeafComponentDefinition`](#component-semanticleafcomponentdefinition), [`SemanticLeafComponentFactory`](#component-semanticleafcomponentfactory), [`SemanticLeafDefinition`](#component-semanticleafdefinition), [`StagedComponentFactory`](#component-stagedcomponentfactory)
-- [`TerminalStyle`](#component-terminalstyle), [`clipRenderLine`](#component-cliprenderline), [`clipRenderSpans`](#component-cliprenderspans), [`collectionInteractionReducer`](#component-collectioninteractionreducer), [`compareCollectionText`](#component-comparecollectiontext), [`compileCollectionQuery`](#component-compilecollectionquery), [`componentScrollbarHitTargets`](#component-componentscrollbarhittargets), [`decodeComponentScrollPolicy`](#component-decodecomponentscrollpolicy)
-- [`decodeComponentScrollState`](#component-decodecomponentscrollstate), [`decodeComponentScrollbarOptions`](#component-decodecomponentscrollbaroptions), [`decodeTerminalStyle`](#component-decodeterminalstyle), [`defineComponent`](#component-definecomponent), [`defineDecorativeLeafComponent`](#component-definedecorativeleafcomponent), [`defineSemanticLeafComponent`](#component-definesemanticleafcomponent), [`formatKeyboardBinding`](#component-formatkeyboardbinding), [`ignoreMessage`](#component-ignoremessage)
-- [`layoutComponentScrollbar`](#component-layoutcomponentscrollbar), [`line`](#component-line), [`mapComponentStyles`](#component-mapcomponentstyles), [`matchCollectionQuery`](#component-matchcollectionquery), [`measureConstrainedBox`](#component-measureconstrainedbox), [`measureRenderSpans`](#component-measurerenderspans), [`mergeElementStyles`](#component-mergeelementstyles), [`mergeTerminalStyles`](#component-mergeterminalstyles)
-- [`normalizeCollectionInteraction`](#component-normalizecollectioninteraction), [`padRenderLine`](#component-padrenderline), [`paintComponentScrollbar`](#component-paintcomponentscrollbar), [`popupReducer`](#component-popupreducer), [`queryCandidates`](#component-querycandidates), [`span`](#component-span), [`wrapRenderSpans`](#component-wraprenderspans)
+- [`ComponentMeasureInput`](#component-componentmeasureinput), [`ComponentMessage`](#component-componentmessage), [`ComponentMetadataCapability`](#component-componentmetadatacapability), [`ComponentMetadataOptions`](#component-componentmetadataoptions), [`ComponentModelContext`](#component-componentmodelcontext), [`ComponentPreparationInput`](#component-componentpreparationinput), [`ComponentRenderInput`](#component-componentrenderinput), [`ComponentScrollbarLayout`](#component-componentscrollbarlayout)
+- [`ComponentScrollbarPlan`](#component-componentscrollbarplan), [`ComponentScrollbarThumb`](#component-componentscrollbarthumb), [`ComponentScrollbarTrack`](#component-componentscrollbartrack), [`ComponentSemanticInspection`](#component-componentsemanticinspection), [`ComponentSlotCardinality`](#component-componentslotcardinality), [`ComponentSlotDefinition`](#component-componentslotdefinition), [`ComponentSlotLayout`](#component-componentslotlayout), [`ComponentSlotMessagePolicy`](#component-componentslotmessagepolicy)
+- [`ComponentSlotOwner`](#component-componentslotowner), [`ComponentSlotShape`](#component-componentslotshape), [`ComponentSlotsDefinition`](#component-componentslotsdefinition), [`ComponentStateCapability`](#component-componentstatecapability), [`ComponentStyleInput`](#component-componentstyleinput), [`ComponentStylePartMapping`](#component-componentstylepartmapping), [`ComponentTextInput`](#component-componenttextinput), [`ComponentVisualState`](#component-componentvisualstate)
+- [`DecorativeLeafComponentDefinition`](#component-decorativeleafcomponentdefinition), [`DecorativeLeafComponentFactory`](#component-decorativeleafcomponentfactory), [`DecorativeLeafDefinition`](#component-decorativeleafdefinition), [`Element`](#component-element), [`ElementChildren`](#component-elementchildren), [`ElementChildrenMessage`](#component-elementchildrenmessage), [`ElementMessage`](#component-elementmessage), [`ElementStyles`](#component-elementstyles)
+- [`ElementVisualState`](#component-elementvisualstate), [`FocusLifecycleEvent`](#component-focuslifecycleevent), [`FocusNavigation`](#component-focusnavigation), [`FocusTargetLifecycleEvent`](#component-focustargetlifecycleevent), [`HitTarget`](#component-hittarget), [`IgnoredMessage`](#component-ignoredmessage), [`IndexedQueryCandidate`](#component-indexedquerycandidate), [`KeyboardBinding`](#component-keyboardbinding)
+- [`MessageResolution`](#component-messageresolution), [`PopupState`](#component-popupstate), [`PopupTransition`](#component-popuptransition), [`QueryCandidate`](#component-querycandidate), [`QueryMatch`](#component-querymatch), [`QueryMatchRange`](#component-querymatchrange), [`RenderBlock`](#component-renderblock), [`RenderLine`](#component-renderline)
+- [`RenderSpan`](#component-renderspan), [`SelectionState`](#component-selectionstate), [`SemanticComposedComponentDefinition`](#component-semanticcomposedcomponentdefinition), [`SemanticCompositeComponentDefinition`](#component-semanticcompositecomponentdefinition), [`SemanticCompositeComponentFactory`](#component-semanticcompositecomponentfactory), [`SemanticLeafComponentDefinition`](#component-semanticleafcomponentdefinition), [`SemanticLeafComponentFactory`](#component-semanticleafcomponentfactory), [`SemanticLeafDefinition`](#component-semanticleafdefinition)
+- [`StagedComponentFactory`](#component-stagedcomponentfactory), [`TerminalStyle`](#component-terminalstyle), [`clipRenderLine`](#component-cliprenderline), [`clipRenderSpans`](#component-cliprenderspans), [`collectionInteractionReducer`](#component-collectioninteractionreducer), [`compareCollectionText`](#component-comparecollectiontext), [`compileCollectionQuery`](#component-compilecollectionquery), [`componentScrollbarHitTargets`](#component-componentscrollbarhittargets)
+- [`decodeComponentScrollPolicy`](#component-decodecomponentscrollpolicy), [`decodeComponentScrollState`](#component-decodecomponentscrollstate), [`decodeComponentScrollbarOptions`](#component-decodecomponentscrollbaroptions), [`decodeTerminalStyle`](#component-decodeterminalstyle), [`defineComponent`](#component-definecomponent), [`defineDecorativeLeafComponent`](#component-definedecorativeleafcomponent), [`defineSemanticLeafComponent`](#component-definesemanticleafcomponent), [`formatKeyboardBinding`](#component-formatkeyboardbinding)
+- [`ignoreMessage`](#component-ignoremessage), [`layoutComponentScrollbar`](#component-layoutcomponentscrollbar), [`line`](#component-line), [`mapComponentStyles`](#component-mapcomponentstyles), [`matchCollectionQuery`](#component-matchcollectionquery), [`measureConstrainedBox`](#component-measureconstrainedbox), [`measureRenderSpans`](#component-measurerenderspans), [`mergeElementStyles`](#component-mergeelementstyles)
+- [`mergeTerminalStyles`](#component-mergeterminalstyles), [`normalizeCollectionInteraction`](#component-normalizecollectioninteraction), [`padRenderLine`](#component-padrenderline), [`paintComponentScrollbar`](#component-paintcomponentscrollbar), [`popupReducer`](#component-popupreducer), [`queryCandidates`](#component-querycandidates), [`span`](#component-span), [`wrapRenderSpans`](#component-wraprenderspans)
 
 ### @ismail-elkorchi/terminal-ui/layout
 
@@ -268,17 +268,17 @@ See [API stability](../guides/api-stability.md) for stability labels.
 - [`FrameDescriptor`](#renderer-framedescriptor), [`FrameHitTarget`](#renderer-framehittarget), [`FramePass`](#renderer-framepass), [`FramePassContext`](#renderer-framepasscontext), [`FrameRenderTarget`](#renderer-framerendertarget), [`FrameRowDiff`](#renderer-framerowdiff), [`HighlightRenderSpan`](#renderer-highlightrenderspan), [`HighlightRenderSpansOptions`](#renderer-highlightrenderspansoptions)
 - [`Layer`](#renderer-layer), [`LayoutFocusRegion`](#renderer-layoutfocusregion), [`LayoutNode`](#renderer-layoutnode), [`Measurement`](#renderer-measurement), [`MeasurementInput`](#renderer-measurementinput), [`PadRenderLineOptions`](#renderer-padrenderlineoptions), [`Rect`](#renderer-rect), [`RenderAlignment`](#renderer-renderalignment)
 - [`RenderBlockSize`](#renderer-renderblocksize), [`RenderBudgetLimits`](#renderer-renderbudgetlimits), [`RenderClipMode`](#renderer-renderclipmode), [`RenderDiff`](#renderer-renderdiff), [`RenderDiffAnsiOptions`](#renderer-renderdiffansioptions), [`RenderDiffDescriptor`](#renderer-renderdiffdescriptor), [`RenderElementOptions`](#renderer-renderelementoptions), [`RenderFocusRelation`](#renderer-renderfocusrelation)
-- [`RenderInstrumentation`](#renderer-renderinstrumentation), [`RenderOperation`](#renderer-renderoperation), [`RenderSerializeOptions`](#renderer-renderserializeoptions), [`RenderStage`](#renderer-renderstage), [`RenderStageMeasurement`](#renderer-renderstagemeasurement), [`RenderTarget`](#renderer-rendertarget), [`RenderTargetCell`](#renderer-rendertargetcell), [`RenderTuiOutputOptions`](#renderer-rendertuioutputoptions)
-- [`RenderWorkInstrumentation`](#renderer-renderworkinstrumentation), [`RenderWorkKind`](#renderer-renderworkkind), [`RenderWorkMeasurement`](#renderer-renderworkmeasurement), [`RenderedTuiOutput`](#renderer-renderedtuioutput), [`SeriesOptions`](#renderer-seriesoptions), [`StrokeFillOptions`](#renderer-strokefilloptions), [`TerminalColor`](#renderer-terminalcolor), [`TerminalLink`](#renderer-terminallink)
-- [`TooltipLine`](#renderer-tooltipline), [`alignRenderLine`](#renderer-alignrenderline), [`blockGlyph`](#renderer-blockglyph), [`blockSpan`](#renderer-blockspan), [`boxDrawingJoinPass`](#renderer-boxdrawingjoinpass), [`brailleCellForSubcell`](#renderer-braillecellforsubcell), [`brailleCharacter`](#renderer-braillecharacter), [`brailleMaskForSubcell`](#renderer-braillemaskforsubcell)
-- [`canvasTransform`](#renderer-canvastransform), [`clampMeasurement`](#renderer-clampmeasurement), [`combineMeasurementsHorizontally`](#renderer-combinemeasurementshorizontally), [`combineMeasurementsOverlay`](#renderer-combinemeasurementsoverlay), [`combineMeasurementsVertically`](#renderer-combinemeasurementsvertically), [`compactRenderSpans`](#renderer-compactrenderspans), [`composeCanvasTransform`](#renderer-composecanvastransform), [`createCanvas2D`](#renderer-createcanvas2d)
-- [`createComponentCanvas2D`](#renderer-createcomponentcanvas2d), [`createFrameBuffer`](#renderer-createframebuffer), [`decodeMeasurement`](#renderer-decodemeasurement), [`defaultRenderBudgetLimits`](#renderer-defaultrenderbudgetlimits), [`diffFrames`](#renderer-diffframes), [`drawAreaSeries`](#renderer-drawareaseries), [`drawAxes`](#renderer-drawaxes), [`drawBarSeries`](#renderer-drawbarseries)
-- [`drawBorder`](#renderer-drawborder), [`drawLineSeries`](#renderer-drawlineseries), [`ellipseInteriorPoints`](#renderer-ellipseinteriorpoints), [`ellipseStrokePoints`](#renderer-ellipsestrokepoints), [`frameCellSource`](#renderer-framecellsource), [`highlightRenderSpans`](#renderer-highlightrenderspans), [`horizontalAxis`](#renderer-horizontalaxis), [`identityCanvasTransform`](#renderer-identitycanvastransform)
-- [`integerPoint`](#renderer-integerpoint), [`layoutElement`](#renderer-layoutelement), [`linePoints`](#renderer-linepoints), [`measureBlock`](#renderer-measureblock), [`measureLine`](#renderer-measureline), [`measureRenderBlock`](#renderer-measurerenderblock), [`measureRenderLine`](#renderer-measurerenderline), [`measureSize`](#renderer-measuresize)
-- [`measureSpans`](#renderer-measurespans), [`measureText`](#renderer-measuretext), [`measurement`](#renderer-measurement), [`normalizeMeasurement`](#renderer-normalizemeasurement), [`polygonInteriorPoints`](#renderer-polygoninteriorpoints), [`rectInteriorPoints`](#renderer-rectinteriorpoints), [`rectStrokePoints`](#renderer-rectstrokepoints), [`renderAccessibleSnapshot`](#renderer-renderaccessiblesnapshot)
-- [`renderDiffAnsi`](#renderer-renderdiffansi), [`renderElementFrame`](#renderer-renderelementframe), [`renderFrameAnsi`](#renderer-renderframeansi), [`renderFrameDebug`](#renderer-renderframedebug), [`renderFramePlain`](#renderer-renderframeplain), [`renderTuiOutput`](#renderer-rendertuioutput), [`sameFrameCell`](#renderer-sameframecell), [`sameFrameCellSource`](#renderer-sameframecellsource)
-- [`sameTerminalColor`](#renderer-sameterminalcolor), [`sameTerminalLink`](#renderer-sameterminallink), [`sameTerminalStyle`](#renderer-sameterminalstyle), [`scaleChartValue`](#renderer-scalechartvalue), [`serializeRenderSpansStateful`](#renderer-serializerenderspansstateful), [`tooltipLines`](#renderer-tooltiplines), [`transformCanvasPoint`](#renderer-transformcanvaspoint), [`transformCanvasRect`](#renderer-transformcanvasrect)
-- [`verticalAxis`](#renderer-verticalaxis), [`zeroMeasurement`](#renderer-zeromeasurement)
+- [`RenderInstrumentation`](#renderer-renderinstrumentation), [`RenderOperation`](#renderer-renderoperation), [`RenderPreparationContext`](#renderer-renderpreparationcontext), [`RenderSerializeOptions`](#renderer-renderserializeoptions), [`RenderStage`](#renderer-renderstage), [`RenderStageMeasurement`](#renderer-renderstagemeasurement), [`RenderTarget`](#renderer-rendertarget), [`RenderTargetCell`](#renderer-rendertargetcell)
+- [`RenderTuiOutputOptions`](#renderer-rendertuioutputoptions), [`RenderWorkInstrumentation`](#renderer-renderworkinstrumentation), [`RenderWorkKind`](#renderer-renderworkkind), [`RenderWorkMeasurement`](#renderer-renderworkmeasurement), [`RenderedTuiOutput`](#renderer-renderedtuioutput), [`SeriesOptions`](#renderer-seriesoptions), [`StrokeFillOptions`](#renderer-strokefilloptions), [`TerminalColor`](#renderer-terminalcolor)
+- [`TerminalLink`](#renderer-terminallink), [`TooltipLine`](#renderer-tooltipline), [`alignRenderLine`](#renderer-alignrenderline), [`blockGlyph`](#renderer-blockglyph), [`blockSpan`](#renderer-blockspan), [`boxDrawingJoinPass`](#renderer-boxdrawingjoinpass), [`brailleCellForSubcell`](#renderer-braillecellforsubcell), [`brailleCharacter`](#renderer-braillecharacter)
+- [`brailleMaskForSubcell`](#renderer-braillemaskforsubcell), [`canvasTransform`](#renderer-canvastransform), [`clampMeasurement`](#renderer-clampmeasurement), [`combineMeasurementsHorizontally`](#renderer-combinemeasurementshorizontally), [`combineMeasurementsOverlay`](#renderer-combinemeasurementsoverlay), [`combineMeasurementsVertically`](#renderer-combinemeasurementsvertically), [`compactRenderSpans`](#renderer-compactrenderspans), [`composeCanvasTransform`](#renderer-composecanvastransform)
+- [`createCanvas2D`](#renderer-createcanvas2d), [`createComponentCanvas2D`](#renderer-createcomponentcanvas2d), [`createFrameBuffer`](#renderer-createframebuffer), [`decodeMeasurement`](#renderer-decodemeasurement), [`defaultRenderBudgetLimits`](#renderer-defaultrenderbudgetlimits), [`diffFrames`](#renderer-diffframes), [`drawAreaSeries`](#renderer-drawareaseries), [`drawAxes`](#renderer-drawaxes)
+- [`drawBarSeries`](#renderer-drawbarseries), [`drawBorder`](#renderer-drawborder), [`drawLineSeries`](#renderer-drawlineseries), [`ellipseInteriorPoints`](#renderer-ellipseinteriorpoints), [`ellipseStrokePoints`](#renderer-ellipsestrokepoints), [`frameCellSource`](#renderer-framecellsource), [`highlightRenderSpans`](#renderer-highlightrenderspans), [`horizontalAxis`](#renderer-horizontalaxis)
+- [`identityCanvasTransform`](#renderer-identitycanvastransform), [`integerPoint`](#renderer-integerpoint), [`layoutElement`](#renderer-layoutelement), [`linePoints`](#renderer-linepoints), [`measureBlock`](#renderer-measureblock), [`measureLine`](#renderer-measureline), [`measureRenderBlock`](#renderer-measurerenderblock), [`measureRenderLine`](#renderer-measurerenderline)
+- [`measureSize`](#renderer-measuresize), [`measureSpans`](#renderer-measurespans), [`measureText`](#renderer-measuretext), [`measurement`](#renderer-measurement), [`normalizeMeasurement`](#renderer-normalizemeasurement), [`polygonInteriorPoints`](#renderer-polygoninteriorpoints), [`rectInteriorPoints`](#renderer-rectinteriorpoints), [`rectStrokePoints`](#renderer-rectstrokepoints)
+- [`renderAccessibleSnapshot`](#renderer-renderaccessiblesnapshot), [`renderDiffAnsi`](#renderer-renderdiffansi), [`renderElementFrame`](#renderer-renderelementframe), [`renderFrameAnsi`](#renderer-renderframeansi), [`renderFrameDebug`](#renderer-renderframedebug), [`renderFramePlain`](#renderer-renderframeplain), [`renderTuiOutput`](#renderer-rendertuioutput), [`sameFrameCell`](#renderer-sameframecell)
+- [`sameFrameCellSource`](#renderer-sameframecellsource), [`sameTerminalColor`](#renderer-sameterminalcolor), [`sameTerminalLink`](#renderer-sameterminallink), [`sameTerminalStyle`](#renderer-sameterminalstyle), [`scaleChartValue`](#renderer-scalechartvalue), [`serializeRenderSpansStateful`](#renderer-serializerenderspansstateful), [`tooltipLines`](#renderer-tooltiplines), [`transformCanvasPoint`](#renderer-transformcanvaspoint)
+- [`transformCanvasRect`](#renderer-transformcanvasrect), [`verticalAxis`](#renderer-verticalaxis), [`zeroMeasurement`](#renderer-zeromeasurement)
 
 ### @ismail-elkorchi/terminal-ui/graphics
 
@@ -596,83 +596,81 @@ declaration · beta · [source](../../src/behavior/index.ts)
 Import from: `@ismail-elkorchi/terminal-ui`
 
 ```ts
-export { addDays, addMonths, calendarDateId, compareDates, defaultCalendarFocusSearchLimitDays, calendarView, calendarReducer } from './calendar-operations.ts';
+export type { CollectionWindow, CollectionWindowScope, CollectionWindowScopeInput, } from '../collection/snapshot.ts';
+export { adjacentItemId, defaultNavigationPolicy } from '../interaction/navigation.ts';
+export type { InitialNavigation, NavigationBoundary, NavigationPolicy, } from '../interaction/navigation.ts';
+export type { CreateScrollStateInput, ScrollPolicy, ScrollRequest, ScrollRequestSource, ScrollRequestTarget, ScrollState, ScrollTransition, ScrollVisibleWindow, ScrollWheelPolicy, ScrollWheelUnit, } from '../interaction/scroll.ts';
+export type { PointerSelectionTransition, TextPointerTransition, } from '../interaction/text-pointer.ts';
+export { addDays, addMonths, calendarDateId, calendarReducer, calendarView, compareDates, defaultCalendarFocusSearchLimitDays, } from './calendar-operations.ts';
 export type { CalendarBehaviorOptions, CalendarState } from './calendar-operations.ts';
-export type { CalendarDate, CalendarMonth, CalendarTransition, CalendarDay, CalendarView, } from './calendar.ts';
-export { sliceVisibleRows, visibleRowWindow } from './visible-row-window.ts';
-export { autocompleteComboboxView, autocompleteComboboxReducer, commitAutocompleteCombobox, commitCombobox, comboboxReducer, createAutocompleteComboboxState, } from './combobox-operations.ts';
+export type { CalendarDate, CalendarDay, CalendarMonth, CalendarTransition, CalendarView, } from './calendar.ts';
+export { checkboxGroupReducer, colorSwatchPickerReducer, normalizeCheckboxGroupState, normalizeColorSwatchPickerState, normalizeRadioGroupState, radioGroupReducer, } from './choice-controls-operations.ts';
+export type { CheckboxGroupState, ColorSwatchPickerState, RadioGroupState, } from './choice-controls-operations.ts';
+export type { CheckboxGroupTransition, ColorSwatchPickerTransition, RadioGroupTransition, } from './choice-controls.ts';
+export { autocompleteComboboxReducer, autocompleteComboboxView, comboboxReducer, commitAutocompleteCombobox, commitCombobox, createAutocompleteComboboxState, } from './combobox-operations.ts';
 export type { AutocompleteComboboxCommitOptions, AutocompleteComboboxReducerOptions, ComboboxReducerOptions, CreateAutocompleteComboboxStateInput, } from './combobox-operations.ts';
-export type { AutocompleteComboboxControlTransition, AutocompleteComboboxState, AutocompleteComboboxView, AutocompleteComboboxTransition, ComboboxCommitEvent, ComboboxControlTransition, ComboboxState, ScrollableComboboxState, ComboboxTransition, UnscrolledComboboxState, ScrollableAutocompleteComboboxView, UnscrolledAutocompleteComboboxView, } from './combobox.ts';
-export type { VisibleRowSlice, VisibleRowWindow, VisibleRowWindowInput, } from './visible-row-window.ts';
-export { commandInputView } from './command-input-operations.ts';
-export type { CommandInputView } from './command-input.ts';
-export { createCommandInputState, commandInputReducer, createCommandSuggestions } from './command-input-operations.ts';
-export type { CreateCommandInputStateInput, CommandInputState } from './command-input-operations.ts';
-export type { CommandInputSubmitEvent, CommandInputTransition, CommandCompletion, CommandSuggestion, } from './command-input.ts';
-export { applyTextPointerTransition, createTextAreaState, selectionFromTextPointerTransition, textAreaReducer, textInputReducer } from './text-editing.ts';
-export type { CreateTextAreaStateInput, TextAreaEditPoint, TextAreaEditRecord, TextAreaEditHistory, TextAreaHistoryRejection, TextAreaReduction, TextAreaState } from './text-editing.ts';
-export type { TextAreaTransition, TextAreaControlTransition, TextAreaControlState, ScrollableTextAreaControlState, UnscrolledTextAreaControlState, } from './text-area.ts';
-export type { TextInputTransition } from './text-input.ts';
-export type { PointerSelectionTransition, TextPointerTransition } from '../interaction/text-pointer.ts';
-export { indeterminateProgressFrame, progressValueStatus } from './progress.ts';
-export type { ProgressValueStatus, ProgressFrame, ProgressFrameCell } from './progress.ts';
+export type { AutocompleteComboboxControlTransition, AutocompleteComboboxState, AutocompleteComboboxTransition, AutocompleteComboboxView, ComboboxCommitEvent, ComboboxControlTransition, ComboboxState, ComboboxTransition, ScrollableAutocompleteComboboxView, ScrollableComboboxState, UnscrolledAutocompleteComboboxView, UnscrolledComboboxState, } from './combobox.ts';
+export { commandInputReducer, commandInputView, createCommandInputState, createCommandSuggestions, } from './command-input-operations.ts';
+export type { CommandInputState, CreateCommandInputStateInput, } from './command-input-operations.ts';
+export type { CommandCompletion, CommandInputSubmitEvent, CommandInputTransition, CommandInputView, CommandSuggestion, } from './command-input.ts';
 export { listViewReducer } from './list-view.ts';
 export type { ListViewReducerOptions } from './list-view.ts';
-export { createListboxCollection, listboxReducer, visibleListboxEntries } from './listbox-operations.ts';
-export type { ListboxReducerOptions, } from './listbox-operations.ts';
-export type { CompleteListboxCollection, ListboxActivateEvent, ListboxCollection, ListboxCollectionItem, ListboxControlTransition, ListboxOption, ListboxOptionMapper, ListboxState, ScrollableListboxState, ListboxTransition, ListboxViewEntry, UnscrolledListboxState, WindowedListboxCollection } from './listbox.ts';
-export { rangeSliderReducer } from './range-slider-operations.ts';
-export type { RangeSliderTransition, RangeSliderHandle, NumericRange, RangeSliderReducerOptions, RangeSliderState, RangeSliderStepDirection, RangeSliderValue, } from './range-slider.ts';
-export { createNumberInputConfiguration, createNumberInputState, defaultNumberInputConfiguration, numberInputAnalysis, numberInputView, numberInputReducer } from './number-input-operations.ts';
-export type { NumberInputAnalysis, NumberInputBehaviorOptions, NumberInputConfiguration, NumberInputGrammar, NumberInputView, NumberInputState } from './number-input-operations.ts';
-export type { NumberInputTransition, NumberInputControlTransition, NumberInputValidity } from './number-input.ts';
-export { paginationWindow, paginationView, paginationReducer } from './pagination-operations.ts';
-export type { PaginationWindowInput, PaginationWindow, PaginationView, PaginationReducerOptions, PaginationState } from './pagination-operations.ts';
-export type { PaginationTransition } from './pagination.ts';
-export { createNotificationState, nextNotificationExpiry, activeNotificationItems, notificationTransitionFromHistory, notificationHistoryItems, notificationReducer, } from './notification-operations.ts';
-export type { NotificationTransition, NotificationConflictPolicy, NotificationHistoryEntry, NotificationHistoryReason, NotificationInput, NotificationPolicy, NotificationRecord, NotificationState } from './notification-operations.ts';
+export { createListboxCollection, listboxReducer, visibleListboxEntries, } from './listbox-operations.ts';
+export type { ListboxReducerOptions } from './listbox-operations.ts';
+export type { CompleteListboxCollection, ListboxActivateEvent, ListboxCollection, ListboxCollectionItem, ListboxControlTransition, ListboxOption, ListboxOptionMapper, ListboxState, ListboxTransition, ListboxViewEntry, ScrollableListboxState, UnscrolledListboxState, WindowedListboxCollection, } from './listbox.ts';
+export { appendLogHistory, createLogHistory, logHistoryEntries, logHistoryEntryAt, logHistoryRecordById, logHistoryRecordMatches, } from './log-history.ts';
+export type { LogEntry, LogHistory, LogHistoryRecord, LogSearchField, LogSearchMatch, } from './log-history.ts';
+export { followTailScrollState, logViewerReducer, logViewerSearchMatches, nextLogViewerMatch, } from './log-viewer-operations.ts';
+export type { LogViewerReducerOptions, LogViewerState, ScrollableLogViewerState, UnscrolledLogViewerState, } from './log-viewer-operations.ts';
+export { extractLogViewerSelectionText } from './log-viewer-selection.ts';
+export type { ExtractLogViewerSelectionTextInput } from './log-viewer-selection.ts';
+export type { LogViewerBodyAnchor, LogViewerContextMenuEvent, LogViewerControlTransition, LogViewerSelection, LogViewerTransition, } from './log-viewer.ts';
+export { contextMenuReducer, contextMenuView, menuBarReducer, menuBarView, menuReducer, menuTriggerReducer, menuTriggerView, menuView, } from './menu-operations.ts';
+export type { ContextMenuState, MenuBarState, MenuState, MenuTriggerState, } from './menu-operations.ts';
+export type { ContextMenuTransition, ContextMenuView, MenuActivateEvent, MenuBarTransition, MenuBarView, MenuTransition, MenuTriggerTransition, MenuTriggerView, MenuView, } from './menu.ts';
+export { activeNavigationEntry, navigationStackReducer } from './navigation-stack.ts';
+export type { NavigationEntry, NavigationStack, NavigationStackTransition, } from './navigation-stack.ts';
+export { activeNotificationItems, createNotificationState, nextNotificationExpiry, notificationHistoryItems, notificationReducer, notificationTransitionFromHistory, } from './notification-operations.ts';
+export type { NotificationConflictPolicy, NotificationHistoryEntry, NotificationHistoryReason, NotificationInput, NotificationPolicy, NotificationRecord, NotificationState, NotificationTransition, } from './notification-operations.ts';
 export type { NotificationItem, NotificationTone } from './notification.ts';
-export { createSearchPickerState, searchPickerView, searchPickerReducer, searchPickerWindow, activeSearchPickerEntry } from './search-picker-operations.ts';
-export type { CreateSearchPickerStateInput, SearchPickerActiveInput, SearchPickerReducerOptions, SearchPickerState, ScrollableSearchPickerState, UnscrolledSearchPickerState, SearchPickerWindow, SearchPickerWindowInput } from './search-picker-operations.ts';
-export type { SearchPickerAcceptEvent, SearchPickerControlTransition, SearchPickerView, ScrollableSearchPickerView, SearchPickerTransition, UnscrolledSearchPickerView, } from './search-picker.ts';
+export { createNumberInputConfiguration, createNumberInputState, defaultNumberInputConfiguration, numberInputAnalysis, numberInputReducer, numberInputView, } from './number-input-operations.ts';
+export type { NumberInputBehaviorOptions, NumberInputConfiguration, NumberInputGrammar, NumberInputState, } from './number-input-operations.ts';
+export type { NumberInputAnalysis, NumberInputControlTransition, NumberInputTransition, NumberInputValidity, NumberInputView, } from './number-input.ts';
+export { paginationReducer, paginationView, paginationWindow } from './pagination-operations.ts';
+export type { PaginationReducerOptions, PaginationState, PaginationView, PaginationWindow, PaginationWindowInput, } from './pagination-operations.ts';
+export type { PaginationTransition } from './pagination.ts';
+export { indeterminateProgressFrame, progressValueStatus } from './progress.ts';
+export type { ProgressFrame, ProgressFrameCell, ProgressValueStatus } from './progress.ts';
+export { rangeSliderReducer } from './range-slider-operations.ts';
+export type { NumericRange, RangeSliderHandle, RangeSliderReducerOptions, RangeSliderState, RangeSliderStepDirection, RangeSliderTransition, RangeSliderValue, } from './range-slider.ts';
+export { applyScrollRequest, createScrollState, normalizeScrollState, scrollReducer, visibleWindowFromScroll, } from './scroll.ts';
 export { createSearchPickerIndex, searchPickerEntryById } from './search-picker-index.ts';
 export type { SearchPickerIndex } from './search-picker-index.ts';
-export { contextMenuView, contextMenuReducer, menuTriggerView, menuTriggerReducer, menuBarView, menuBarReducer, menuView, menuReducer } from './menu-operations.ts';
-export type { ContextMenuState, MenuTriggerState, MenuBarState, MenuState } from './menu-operations.ts';
-export type { ContextMenuTransition, ContextMenuView, MenuTriggerTransition, MenuTriggerView, MenuActivateEvent, MenuTransition, MenuBarTransition, MenuBarView, MenuView } from './menu.ts';
+export { activeSearchPickerEntry, createSearchPickerState, searchPickerReducer, searchPickerView, searchPickerWindow, } from './search-picker-operations.ts';
+export type { CreateSearchPickerStateInput, ScrollableSearchPickerState, SearchPickerActiveInput, SearchPickerReducerOptions, SearchPickerState, SearchPickerWindow, SearchPickerWindowInput, UnscrolledSearchPickerState, } from './search-picker-operations.ts';
+export type { ScrollableSearchPickerView, SearchPickerAcceptEvent, SearchPickerControlTransition, SearchPickerTransition, SearchPickerView, UnscrolledSearchPickerView, } from './search-picker.ts';
+export { createSplitPaneState, splitPaneLayout, splitPaneReducer, } from './split-pane-operations.ts';
+export type { SplitPaneConstraint, SplitPaneDragState, SplitPaneLayout, SplitPaneReducerOptions, SplitPaneState, } from './split-pane-operations.ts';
+export type { SplitPaneTransition } from './split-pane.ts';
+export { createTableCollection, dataGridReducer, sortTableRows } from './table-operations.ts';
+export type { DataGridReducerOptions, TableCellValueGetter } from './table-operations.ts';
+export type { CompleteTableCollection, DataGridActivateEvent, DataGridCell, DataGridControlTransition, DataGridInteraction, DataGridState, DataGridTransition, ScrollableDataGridState, TableCollection, TableCollectionRow, TableSortState, TableState, UnscrolledDataGridState, WindowedTableCollection, } from './table.ts';
 export { tabsReducer } from './tabs-operations.ts';
 export type { TabBehaviorItem, TabsReducerOptions } from './tabs-operations.ts';
 export type { TabCloseEvent, TabsActivation, TabsState, TabsTransition } from './tabs.ts';
-export type { LogViewerTransition, LogViewerBodyAnchor, LogViewerContextMenuEvent, LogViewerControlTransition, LogViewerSelection } from './log-viewer.ts';
+export type { ScrollableTextAreaControlState, TextAreaControlState, TextAreaControlTransition, TextAreaTransition, UnscrolledTextAreaControlState, } from './text-area.ts';
+export { applyTextPointerTransition, createTextAreaState, selectionFromTextPointerTransition, textAreaReducer, textInputReducer, } from './text-editing.ts';
+export type { CreateTextAreaStateInput, TextAreaEditHistory, TextAreaEditPoint, TextAreaEditRecord, TextAreaHistoryRejection, TextAreaReduction, TextAreaState, } from './text-editing.ts';
+export type { TextInputTransition } from './text-input.ts';
+export { createTreeCollection, createTreeCollectionFromRows, createTreeSource, createTreeView, isTreeView, selectableTreeRows, treeDisclosureTransition, treeNodeMatches, treeReducer, visibleTreeRows, } from './tree-operations.ts';
+export type { TreeReducerOptions } from './tree-operations.ts';
+export type { CompleteTreeCollection, ScrollableTreeState, TreeCollection, TreeCollectionRow, TreeControlTransition, TreeDisclosureTransition, TreeLoadStatus, TreeState, TreeTransition, TreeVisibleRow, UnscrolledTreeState, WindowedTreeCollection, } from './tree.ts';
+export { sliceVisibleRows, visibleRowWindow } from './visible-row-window.ts';
+export type { VisibleRowSlice, VisibleRowWindow, VisibleRowWindowInput, } from './visible-row-window.ts';
+export type { BarChartItem, ChartInterpolation, ChartPoint, ChartSampleAlign, ChartSampleMode, ChartSeries, ChartSeriesKind, HeatmapCell, ValueScale, ValueScaleStop, } from './visualization-data.ts';
 export { barChartReducer, chartReducer, heatmapReducer } from './visualization-operations.ts';
 export type { VisualizationReducerOptions } from './visualization-operations.ts';
-export type { BarChartTransition, ChartTransition, HeatmapTransition, VisualizationActivateEvent, VisualizationState } from './visualization.ts';
-export type { BarChartItem, ChartInterpolation, ChartPoint, ChartSampleAlign, ChartSampleMode, ChartSeries, ChartSeriesKind, HeatmapCell, ValueScale, ValueScaleStop, } from './visualization-data.ts';
-export { checkboxGroupReducer, colorSwatchPickerReducer, normalizeCheckboxGroupState, normalizeColorSwatchPickerState, normalizeRadioGroupState, radioGroupReducer } from './choice-controls-operations.ts';
-export type { CheckboxGroupState, ColorSwatchPickerState, RadioGroupState } from './choice-controls-operations.ts';
-export type { CheckboxGroupTransition, ColorSwatchPickerTransition, RadioGroupTransition } from './choice-controls.ts';
-export { applyScrollRequest, createScrollState, normalizeScrollState, scrollReducer, visibleWindowFromScroll } from './scroll.ts';
-export type { CreateScrollStateInput, ScrollTransition, ScrollPolicy, ScrollState, ScrollVisibleWindow, ScrollWheelPolicy, ScrollWheelUnit, ScrollRequest, ScrollRequestSource, ScrollRequestTarget } from '../interaction/scroll.ts';
-export { activeNavigationEntry, navigationStackReducer } from './navigation-stack.ts';
-export type { NavigationEntry, NavigationStack, NavigationStackTransition } from './navigation-stack.ts';
-export { appendLogHistory, createLogHistory, logHistoryEntryAt, logHistoryRecordById, logHistoryRecordMatches, logHistoryEntries } from './log-history.ts';
-export type { LogHistory, LogHistoryRecord, LogEntry, LogSearchField, LogSearchMatch } from './log-history.ts';
-export { followTailScrollState, nextLogViewerMatch, logViewerReducer, logViewerSearchMatches } from './log-viewer-operations.ts';
-export type { LogViewerReducerOptions, UnscrolledLogViewerState, ScrollableLogViewerState, LogViewerState } from './log-viewer-operations.ts';
-export { adjacentItemId, defaultNavigationPolicy } from '../interaction/navigation.ts';
-export type { InitialNavigation, NavigationBoundary, NavigationPolicy } from '../interaction/navigation.ts';
-export { createSplitPaneState, splitPaneLayout, splitPaneReducer } from './split-pane-operations.ts';
-export type { SplitPaneConstraint, SplitPaneDragState, SplitPaneLayout, SplitPaneReducerOptions, SplitPaneState } from './split-pane-operations.ts';
-export type { SplitPaneTransition } from './split-pane.ts';
-export { dataGridReducer, createTableCollection, sortTableRows } from './table-operations.ts';
-export type { DataGridReducerOptions, TableCellValueGetter, } from './table-operations.ts';
-export type { DataGridActivateEvent, DataGridCell, DataGridControlTransition, DataGridInteraction, DataGridState, ScrollableDataGridState, DataGridTransition, TableCollection, TableCollectionRow, CompleteTableCollection, WindowedTableCollection, TableState, TableSortState, UnscrolledDataGridState, } from './table.ts';
-export { isTreeView, createTreeSource, createTreeView, createTreeCollection, createTreeCollectionFromRows, selectableTreeRows, treeDisclosureTransition, treeNodeMatches, treeReducer, visibleTreeRows } from './tree-operations.ts';
-export type { TreeReducerOptions } from './tree-operations.ts';
-export type { CompleteTreeCollection, TreeCollection, TreeCollectionRow, TreeControlTransition, TreeDisclosureTransition, TreeLoadStatus, TreeState, ScrollableTreeState, TreeTransition, TreeVisibleRow, UnscrolledTreeState, WindowedTreeCollection } from './tree.ts';
-export type { CollectionWindow, CollectionWindowScope, CollectionWindowScopeInput, } from '../collection/snapshot.ts';
-export { extractLogViewerSelectionText } from './log-viewer-selection.ts';
-export type { ExtractLogViewerSelectionTextInput } from './log-viewer-selection.ts';
+export type { BarChartTransition, ChartTransition, HeatmapTransition, VisualizationActivateEvent, VisualizationState, } from './visualization.ts';
 
 ```
 
@@ -684,10 +682,10 @@ declaration · beta · [source](../../src/collection/index.ts)
 Import from: `@ismail-elkorchi/terminal-ui`
 
 ```ts
-export type { ChoiceItem, LabeledItem, SearchEntry } from './item.ts';
 export { assertStableIds } from './identity.ts';
+export type { ChoiceItem, LabeledItem, SearchEntry } from './item.ts';
 export { appendMeasuredItems, createMeasuredCollection, measuredCollectionItemById, prependMeasuredItems, removeMeasuredItems, replaceMeasuredItem, } from './measured-collection.ts';
-export type { MeasuredCollection, MeasuredCollectionItem, } from './measured-collection.ts';
+export type { MeasuredCollection, MeasuredCollectionItem } from './measured-collection.ts';
 export { isMeasuredWindow, measuredAnchorAt, measuredWindow, } from './measured-window-operations.ts';
 export type { MeasuredAnchorAtOptions, MeasuredWindow, MeasuredWindowAnchor, MeasuredWindowEntry, MeasuredWindowOptions, } from './measured-window.ts';
 export { collectionIds, collectionItemById, createCompleteCollection, createWindowedCollection, isCollectionSnapshot, } from './snapshot.ts';
@@ -7271,7 +7269,7 @@ readonly caseSensitive: boolean;
 <a id="component-componentaccessibilityinput"></a>
 ### ComponentAccessibilityInput
 
-interface · beta · [source](../../src/component/definition.ts)
+interface · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -7324,7 +7322,7 @@ readonly slots: ComponentAccessibleSlotValues<TSlots>;
 <a id="component-componentcallerslotvalues"></a>
 ### ComponentCallerSlotValues
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -7339,7 +7337,7 @@ export type ComponentCallerSlotValues<TSlots extends ComponentSlotShape> = {
 <a id="component-componentcapturedmessageinput"></a>
 ### ComponentCapturedMessageInput
 
-interface · beta · [source](../../src/component/definition.ts)
+interface · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -7364,7 +7362,7 @@ readonly message: unknown;
 <a id="component-componentcompositioninput"></a>
 ### ComponentCompositionInput
 
-interface · beta · [source](../../src/component/definition.ts)
+interface · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -7403,7 +7401,7 @@ readonly layer?: ElementLayer;
 <a id="component-componentdefinition"></a>
 ### ComponentDefinition
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -7485,7 +7483,7 @@ type · beta · [source](../../src/component/execution-error.ts)
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
 ```ts
-export type ComponentExecutionPhase = 'createModel' | 'inspection' | 'compose' | 'measure' | 'layout' | 'paint' | 'accessibility' | 'focus' | 'action' | 'pointer' | 'keyboard' | 'input' | 'paste' | 'metadata';
+export type ComponentExecutionPhase = 'createModel' | 'prepare' | 'inspection' | 'compose' | 'measure' | 'layout' | 'paint' | 'accessibility' | 'focus' | 'action' | 'pointer' | 'keyboard' | 'input' | 'paste' | 'metadata';
 ```
 
 Related types: [`input`](#prompts-input)
@@ -7493,7 +7491,7 @@ Related types: [`input`](#prompts-input)
 <a id="component-componentframesourceinput"></a>
 ### ComponentFrameSourceInput
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -7504,7 +7502,7 @@ export type ComponentFrameSourceInput = FrameSourceInput;
 <a id="component-componentidentity"></a>
 ### ComponentIdentity
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -7515,7 +7513,7 @@ export type ComponentIdentity = 'required' | 'optional';
 <a id="component-componentimplementationslotvalues"></a>
 ### ComponentImplementationSlotValues
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -7530,7 +7528,7 @@ export type ComponentImplementationSlotValues<TSlots extends ComponentSlotShape>
 <a id="component-componentinput"></a>
 ### ComponentInput
 
-interface · beta · [source](../../src/component/definition.ts)
+interface · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -7555,7 +7553,7 @@ readonly viewport: Rect;
 <a id="component-componentinspectioninput"></a>
 ### ComponentInspectionInput
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -7566,7 +7564,7 @@ export type ComponentInspectionInput<TModel extends object> = ComponentBehaviorI
 <a id="component-componentinspectionrecord"></a>
 ### ComponentInspectionRecord
 
-interface · beta · [source](../../src/element/inspection.ts)
+interface · beta · [source](../../src/element/inspection-contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/component` (type only), `@ismail-elkorchi/terminal-ui/components` (type only)
 
@@ -7584,7 +7582,7 @@ readonly [field: string]: ComponentInspectionValue;
 <a id="component-componentinspectionvalue"></a>
 ### ComponentInspectionValue
 
-type · beta · [source](../../src/element/inspection.ts)
+type · beta · [source](../../src/element/inspection-contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/component` (type only), `@ismail-elkorchi/terminal-ui/components` (type only)
 
@@ -7597,12 +7595,21 @@ Related types: [`ComponentInspectionRecord`](#component-componentinspectionrecor
 <a id="component-componentinteractioninput"></a>
 ### ComponentInteractionInput
 
-interface · beta · [source](../../src/component/definition.ts)
+interface · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
 ```ts
 export interface ComponentInteractionInput<TModel extends object, TPart extends string = string> extends ComponentInput<TModel> { … }
+```
+
+<a id="component-componentinteractioninput-styles"></a>
+#### styles
+
+Canonical caller styles, available for explicit component-local cache dependencies.
+
+```ts
+readonly styles?: ElementStyles<TPart, ComponentVisualState>;
 ```
 
 <a id="component-componentinteractioninput-style"></a>
@@ -7622,7 +7629,7 @@ readonly frameSource: (input?: ComponentFrameSourceInput) => FrameCellSource;
 <a id="component-componentkeyinput"></a>
 ### ComponentKeyInput
 
-interface · beta · [source](../../src/component/definition.ts)
+interface · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -7647,7 +7654,7 @@ readonly focusedTargetId?: string;
 <a id="component-componentlayoutinput"></a>
 ### ComponentLayoutInput
 
-interface · beta · [source](../../src/component/definition.ts)
+interface · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -7679,7 +7686,7 @@ readonly slots: ComponentSlotMeasurements<TSlots>;
 <a id="component-componentmeasureconstraints"></a>
 ### ComponentMeasureConstraints
 
-interface · beta · [source](../../src/component/definition.ts)
+interface · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -7704,7 +7711,7 @@ readonly height: number;
 <a id="component-componentmeasureinput"></a>
 ### ComponentMeasureInput
 
-interface · beta · [source](../../src/component/definition.ts)
+interface · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -7756,7 +7763,7 @@ export type ComponentMessage = ElementMessageValue;
 <a id="component-componentmetadatacapability"></a>
 ### ComponentMetadataCapability
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -7767,7 +7774,7 @@ export type ComponentMetadataCapability = 'focus' | 'layer' | 'styles';
 <a id="component-componentmetadataoptions"></a>
 ### ComponentMetadataOptions
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -7790,7 +7797,7 @@ Related types: [`ElementFocus`](#layout-elementfocus), [`ElementLayer`](#layout-
 <a id="component-componentmodelcontext"></a>
 ### ComponentModelContext
 
-interface · beta · [source](../../src/component/definition.ts)
+interface · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -7833,10 +7840,37 @@ readonly readOnly: boolean;
 readonly inert: boolean;
 ```
 
+<a id="component-componentpreparationinput"></a>
+### ComponentPreparationInput
+
+interface · beta · [source](../../src/component/contracts.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
+
+Optional preparation may warm model-owned caches; rendering must also work without it.
+
+```ts
+export interface ComponentPreparationInput<TModel extends object> extends RenderPreparationContext { … }
+```
+
+<a id="component-componentpreparationinput-id"></a>
+#### id
+
+```ts
+readonly id?: string;
+```
+
+<a id="component-componentpreparationinput-model"></a>
+#### model
+
+```ts
+readonly model: Readonly<TModel>;
+```
+
 <a id="component-componentrenderinput"></a>
 ### ComponentRenderInput
 
-interface · beta · [source](../../src/component/definition.ts)
+interface · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8019,7 +8053,7 @@ readonly scrollable: boolean;
 <a id="component-componentsemanticinspection"></a>
 ### ComponentSemanticInspection
 
-interface · beta · [source](../../src/element/inspection.ts)
+interface · beta · [source](../../src/element/inspection-contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/component` (type only), `@ismail-elkorchi/terminal-ui/components` (type only)
 
@@ -8087,7 +8121,7 @@ readonly details?: ComponentInspectionRecord;
 <a id="component-componentslotcardinality"></a>
 ### ComponentSlotCardinality
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8098,7 +8132,7 @@ export type ComponentSlotCardinality = 'one' | 'optional' | 'many';
 <a id="component-componentslotdefinition"></a>
 ### ComponentSlotDefinition
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8109,7 +8143,7 @@ export type ComponentSlotDefinition = CallerComponentSlot | ImplementationCompon
 <a id="component-componentslotlayout"></a>
 ### ComponentSlotLayout
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8124,7 +8158,7 @@ Related types: [`Rect`](#renderer-rect)
 <a id="component-componentslotmessagepolicy"></a>
 ### ComponentSlotMessagePolicy
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8135,7 +8169,7 @@ export type ComponentSlotMessagePolicy = 'bubble' | 'capture' | 'none';
 <a id="component-componentslotowner"></a>
 ### ComponentSlotOwner
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8146,7 +8180,7 @@ export type ComponentSlotOwner = 'caller' | 'implementation';
 <a id="component-componentslotshape"></a>
 ### ComponentSlotShape
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8157,7 +8191,7 @@ export type ComponentSlotShape = Readonly<Record<string, ComponentSlotBase>>;
 <a id="component-componentslotsdefinition"></a>
 ### ComponentSlotsDefinition
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8170,7 +8204,7 @@ Related types: [`ComponentSlotDefinition`](#component-componentslotdefinition)
 <a id="component-componentstatecapability"></a>
 ### ComponentStateCapability
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8181,7 +8215,7 @@ export type ComponentStateCapability = keyof ElementState;
 <a id="component-componentstyleinput"></a>
 ### ComponentStyleInput
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8203,7 +8237,7 @@ export type ComponentStylePartMapping<TSource extends string, TTarget extends st
 <a id="component-componenttextinput"></a>
 ### ComponentTextInput
 
-interface · beta · [source](../../src/component/definition.ts)
+interface · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8221,7 +8255,7 @@ readonly text: string;
 <a id="component-componentvisualstate"></a>
 ### ComponentVisualState
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8234,7 +8268,7 @@ Related types: [`ElementVisualState`](#component-elementvisualstate)
 <a id="component-decorativeleafcomponentdefinition"></a>
 ### DecorativeLeafComponentDefinition
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8243,6 +8277,8 @@ export type DecorativeLeafComponentDefinition<TOptions extends object = Readonly
     readonly metadata?: TMetadata;
     readonly slots?: never;
     readonly structure: 'leaf';
+    /** Opt in only when paint depends exclusively on its immutable render input. */
+    readonly retainPaint?: boolean;
     readonly render: (this: undefined, input: ComponentRenderInput<TModel, TPart>) => undefined;
 };
 ```
@@ -8252,7 +8288,7 @@ Related types: [`ComponentRenderInput`](#component-componentrenderinput), [`inpu
 <a id="component-decorativeleafcomponentfactory"></a>
 ### DecorativeLeafComponentFactory
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8265,7 +8301,7 @@ export type DecorativeLeafComponentFactory<TOptions extends object, TPart extend
 <a id="component-decorativeleafdefinition"></a>
 ### DecorativeLeafDefinition
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8814,7 +8850,7 @@ export type SelectionState = {
 <a id="component-semanticcomposedcomponentdefinition"></a>
 ### SemanticComposedComponentDefinition
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8834,7 +8870,7 @@ Related types: [`ComponentCapturedMessageInput`](#component-componentcapturedmes
 <a id="component-semanticcompositecomponentdefinition"></a>
 ### SemanticCompositeComponentDefinition
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8857,7 +8893,7 @@ Related types: [`ComponentCapturedMessageInput`](#component-componentcapturedmes
 <a id="component-semanticcompositecomponentfactory"></a>
 ### SemanticCompositeComponentFactory
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8870,7 +8906,7 @@ export type SemanticCompositeComponentFactory<TOptions extends object, TAction =
 <a id="component-semanticleafcomponentdefinition"></a>
 ### SemanticLeafComponentDefinition
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8879,6 +8915,8 @@ export type SemanticLeafComponentDefinition<TOptions extends object = Readonly<R
     readonly metadata?: TMetadata;
     readonly slots?: never;
     readonly structure: 'leaf';
+    /** Opt in only when paint depends exclusively on its immutable render input. */
+    readonly retainPaint?: boolean;
     readonly render: (this: undefined, input: ComponentRenderInput<TModel, TPart>) => undefined;
 };
 ```
@@ -8888,7 +8926,7 @@ Related types: [`ComponentRenderInput`](#component-componentrenderinput), [`inpu
 <a id="component-semanticleafcomponentfactory"></a>
 ### SemanticLeafComponentFactory
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8901,7 +8939,7 @@ export type SemanticLeafComponentFactory<TOptions extends object, TAction = neve
 <a id="component-semanticleafdefinition"></a>
 ### SemanticLeafDefinition
 
-type · beta · [source](../../src/component/definition.ts)
+type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -8916,7 +8954,7 @@ Related types: [`SemanticLeafComponentDefinition`](#component-semanticleafcompon
 <a id="component-stagedcomponentfactory"></a>
 ### StagedComponentFactory
 
-interface · beta · [source](../../src/component/definition.ts)
+interface · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
@@ -9700,7 +9738,7 @@ export type CommandInputStylePart = 'value' | 'placeholder' | 'selection' | 'cur
 <a id="components-componentcapabilityinspection"></a>
 ### ComponentCapabilityInspection
 
-type · beta · [source](../../src/element/inspection.ts)
+type · beta · [source](../../src/element/inspection-contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only)
 
@@ -9778,7 +9816,7 @@ Related types: [`line`](#component-line), [`label`](#components-forms-label)
 <a id="components-elementfactorycategory"></a>
 ### ElementFactoryCategory
 
-type · beta · [source](../../src/element/inspection.ts)
+type · beta · [source](../../src/element/inspection-contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only)
 
@@ -9789,7 +9827,7 @@ export type ElementFactoryCategory = 'component' | 'layout';
 <a id="components-elementfactoryidentity"></a>
 ### ElementFactoryIdentity
 
-interface · beta · [source](../../src/element/inspection.ts)
+interface · beta · [source](../../src/element/inspection-contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only)
 
@@ -9814,7 +9852,7 @@ readonly name: string;
 <a id="components-elementfocuscapability"></a>
 ### ElementFocusCapability
 
-type · beta · [source](../../src/element/inspection.ts)
+type · beta · [source](../../src/element/inspection-contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only)
 
@@ -9825,7 +9863,7 @@ export type ElementFocusCapability = 'none' | 'item' | 'scope';
 <a id="components-elementinputinspection"></a>
 ### ElementInputInspection
 
-interface · beta · [source](../../src/element/inspection.ts)
+interface · beta · [source](../../src/element/inspection-contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only)
 
@@ -9864,7 +9902,7 @@ readonly focus: ElementFocusCapability;
 <a id="components-elementinspection"></a>
 ### ElementInspection
 
-interface · beta · [source](../../src/element/inspection.ts)
+interface · beta · [source](../../src/element/inspection-contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only)
 
@@ -9924,7 +9962,7 @@ readonly children: readonly ElementInspection[];
 <a id="components-elementmetainspection"></a>
 ### ElementMetaInspection
 
-interface · beta · [source](../../src/element/inspection.ts)
+interface · beta · [source](../../src/element/inspection-contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only)
 
@@ -10038,7 +10076,7 @@ Related types: [`label`](#components-forms-label)
 <a id="components-helpbinding"></a>
 ### HelpBinding
 
-interface · beta · [source](../../src/components/help.ts)
+interface · beta · [source](../../src/components/feedback/help.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only)
 
@@ -10063,7 +10101,7 @@ readonly label: string;
 <a id="components-helpgroup"></a>
 ### HelpGroup
 
-interface · beta · [source](../../src/components/help.ts)
+interface · beta · [source](../../src/components/feedback/help.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only)
 
@@ -10322,7 +10360,7 @@ Related types: [`label`](#components-forms-label)
 <a id="components-processstatus"></a>
 ### ProcessStatus
 
-type · beta · [source](../../src/components/status-bar.ts)
+type · beta · [source](../../src/components/feedback/status-bar-contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only)
 
@@ -10409,7 +10447,7 @@ export type SparklineStylePart = 'value' | 'muted' | 'series';
 <a id="components-statusbarsection"></a>
 ### StatusBarSection
 
-type · beta · [source](../../src/components/status-bar.ts)
+type · beta · [source](../../src/components/feedback/status-bar-contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only)
 
@@ -10420,7 +10458,7 @@ export type StatusBarSection = 'leading' | 'center' | 'trailing';
 <a id="components-statusbarstatus"></a>
 ### StatusBarStatus
 
-type · beta · [source](../../src/components/status-bar.ts)
+type · beta · [source](../../src/components/feedback/status-bar-contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only)
 
@@ -10673,7 +10711,7 @@ Related types: [`DataGridCell`](#components-collections-datagridcell), [`row`](#
 <a id="components-collections-datagridoptions"></a>
 ### DataGridOptions
 
-type · beta · [source](../../src/components/options/content-and-collections.ts)
+type · beta · [source](../../src/components/data-table/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -10749,7 +10787,7 @@ Related types: [`ScrollRequest`](#behavior-scrollrequest), [`DataGridCell`](#com
 <a id="components-collections-listoptions"></a>
 ### ListOptions
 
-interface · beta · [source](../../src/components/options/collections.ts)
+interface · beta · [source](../../src/components/list/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -10842,7 +10880,7 @@ Related types: [`ListViewTransition`](#components-collections-listviewtransition
 <a id="components-collections-listviewitemcontent"></a>
 ### ListViewItemContent
 
-interface · beta · [source](../../src/components/list-item.ts)
+interface · beta · [source](../../src/components/list/item.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -10874,7 +10912,7 @@ readonly disabled?: boolean;
 <a id="components-collections-listviewitemrenderer"></a>
 ### ListViewItemRenderer
 
-type · beta · [source](../../src/components/list-item.ts)
+type · beta · [source](../../src/components/list/item.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -10887,7 +10925,7 @@ Related types: [`MeasuredCollectionItem`](#collection-measuredcollectionitem), [
 <a id="components-collections-listviewoptions"></a>
 ### ListViewOptions
 
-type · beta · [source](../../src/components/options/collections.ts)
+type · beta · [source](../../src/components/list/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -10900,7 +10938,7 @@ Related types: [`ScrollableListViewOptions`](#components-collections-scrollablel
 <a id="components-collections-listviewscrollbaroptions"></a>
 ### ListViewScrollbarOptions
 
-type · beta · [source](../../src/components/options/collections.ts)
+type · beta · [source](../../src/components/list/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11090,7 +11128,7 @@ Related types: [`ListboxOption`](#components-collections-listboxoption)
 <a id="components-collections-listboxoptions"></a>
 ### ListboxOptions
 
-type · beta · [source](../../src/components/options/content-and-collections.ts)
+type · beta · [source](../../src/components/listbox/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11202,7 +11240,7 @@ readonly omittedAfter: number;
 <a id="components-collections-paginationoptions"></a>
 ### PaginationOptions
 
-interface · beta · [source](../../src/components/options/content-and-collections.ts)
+interface · beta · [source](../../src/components/pagination/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11286,7 +11324,7 @@ Related types: [`select`](#prompts-select)
 <a id="components-collections-scrollabledatagridoptions"></a>
 ### ScrollableDataGridOptions
 
-type · beta · [source](../../src/components/options/content-and-collections.ts)
+type · beta · [source](../../src/components/data-table/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11321,7 +11359,7 @@ readonly scroll: ScrollState;
 <a id="components-collections-scrollablelistviewoptions"></a>
 ### ScrollableListViewOptions
 
-type · beta · [source](../../src/components/options/collections.ts)
+type · beta · [source](../../src/components/list/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11356,7 +11394,7 @@ readonly scroll: ScrollState;
 <a id="components-collections-scrollablelistboxoptions"></a>
 ### ScrollableListboxOptions
 
-type · beta · [source](../../src/components/options/content-and-collections.ts)
+type · beta · [source](../../src/components/listbox/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11391,7 +11429,7 @@ readonly scroll: ScrollState;
 <a id="components-collections-scrollabletableoptions"></a>
 ### ScrollableTableOptions
 
-type · beta · [source](../../src/components/options/content-and-collections.ts)
+type · beta · [source](../../src/components/data-table/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11411,7 +11449,7 @@ Related types: [`ScrollPolicy`](#behavior-scrollpolicy), [`ScrollRequest`](#beha
 <a id="components-collections-scrollabletreeoptions"></a>
 ### ScrollableTreeOptions
 
-type · beta · [source](../../src/components/options/content-and-collections.ts)
+type · beta · [source](../../src/components/tree/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11446,7 +11484,7 @@ readonly scroll: ScrollState;
 <a id="components-collections-semanticlistitem"></a>
 ### SemanticListItem
 
-interface · beta · [source](../../src/components/list-item.ts)
+interface · beta · [source](../../src/components/list/item.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11478,7 +11516,7 @@ readonly label?: string;
 <a id="components-collections-semanticlistmessage"></a>
 ### SemanticListMessage
 
-type · beta · [source](../../src/components/list-item.ts)
+type · beta · [source](../../src/components/list/item.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11516,7 +11554,7 @@ readonly id: TId;
 <a id="components-collections-tabitem"></a>
 ### TabItem
 
-interface · beta · [source](../../src/components/options/tabs.ts)
+interface · beta · [source](../../src/components/tabs/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11562,7 +11600,7 @@ readonly panel: Element<TMessage>;
 <a id="components-collections-tablecellrenderinput"></a>
 ### TableCellRenderInput
 
-interface · beta · [source](../../src/components/table-column.ts)
+interface · beta · [source](../../src/components/data-table/column.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11632,7 +11670,7 @@ readonly row: TRow;
 <a id="components-collections-tablecolumn"></a>
 ### TableColumn
 
-type · beta · [source](../../src/components/table-column.ts)
+type · beta · [source](../../src/components/data-table/column.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11645,7 +11683,7 @@ Related types: [`TableCustomColumn`](#components-collections-tablecustomcolumn),
 <a id="components-collections-tablecolumnalignment"></a>
 ### TableColumnAlignment
 
-type · beta · [source](../../src/components/table-column.ts)
+type · beta · [source](../../src/components/data-table/column.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11656,7 +11694,7 @@ export type TableColumnAlignment = 'start' | 'center' | 'end';
 <a id="components-collections-tablecolumnbuilder"></a>
 ### TableColumnBuilder
 
-type · beta · [source](../../src/components/table-column.ts)
+type · beta · [source](../../src/components/data-table/column.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11669,7 +11707,7 @@ Related types: [`TableColumnDefinition`](#components-collections-tablecolumndefi
 <a id="components-collections-tablecolumndefinition"></a>
 ### TableColumnDefinition
 
-interface · beta · [source](../../src/components/table-column.ts)
+interface · beta · [source](../../src/components/data-table/column.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11694,7 +11732,7 @@ readonly render: (input: TableCellRenderInput<TRow, TValue>) => string | InlineC
 <a id="components-collections-tablecolumnsemantic"></a>
 ### TableColumnSemantic
 
-type · beta · [source](../../src/components/table-column.ts)
+type · beta · [source](../../src/components/data-table/column.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11707,7 +11745,7 @@ Related types: [`text`](#components-foundations-text)
 <a id="components-collections-tablecolumnwidth"></a>
 ### TableColumnWidth
 
-type · beta · [source](../../src/components/table-column.ts)
+type · beta · [source](../../src/components/data-table/column.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11720,7 +11758,7 @@ Related types: [`LayoutSize`](#layout-layoutsize)
 <a id="components-collections-tablecustomcolumn"></a>
 ### TableCustomColumn
 
-interface · beta · [source](../../src/components/table-column.ts)
+interface · beta · [source](../../src/components/data-table/column.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11745,7 +11783,7 @@ readonly [typedTableColumn]: true;
 <a id="components-collections-tableoptions"></a>
 ### TableOptions
 
-type · beta · [source](../../src/components/options/content-and-collections.ts)
+type · beta · [source](../../src/components/data-table/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11819,7 +11857,7 @@ readonly columnWidths?: Readonly<Record<string, number>>;
 <a id="components-collections-tablevaluecolumn"></a>
 ### TableValueColumn
 
-interface · beta · [source](../../src/components/table-column.ts)
+interface · beta · [source](../../src/components/data-table/column.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -11848,7 +11886,7 @@ export type TabsActivation = 'automatic' | 'manual';
 <a id="components-collections-tabsoptions"></a>
 ### TabsOptions
 
-type · beta · [source](../../src/components/options/tabs.ts)
+type · beta · [source](../../src/components/tabs/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -12049,7 +12087,7 @@ export type TreeNode<TMetadata extends Readonly<Record<string, unknown>> = Reado
 <a id="components-collections-treeoptions"></a>
 ### TreeOptions
 
-type · beta · [source](../../src/components/options/content-and-collections.ts)
+type · beta · [source](../../src/components/tree/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -12218,7 +12256,7 @@ readonly lazyPlaceholder?: boolean;
 <a id="components-collections-unscrolleddatagridoptions"></a>
 ### UnscrolledDataGridOptions
 
-type · beta · [source](../../src/components/options/content-and-collections.ts)
+type · beta · [source](../../src/components/data-table/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -12253,7 +12291,7 @@ readonly scroll?: never;
 <a id="components-collections-unscrolledlistviewoptions"></a>
 ### UnscrolledListViewOptions
 
-type · beta · [source](../../src/components/options/collections.ts)
+type · beta · [source](../../src/components/list/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -12288,7 +12326,7 @@ readonly scroll?: never;
 <a id="components-collections-unscrolledlistboxoptions"></a>
 ### UnscrolledListboxOptions
 
-type · beta · [source](../../src/components/options/content-and-collections.ts)
+type · beta · [source](../../src/components/listbox/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -12325,7 +12363,7 @@ readonly scroll?: never;
 <a id="components-collections-unscrolledtableoptions"></a>
 ### UnscrolledTableOptions
 
-type · beta · [source](../../src/components/options/content-and-collections.ts)
+type · beta · [source](../../src/components/data-table/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -12340,7 +12378,7 @@ export type UnscrolledTableOptions<TRow> = TableOptionsBase & TableDataOptions<T
 <a id="components-collections-unscrolledtreeoptions"></a>
 ### UnscrolledTreeOptions
 
-type · beta · [source](../../src/components/options/content-and-collections.ts)
+type · beta · [source](../../src/components/tree/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
@@ -12388,7 +12426,7 @@ Related types: [`WindowedCollectionSnapshot`](#collection-windowedcollectionsnap
 <a id="components-collections-datagrid"></a>
 ### dataGrid
 
-function · beta · [source](../../src/components/factories/data-table.ts)
+function · beta · [source](../../src/components/data-table/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/collections`
 
@@ -12417,7 +12455,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-collections-list"></a>
 ### list
 
-function · beta · [source](../../src/components/factories/collections.ts)
+function · beta · [source](../../src/components/list/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/collections`
 
@@ -12434,7 +12472,7 @@ Related types: [`Element`](#component-element), [`ElementMessage`](#component-el
 <a id="components-collections-listview"></a>
 ### listView
 
-function · beta · [source](../../src/components/factories/collections.ts)
+function · beta · [source](../../src/components/list/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/collections`
 
@@ -12463,7 +12501,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-collections-listbox"></a>
 ### listbox
 
-function · beta · [source](../../src/components/factories/listbox.ts)
+function · beta · [source](../../src/components/listbox/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/collections`
 
@@ -12490,7 +12528,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-collections-pagination"></a>
 ### pagination
 
-function · beta · [source](../../src/components/factories/pagination.ts)
+function · beta · [source](../../src/components/pagination/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/collections`
 
@@ -12507,7 +12545,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-collections-table"></a>
 ### table
 
-function · beta · [source](../../src/components/factories/data-table.ts)
+function · beta · [source](../../src/components/data-table/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/collections`
 
@@ -12525,7 +12563,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-collections-tablecolumn"></a>
 ### tableColumn
 
-function · beta · [source](../../src/components/table-column.ts)
+function · beta · [source](../../src/components/data-table/column.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/collections`
 
@@ -12542,7 +12580,7 @@ Related types: [`TableColumnBuilder`](#components-collections-tablecolumnbuilder
 <a id="components-collections-tabs"></a>
 ### tabs
 
-value · beta · [source](../../src/components/factories/tabs.ts)
+value · beta · [source](../../src/components/tabs/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/collections`
 
@@ -12555,7 +12593,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-collections-tree"></a>
 ### tree
 
-function · beta · [source](../../src/components/factories/tree.ts)
+function · beta · [source](../../src/components/tree/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/collections`
 
@@ -12586,7 +12624,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-feedback-activityindicatoroptions"></a>
 ### ActivityIndicatorOptions
 
-type · beta · [source](../../src/components/options/feedback-and-visualizations.ts)
+type · beta · [source](../../src/components/feedback/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/feedback` (type only)
 
@@ -12597,7 +12635,7 @@ export type ActivityIndicatorOptions = RunningActivityIndicatorOptions | Settled
 <a id="components-feedback-notificationhistoryoptions"></a>
 ### NotificationHistoryOptions
 
-interface · beta · [source](../../src/components/options/feedback-and-visualizations.ts)
+interface · beta · [source](../../src/components/notifications/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/feedback` (type only)
 
@@ -12744,7 +12782,7 @@ export type NotificationPlacement = 'top-right' | 'bottom-right' | 'centered-sta
 <a id="components-feedback-notificationregionoptions"></a>
 ### NotificationRegionOptions
 
-type · beta · [source](../../src/components/options/feedback-and-visualizations.ts)
+type · beta · [source](../../src/components/notifications/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/feedback` (type only)
 
@@ -12774,7 +12812,7 @@ Related types: [`success`](#root-success), [`progress`](#prompts-progress)
 <a id="components-feedback-progressbardisplay"></a>
 ### ProgressBarDisplay
 
-type · beta · [source](../../src/components/progress.ts)
+type · beta · [source](../../src/components/feedback/progress.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/feedback` (type only)
 
@@ -12785,7 +12823,7 @@ export type ProgressBarDisplay = 'bar' | 'bar+percent' | 'bar+value' | 'bar+valu
 <a id="components-feedback-progressbarlabelposition"></a>
 ### ProgressBarLabelPosition
 
-type · beta · [source](../../src/components/progress.ts)
+type · beta · [source](../../src/components/feedback/progress.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/feedback` (type only)
 
@@ -12796,7 +12834,7 @@ export type ProgressBarLabelPosition = 'start' | 'end' | 'none';
 <a id="components-feedback-progressbarmode"></a>
 ### ProgressBarMode
 
-type · beta · [source](../../src/components/progress.ts)
+type · beta · [source](../../src/components/feedback/progress.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/feedback` (type only)
 
@@ -12814,7 +12852,7 @@ export type ProgressBarMode = {
 <a id="components-feedback-progressbaroptions"></a>
 ### ProgressBarOptions
 
-interface · beta · [source](../../src/components/options/feedback-and-visualizations.ts)
+interface · beta · [source](../../src/components/feedback/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/feedback` (type only)
 
@@ -12909,7 +12947,7 @@ readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer']>;
 <a id="components-feedback-statusbaritem"></a>
 ### StatusBarItem
 
-type · beta · [source](../../src/components/status-bar.ts)
+type · beta · [source](../../src/components/feedback/status-bar-contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/feedback` (type only)
 
@@ -12929,7 +12967,7 @@ Related types: [`StatusBarStatus`](#components-statusbarstatus), [`text`](#compo
 <a id="components-feedback-statusbaroptions"></a>
 ### StatusBarOptions
 
-interface · beta · [source](../../src/components/options/feedback-and-visualizations.ts)
+interface · beta · [source](../../src/components/feedback/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/feedback` (type only)
 
@@ -12982,7 +13020,7 @@ readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer']>;
 <a id="components-feedback-activityindicator"></a>
 ### activityIndicator
 
-value · beta · [source](../../src/components/factories/feedback-indicators.ts)
+value · beta · [source](../../src/components/feedback/activity-indicator.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/feedback`
 
@@ -13034,7 +13072,7 @@ Related types: [`StatusBarStatus`](#components-statusbarstatus)
 <a id="components-feedback-notificationhistory"></a>
 ### notificationHistory
 
-function · beta · [source](../../src/components/factories/notifications.ts)
+function · beta · [source](../../src/components/notifications/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/feedback`
 
@@ -13051,7 +13089,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-feedback-notificationregion"></a>
 ### notificationRegion
 
-function · beta · [source](../../src/components/factories/notifications.ts)
+function · beta · [source](../../src/components/notifications/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/feedback`
 
@@ -13068,7 +13106,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-feedback-progressbar"></a>
 ### progressBar
 
-value · beta · [source](../../src/components/factories/feedback-indicators.ts)
+value · beta · [source](../../src/components/feedback/progress-bar.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/feedback`
 
@@ -13081,7 +13119,7 @@ Related types: [`Element`](#component-element), [`ProgressBarStylePart`](#compon
 <a id="components-feedback-statusbar"></a>
 ### statusBar
 
-value · beta · [source](../../src/components/factories/feedback-indicators.ts)
+value · beta · [source](../../src/components/feedback/status-bar.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/feedback`
 
@@ -13096,7 +13134,7 @@ Related types: [`Element`](#component-element), [`StatusBarStylePart`](#componen
 <a id="components-forms-activeautocompletecomboboxoptions"></a>
 ### ActiveAutocompleteComboboxOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/combobox/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13109,7 +13147,7 @@ Related types: [`AutocompleteComboboxControlTransition`](#components-forms-autoc
 <a id="components-forms-activecalendaroptions"></a>
 ### ActiveCalendarOptions
 
-interface · beta · [source](../../src/components/options/forms.ts)
+interface · beta · [source](../../src/components/calendar/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13134,7 +13172,7 @@ readonly disabled?: boolean;
 <a id="components-forms-activecheckboxgroupoptions"></a>
 ### ActiveCheckboxGroupOptions
 
-interface · beta · [source](../../src/components/options/forms.ts)
+interface · beta · [source](../../src/components/choice-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13159,7 +13197,7 @@ readonly disabled?: boolean;
 <a id="components-forms-activecheckboxoptions"></a>
 ### ActiveCheckboxOptions
 
-interface · beta · [source](../../src/components/options/forms.ts)
+interface · beta · [source](../../src/components/boolean-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13184,7 +13222,7 @@ readonly disabled?: boolean;
 <a id="components-forms-activecolorswatchpickeroptions"></a>
 ### ActiveColorSwatchPickerOptions
 
-interface · beta · [source](../../src/components/options/forms.ts)
+interface · beta · [source](../../src/components/choice-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13209,7 +13247,7 @@ readonly disabled?: boolean;
 <a id="components-forms-activecomboboxoptions"></a>
 ### ActiveComboboxOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/combobox/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13222,7 +13260,7 @@ Related types: [`ComboboxControlTransition`](#components-forms-comboboxcontroltr
 <a id="components-forms-activenumberinputoptions"></a>
 ### ActiveNumberInputOptions
 
-interface · beta · [source](../../src/components/options/forms.ts)
+interface · beta · [source](../../src/components/text-entry/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13261,7 +13299,7 @@ readonly readOnly?: boolean;
 <a id="components-forms-activeradiogroupoptions"></a>
 ### ActiveRadioGroupOptions
 
-interface · beta · [source](../../src/components/options/forms.ts)
+interface · beta · [source](../../src/components/choice-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13286,7 +13324,7 @@ readonly disabled?: boolean;
 <a id="components-forms-activerangeslideroptions"></a>
 ### ActiveRangeSliderOptions
 
-interface · beta · [source](../../src/components/options/forms.ts)
+interface · beta · [source](../../src/components/range-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13311,7 +13349,7 @@ readonly disabled?: boolean;
 <a id="components-forms-activeslideroptions"></a>
 ### ActiveSliderOptions
 
-interface · beta · [source](../../src/components/options/forms.ts)
+interface · beta · [source](../../src/components/range-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13323,7 +13361,7 @@ export interface ActiveSliderOptions<TMessage extends ComponentMessage> extends 
 #### onTransition
 
 ```ts
-readonly onTransition: (transition: import('../../components/form-controls.ts').SliderTransition) => MessageResolution<TMessage>;
+readonly onTransition: (transition: import('../form-controls.ts').SliderTransition) => MessageResolution<TMessage>;
 ```
 
 <a id="components-forms-activeslideroptions-disabled"></a>
@@ -13336,7 +13374,7 @@ readonly disabled?: boolean;
 <a id="components-forms-activeswitchoptions"></a>
 ### ActiveSwitchOptions
 
-interface · beta · [source](../../src/components/options/forms.ts)
+interface · beta · [source](../../src/components/boolean-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13361,7 +13399,7 @@ readonly disabled?: boolean;
 <a id="components-forms-activetextinputoptions"></a>
 ### ActiveTextInputOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/text-entry/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13379,7 +13417,7 @@ Related types: [`MessageResolution`](#component-messageresolution), [`TextInputT
 <a id="components-forms-anycomboboxoptions"></a>
 ### AnyComboboxOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/combobox/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13407,7 +13445,7 @@ Related types: [`AutocompleteComboboxTransition`](#components-forms-autocomplete
 <a id="components-forms-autocompletecomboboxoptions"></a>
 ### AutocompleteComboboxOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/combobox/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13496,7 +13534,7 @@ Related types: [`ScrollableAutocompleteComboboxView`](#behavior-scrollableautoco
 <a id="components-forms-buttonoptions"></a>
 ### ButtonOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/action-button/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13661,7 +13699,7 @@ readonly month: number;
 <a id="components-forms-calendaroptions"></a>
 ### CalendarOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/calendar/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13705,7 +13743,7 @@ Related types: [`CalendarDate`](#components-forms-calendardate), [`select`](#pro
 <a id="components-forms-checkboxgroupoptions"></a>
 ### CheckboxGroupOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/choice-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13733,7 +13771,7 @@ Related types: [`CollectionInteractionTransition`](#component-collectioninteract
 <a id="components-forms-checkboxoptions"></a>
 ### CheckboxOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/boolean-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13796,7 +13834,7 @@ readonly style?: TerminalStyle;
 <a id="components-forms-colorswatchpickeroptions"></a>
 ### ColorSwatchPickerOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/choice-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13862,7 +13900,7 @@ Related types: [`ComboboxTransition`](#components-forms-comboboxtransition)
 <a id="components-forms-comboboxoptions"></a>
 ### ComboboxOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/combobox/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13924,7 +13962,7 @@ Related types: [`ScrollRequest`](#behavior-scrollrequest), [`AnchoredSurfaceDism
 <a id="components-forms-createtextareadecorationsinput"></a>
 ### CreateTextAreaDecorationsInput
 
-interface · beta · [source](../../src/components/text-area-decorations.ts)
+interface · beta · [source](../../src/components/text-area/decorations.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13949,7 +13987,7 @@ readonly decorations: readonly TextAreaDecoration[];
 <a id="components-forms-disabledcalendaroptions"></a>
 ### DisabledCalendarOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/calendar/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13964,7 +14002,7 @@ Related types: [`ActiveCalendarOptions`](#components-forms-activecalendaroptions
 <a id="components-forms-disabledcheckboxgroupoptions"></a>
 ### DisabledCheckboxGroupOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/choice-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13979,7 +14017,7 @@ Related types: [`ActiveCheckboxGroupOptions`](#components-forms-activecheckboxgr
 <a id="components-forms-disabledcheckboxoptions"></a>
 ### DisabledCheckboxOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/boolean-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -13994,7 +14032,7 @@ Related types: [`ActiveCheckboxOptions`](#components-forms-activecheckboxoptions
 <a id="components-forms-disabledcolorswatchpickeroptions"></a>
 ### DisabledColorSwatchPickerOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/choice-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14009,7 +14047,7 @@ Related types: [`ActiveColorSwatchPickerOptions`](#components-forms-activecolors
 <a id="components-forms-disabledcomboboxoptions"></a>
 ### DisabledComboboxOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/combobox/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14030,7 +14068,7 @@ Related types: [`ComboboxControlTransition`](#components-forms-comboboxcontroltr
 <a id="components-forms-disablednumberinputoptions"></a>
 ### DisabledNumberInputOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/text-entry/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14046,7 +14084,7 @@ Related types: [`ActiveNumberInputOptions`](#components-forms-activenumberinputo
 <a id="components-forms-disabledradiogroupoptions"></a>
 ### DisabledRadioGroupOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/choice-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14061,7 +14099,7 @@ Related types: [`ActiveRadioGroupOptions`](#components-forms-activeradiogroupopt
 <a id="components-forms-disabledrangeslideroptions"></a>
 ### DisabledRangeSliderOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/range-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14076,7 +14114,7 @@ Related types: [`ActiveRangeSliderOptions`](#components-forms-activerangeslidero
 <a id="components-forms-disabledslideroptions"></a>
 ### DisabledSliderOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/range-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14091,7 +14129,7 @@ Related types: [`ActiveSliderOptions`](#components-forms-activeslideroptions)
 <a id="components-forms-disabledswitchoptions"></a>
 ### DisabledSwitchOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/boolean-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14106,7 +14144,7 @@ Related types: [`ActiveSwitchOptions`](#components-forms-activeswitchoptions)
 <a id="components-forms-disabledtextareaoptions"></a>
 ### DisabledTextAreaOptions
 
-type · beta · [source](../../src/components/options/content-and-collections.ts)
+type · beta · [source](../../src/components/text-area/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14130,7 +14168,7 @@ Related types: [`ScrollPolicy`](#behavior-scrollpolicy), [`ScrollableTextAreaCon
 <a id="components-forms-disabledtextinputoptions"></a>
 ### DisabledTextInputOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/text-entry/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14146,7 +14184,7 @@ Related types: [`ActiveTextInputOptions`](#components-forms-activetextinputoptio
 <a id="components-forms-fieldoptions"></a>
 ### FieldOptions
 
-interface · beta · [source](../../src/components/options/forms.ts)
+interface · beta · [source](../../src/components/form-layout/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14199,7 +14237,7 @@ readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer']>;
 <a id="components-forms-formoptions"></a>
 ### FormOptions
 
-interface · beta · [source](../../src/components/options/forms.ts)
+interface · beta · [source](../../src/components/form-layout/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14254,7 +14292,7 @@ readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer']>;
 <a id="components-forms-inertcomboboxoptions"></a>
 ### InertComboboxOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/combobox/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14267,7 +14305,7 @@ Related types: [`ComboboxControlTransition`](#components-forms-comboboxcontroltr
 <a id="components-forms-labeloptions"></a>
 ### LabelOptions
 
-interface · beta · [source](../../src/components/options/forms.ts)
+interface · beta · [source](../../src/components/form-layout/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14337,7 +14375,7 @@ Related types: [`TextPointerTransition`](#components-forms-textpointertransition
 <a id="components-forms-numberinputoptions"></a>
 ### NumberInputOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/text-entry/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14403,7 +14441,7 @@ readonly max: number;
 <a id="components-forms-passwordinputoptions"></a>
 ### PasswordInputOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/text-entry/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14440,7 +14478,7 @@ export type PointerSelectionTransition<TCoordinate> = {
 <a id="components-forms-radiogroupoptions"></a>
 ### RadioGroupOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/choice-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14479,7 +14517,7 @@ export type RangeSliderHandle = 'start' | 'end';
 <a id="components-forms-rangeslideroptions"></a>
 ### RangeSliderOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/range-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14576,7 +14614,7 @@ readonly end: number;
 <a id="components-forms-scrollablecomboboxoptions"></a>
 ### ScrollableComboboxOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/combobox/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14629,7 +14667,7 @@ readonly scroll: ScrollState;
 <a id="components-forms-scrollabletextareaoptions"></a>
 ### ScrollableTextAreaOptions
 
-type · beta · [source](../../src/components/options/content-and-collections.ts)
+type · beta · [source](../../src/components/text-area/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14649,7 +14687,7 @@ Related types: [`ScrollPolicy`](#behavior-scrollpolicy), [`MessageResolution`](#
 <a id="components-forms-slideroptions"></a>
 ### SliderOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/range-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14687,7 +14725,7 @@ readonly value: number;
 <a id="components-forms-switchoptions"></a>
 ### SwitchOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/boolean-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14725,7 +14763,7 @@ readonly checked: boolean;
 <a id="components-forms-textareaconcealdecoration"></a>
 ### TextAreaConcealDecoration
 
-interface · beta · [source](../../src/components/text-area.ts)
+interface · beta · [source](../../src/components/text-area/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14792,7 +14830,7 @@ Related types: [`TextAreaTransition`](#components-forms-textareatransition)
 <a id="components-forms-textareadecoration"></a>
 ### TextAreaDecoration
 
-type · beta · [source](../../src/components/text-area.ts)
+type · beta · [source](../../src/components/text-area/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14805,7 +14843,7 @@ Related types: [`TextAreaConcealDecoration`](#components-forms-textareaconcealde
 <a id="components-forms-textareadecorations"></a>
 ### TextAreaDecorations
 
-interface · beta · [source](../../src/components/text-area-decorations.ts)
+interface · beta · [source](../../src/components/text-area/decorations.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14839,7 +14877,7 @@ readonly count: number;
 <a id="components-forms-textareaoptions"></a>
 ### TextAreaOptions
 
-type · beta · [source](../../src/components/options/content-and-collections.ts)
+type · beta · [source](../../src/components/text-area/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14852,7 +14890,7 @@ Related types: [`DisabledTextAreaOptions`](#components-forms-disabledtextareaopt
 <a id="components-forms-textareareplacementdecoration"></a>
 ### TextAreaReplacementDecoration
 
-interface · beta · [source](../../src/components/text-area.ts)
+interface · beta · [source](../../src/components/text-area/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14884,7 +14922,7 @@ readonly accessibilityText?: string;
 <a id="components-forms-textarearowoffsetmapoptions"></a>
 ### TextAreaRowOffsetMapOptions
 
-interface · beta · [source](../../src/components/factories/text-area.ts)
+interface · beta · [source](../../src/components/text-area/row-offset-map.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -14958,7 +14996,7 @@ readonly theme?: TerminalTheme;
 <a id="components-forms-textareastyledecoration"></a>
 ### TextAreaStyleDecoration
 
-interface · beta · [source](../../src/components/text-area.ts)
+interface · beta · [source](../../src/components/text-area/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -15021,7 +15059,7 @@ Related types: [`ScrollRequest`](#behavior-scrollrequest), [`TextPointerTransiti
 <a id="components-forms-textinputoptions"></a>
 ### TextInputOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/text-entry/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -15075,7 +15113,7 @@ export type TextPointerTransition = {
 <a id="components-forms-unscrolledcomboboxoptions"></a>
 ### UnscrolledComboboxOptions
 
-type · beta · [source](../../src/components/options/forms.ts)
+type · beta · [source](../../src/components/combobox/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -15128,7 +15166,7 @@ readonly scroll?: never;
 <a id="components-forms-unscrolledtextareaoptions"></a>
 ### UnscrolledTextAreaOptions
 
-type · beta · [source](../../src/components/options/content-and-collections.ts)
+type · beta · [source](../../src/components/text-area/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -15148,7 +15186,7 @@ Related types: [`MessageResolution`](#component-messageresolution), [`TextAreaCo
 <a id="components-forms-updatetextareadecorationsinput"></a>
 ### UpdateTextAreaDecorationsInput
 
-interface · beta · [source](../../src/components/text-area-decorations.ts)
+interface · beta · [source](../../src/components/text-area/decorations.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
@@ -15180,7 +15218,7 @@ readonly decorations: readonly TextAreaDecoration[];
 <a id="components-forms-button"></a>
 ### button
 
-value · beta · [source](../../src/components/factories/action-button.ts)
+value · beta · [source](../../src/components/action-button/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15193,7 +15231,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-calendar"></a>
 ### calendar
 
-value · beta · [source](../../src/components/factories/calendar.ts)
+value · beta · [source](../../src/components/calendar/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15206,7 +15244,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-checkbox"></a>
 ### checkbox
 
-value · beta · [source](../../src/components/factories/boolean-controls.ts)
+value · beta · [source](../../src/components/boolean-controls/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15219,7 +15257,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-checkboxgroup"></a>
 ### checkboxGroup
 
-value · beta · [source](../../src/components/factories/choice-controls.ts)
+value · beta · [source](../../src/components/choice-controls/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15232,7 +15270,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-colorswatchpicker"></a>
 ### colorSwatchPicker
 
-value · beta · [source](../../src/components/factories/choice-controls.ts)
+value · beta · [source](../../src/components/choice-controls/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15245,7 +15283,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-combobox"></a>
 ### combobox
 
-value · beta · [source](../../src/components/factories/combobox.ts)
+value · beta · [source](../../src/components/combobox/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15258,7 +15296,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-createtextareadecorations"></a>
 ### createTextAreaDecorations
 
-function · beta · [source](../../src/components/text-area-decorations.ts)
+function · beta · [source](../../src/components/text-area/decorations.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15273,7 +15311,7 @@ Related types: [`CreateTextAreaDecorationsInput`](#components-forms-createtextar
 <a id="components-forms-createtextarearowoffsetmap"></a>
 ### createTextAreaRowOffsetMap
 
-function · beta · [source](../../src/components/factories/text-area.ts)
+function · beta · [source](../../src/components/text-area/row-offset-map.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15286,7 +15324,7 @@ Related types: [`TextAreaRowOffsetMapOptions`](#components-forms-textarearowoffs
 <a id="components-forms-field"></a>
 ### field
 
-value · beta · [source](../../src/components/factories/form-layout.ts)
+value · beta · [source](../../src/components/form-layout/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15299,7 +15337,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-form"></a>
 ### form
 
-value · beta · [source](../../src/components/factories/form-layout.ts)
+value · beta · [source](../../src/components/form-layout/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15325,7 +15363,7 @@ Related types: [`ValidationLevel`](#components-validationlevel)
 <a id="components-forms-label"></a>
 ### label
 
-value · beta · [source](../../src/components/factories/form-layout.ts)
+value · beta · [source](../../src/components/form-layout/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15338,7 +15376,7 @@ Related types: [`Element`](#component-element), [`LabelOptions`](#components-for
 <a id="components-forms-numberinput"></a>
 ### numberInput
 
-value · beta · [source](../../src/components/factories/text-entry-controls.ts)
+value · beta · [source](../../src/components/text-entry/number-input.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15351,7 +15389,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-passwordinput"></a>
 ### passwordInput
 
-function · beta · [source](../../src/components/factories/text-entry-controls.ts)
+function · beta · [source](../../src/components/text-entry/text-input.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15368,7 +15406,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-radiogroup"></a>
 ### radioGroup
 
-value · beta · [source](../../src/components/factories/choice-controls.ts)
+value · beta · [source](../../src/components/choice-controls/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15381,7 +15419,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-rangeslider"></a>
 ### rangeSlider
 
-value · beta · [source](../../src/components/factories/range-controls.ts)
+value · beta · [source](../../src/components/range-controls/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15394,7 +15432,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-slider"></a>
 ### slider
 
-value · beta · [source](../../src/components/factories/range-controls.ts)
+value · beta · [source](../../src/components/range-controls/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15407,7 +15445,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-switchcontrol"></a>
 ### switchControl
 
-value · beta · [source](../../src/components/factories/boolean-controls.ts)
+value · beta · [source](../../src/components/boolean-controls/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15420,7 +15458,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-textarea"></a>
 ### textArea
 
-value · beta · [source](../../src/components/factories/text-area.ts)
+value · beta · [source](../../src/components/text-area/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15433,7 +15471,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-textinput"></a>
 ### textInput
 
-function · beta · [source](../../src/components/factories/text-entry-controls.ts)
+function · beta · [source](../../src/components/text-entry/text-input.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15446,7 +15484,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-updatetextareadecorations"></a>
 ### updateTextAreaDecorations
 
-function · beta · [source](../../src/components/text-area-decorations.ts)
+function · beta · [source](../../src/components/text-area/decorations.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
@@ -15464,7 +15502,7 @@ Related types: [`TextAreaDecorations`](#components-forms-textareadecorations), [
 <a id="components-foundations-activedisclosureoptions"></a>
 ### ActiveDisclosureOptions
 
-interface · beta · [source](../../src/components/options/content-and-collections.ts)
+interface · beta · [source](../../src/components/text-content/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -15489,7 +15527,7 @@ readonly onTransition: (transition: DisclosureTransition) => MessageResolution<T
 <a id="components-foundations-canvasoptions"></a>
 ### CanvasOptions
 
-type · beta · [source](../../src/components/options/drawing.ts)
+type · beta · [source](../../src/components/drawing/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -15561,7 +15599,7 @@ readonly frameSource: (input?: FrameSourceInput) => FrameCellSource;
 <a id="components-foundations-decorativecanvasoptions"></a>
 ### DecorativeCanvasOptions
 
-interface · beta · [source](../../src/components/options/drawing.ts)
+interface · beta · [source](../../src/components/drawing/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -15586,7 +15624,7 @@ readonly label?: never;
 <a id="components-foundations-decorativeimageoptions"></a>
 ### DecorativeImageOptions
 
-interface · experimental · [source](../../src/components/options/drawing.ts)
+interface · experimental · [source](../../src/components/drawing/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -15611,7 +15649,7 @@ readonly label?: never;
 <a id="components-foundations-disableddisclosureoptions"></a>
 ### DisabledDisclosureOptions
 
-type · beta · [source](../../src/components/options/content-and-collections.ts)
+type · beta · [source](../../src/components/text-content/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -15626,7 +15664,7 @@ Related types: [`ActiveDisclosureOptions`](#components-foundations-activedisclos
 <a id="components-foundations-disclosuremessage"></a>
 ### DisclosureMessage
 
-type · beta · [source](../../src/components/options/content-and-collections.ts)
+type · beta · [source](../../src/components/text-content/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -15639,7 +15677,7 @@ Related types: [`ElementMessage`](#component-elementmessage)
 <a id="components-foundations-disclosureoptions"></a>
 ### DisclosureOptions
 
-type · beta · [source](../../src/components/options/content-and-collections.ts)
+type · beta · [source](../../src/components/text-content/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -15670,7 +15708,7 @@ readonly kind: 'toggle';
 <a id="components-foundations-dividerlinekind"></a>
 ### DividerLineKind
 
-type · beta · [source](../../src/components/divider.ts)
+type · beta · [source](../../src/components/divider/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -15681,7 +15719,7 @@ export type DividerLineKind = 'single' | 'double' | 'heavy' | 'dashed' | 'dotted
 <a id="components-foundations-divideroptions"></a>
 ### DividerOptions
 
-interface · beta · [source](../../src/components/options/foundations.ts)
+interface · beta · [source](../../src/components/divider/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -15741,7 +15779,7 @@ readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer']>;
 <a id="components-foundations-dividerorientation"></a>
 ### DividerOrientation
 
-type · beta · [source](../../src/components/divider.ts)
+type · beta · [source](../../src/components/divider/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -15752,7 +15790,7 @@ export type DividerOrientation = 'horizontal' | 'vertical';
 <a id="components-foundations-imageoptions"></a>
 ### ImageOptions
 
-type · experimental · [source](../../src/components/options/drawing.ts)
+type · experimental · [source](../../src/components/drawing/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -15804,7 +15842,7 @@ readonly trigger: {
 <a id="components-foundations-linkbaseoptions"></a>
 ### LinkBaseOptions
 
-interface · beta · [source](../../src/components/options/foundations.ts)
+interface · beta · [source](../../src/components/foundation-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -15857,7 +15895,7 @@ readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles']>;
 <a id="components-foundations-linkoptions"></a>
 ### LinkOptions
 
-type · beta · [source](../../src/components/options/foundations.ts)
+type · beta · [source](../../src/components/foundation-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -15874,7 +15912,7 @@ Related types: [`MessageResolution`](#component-messageresolution), [`LinkActiva
 <a id="components-foundations-richtextlinkactivateevent"></a>
 ### RichTextLinkActivateEvent
 
-interface · beta · [source](../../src/components/options/content-and-collections.ts)
+interface · beta · [source](../../src/components/text-content/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -15913,7 +15951,7 @@ readonly trigger: {
 <a id="components-foundations-richtextoptions"></a>
 ### RichTextOptions
 
-interface · beta · [source](../../src/components/options/content-and-collections.ts)
+interface · beta · [source](../../src/components/text-content/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -15966,7 +16004,7 @@ readonly onLinkActivate?: (event: RichTextLinkActivateEvent) => MessageResolutio
 <a id="components-foundations-semanticcanvasoptions"></a>
 ### SemanticCanvasOptions
 
-interface · beta · [source](../../src/components/options/drawing.ts)
+interface · beta · [source](../../src/components/drawing/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -15991,7 +16029,7 @@ readonly label: string;
 <a id="components-foundations-semanticimageoptions"></a>
 ### SemanticImageOptions
 
-interface · experimental · [source](../../src/components/options/drawing.ts)
+interface · experimental · [source](../../src/components/drawing/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -16016,7 +16054,7 @@ readonly label: string;
 <a id="components-foundations-textoptions"></a>
 ### TextOptions
 
-interface · beta · [source](../../src/components/options/content-and-collections.ts)
+interface · beta · [source](../../src/components/text-content/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -16069,7 +16107,7 @@ readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer']>;
 <a id="components-foundations-togglebuttonbaseoptions"></a>
 ### ToggleButtonBaseOptions
 
-interface · beta · [source](../../src/components/options/foundations.ts)
+interface · beta · [source](../../src/components/foundation-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -16136,7 +16174,7 @@ readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles']>;
 <a id="components-foundations-togglebuttonoptions"></a>
 ### ToggleButtonOptions
 
-type · beta · [source](../../src/components/options/foundations.ts)
+type · beta · [source](../../src/components/foundation-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -16178,7 +16216,7 @@ readonly pressed: boolean;
 <a id="components-foundations-toolbaroptions"></a>
 ### ToolbarOptions
 
-interface · beta · [source](../../src/components/options/foundations.ts)
+interface · beta · [source](../../src/components/foundation-controls/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/foundations` (type only)
 
@@ -16217,7 +16255,7 @@ readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer']>;
 <a id="components-foundations-canvas"></a>
 ### canvas
 
-function · beta · [source](../../src/components/factories/drawing.ts)
+function · beta · [source](../../src/components/drawing/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/foundations`
 
@@ -16230,7 +16268,7 @@ Related types: [`Element`](#component-element), [`CanvasOptions`](#components-fo
 <a id="components-foundations-disclosure"></a>
 ### disclosure
 
-value · beta · [source](../../src/components/factories/text-and-disclosure.ts)
+value · beta · [source](../../src/components/text-content/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/foundations`
 
@@ -16243,7 +16281,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-foundations-divider"></a>
 ### divider
 
-function · beta · [source](../../src/components/factories/divider-and-tooltip.ts)
+function · beta · [source](../../src/components/divider/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/foundations`
 
@@ -16256,7 +16294,7 @@ Related types: [`Element`](#component-element), [`DividerOptions`](#components-f
 <a id="components-foundations-image"></a>
 ### image
 
-function · experimental · [source](../../src/components/factories/drawing.ts)
+function · experimental · [source](../../src/components/drawing/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/foundations`
 
@@ -16269,7 +16307,7 @@ Related types: [`Element`](#component-element), [`ImageOptions`](#components-fou
 <a id="components-foundations-link"></a>
 ### link
 
-function · beta · [source](../../src/components/factories/foundations.ts)
+function · beta · [source](../../src/components/foundation-controls/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/foundations`
 
@@ -16282,7 +16320,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-foundations-richtext"></a>
 ### richText
 
-function · beta · [source](../../src/components/factories/text-and-disclosure.ts)
+function · beta · [source](../../src/components/text-content/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/foundations`
 
@@ -16307,7 +16345,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-foundations-text"></a>
 ### text
 
-value · beta · [source](../../src/components/factories/text-and-disclosure.ts)
+value · beta · [source](../../src/components/text-content/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/foundations`
 
@@ -16320,7 +16358,7 @@ Related types: [`Element`](#component-element), [`TextOptions`](#components-foun
 <a id="components-foundations-togglebutton"></a>
 ### toggleButton
 
-function · beta · [source](../../src/components/factories/foundations.ts)
+function · beta · [source](../../src/components/foundation-controls/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/foundations`
 
@@ -16337,7 +16375,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-foundations-toolbar"></a>
 ### toolbar
 
-function · beta · [source](../../src/components/factories/foundations.ts)
+function · beta · [source](../../src/components/foundation-controls/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/foundations`
 
@@ -16370,7 +16408,7 @@ Related types: [`AnchoredSurfaceSide`](#interaction-anchoredsurfaceside)
 <a id="components-overlays-contextmenuoptions"></a>
 ### ContextMenuOptions
 
-type · beta · [source](../../src/components/options/overlays.ts)
+type · beta · [source](../../src/components/menus/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/overlays` (type only)
 
@@ -16510,7 +16548,7 @@ readonly returnFocus: 'restore' | 'none';
 <a id="components-overlays-dialogoptions"></a>
 ### DialogOptions
 
-type · beta · [source](../../src/components/options/dialog.ts)
+type · beta · [source](../../src/components/dialog/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/overlays` (type only)
 
@@ -16575,7 +16613,7 @@ readonly id: string;
 <a id="components-overlays-menubaroptions"></a>
 ### MenuBarOptions
 
-type · beta · [source](../../src/components/options/overlays.ts)
+type · beta · [source](../../src/components/menus/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/overlays` (type only)
 
@@ -16687,7 +16725,7 @@ Related types: [`MenuActionItem`](#components-overlays-menuactionitem), [`MenuCh
 <a id="components-overlays-menuoptions"></a>
 ### MenuOptions
 
-type · beta · [source](../../src/components/options/overlays.ts)
+type · beta · [source](../../src/components/menus/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/overlays` (type only)
 
@@ -16856,7 +16894,7 @@ Related types: [`ScrollRequest`](#behavior-scrollrequest)
 <a id="components-overlays-menutriggeroptions"></a>
 ### MenuTriggerOptions
 
-type · beta · [source](../../src/components/options/overlays.ts)
+type · beta · [source](../../src/components/menus/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/overlays` (type only)
 
@@ -16972,7 +17010,7 @@ Related types: [`MenuActionItem`](#components-overlays-menuactionitem), [`MenuCh
 <a id="components-overlays-tooltipoptions"></a>
 ### TooltipOptions
 
-interface · beta · [source](../../src/components/options/overlays.ts)
+interface · beta · [source](../../src/components/tooltip/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/overlays` (type only)
 
@@ -17067,7 +17105,7 @@ readonly onTransition: (transition: TooltipTransition) => MessageResolution<TMes
 <a id="components-overlays-tooltiptone"></a>
 ### TooltipTone
 
-type · beta · [source](../../src/components/tooltip.ts)
+type · beta · [source](../../src/components/tooltip/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/overlays` (type only)
 
@@ -17080,7 +17118,7 @@ Related types: [`success`](#root-success)
 <a id="components-overlays-tooltiptransition"></a>
 ### TooltipTransition
 
-interface · beta · [source](../../src/components/tooltip.ts)
+interface · beta · [source](../../src/components/tooltip/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/overlays` (type only)
 
@@ -17112,7 +17150,7 @@ readonly reason: 'pointer' | 'focus' | 'escape' | 'programmatic';
 <a id="components-overlays-contextmenu"></a>
 ### contextMenu
 
-value · beta · [source](../../src/components/factories/menus.ts)
+value · beta · [source](../../src/components/menus/context-menu.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/overlays`
 
@@ -17125,7 +17163,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-overlays-dialog"></a>
 ### dialog
 
-function · beta · [source](../../src/components/factories/dialog.ts)
+function · beta · [source](../../src/components/dialog/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/overlays`
 
@@ -17144,7 +17182,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-overlays-menu"></a>
 ### menu
 
-value · beta · [source](../../src/components/factories/menus.ts)
+value · beta · [source](../../src/components/menus/menu.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/overlays`
 
@@ -17157,7 +17195,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-overlays-menubar"></a>
 ### menuBar
 
-value · beta · [source](../../src/components/factories/menus.ts)
+value · beta · [source](../../src/components/menus/menu-bar.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/overlays`
 
@@ -17170,7 +17208,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-overlays-menutrigger"></a>
 ### menuTrigger
 
-value · beta · [source](../../src/components/factories/menus.ts)
+value · beta · [source](../../src/components/menus/menu-trigger.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/overlays`
 
@@ -17183,7 +17221,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-overlays-tooltip"></a>
 ### tooltip
 
-function · beta · [source](../../src/components/factories/divider-and-tooltip.ts)
+function · beta · [source](../../src/components/tooltip/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/overlays`
 
@@ -17214,7 +17252,7 @@ export type CommandInputDisplay = 'compact' | 'expanded' | 'popup';
 <a id="components-patterns-commandinputoptions"></a>
 ### CommandInputOptions
 
-type · beta · [source](../../src/components/options/patterns.ts)
+type · beta · [source](../../src/components/command-input/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/patterns` (type only)
 
@@ -17429,7 +17467,7 @@ readonly disabled?: boolean;
 <a id="components-patterns-helpbaroptions"></a>
 ### HelpBarOptions
 
-interface · beta · [source](../../src/components/options/feedback-and-visualizations.ts)
+interface · beta · [source](../../src/components/feedback/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/patterns` (type only)
 
@@ -17646,7 +17684,7 @@ Related types: [`LogViewerTransition`](#components-patterns-logviewertransition)
 <a id="components-patterns-logvieweroptions"></a>
 ### LogViewerOptions
 
-type · beta · [source](../../src/components/options/patterns.ts)
+type · beta · [source](../../src/components/log-viewer/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/patterns` (type only)
 
@@ -17722,7 +17760,7 @@ Related types: [`ScrollRequest`](#behavior-scrollrequest), [`CollectionQuery`](#
 <a id="components-patterns-scrollablelogvieweroptions"></a>
 ### ScrollableLogViewerOptions
 
-interface · beta · [source](../../src/components/options/patterns.ts)
+interface · beta · [source](../../src/components/log-viewer/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/patterns` (type only)
 
@@ -17768,7 +17806,7 @@ readonly onContextMenu?: (event: LogViewerContextMenuEvent) => MessageResolution
 <a id="components-patterns-scrollablesearchpickeroptions"></a>
 ### ScrollableSearchPickerOptions
 
-type · beta · [source](../../src/components/options/patterns.ts)
+type · beta · [source](../../src/components/search-picker/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/patterns` (type only)
 
@@ -17843,7 +17881,7 @@ Related types: [`SearchPickerTransition`](#components-patterns-searchpickertrans
 <a id="components-patterns-searchpickeroptions"></a>
 ### SearchPickerOptions
 
-type · beta · [source](../../src/components/options/patterns.ts)
+type · beta · [source](../../src/components/search-picker/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/patterns` (type only)
 
@@ -17908,7 +17946,7 @@ Related types: [`ScrollableSearchPickerView`](#components-patterns-scrollablesea
 <a id="components-patterns-unscrolledlogvieweroptions"></a>
 ### UnscrolledLogViewerOptions
 
-type · beta · [source](../../src/components/options/patterns.ts)
+type · beta · [source](../../src/components/log-viewer/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/patterns` (type only)
 
@@ -17931,7 +17969,7 @@ Related types: [`MessageResolution`](#component-messageresolution), [`LogViewerC
 <a id="components-patterns-unscrolledsearchpickeroptions"></a>
 ### UnscrolledSearchPickerOptions
 
-type · beta · [source](../../src/components/options/patterns.ts)
+type · beta · [source](../../src/components/search-picker/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/patterns` (type only)
 
@@ -17966,7 +18004,7 @@ readonly scroll?: never;
 <a id="components-patterns-commandinput"></a>
 ### commandInput
 
-value · beta · [source](../../src/components/factories/command-input.ts)
+value · beta · [source](../../src/components/command-input/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/patterns`
 
@@ -17999,7 +18037,7 @@ Related types: [`CollectionWindow`](#behavior-collectionwindow), [`CommandComple
 <a id="components-patterns-helpbar"></a>
 ### helpBar
 
-value · beta · [source](../../src/components/factories/feedback-indicators.ts)
+value · beta · [source](../../src/components/feedback/help-bar.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/patterns`
 
@@ -18012,7 +18050,7 @@ Related types: [`Element`](#component-element), [`HelpBarStylePart`](#components
 <a id="components-patterns-logviewer"></a>
 ### logViewer
 
-function · beta · [source](../../src/components/factories/log-viewer.ts)
+function · beta · [source](../../src/components/log-viewer/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/patterns`
 
@@ -18037,7 +18075,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-patterns-searchpicker"></a>
 ### searchPicker
 
-value · beta · [source](../../src/components/factories/search-picker.ts)
+value · beta · [source](../../src/components/search-picker/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/patterns`
 
@@ -18084,7 +18122,7 @@ readonly value: number;
 <a id="components-visualizations-barchartoptions"></a>
 ### BarChartOptions
 
-type · beta · [source](../../src/components/options/feedback-and-visualizations.ts)
+type · beta · [source](../../src/components/charts/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/visualizations` (type only)
 
@@ -18132,7 +18170,7 @@ export type ChartInterpolation = 'nearest' | 'linear';
 <a id="components-visualizations-chartoptions"></a>
 ### ChartOptions
 
-type · beta · [source](../../src/components/options/feedback-and-visualizations.ts)
+type · beta · [source](../../src/components/charts/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/visualizations` (type only)
 
@@ -18356,7 +18394,7 @@ readonly disabled?: boolean;
 <a id="components-visualizations-heatmapoptions"></a>
 ### HeatmapOptions
 
-type · beta · [source](../../src/components/options/feedback-and-visualizations.ts)
+type · beta · [source](../../src/components/charts/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/visualizations` (type only)
 
@@ -18389,7 +18427,7 @@ Related types: [`CollectionInteractionTransition`](#component-collectioninteract
 <a id="components-visualizations-meteroptions"></a>
 ### MeterOptions
 
-interface · beta · [source](../../src/components/options/feedback-and-visualizations.ts)
+interface · beta · [source](../../src/components/compact-visualizations/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/visualizations` (type only)
 
@@ -18494,7 +18532,7 @@ export type MeterVariant = 'linear' | 'dial';
 <a id="components-visualizations-sparklineoptions"></a>
 ### SparklineOptions
 
-interface · beta · [source](../../src/components/options/feedback-and-visualizations.ts)
+interface · beta · [source](../../src/components/compact-visualizations/options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/visualizations` (type only)
 
@@ -18672,7 +18710,7 @@ Related types: [`CollectionInteractionState`](#component-collectioninteractionst
 <a id="components-visualizations-barchart"></a>
 ### barChart
 
-function · beta · [source](../../src/components/factories/charts.ts)
+function · beta · [source](../../src/components/charts/bar-chart.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/visualizations`
 
@@ -18685,7 +18723,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-visualizations-chart"></a>
 ### chart
 
-function · beta · [source](../../src/components/factories/charts.ts)
+function · beta · [source](../../src/components/charts/chart.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/visualizations`
 
@@ -18698,7 +18736,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-visualizations-heatmap"></a>
 ### heatmap
 
-function · beta · [source](../../src/components/factories/charts.ts)
+function · beta · [source](../../src/components/charts/heatmap.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/visualizations`
 
@@ -18716,7 +18754,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-visualizations-meter"></a>
 ### meter
 
-value · beta · [source](../../src/components/factories/compact-visualizations.ts)
+value · beta · [source](../../src/components/compact-visualizations/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/visualizations`
 
@@ -18729,7 +18767,7 @@ Related types: [`Element`](#component-element), [`MeterStylePart`](#components-m
 <a id="components-visualizations-sparkline"></a>
 ### sparkline
 
-value · beta · [source](../../src/components/factories/compact-visualizations.ts)
+value · beta · [source](../../src/components/compact-visualizations/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/visualizations`
 
@@ -19093,7 +19131,7 @@ export type ImageFit = 'contain' | 'cover' | 'fill';
 <a id="graphics-rasterimage"></a>
 ### RasterImage
 
-interface · experimental · [source](../../src/graphics/raster-image.ts)
+interface · experimental · [source](../../src/graphics/raster-types.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/graphics` (type only)
 
@@ -19111,7 +19149,7 @@ readonly [rasterImageBrand]: true;
 <a id="graphics-rasterimagedescriptor"></a>
 ### RasterImageDescriptor
 
-interface · experimental · [source](../../src/graphics/raster-image.ts)
+interface · experimental · [source](../../src/graphics/raster-types.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/graphics` (type only)
 
@@ -19157,7 +19195,7 @@ readonly contentDigest: string;
 <a id="graphics-rasterimageinput"></a>
 ### RasterImageInput
 
-interface · experimental · [source](../../src/graphics/raster-image.ts)
+interface · experimental · [source](../../src/graphics/raster-types.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/graphics` (type only)
 
@@ -19196,7 +19234,7 @@ readonly data: Uint8Array;
 <a id="graphics-rasterpixelformat"></a>
 ### RasterPixelFormat
 
-type · experimental · [source](../../src/graphics/raster-image.ts)
+type · experimental · [source](../../src/graphics/raster-types.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/graphics` (type only)
 
@@ -30843,7 +30881,7 @@ readonly dirtyRegions?: readonly Rect[];
 <a id="renderer-renderelementoptions"></a>
 ### RenderElementOptions
 
-interface · beta · [source](../../src/renderer/render-element.ts)
+interface · beta · [source](../../src/renderer/render-options.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/renderer` (type only)
 
@@ -30971,6 +31009,33 @@ export type RenderOperation = {
 ```
 
 Related types: [`RenderSpan`](#component-renderspan), [`TerminalStyle`](#component-terminalstyle), [`column`](#layout-column), [`row`](#layout-row), [`Rect`](#renderer-rect)
+
+<a id="renderer-renderpreparationcontext"></a>
+### RenderPreparationContext
+
+interface · beta · [source](../../src/renderer/contracts.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/renderer` (type only)
+
+Runtime scheduling for optional work before synchronous frame materialization.
+
+```ts
+export interface RenderPreparationContext { … }
+```
+
+<a id="renderer-renderpreparationcontext-signal"></a>
+#### signal
+
+```ts
+readonly signal: AbortSignal;
+```
+
+<a id="renderer-renderpreparationcontext-yield"></a>
+#### yield
+
+```ts
+readonly yield: () => Promise<void>;
+```
 
 <a id="renderer-renderserializeoptions"></a>
 ### RenderSerializeOptions
@@ -37518,7 +37583,7 @@ Related types: [`TerminalDiagnostic`](#root-terminaldiagnostic), [`diagnostic`](
 <a id="tui-cursorvisibilitypolicy"></a>
 ### CursorVisibilityPolicy
 
-type · beta · [source](../../src/tui/session-policy.ts)
+type · beta · [source](../../src/tui/lifecycle/session-policy.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/tui` (type only)
 
@@ -37529,7 +37594,7 @@ export type CursorVisibilityPolicy = 'hide' | 'show' | 'unchanged';
 <a id="tui-protocolrequirement"></a>
 ### ProtocolRequirement
 
-type · beta · [source](../../src/tui/session-policy.ts)
+type · beta · [source](../../src/tui/lifecycle/session-policy.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/tui` (type only)
 
@@ -37572,7 +37637,7 @@ readonly label?: string;
 <a id="tui-sessionprotocoloperation"></a>
 ### SessionProtocolOperation
 
-type · beta · [source](../../src/tui/session-policy.ts)
+type · beta · [source](../../src/tui/lifecycle/session-policy.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/tui` (type only)
 
@@ -37597,7 +37662,7 @@ Related types: [`MouseReportingMode`](#host-mousereportingmode), [`TerminalKeybo
 <a id="tui-sessionprotocoloperationkind"></a>
 ### SessionProtocolOperationKind
 
-type · beta · [source](../../src/tui/session-policy.ts)
+type · beta · [source](../../src/tui/lifecycle/session-policy.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/tui` (type only)
 
@@ -37610,7 +37675,7 @@ Related types: [`SessionProtocolOperation`](#tui-sessionprotocoloperation)
 <a id="tui-sessionprotocolpolicy"></a>
 ### SessionProtocolPolicy
 
-interface · beta · [source](../../src/tui/session-policy.ts)
+interface · beta · [source](../../src/tui/lifecycle/session-policy.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/tui` (type only)
 
@@ -37693,7 +37758,7 @@ readonly mouseReporting: {
 <a id="tui-sessionprotocolsetupresult"></a>
 ### SessionProtocolSetupResult
 
-interface · beta · [source](../../src/tui/session-policy.ts)
+interface · beta · [source](../../src/tui/lifecycle/session-policy.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/tui` (type only)
 
@@ -39348,7 +39413,7 @@ Related types: [`AnimationFrame`](#tui-animationframe), [`TuiEventSource`](#tui-
 <a id="tui-applysessionprotocolpolicy"></a>
 ### applySessionProtocolPolicy
 
-function · beta · [source](../../src/tui/session-policy.ts)
+function · beta · [source](../../src/tui/lifecycle/session-policy.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/tui`
 
@@ -39378,7 +39443,7 @@ Related types: [`AnimationTimeline`](#tui-animationtimeline)
 <a id="tui-createsessionprotocolplan"></a>
 ### createSessionProtocolPlan
 
-function · beta · [source](../../src/tui/session-policy.ts)
+function · beta · [source](../../src/tui/lifecycle/session-policy.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/tui`
 
@@ -39404,7 +39469,7 @@ Related types: [`TuiRuntime`](#tui-tuiruntime), [`TuiRuntimeOptions`](#tui-tuiru
 <a id="tui-defaultsessionprotocolpolicy"></a>
 ### defaultSessionProtocolPolicy
 
-value · beta · [source](../../src/tui/session-policy.ts)
+value · beta · [source](../../src/tui/lifecycle/session-policy.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/tui`
 
@@ -39417,7 +39482,7 @@ Related types: [`SessionProtocolPolicy`](#tui-sessionprotocolpolicy)
 <a id="tui-defaulttuieffectpolicy"></a>
 ### defaultTuiEffectPolicy
 
-value · beta · [source](../../src/tui/effects.ts)
+value · beta · [source](../../src/tui/lifecycle/effects.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/tui`
 
@@ -39430,7 +39495,7 @@ Related types: [`TuiEffectPolicy`](#tui-tuieffectpolicy)
 <a id="tui-defaulttuilifecyclepolicy"></a>
 ### defaultTuiLifecyclePolicy
 
-value · beta · [source](../../src/tui/run-configuration.ts)
+value · beta · [source](../../src/tui/lifecycle/run-configuration.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/tui`
 
@@ -39443,7 +39508,7 @@ Related types: [`TuiLifecyclePolicy`](#tui-tuilifecyclepolicy)
 <a id="tui-defaulttuisourcechannelcapacity"></a>
 ### defaultTuiSourceChannelCapacity
 
-value · beta · [source](../../src/tui/source-channel.ts)
+value · beta · [source](../../src/tui/lifecycle/source-channel.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/tui`
 
@@ -39504,7 +39569,7 @@ Related types: [`AnimationTimeline`](#tui-animationtimeline)
 <a id="tui-reliablesourcemessage"></a>
 ### reliableSourceMessage
 
-function · beta · [source](../../src/tui/source-channel.ts)
+function · beta · [source](../../src/tui/lifecycle/source-channel.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/tui`
 
@@ -39517,7 +39582,7 @@ Related types: [`TuiSourceEmission`](#tui-tuisourceemission)
 <a id="tui-replaceablesourcemessage"></a>
 ### replaceableSourceMessage
 
-function · beta · [source](../../src/tui/source-channel.ts)
+function · beta · [source](../../src/tui/lifecycle/source-channel.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/tui`
 

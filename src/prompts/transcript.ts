@@ -1,8 +1,8 @@
-import { createTranscriptRecorder } from '../transcript/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { InputEvent } from '../input/index.ts';
 import { inputEventContainsSensitiveText, redactSensitiveInputEvent } from '../input/sensitive.ts';
-import type { InteractionTranscript, TranscriptRecorder } from '../transcript/index.ts';
+import type { InputEvent } from '../input/types.ts';
+import { createTranscriptRecorder } from '../transcript/recorder.ts';
+import type { InteractionTranscript, TranscriptRecorder } from '../transcript/types.ts';
 import type { PromptDefinition, PromptResult } from './types.ts';
 
 export function transcriptEvent<TChoice>(prompt: PromptDefinition<TChoice>, event: InputEvent): InputEvent {

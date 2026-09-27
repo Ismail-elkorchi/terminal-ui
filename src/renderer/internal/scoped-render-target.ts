@@ -1,16 +1,13 @@
-import { terminalCellGraphemes } from '../../text/measure.ts';
+import { intersectRects } from '../../geometry/rect.ts';
 import type { Rect } from '../../geometry/types.ts';
-import type { RenderBlock, RenderLine, RenderSpan } from '../../visual/render-content.ts';
-import {
-  deriveFrameCellSource,
-  frameCellSource
-} from '../../visual/frame-source.ts';
+import { terminalCellGraphemes } from '../../text/measure.ts';
 import type { FrameCellSource } from '../../visual/frame-source.ts';
-import { decodeTerminalStyle } from '../../visual/terminal-style.ts';
+import { deriveFrameCellSource, frameCellSource } from '../../visual/frame-source.ts';
+import type { RenderBlock, RenderLine, RenderSpan } from '../../visual/render-content.ts';
 import { decodeTerminalLink } from '../../visual/render-content.ts';
+import { decodeTerminalStyle } from '../../visual/terminal-style.ts';
 import type { ComponentRenderTarget, RenderTarget, RenderTargetCell } from '../contracts.ts';
-import { intersectRects } from './rect.ts';
-import { transferFrameBufferSpans, recordTargetSegmentation } from '../frame-buffer.ts';
+import { recordTargetSegmentation, transferFrameBufferSpans } from '../frame-buffer.ts';
 
 /** Creates the bounded, write-only target exposed to component definitions. */
 export function createLocalComponentRenderTarget(

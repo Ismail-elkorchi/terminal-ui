@@ -1,6 +1,6 @@
-import { clipRenderSpans } from '../../visual/render-content.ts';
+import type { TextWidthProfile } from '../../text/types.ts';
 import type { RenderSpan } from '../../visual/render-content.ts';
-import type { TextWidthProfile } from '../../text/index.ts';
+import { clipRenderSpans } from '../../visual/render-content.ts';
 
 export interface TooltipLine {
   readonly spans: readonly RenderSpan[];

@@ -283,7 +283,7 @@ function symbolStability(symbol) {
   const graphicsPreview = declarations.some((declaration) => {
     const source = sourcePath(declaration);
     return source.startsWith('src/graphics/')
-      || (source === 'src/components/factories/drawing.ts' && symbol.name === 'image');
+      || (source === 'src/components/drawing/definition.ts' && symbol.name === 'image');
   });
   if (graphicsPreview) return 'experimental';
   const tags = declarations.flatMap((declaration) =>

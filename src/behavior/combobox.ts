@@ -1,12 +1,14 @@
 import type { AnchoredSurfaceDismissReason } from '../interaction/anchored-surface.ts';
-import type { CollectionInteractionState } from '../interaction/collection-interaction.ts';
+import type {
+  CollectionInteractionState,
+  SelectionState,
+} from '../interaction/collection-interaction.ts';
 import type {
   EditablePopupInputState,
   EditablePopupInputTransition,
 } from '../interaction/editable-popup-input.ts';
 import type { PopupState } from '../interaction/popup.ts';
 import type { ScrollRequest, ScrollState } from '../interaction/scroll.ts';
-import type { SelectionState } from '../interaction/collection-interaction.ts';
 
 export type ComboboxSelection = Extract<SelectionState, { readonly mode: 'single' }>;
 

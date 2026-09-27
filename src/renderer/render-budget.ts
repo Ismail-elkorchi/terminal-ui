@@ -1,6 +1,6 @@
 import { findUnsupportedField, isNonArrayObject } from '../foundation/validation.ts';
-import { createGraphicsBudget } from '../graphics/index.ts';
-import type { GraphicsBudget } from '../graphics/index.ts';
+import type { GraphicsBudget } from '../graphics/budget.ts';
+import { createGraphicsBudget } from '../graphics/budget.ts';
 
 export interface RenderBudgetLimits {
   readonly nodes: number;

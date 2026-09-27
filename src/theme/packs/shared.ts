@@ -1,6 +1,6 @@
+import type { CoreColorToken, ThemeColor } from '../../visual/color.ts';
 import { ensureContrast } from '../contrast.ts';
 import type { TerminalThemeDefinition } from '../theme.ts';
-import type { CoreColorToken, ThemeColor } from '../tokens.ts';
 
 type ThemePackSeedToken =
   | 'app.background'

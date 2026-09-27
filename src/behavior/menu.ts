@@ -1,12 +1,11 @@
+import { assertUniqueRecursiveIds } from '../collection/identity.ts';
+import type { LabeledItem } from '../collection/item.ts';
 import type {
   AnchoredSurfaceAnchor,
-  AnchoredSurfaceDismissReason
+  AnchoredSurfaceDismissReason,
 } from '../interaction/anchored-surface.ts';
-import type { ScrollRequest } from '../interaction/scroll.ts';
-import type { ScrollState } from '../interaction/scroll.ts';
-import type { LabeledItem } from '../collection/item.ts';
+import type { ScrollRequest, ScrollState } from '../interaction/scroll.ts';
 import type { InlineContent } from '../visual/inline-content.ts';
-import { assertUniqueRecursiveIds } from '../collection/identity.ts';
 
 interface MenuItemBase extends LabeledItem {
   readonly leading?: InlineContent;

@@ -1,13 +1,13 @@
-import type { Element } from '../element/index.ts';
+import type { Element } from '../element/types.ts';
 import type { Rect, TerminalSize } from '../geometry/types.ts';
-import type { TextWidthProfile } from '../text/index.ts';
-import { defaultTextWidthProfile } from '../text/index.ts';
-import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
+import type { TextWidthProfile } from '../text/types.ts';
+import { defaultTextWidthProfile } from '../text/width-profile.ts';
+import type { TerminalTheme, TerminalThemeDefinition } from '../theme/theme.ts';
 import type { LayoutNode } from './contracts.ts';
-import { toRenderNode } from './internal/render-tree/element.ts';
 import { layoutRenderTree } from './internal/render-tree-layout.ts';
-import { createRenderBudget } from './render-budget.ts';
+import { toRenderNode } from './internal/render-tree/element.ts';
 import type { RenderBudgetLimits } from './render-budget.ts';
+import { createRenderBudget } from './render-budget.ts';
 
 export type { Rect } from '../geometry/types.ts';
 

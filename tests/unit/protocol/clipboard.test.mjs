@@ -1,0 +1,107 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { createMemoryTerminalHost } from '../../../dist/host/index.js';
+import { createClipboardWriteSequence, writeClipboardText } from '../../../dist/protocol/index.js';
+import { extractTextSelection } from '../../../dist/text/index.js';
+
+test('extractTextSelection is pure and sanitizes terminal controls by default', () => {
+  const selected = extractTextSelection({
+    text: 'alpha \u001B[31mbravo\u001B[0m charlie',
+    selection: { startOffset: 6, endOffsetExclusive: 17 }
+  });
+
+  assert.equal(selected, 'bravo');
+});
+
+test('clipboard OSC 52 sequence is gated by explicit policy', () => {
+  const denied = createClipboardWriteSequence('copy me', { allowed: false });
+  const allowed = createClipboardWriteSequence('copy me', { allowed: true });
+  const oversized = createClipboardWriteSequence('copy me', { allowed: true, maxBytes: 2 });
+
+  assert.equal(denied.status, 'rejected');
+  assert.equal(denied.diagnostic.code, 'HOST_CAPABILITY_UNAVAILABLE');
+  assert.equal(allowed.status, 'encoded');
+  assert.equal(allowed.sequence, '\u001B]52;c;Y29weSBtZQ==\u0007');
+  assert.equal(oversized.status, 'rejected');
+  assert.equal(oversized.diagnostic.data?.maxBytes, 2);
+});
+
+test('clipboard OSC 52 Base64 output covers complete UTF-8 byte groups and padding', () => {
+  const cases = [
+    ['', ''],
+    ['f', 'Zg=='],
+    ['fo', 'Zm8='],
+    ['foo', 'Zm9v'],
+    ['界🙂', '55WM8J+Zgg==']
+  ];
+
+  for (const [value, encoded] of cases) {
+    const result = createClipboardWriteSequence(value, { allowed: true });
+    assert.equal(result.status, 'encoded');
+    assert.equal(result.sequence, `\u001B]52;c;${encoded}\u0007`);
+  }
+});
+
+test('clipboard limits apply to exact UTF-8 bytes before Base64 encoding', () => {
+  const exact = createClipboardWriteSequence('界🙂', { allowed: true, maxBytes: 7 });
+  const oversized = createClipboardWriteSequence('界🙂', { allowed: true, maxBytes: 6 });
+  const control = createClipboardWriteSequence('\u001B[31mf', { allowed: true, maxBytes: 1 });
+
+  assert.equal(exact.status, 'encoded');
+  assert.equal(exact.byteLength, 7);
+  assert.equal(oversized.status, 'rejected');
+  assert.equal(oversized.diagnostic.data?.byteLength, 7);
+  assert.equal(control.status, 'rejected');
+  assert.equal(control.diagnostic.data.byteLength, 6);
+});
+
+test('clipboard transports exact source and rejects unpaired surrogates', () => {
+  const source = 'a\t文\r\nb e\u0301 🙂\u001b[31m\u0000\u0007';
+  const result = createClipboardWriteSequence(source, { allowed: true });
+  assert.equal(result.status, 'encoded');
+  assert.equal(Buffer.from(result.sequence.slice(7, -1), 'base64').toString('utf8'), source);
+  assert.equal(result.byteLength, Buffer.byteLength(source));
+  assert.equal(createClipboardWriteSequence('\ud800', { allowed: true }).status, 'rejected');
+});
+
+test('clipboard limits must be finite non-negative safe integers', () => {
+  for (const maxBytes of [
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+    -1,
+    1.5,
+    Number.MAX_SAFE_INTEGER + 1
+  ]) {
+    assert.throws(
+      () => createClipboardWriteSequence('copy', { allowed: true, maxBytes }),
+      /maxBytes must be a finite non-negative safe integer/u
+    );
+  }
+  assert.equal(
+    createClipboardWriteSequence('', { allowed: true, maxBytes: Number.MAX_SAFE_INTEGER }).status,
+    'encoded'
+  );
+});
+
+test('writeClipboardText writes through an explicit protocol sink', async () => {
+  const host = createMemoryTerminalHost();
+  const copied = await writeClipboardText(protocolSink(host), 'copy me', { allowed: true });
+
+  assert.equal(copied.status, 'written');
+  assert.equal(copied.assurance, 'sent');
+  assert.match(host.output(), /^\u001B\]52;c;Y29weSBtZQ==\u0007$/u);
+});
+
+test('writeClipboardText preserves explicit caller policy at the protocol boundary', async () => {
+  const host = createMemoryTerminalHost();
+  const copied = await writeClipboardText(protocolSink(host), 'copy me', { allowed: false });
+
+  assert.equal(copied.status, 'rejected');
+  assert.equal(host.output(), '');
+});
+
+function protocolSink(host) {
+  return { write: (sequence) => host.write({ text: sequence }) };
+}

@@ -1,32 +1,35 @@
-import { layoutElementFromRenderNode, toRenderNode } from '../../renderer/internal/render-tree/element.ts';
-import type { RenderNode } from '../../renderer/internal/render-tree/index.ts';
+import type { StructuralElementOptions } from '../../element/metadata.ts';
+import { decodeElementStyles } from '../../element/styles.ts';
 import type {
   Element,
   ElementChildren,
   ElementChildrenMessage,
   ElementMessage,
-  StructuralElementOptions
-} from '../../element/index.ts';
-import { decodeElementStyles } from '../../element/styles.ts';
+} from '../../element/types.ts';
+import {
+  assertFiniteNumber,
+  assertOptionalEnum,
+  assertOptionalFiniteNumber,
+} from '../../foundation/validation.ts';
+import { assertAnchoredSurfaceOptions } from '../../interaction/anchored-surface.ts';
+import {
+  layoutElementFromRenderNode,
+  optionalRenderNodeId,
+  renderNodeChildren,
+  toRenderNode,
+} from '../../renderer/internal/render-tree/element.ts';
+import {
+  renderNodeMeta as componentMetaProps,
+} from '../../renderer/internal/render-tree/metadata.ts';
+import type { RenderNode } from '../../renderer/internal/render-tree/types.ts';
+import { normalizeBorderTitle } from '../../visual/border.ts';
 import type {
   AbsoluteOptions,
   AnchoredOptions,
   PortalOptions,
-  SurfaceOptions
+  SurfaceOptions,
 } from '../options.ts';
-import { renderNodeMeta as componentMetaProps } from '../../renderer/internal/render-tree/metadata.ts';
-import {
-  optionalRenderNodeId,
-  renderNodeChildren
-} from '../../renderer/internal/render-tree/element.ts';
 import { assertSurfaceChild, surfaceLayoutProps } from './surface-options.ts';
-import { normalizeBorderTitle } from '../../visual/border.ts';
-import {
-  assertFiniteNumber,
-  assertOptionalEnum,
-  assertOptionalFiniteNumber
-} from '../../foundation/validation.ts';
-import { assertAnchoredSurfaceOptions } from '../../interaction/anchored-surface.ts';
 
 export function surface<const TChild extends Element<unknown>>(
   child: TChild,

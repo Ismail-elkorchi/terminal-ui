@@ -1,6 +1,11 @@
-import { createTextSearchIndex, compileTextSearchQuery, textMatchStarts, textSearchOffset } from './search-index.ts';
-import type { TextSearchIndex, CompiledTextSearchQuery } from './search-index.ts';
 import { sanitizeTerminalText } from './sanitize.ts';
+import type { CompiledTextSearchQuery, TextSearchIndex } from './search-index.ts';
+import {
+  compileTextSearchQuery,
+  createTextSearchIndex,
+  textMatchStarts,
+  textSearchOffset,
+} from './search-index.ts';
 
 export type QueryMatchMode = 'contains' | 'prefix' | 'exact' | 'fuzzy';
 

@@ -1,5 +1,7 @@
 import { diagnostic } from '../diagnostics.ts';
-import { replayTranscript } from '../transcript/index.ts';
+import type { FrameDescriptor } from '../renderer/contracts.ts';
+import { replayTranscript } from '../transcript/replay.ts';
+import type { InteractionResult } from '../transcript/types.ts';
 import {
   assertFocus,
   assertHitTarget,
@@ -8,10 +10,9 @@ import {
   assertSelected,
   assertSnapshot,
   assertTerminalRestored,
-  assertVisibleText
+  assertVisibleText,
 } from './assertions.ts';
-import type { FrameDescriptor } from '../renderer/index.ts';
-import type { InteractionResult, InteractionScript, TerminalHarness } from './types.ts';
+import type { InteractionScript, TerminalHarness } from './types.ts';
 
 export { replayTranscript };
 

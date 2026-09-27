@@ -1,17 +1,34 @@
 /** Renderer-native primitives and foundational semantic controls. */
-export { canvas, image } from './factories/drawing.ts';
-export { disclosure, richText, text } from './factories/text-and-disclosure.ts';
-export { divider } from './factories/divider-and-tooltip.ts';
-export { link, toggleButton, toolbar } from './factories/foundations.ts';
-export type * from './options/drawing.ts';
+export type { CanvasPainter, CanvasPainterInput } from '../renderer/contracts.ts';
+export type { DisclosureTransition } from './disclosure.ts';
+export type { DividerLineKind, DividerOrientation } from './divider/contracts.ts';
+export { divider } from './divider/definition.ts';
+export type { DividerOptions } from './divider/options.ts';
+export { canvas, image } from './drawing/definition.ts';
+export type {
+  CanvasOptions,
+  DecorativeCanvasOptions,
+  DecorativeImageOptions,
+  ImageOptions,
+  SemanticCanvasOptions,
+  SemanticImageOptions,
+} from './drawing/options.ts';
+export type { LinkActivateEvent, ToggleButtonTransition } from './foundation-controls.ts';
+export { link, toggleButton, toolbar } from './foundation-controls/definition.ts';
+export type {
+  LinkBaseOptions,
+  LinkOptions,
+  ToggleButtonBaseOptions,
+  ToggleButtonOptions,
+  ToolbarOptions,
+} from './foundation-controls/options.ts';
+export { disclosure, richText, text } from './text-content/definition.ts';
 export type {
   ActiveDisclosureOptions,
   DisabledDisclosureOptions,
   DisclosureMessage,
   DisclosureOptions,
-  RichTextOptions,
   RichTextLinkActivateEvent,
+  RichTextOptions,
   TextOptions,
-} from './options/content-and-collections.ts';
-export type * from './options/foundations.ts';
-export type { DisclosureTransition } from './disclosure.ts';
+} from './text-content/options.ts';

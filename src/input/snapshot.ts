@@ -1,8 +1,15 @@
 import {
   findUnsupportedField,
   isNonArrayObject,
-  isStringMember
+  isStringMember,
 } from '../foundation/validation.ts';
+import type {
+  InputEvent,
+  KeyAlternateCodePoints,
+  KeyModifiers,
+  MouseModifiers,
+  RecordedInputEvent,
+} from './types.ts';
 import {
   keyEventTypes,
   keyLocations,
@@ -11,14 +18,7 @@ import {
   mouseButtons,
   mouseEncodings,
   mousePointerButtons,
-  mouseWheelButtons
-} from './types.ts';
-import type {
-  InputEvent,
-  KeyAlternateCodePoints,
-  KeyModifiers,
-  MouseModifiers,
-  RecordedInputEvent
+  mouseWheelButtons,
 } from './types.ts';
 
 const keyEventFields = new Set([

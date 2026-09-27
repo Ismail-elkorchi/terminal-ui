@@ -1,6 +1,6 @@
+import type { ElementMessageValue } from '../element/types.ts';
 import type { MessageResolution } from '../interaction/message.ts';
 import { isIgnoredMessage } from '../interaction/message.ts';
-import type { ElementMessageValue } from '../element/types.ts';
 
 export type ComponentMessage = ElementMessageValue;
 

@@ -1,5 +1,5 @@
-import type { LayoutSize } from '../../../../geometry/types.ts';
 import type { SplitPaneTransition } from '../../../../behavior/split-pane.ts';
+import type { LayoutSize } from '../../../../geometry/types.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
 
 export type ColumnRenderProps = RenderNodeLayoutProps & { readonly sizes?: readonly LayoutSize[] };

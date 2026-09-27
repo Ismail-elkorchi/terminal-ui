@@ -3,8 +3,8 @@ import test from 'node:test';
 
 import { createMemoryTerminalHost } from '../host/memory.ts';
 import { TuiInputSuspensionController } from './input-suspension.ts';
-import { defaultSessionProtocolPolicy } from './session-policy.ts';
-import { createTerminalSuspension } from './terminal-suspension.ts';
+import { defaultSessionProtocolPolicy } from './lifecycle/session-policy.ts';
+import { createTerminalSuspension } from './lifecycle/terminal-suspension.ts';
 import type { TuiRuntime } from './types.ts';
 
 void test('cancellation while input pause is queued rolls back without releasing terminal ownership', async () => {

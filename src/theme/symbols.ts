@@ -1,6 +1,6 @@
-import { sanitizeTerminalText } from '../text/index.ts';
-import type { TerminalSymbolMode } from '../visual/inline-content.ts';
 import { assertSupportedFields } from '../foundation/validation.ts';
+import { sanitizeTerminalText } from '../text/sanitize.ts';
+import type { TerminalSymbolMode } from '../visual/inline-content.ts';
 
 export interface BorderGlyphSet {
   readonly topLeft: string;

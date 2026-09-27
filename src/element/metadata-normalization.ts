@@ -1,7 +1,5 @@
-import type {
-  ElementKeyBindings,
-} from './metadata.ts';
-import { inputTriggerIdentity } from '../input/index.ts';
+import { inputTriggerIdentity } from '../input/triggers.ts';
+import type { ElementKeyBindings } from './metadata.ts';
 
 export function mergeKeyBindings<TMessage>(
   generated: ElementKeyBindings<TMessage> | undefined,

@@ -1,9 +1,9 @@
-import { sanitizeTerminalText } from '../text/index.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
+import { sanitizeTerminalText } from '../text/sanitize.ts';
 import {
   inlineContentAccessibleText,
   normalizeInlineContent,
-  type InlineContent
+  type InlineContent,
 } from './inline-content.ts';
 
 export type BorderKind =

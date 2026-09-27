@@ -1,26 +1,28 @@
-import type { ListboxControlTransition, ListboxTransition } from './listbox.ts';
-import { applyScrollRequest, scrollReducer } from './scroll.ts';
+import type { CollectionWindow } from '../collection/snapshot.ts';
+import {
+  createCompleteCollection,
+  createWindowedCollection,
+  isCollectionSnapshot,
+} from '../collection/snapshot.ts';
+import { collectionInteractionReducer } from '../interaction/collection-interaction.ts';
+import type { NavigationPolicy } from '../interaction/navigation.ts';
+import { sanitizeTerminalText } from '../text/sanitize.ts';
+import { createListboxView, listboxViewScrollPosition } from './listbox-view.ts';
 import type {
   CompleteListboxCollection,
   ListboxCollection,
   ListboxCollectionItem,
+  ListboxControlTransition,
   ListboxOptionMapper,
   ListboxState,
+  ListboxTransition,
+  ListboxView,
+  ListboxViewEntry,
   ScrollableListboxState,
   UnscrolledListboxState,
-  ListboxViewEntry,
-  ListboxView,
-  WindowedListboxCollection
+  WindowedListboxCollection,
 } from './listbox.ts';
-import {
-  listboxViewScrollPosition,
-  createListboxView
-} from './listbox-view.ts';
-import { createCompleteCollection, createWindowedCollection, isCollectionSnapshot } from '../collection/snapshot.ts';
-import type { CollectionWindow } from '../collection/snapshot.ts';
-import { sanitizeTerminalText } from '../text/index.ts';
-import { collectionInteractionReducer } from '../interaction/collection-interaction.ts';
-import type { NavigationPolicy } from '../interaction/navigation.ts';
+import { applyScrollRequest, scrollReducer } from './scroll.ts';
 
 export type ListboxReducerOptions<TValue> = (
   | {

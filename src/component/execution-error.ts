@@ -2,6 +2,7 @@ export type ComponentDefinitionName = `${string}/${string}`;
 
 export type ComponentExecutionPhase =
   | 'createModel'
+  | 'prepare'
   | 'inspection'
   | 'compose'
   | 'measure'
@@ -62,4 +63,20 @@ export function executeComponentPhase<TValue>(
   }
 }
 
-export { executeSynchronousRenderCallback } from '../foundation/synchronous-render.ts';
+export async function executeComponentPreparation(
+  component: ComponentDefinitionName,
+  instanceId: string | undefined,
+  operation: () => Promise<void>,
+): Promise<void> {
+  try {
+    await operation();
+  } catch (cause) {
+    if (cause instanceof ComponentExecutionError) throw cause;
+    throw new ComponentExecutionError({
+      component,
+      ...(instanceId === undefined ? {} : { instanceId }),
+      phase: 'prepare',
+      cause,
+    });
+  }
+}

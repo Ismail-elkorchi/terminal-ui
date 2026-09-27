@@ -1,23 +1,20 @@
-import type {
-  MeasuredWindow,
-  MeasuredWindowEntry
-} from '../../collection/measured-window.ts';
-import type {
-  Element,
-  ElementMessage
-} from '../../element/index.ts';
+import { isMeasuredWindow } from '../../collection/measured-window-operations.ts';
+import type { MeasuredWindow, MeasuredWindowEntry } from '../../collection/measured-window.ts';
 import type { StructuralElementOptions } from '../../element/metadata.ts';
-import type { MeasuredViewportOptions } from '../options.ts';
+import type { Element, ElementMessage } from '../../element/types.ts';
+import { assertOptionalEnum } from '../../foundation/validation.ts';
 import {
   layoutElementFromRenderNode,
   optionalRenderNodeId,
   requiredRenderNodeId,
-  toRenderNode
+  toRenderNode,
 } from '../../renderer/internal/render-tree/element.ts';
-import { renderNodeInteraction, renderNodeMeta } from '../../renderer/internal/render-tree/metadata.ts';
-import { isMeasuredWindow } from '../../collection/measured-window-operations.ts';
+import {
+  renderNodeInteraction,
+  renderNodeMeta,
+} from '../../renderer/internal/render-tree/metadata.ts';
 import { renderNodeLayoutProps } from '../../renderer/internal/render-tree/props/shared-layout.ts';
-import { assertOptionalEnum } from '../../foundation/validation.ts';
+import type { MeasuredViewportOptions } from '../options.ts';
 
 /** @beta */
 export function measuredColumn<

@@ -1,11 +1,11 @@
+import { finiteNonNegativeIntegerOrZero } from '../foundation/validation.ts';
+import type { ScrollState, ScrollVisibleWindow } from '../interaction/scroll.ts';
 import {
   createScrollState,
   normalizeScrollState,
   scrollReducer,
-  visibleWindowFromScroll
+  visibleWindowFromScroll,
 } from './scroll.ts';
-import { finiteNonNegativeIntegerOrZero } from '../foundation/validation.ts';
-import type { ScrollState, ScrollVisibleWindow } from '../interaction/scroll.ts';
 
 export interface VisibleRowWindowInput {
   readonly totalRows: number;

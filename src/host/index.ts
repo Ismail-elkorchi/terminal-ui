@@ -1,3 +1,23 @@
+export type { TerminalSize } from '../geometry/types.ts';
+export type {
+  MouseReportingEncoding,
+  MouseReportingMode,
+  MouseReportingState,
+} from '../protocol/index.ts';
+export { createBunTerminalHost } from './bun.ts';
+export { capabilityIsSupported, resolveTerminalCapabilities } from './capabilities.ts';
+export type {
+  CapabilityOverride,
+  CapabilityOverrides,
+  EnvironmentFacts,
+  GraphicsProbeFacts,
+  KittyGraphicsProbeFacts,
+  ProtocolProbeFacts,
+  TerminalCapabilityConfiguration,
+  TerminalCapabilityResolverInput,
+  TerminalHostFacts,
+} from './capabilities.ts';
+export { terminalCapabilityNames } from './capability-types.ts';
 export type {
   CapabilitySourceFact,
   CapabilitySourceKind,
@@ -10,18 +30,19 @@ export type {
   TerminalFeatureSupport,
   TerminalGraphicsCapability,
   TerminalKittyGraphicsCapability,
-  TerminalUnicodeCapability
+  TerminalUnicodeCapability,
 } from './capability-types.ts';
-export { terminalCapabilityNames } from './capability-types.ts';
+export { createDenoTerminalHost } from './deno.ts';
+export { createMemoryTerminalHost } from './memory.ts';
+export type { MemoryTerminalHost } from './memory.ts';
+export { createNodeTerminalHost } from './node.ts';
+export { createPtyTerminalHost } from './pty.ts';
 export type {
   BunTerminalHostOptions,
-  CreateTerminalHostOptions,
   ControlledTerminalClock,
+  CreateTerminalHostOptions,
   DenoTerminalHostOptions,
   MemoryTerminalHostOptions,
-  MouseReportingMode,
-  MouseReportingEncoding,
-  MouseReportingState,
   NodeProcessLike,
   NodeReadableTerminalStream,
   NodeTerminalHostOptions,
@@ -32,22 +53,22 @@ export type {
   RuntimeInputSource,
   RuntimeTerminalInputOptions,
   RuntimeTerminalOutputOptions,
-  TerminalClock,
-  TerminalCapabilityDetectionOptions,
   TerminalActiveCapabilityProbe,
+  TerminalCapabilityDetectionOptions,
+  TerminalClock,
   TerminalEnvironment,
   TerminalHost,
+  TerminalInitialState,
   TerminalInput,
   TerminalInputChunk,
   TerminalInputReadOptions,
-  TerminalInitialState,
-  TerminalOutput,
-  TerminalOutputChunk,
   TerminalOperationAssurance,
   TerminalOperationContext,
   TerminalOperationOutcome,
-  TerminalRestoreOptions,
+  TerminalOutput,
+  TerminalOutputChunk,
   TerminalRestoreCompletion,
+  TerminalRestoreOptions,
   TerminalRestoreReason,
   TerminalRestoreResult,
   TerminalSession,
@@ -59,45 +80,22 @@ export type {
   TerminalStateKnowledge,
   TerminalStateProvenanceSnapshot,
   TerminalStateSnapshot,
-  TerminalSize,
   TerminalWriteReceipt,
-  Unsubscribe
+  Unsubscribe,
 } from './types.ts';
-export type {
-  CapabilityOverride,
-  CapabilityOverrides,
-  EnvironmentFacts,
-  GraphicsProbeFacts,
-  KittyGraphicsProbeFacts,
-  ProtocolProbeFacts,
-  TerminalCapabilityConfiguration,
-  TerminalCapabilityResolverInput,
-  TerminalHostFacts
-} from './capabilities.ts';
-export type { MemoryTerminalHost } from './memory.ts';
-export { createBunTerminalHost } from './bun.ts';
-export { createDenoTerminalHost } from './deno.ts';
-export { createMemoryTerminalHost } from './memory.ts';
-export { createNodeTerminalHost } from './node.ts';
-export { createPtyTerminalHost } from './pty.ts';
-export { capabilityIsSupported, resolveTerminalCapabilities } from './capabilities.ts';
 export {
   committedTerminalWrite,
   failedTerminalWrite,
-  indeterminateTerminalWrite
+  indeterminateTerminalWrite,
 } from './write-receipt.ts';
 
 import { createBunTerminalHost } from './bun.ts';
+import type { TerminalCapabilityProfile } from './capability-types.ts';
 import { createDenoTerminalHost } from './deno.ts';
 import { createMemoryTerminalHost } from './memory.ts';
 import { createNodeTerminalHost } from './node.ts';
 import { createPtyTerminalHost } from './pty.ts';
-import type {
-  CreateTerminalHostOptions,
-  TerminalHost,
-  TerminalRestoreResult
-} from './types.ts';
-import type { TerminalCapabilityProfile } from './capability-types.ts';
+import type { CreateTerminalHostOptions, TerminalHost, TerminalRestoreResult } from './types.ts';
 
 export function createTerminalHost(options?: CreateTerminalHostOptions): TerminalHost {
   if (options === undefined) return createDefaultTerminalHost();

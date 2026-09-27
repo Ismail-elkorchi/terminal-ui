@@ -1,29 +1,29 @@
-import type { AccessibleSnapshot } from '../accessibility/index.ts';
+import type { AccessibleSnapshot } from '../accessibility/types.ts';
 import { diagnostic } from '../diagnostics.ts';
-import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
 import { createTerminalHost } from '../host/index.ts';
-import type { TerminalHost } from '../host/index.ts';
-import { isCancelKey, isInterruptKey } from '../input/index.ts';
-import type { InputEvent } from '../input/index.ts';
-import type { TranscriptRecorder } from '../transcript/index.ts';
+import type { TerminalHost } from '../host/types.ts';
+import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
+import { isCancelKey, isInterruptKey } from '../input/keys.ts';
+import type { InputEvent } from '../input/types.ts';
+import type { TranscriptRecorder } from '../transcript/types.ts';
 import {
   applyAutocompleteEvent,
   applyMultiSelectEvent,
-  applySelectEvent
+  applySelectEvent,
 } from './choice-interaction.ts';
-import { resolvePromptChoices } from './choices.ts';
 import type { ChoiceResolution } from './choices.ts';
+import { resolvePromptChoices } from './choices.ts';
 import { assertPromptDefinition } from './definition.ts';
 import { runEditorPrompt } from './editor.ts';
+import { promptInputEvents } from './input-events.ts';
 import type { PromptInteractionHooks } from './interaction-hooks.ts';
 import { nonTtyDiagnosticOptions, nonTtyMode } from './non-tty.ts';
 import { runProgressPrompt } from './progress-runtime.ts';
-import { promptInputEvents } from './input-events.ts';
 import { renderPromptText } from './render-theme.ts';
 import { raisePromptCleanupFailure, runOwnedPrompt, type PromptTaskOwner } from './session.ts';
 import { createPromptSnapshot, promptValueForSnapshot } from './snapshot.ts';
-import { completePromptState, initialPromptState } from './state.ts';
 import type { PromptRuntimeState } from './state.ts';
+import { completePromptState, initialPromptState } from './state.ts';
 import { submitPrompt } from './submit.ts';
 import { applyTextPromptEvent, scheduleInitialValidation } from './text-interaction.ts';
 import {
@@ -32,7 +32,7 @@ import {
   recordPromptResult,
   transcriptEvent,
   withPromptDiagnostics,
-  withPromptTranscript
+  withPromptTranscript,
 } from './transcript.ts';
 import type {
   AutocompletePromptDefinition,
@@ -44,12 +44,12 @@ import type {
   PasswordPromptDefinition,
   ProgressPromptDefinition,
   ProgressResult,
-  PromptDefinition,
   PromptAbortResult,
+  PromptDefinition,
   PromptResult,
   PromptValueContract,
   SelectPromptDefinition,
-  TextPromptDefinition
+  TextPromptDefinition,
 } from './types.ts';
 
 type InteractivePromptValue<TChoice> = boolean | string | TChoice | readonly TChoice[];

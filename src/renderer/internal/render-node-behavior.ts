@@ -1,30 +1,39 @@
-import { structuralNodeRenderers } from './node-renderers/index.ts';
+import type { AccessibleNode } from '../../accessibility/types.ts';
+import { isAccessibleRole } from '../../accessibility/types.ts';
+import { intersectRects } from '../../geometry/rect.ts';
+import type { Rect } from '../../geometry/types.ts';
+import type { TextWidthProfile } from '../../text/types.ts';
+import { textWidthProfileKey } from '../../text/width-profile.ts';
+import type { TerminalTheme } from '../../theme/theme.ts';
+import type {
+  FocusTarget,
+  HitTarget,
+  LayoutNode,
+  Measurement,
+  RenderFocusRelation,
+  RenderInstrumentation,
+} from '../contracts.ts';
+import { decodeMeasurement } from '../measurement-validation.ts';
 import { normalizeMeasurement, zeroMeasurement } from '../measurement.ts';
+import type { RenderBudget } from '../render-budget.ts';
+import { decodeComponentFocusTargets } from './component-output.ts';
+import type { RenderNodeLayoutTarget } from './focus.ts';
+import { structuralNodeRenderers } from './node-renderers/index.ts';
+import type { StructuralRenderNodeKind } from './node-renderers/types.ts';
+import { emptyRect } from './rect.ts';
 import {
   renderNodeFactoryName,
   renderNodeFocusUnavailable,
   renderNodeInteractionUnavailable,
-  resolveRenderNodeMessage
+  resolveRenderNodeMessage,
 } from './render-tree/node.ts';
-import type { AccessibleNode } from '../../accessibility/index.ts';
-import { isAccessibleRole } from '../../accessibility/types.ts';
-import type { TerminalTheme } from '../../theme/index.ts';
-import type { RenderNode } from './render-tree/index.ts';
-import type { RenderBudget } from '../render-budget.ts';
-import type { TextWidthProfile } from '../../text/index.ts';
-import type { RenderNodeLayoutTarget } from './focus.ts';
-import type { LayoutNode, Rect, RenderFocusRelation, RenderInstrumentation } from '../contracts.ts';
-import type { FocusTarget, HitTarget, Measurement } from '../contracts.ts';
-import type { RenderNodeRenderer, RenderNodeRenderInput } from './render-tree/renderer.ts';
-import type { RenderNodeOfKind } from './render-tree/types.ts';
-import type { StructuralRenderNodeKind } from './node-renderers/types.ts';
-import {
-  decodeComponentFocusTargets
-} from './component-output.ts';
-import { decodeMeasurement } from '../measurement-validation.ts';
-import { emptyRect, intersectRects } from './rect.ts';
+import type {
+  RenderNode,
+  RenderNodeOfKind,
+  RenderNodeRenderer,
+  RenderNodeRenderInput,
+} from './render-tree/types.ts';
 import { scopedFrameSource } from './scoped-render-target.ts';
-import { textWidthProfileKey } from '../../text/index.ts';
 
 const retainedMeasurements = new WeakMap<RenderNode, {
   readonly theme: TerminalTheme;

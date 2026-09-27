@@ -1,9 +1,4 @@
-import type {
-  TextAffinity,
-  TextCaret,
-  TextDocumentSelection,
-  TextPosition
-} from './types.ts';
+import type { TextAffinity, TextCaret, TextDocumentSelection, TextPosition } from './types.ts';
 
 export function textPositionAt(
   offset: number,

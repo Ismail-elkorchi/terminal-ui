@@ -1,21 +1,28 @@
+import type {
+  DiagnosticOccurrence,
+  DiagnosticOccurrenceReporter,
+  TerminalDiagnostic,
+} from '../diagnostics.ts';
 import { createDiagnosticOccurrenceReporter, diagnostic } from '../diagnostics.ts';
-import { renderTuiOutput } from '../renderer/output.ts';
-import { diffFrames } from '../renderer/frame.ts';
-import { completedExitFromSnapshot } from './exit.ts';
-import { runTuiLifecyclePhase } from './lifecycle-phase.ts';
+import type { TerminalCapabilityProfile } from '../host/capability-types.ts';
+import type { TerminalHost } from '../host/types.ts';
 import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
-import { tuiSnapshot } from './lifecycle.ts';
-import { renderCurrentFrame, resolveTuiTheme } from './runtime-frame.ts';
-import { recordTuiCommit } from './transcript.ts';
-import { tuiDefinition } from './definition.ts';
-import { decodeTuiInitialResult } from './hook-results.ts';
-import { decodeTuiTerminalSize } from './terminal-size.ts';
-import type { DiagnosticOccurrence, DiagnosticOccurrenceReporter, TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalCapabilityProfile, TerminalHost } from '../host/index.ts';
 import type { Frame } from '../renderer/contracts.ts';
-import type { TranscriptRecorder } from '../transcript/index.ts';
-import type { NormalizedTuiRunOptions } from './run-configuration.ts';
-import type { NormalizedTuiLifecyclePolicy } from './run-configuration.ts';
+import { diffFrames } from '../renderer/frame.ts';
+import { renderTuiOutput } from '../renderer/output.ts';
+import type { TranscriptRecorder } from '../transcript/types.ts';
+import { tuiDefinition } from './definition.ts';
+import { completedExitFromSnapshot } from './exit.ts';
+import { decodeTuiInitialResult } from './hook-results.ts';
+import { runTuiLifecyclePhase } from './lifecycle/lifecycle-phase.ts';
+import { tuiSnapshot } from './lifecycle/lifecycle.ts';
+import type {
+  NormalizedTuiLifecyclePolicy,
+  NormalizedTuiRunOptions,
+} from './lifecycle/run-configuration.ts';
+import { renderCurrentFrame, resolveTuiTheme } from './commit/runtime-frame.ts';
+import { decodeTuiTerminalSize } from './terminal-size.ts';
+import { recordTuiCommit } from './transcript.ts';
 import type { TuiApp, TuiContext, TuiExit } from './types.ts';
 
 export async function runTuiNonTty<TState, TMessage>(

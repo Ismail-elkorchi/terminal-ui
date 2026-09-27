@@ -1,3 +1,4 @@
+import { finiteNonNegativeIntegerOrZero } from '../foundation/validation.ts';
 import type {
   GridLayoutOptions,
   LayoutAlignment,
@@ -6,9 +7,8 @@ import type {
   LayoutInsets,
   LayoutJustification,
   LayoutSize,
-  Rect
+  Rect,
 } from './types.ts';
-import { finiteNonNegativeIntegerOrZero } from '../foundation/validation.ts';
 
 export function splitTracks(
   bounds: Rect,

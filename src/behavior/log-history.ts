@@ -1,18 +1,22 @@
-import { sanitizeTerminalText } from '../text/index.ts';
+import type {
+  CollectionQuery,
+  CompiledCollectionQuery,
+  IndexedQueryCandidate,
+} from '../text/query.ts';
 import {
-  textMatchStarts,
-  textSearchOffset,
-  createTextSearchIndex,
-  compileTextSearchQuery
-} from '../text/search-index.ts';
-import type { TextSearchIndex, CompiledTextSearchQuery } from '../text/search-index.ts';
-import { decodeTerminalStyle } from '../visual/terminal-style.ts';
-import {
-  matchCompiledCollectionQuery,
   compileCollectionQuery,
   indexQueryCandidate,
+  matchCompiledCollectionQuery,
 } from '../text/query.ts';
-import type { CollectionQuery, CompiledCollectionQuery, IndexedQueryCandidate } from '../text/query.ts';
+import { sanitizeTerminalText } from '../text/sanitize.ts';
+import type { CompiledTextSearchQuery, TextSearchIndex } from '../text/search-index.ts';
+import {
+  compileTextSearchQuery,
+  createTextSearchIndex,
+  textMatchStarts,
+  textSearchOffset,
+} from '../text/search-index.ts';
+import { decodeTerminalStyle } from '../visual/terminal-style.ts';
 
 export type LogLevel = 'info' | 'warning' | 'error';
 

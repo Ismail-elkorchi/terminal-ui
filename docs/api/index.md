@@ -27,10 +27,10 @@ For signatures and public members, use the [API reference](./reference.md).
 | `@ismail-elkorchi/terminal-ui/components/feedback` | 21 |
 | `@ismail-elkorchi/terminal-ui/components/patterns` | 32 |
 | `@ismail-elkorchi/terminal-ui/components/visualizations` | 28 |
-| `@ismail-elkorchi/terminal-ui/component` | 114 |
+| `@ismail-elkorchi/terminal-ui/component` | 115 |
 | `@ismail-elkorchi/terminal-ui/layout` | 70 |
 | `@ismail-elkorchi/terminal-ui/behavior` | 330 |
-| `@ismail-elkorchi/terminal-ui/renderer` | 161 |
+| `@ismail-elkorchi/terminal-ui/renderer` | 162 |
 | `@ismail-elkorchi/terminal-ui/graphics` | 20 |
 | `@ismail-elkorchi/terminal-ui/accessibility` | 22 |
 | `@ismail-elkorchi/terminal-ui/transcript` | 22 |

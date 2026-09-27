@@ -1,0 +1,365 @@
+import { defineComponent } from '../../component/definition.ts';
+import type { ComponentMessage } from '../../component/message.ts';
+import { mapComponentStyles } from '../../component/styles.ts';
+import type { Element, ElementMessage } from '../../element/types.ts';
+import {
+  assertOptionalEnum,
+  isNonArrayObject,
+  isStringMember,
+} from '../../foundation/validation.ts';
+import type { LayoutFlowOptions } from '../../geometry/types.ts';
+import type { InitialFocusSelector } from '../../interaction/focus.ts';
+import type { MessageResolution } from '../../interaction/message.ts';
+import { ignoreMessage } from '../../interaction/message.ts';
+import type { PopupDismissalPolicy, PopupFocusPolicy } from '../../interaction/popup.ts';
+import { popupAllowsDismissal, popupFocusScope } from '../../interaction/popup.ts';
+import { decodeLayoutFlowOptions } from '../../layout/decode-options.ts';
+import { column } from '../../layout/factories/flow.ts';
+import { portal, surface } from '../../layout/factories/surfaces.ts';
+import {
+  type BorderOptions,
+  type BorderTitle,
+  borderTitleAccessibleText,
+  normalizeBorderTitle,
+} from '../../visual/border.ts';
+import type { DialogDismissEvent, DialogDismissal, DialogFocusPolicy } from '../dialog.ts';
+import { divider } from '../divider/definition.ts';
+import type { DialogOptions } from './options.ts';
+
+interface DialogModel {
+  readonly title?: BorderTitle;
+  readonly label: string;
+  readonly border: BorderOptions;
+  readonly width?: number;
+  readonly height?: number;
+  readonly modal: boolean;
+  readonly focusPolicy?: DialogFocusPolicy;
+  readonly dismissal?: DialogDismissal;
+  readonly layout: LayoutFlowOptions;
+}
+
+type DialogComponentOptions = Omit<
+  DialogOptions<ComponentMessage>,
+  'id' | 'slots' | 'styles' | 'meta' | 'onDismiss'
+>;
+
+const dialogSlots = {
+  content: { cardinality: 'one', owner: 'caller', messages: 'bubble' },
+  actions: { cardinality: 'optional', owner: 'caller', messages: 'bubble' },
+} as const;
+
+const instantiateDialog = defineComponent<DialogComponentOptions, DialogDismissEvent>()({
+  name: 'terminal-ui/components/dialog',
+  identity: 'required',
+  structure: 'composed',
+  semantics: 'semantic',
+  accessibleRole: 'dialog',
+  slots: dialogSlots,
+  metadata: ['focus', 'layer', 'styles'],
+  parts: ['background', 'border', 'title', 'actionSeparator'],
+  createModel(value) {
+    const modal = value.modal;
+    if (typeof modal !== 'boolean') throw new TypeError('dialog modal must be a boolean.');
+    const title = decodeDialogTitle(value.title);
+    const label = dialogAccessibleName(value.accessibleName, title);
+    const border = decodeDialogBorder(value.border) ?? { kind: 'single' as const };
+    const width = decodeDialogDimension(value.width, 'width');
+    const height = decodeDialogDimension(value.height, 'height');
+    const focusPolicy = decodeDialogFocusPolicy(value.focusPolicy, modal);
+    const dismissal = decodeDialogDismissal(value.dismissal);
+    const layout = decodeLayoutFlowOptions(value, 'dialog');
+    if (
+      width !== undefined &&
+      ((layout.minWidth ?? 0) > width || (layout.maxWidth ?? width) < width)
+    ) {
+      throw new RangeError('dialog width conflicts with minWidth or maxWidth.');
+    }
+    if (
+      height !== undefined &&
+      ((layout.minHeight ?? 0) > height || (layout.maxHeight ?? height) < height)
+    ) {
+      throw new RangeError('dialog height conflicts with minHeight or maxHeight.');
+    }
+    return {
+      ...(title === undefined ? {} : { title }),
+      label,
+      border,
+      ...(width === undefined ? {} : { width }),
+      ...(height === undefined ? {} : { height }),
+      modal,
+      ...(focusPolicy === undefined ? {} : { focusPolicy }),
+      ...(dismissal === undefined ? {} : { dismissal }),
+      layout,
+    };
+  },
+  layer({ model }) {
+    return {
+      zIndex: 20,
+      underlay: 'clear',
+      ...(model.modal ? { backdrop: 'viewport' as const } : {}),
+    };
+  },
+  focusScope({ model }) {
+    return popupFocusScope(model.modal, dialogPopupFocusPolicy(model));
+  },
+  keys({ model }) {
+    return model.dismissal !== undefined
+      && popupAllowsDismissal(dialogPopupDismissalPolicy(model.dismissal), 'escape')
+      ? { escape: () => ({ kind: 'dismiss', reason: 'escape' }) }
+      : {};
+  },
+  compose({ id, model, slots, emit, styles, layer }) {
+    const body = slots.actions === undefined ? slots.content : column([
+      slots.content,
+      divider({
+        id: `${id ?? 'dialog'}:action-separator`,
+        styles: mapComponentStyles(styles, {
+          line: ['actionSeparator', 'border'] as const,
+        }) ?? {},
+      }),
+      slots.actions,
+    ], {
+      id: `${id ?? 'dialog'}:content`,
+      sizes: [
+        { kind: 'fill' },
+        { kind: 'fixed', cells: 1 },
+        { kind: 'content' },
+      ],
+    });
+    const width = model.width;
+    const height = model.height;
+    const panel = surface(body, {
+      id: `${id ?? 'dialog'}:surface`,
+      appearance: 'raised',
+      ...(model.title === undefined ? {} : { title: model.title }),
+      border: model.border,
+      shadow: true,
+      ...model.layout,
+      minWidth: width ?? Math.max(5, model.layout.minWidth ?? 0),
+      minHeight: height ?? Math.max(4, model.layout.minHeight ?? 0),
+      ...(width === undefined
+        ? model.layout.maxWidth === undefined ? {} : { maxWidth: model.layout.maxWidth }
+        : { maxWidth: width }),
+      ...(height === undefined
+        ? model.layout.maxHeight === undefined ? {} : { maxHeight: model.layout.maxHeight }
+        : { maxHeight: height }),
+      ...(styles === undefined ? {} : {
+        styles: mapComponentStyles(styles, {
+          background: 'background',
+          border: 'border',
+          title: 'title',
+        }) ?? {},
+      }),
+    });
+    return portal(panel, {
+      id: `${id ?? 'dialog'}:portal`,
+      anchor: { kind: 'allocation' },
+      placement: 'center',
+      meta: {
+        layer: {
+          ...layer,
+          zIndex: 20,
+          underlay: 'clear',
+          ...(model.modal ? { backdrop: 'viewport' as const } : {}),
+        },
+      },
+      ...(model.dismissal !== undefined
+        && popupAllowsDismissal(dialogPopupDismissalPolicy(model.dismissal), 'outsidePress')
+        ? { onOutsidePress: () => emit({ kind: 'dismiss', reason: 'outsidePress' }) }
+        : {}),
+    });
+  },
+  accessibility({ id, model, children }) {
+    return {
+      id,
+      role: 'dialog',
+      label: model.label,
+      ...(model.modal
+        ? { scope: { kind: 'modal' as const, trapsFocus: true, obscuresBackground: true } }
+        : {}),
+      children,
+    };
+  },
+});
+
+export function dialog<
+  const TContent extends Element<ComponentMessage>,
+  const TActions extends Element<ComponentMessage> | undefined = undefined,
+  const TMessage extends ComponentMessage = never,
+>(
+  options: DialogOptions<TMessage, TContent, TActions>,
+): Element<ElementMessage<TContent> | ElementMessage<NonNullable<TActions>> | TMessage> {
+  if (options.dismissal === undefined) {
+    const ignoreDismissal = (): MessageResolution<TMessage> => ignoreMessage();
+    return instantiateDialog({
+      ...options,
+      slots: options.slots,
+      onAction: ignoreDismissal,
+    });
+  }
+  const onDismiss = options.onDismiss;
+  if (typeof onDismiss !== 'function') {
+    throw new TypeError('dialog onDismiss must be a function.');
+  }
+  return instantiateDialog({
+    ...options,
+    slots: options.slots,
+    onAction: (event: DialogDismissEvent): MessageResolution<TMessage> => onDismiss(event),
+  });
+}
+
+function dialogAccessibleName(
+  value: string | undefined,
+  title: BorderTitle | undefined,
+): string {
+  const label = value ?? borderTitleAccessibleText(title);
+  if (typeof label !== 'string' || label.trim() === '') {
+    throw new TypeError('dialog requires a non-empty title or accessibleName.');
+  }
+  return label;
+}
+
+function dialogPopupFocusPolicy(model: DialogModel): PopupFocusPolicy {
+  return {
+    trapFocus: model.modal,
+    returnFocus: model.focusPolicy?.returnFocus ?? 'restore',
+    ...(model.focusPolicy?.initialFocus === undefined
+      ? {}
+      : { initialFocus: model.focusPolicy.initialFocus })
+  };
+}
+
+function dialogPopupDismissalPolicy(dismissal: DialogDismissal): PopupDismissalPolicy {
+  return {
+    dismissOnEscape: dismissal.dismissOnEscape,
+    dismissOnOutsidePress: dismissal.dismissOnOutsidePress,
+    dismissOnFocusLoss: false
+  };
+}
+
+function decodeDialogTitle(value: DialogComponentOptions['title']): BorderTitle | undefined {
+  if (value === undefined) return undefined;
+  try {
+    return normalizeBorderTitle(value);
+  } catch (cause) {
+    throw new TypeError('dialog title is invalid.', { cause });
+  }
+}
+
+function decodeDialogBorder(value: DialogComponentOptions['border']): BorderOptions | undefined {
+  if (value === undefined) return undefined;
+  if (!isNonArrayObject(value)) throw new TypeError('dialog border must be an object.');
+  const kind = value.kind;
+  if (!isStringMember(kind, [
+    'none',
+    'single',
+    'double',
+    'rounded',
+    'heavy',
+    'ascii',
+    'dashed',
+    'dotted',
+    'empty',
+  ])) {
+    throw new TypeError('dialog border.kind is invalid.');
+  }
+  const titleAlign = value.titleAlign;
+  assertOptionalEnum(titleAlign, ['start', 'center', 'end'], 'dialog border.titleAlign');
+  return Object.freeze({ kind, ...(titleAlign === undefined ? {} : { titleAlign }) });
+}
+
+function decodeDialogDimension(
+  value: DialogComponentOptions['width'],
+  name: 'width' | 'height',
+): number | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+    throw new RangeError(`dialog ${name} must be a non-negative safe integer.`);
+  }
+  return value;
+}
+
+function decodeDialogFocusPolicy(
+  value: DialogComponentOptions['focusPolicy'],
+  modal: boolean,
+): DialogFocusPolicy | undefined {
+  if (!modal) {
+    if (value !== undefined) throw new TypeError('Non-modal dialog cannot define focusPolicy.');
+    return undefined;
+  }
+  if (!isNonArrayObject(value)) throw new TypeError('Modal dialog requires focusPolicy.');
+  if (!isStringMember(value.returnFocus, ['restore', 'none'])) {
+    throw new TypeError('dialog focusPolicy.returnFocus must be "restore" or "none".');
+  }
+  const initialFocus = value.initialFocus === undefined
+    ? undefined
+    : decodeInitialFocus(value.initialFocus);
+  return Object.freeze({
+    ...(initialFocus === undefined ? {} : { initialFocus }),
+    returnFocus: value.returnFocus,
+  });
+}
+
+function decodeInitialFocus(value: InitialFocusSelector): InitialFocusSelector {
+  if (!isNonArrayObject(value)) throw new TypeError('dialog initialFocus must be an object.');
+  const kind = value.kind;
+  if (!isStringMember(kind, ['path', 'element', 'elementTarget'])) {
+    throw new TypeError('dialog initialFocus kind is invalid.');
+  }
+  if (kind === 'path') {
+    const path = value.path;
+    if (
+      !isNonEmptyStringArray(path)
+    ) {
+      throw new TypeError('dialog initialFocus path is invalid.');
+    }
+    return Object.freeze({ kind: 'path', path: Object.freeze([...path]) });
+  }
+  if (kind === 'element') {
+    if (
+      typeof value.elementId !== 'string' ||
+      value.elementId.trim() === ''
+    ) {
+      throw new TypeError('dialog initialFocus element is invalid.');
+    }
+    return Object.freeze({ kind: 'element', elementId: value.elementId });
+  }
+  if (
+    typeof value.elementId !== 'string' ||
+    value.elementId.trim() === '' ||
+    typeof value.targetId !== 'string' ||
+    value.targetId.trim() === ''
+  ) {
+    throw new TypeError('dialog initialFocus element target is invalid.');
+  }
+  return Object.freeze({
+    kind: 'elementTarget',
+    elementId: value.elementId,
+    targetId: value.targetId,
+  });
+}
+
+function isNonEmptyStringArray(value: unknown): value is readonly string[] {
+  return Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((segment) => typeof segment === 'string' && segment.trim() !== '');
+}
+
+function decodeDialogDismissal(
+  value: DialogComponentOptions['dismissal'],
+): DialogDismissal | undefined {
+  if (value === undefined) return undefined;
+  if (!isNonArrayObject(value)) throw new TypeError('dialog dismissal must be an object.');
+  const dismissOnEscape = value.dismissOnEscape;
+  const dismissOnOutsidePress = value.dismissOnOutsidePress;
+  if (
+    typeof dismissOnEscape !== 'boolean'
+    || typeof dismissOnOutsidePress !== 'boolean'
+    || (!dismissOnEscape && !dismissOnOutsidePress)
+  ) {
+    throw new TypeError('dialog dismissal must enable dismissOnEscape, dismissOnOutsidePress, or both.');
+  }
+  return dismissOnEscape
+    ? Object.freeze({ dismissOnEscape: true as const, dismissOnOutsidePress })
+    : Object.freeze({ dismissOnEscape: false as const, dismissOnOutsidePress: true as const });
+}

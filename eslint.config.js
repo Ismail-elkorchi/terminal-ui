@@ -24,7 +24,6 @@ export default [
       'examples/**/*.ts',
       'tests/contracts/**/*.ts',
       'tests/**/*.test.ts',
-      'tests/helpers/**/*.ts',
       'tests/support/**/*.ts'
     ]
   })),
@@ -55,7 +54,6 @@ export default [
       'src/**/*.test.ts',
       'tests/contracts/**/*.ts',
       'tests/**/*.test.ts',
-      'tests/helpers/**/*.ts',
       'tests/support/**/*.ts'
     ],
     languageOptions: {

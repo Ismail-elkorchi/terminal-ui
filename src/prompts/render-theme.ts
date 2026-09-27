@@ -1,13 +1,12 @@
-import { minimalTheme } from '../theme/index.ts';
+import type { TerminalCapabilityProfile } from '../host/capability-types.ts';
 import { serializeRenderSpans } from '../renderer/internal/ansi.ts';
-import { choiceStatusLines, promptLine } from './render-line.ts';
 import { matchCollectionQuery } from '../text/query.ts';
-import type { TerminalCapabilityProfile } from '../host/index.ts';
-import type { PromptRuntimeState } from './state.ts';
-import type { PromptChoice } from './types.ts';
-import type { PromptDefinition } from './types.ts';
-import type { TerminalTheme } from '../theme/index.ts';
+import { minimalTheme } from '../theme/index.ts';
+import type { TerminalTheme } from '../theme/theme.ts';
 import type { RenderSpan } from '../visual/render-content.ts';
+import { choiceStatusLines, promptLine } from './render-line.ts';
+import type { PromptRuntimeState } from './state.ts';
+import type { PromptChoice, PromptDefinition } from './types.ts';
 
 export function renderPromptText<TChoice>(
   prompt: PromptDefinition<TChoice>,

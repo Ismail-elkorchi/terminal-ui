@@ -1,8 +1,5 @@
-import type {
-  ElementStateStyles,
-  ElementStyles,
-  ElementVisualState,
-} from '../element/metadata.ts';
+import type { ElementStateStyles, ElementStyles } from '../element/metadata.ts';
+import type { ElementVisualState } from '../visual/frame-source.ts';
 
 export type ComponentStylePartMapping<TSource extends string, TTarget extends string> = Readonly<
   Record<TTarget, TSource | readonly TSource[]>

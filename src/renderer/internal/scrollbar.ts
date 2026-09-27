@@ -1,21 +1,21 @@
-import { span } from '../frame.ts';
-import { frameCellSource } from '../../visual/frame-source.ts';
-import type { TerminalTheme } from '../../theme/index.ts';
-import type { RenderTarget } from '../contracts.ts';
-import type { Rect } from '../contracts.ts';
-import type { FrameCellSource } from '../../visual/render-content.ts';
-import type { TerminalStyle } from '../../visual/render-content.ts';
+import type { Rect } from '../../geometry/types.ts';
 import type {
   ScrollbarOptions,
   ScrollbarState,
-  ScrollbarVisualState
+  ScrollbarVisualState,
 } from '../../interaction/scrollbar.ts';
-import { oneCellGlyph } from '../../text/index.ts';
+import { oneCellGlyph } from '../../text/cell-geometry.ts';
+import type { TerminalTheme } from '../../theme/theme.ts';
+import type { FrameCellSource } from '../../visual/frame-source.ts';
+import { frameCellSource } from '../../visual/frame-source.ts';
+import type { TerminalStyle } from '../../visual/render-content.ts';
+import { span } from '../../visual/render-content.ts';
+import type { RenderTarget } from '../contracts.ts';
 
 export type {
   ScrollbarOptions,
   ScrollbarState,
-  ScrollbarVisualState
+  ScrollbarVisualState,
 } from '../../interaction/scrollbar.ts';
 
 export interface ScrollbarThumb {

@@ -1,7 +1,7 @@
 const collectionSnapshotBrand: unique symbol = Symbol('terminal-ui.collection-snapshot');
 
-import { compileCollectionQuery } from '../text/query.ts';
 import type { CollectionQuery, CompiledCollectionQuery } from '../text/query.ts';
+import { compileCollectionQuery } from '../text/query.ts';
 
 export interface CollectionItem {
   readonly id: string;

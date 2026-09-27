@@ -1,33 +1,31 @@
-import type {
-  InteractionTranscript,
-  InteractionTranscriptStep,
-  TranscriptRedaction,
-  TranscriptRecorder,
-  TranscriptRecorderOptions,
-  TranscriptRetentionPolicy
-} from './types.ts';
-import { interactionTranscriptFormatVersion } from './types.ts';
+import { decodeAccessibleSnapshot } from '../accessibility/validate.ts';
+import type { DiagnosticOccurrence } from '../diagnostics.ts';
 import {
-  decodeDiagnosticOccurrence,
   createDiagnosticOccurrenceReporter,
-  diagnostic
+  decodeDiagnosticOccurrence,
+  diagnostic,
 } from '../diagnostics.ts';
 import { snapshotCanonicalJsonValue, snapshotUnknownJsonValue } from '../foundation/json.ts';
-import type { DiagnosticOccurrence } from '../diagnostics.ts';
-import type { FrameDescriptor } from '../renderer/index.ts';
+import { isCanonicalDateTime, isNonArrayObject, isStringMember } from '../foundation/validation.ts';
+import { snapshotInputEvent } from '../input/snapshot.ts';
+import type { FrameDescriptor } from '../renderer/contracts.ts';
 import { fullRewriteDiffFromFrame } from '../renderer/internal/diff-interpreter.ts';
-import { isCanonicalDateTime } from '../foundation/validation.ts';
-import { snapshotInputEvent } from '../input/index.ts';
-import { decodeAccessibleSnapshot } from '../accessibility/index.ts';
-import { isNonArrayObject, isStringMember } from '../foundation/validation.ts';
-import { transcriptSources } from './types.ts';
+import { RetentionIndex } from './retention-index.ts';
+import type { TranscriptEvidenceWeight } from './retention.ts';
 import {
   transcriptDiagnosticWeight,
   transcriptRedactionWeight,
-  transcriptStepWeight
+  transcriptStepWeight,
 } from './retention.ts';
-import type { TranscriptEvidenceWeight } from './retention.ts';
-import { RetentionIndex } from './retention-index.ts';
+import type {
+  InteractionTranscript,
+  InteractionTranscriptStep,
+  TranscriptRecorder,
+  TranscriptRecorderOptions,
+  TranscriptRedaction,
+  TranscriptRetentionPolicy,
+} from './types.ts';
+import { interactionTranscriptFormatVersion, transcriptSources } from './types.ts';
 
 const maximumTranscriptIdCodeUnits = 256;
 

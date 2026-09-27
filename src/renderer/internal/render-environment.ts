@@ -1,9 +1,9 @@
-import { defineTextWidthProfile } from '../../text/index.ts';
-import { defaultTheme } from '../../theme/index.ts';
-import { resolveThemeInput } from '../../theme/theme.ts';
 import type { TerminalSize } from '../../geometry/types.ts';
-import type { TextWidthProfile } from '../../text/index.ts';
-import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
+import type { TextWidthProfile } from '../../text/types.ts';
+import { defineTextWidthProfile } from '../../text/width-profile.ts';
+import { defaultTheme } from '../../theme/index.ts';
+import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/theme.ts';
+import { resolveThemeInput } from '../../theme/theme.ts';
 import { assertFrameDimensions } from './frame-limits.ts';
 
 export interface RenderEnvironment {

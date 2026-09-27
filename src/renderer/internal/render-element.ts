@@ -1,94 +1,93 @@
-import { samePaintData } from '../../foundation/paint-data.ts';
-import { createPaintRetention } from './retained-paint.ts';
 import { decodeAccessibleSnapshotWithPolicy } from '../../accessibility/validate.ts';
-import type { Element } from '../../element/index.ts';
-import { toRenderNode } from './render-tree/element.ts';
-import type { RenderNode } from './render-tree/index.ts';
-import { createRenderEnvironment } from './render-environment.ts';
-import {
-  findRenderNodeFocusTarget,
-  focusedTargetIdForLayoutNode,
-  focusPathForLayoutTarget,
-  layoutFocusPath,
-  renderNodeLayoutAncestorsForFocus,
-  renderFocusRelation,
-  resolveFocusPath
-} from './focus.ts';
-import { createRegionTargetIndex } from './region-target-index.ts';
-import type { RegionTargetIndex } from './region-target-index.ts';
-import { frameSnapshotMetadata } from './frame-snapshot.ts';
-import { createFrameBuffer } from '../frame.ts';
-import {
-  applyImplicitCanvasBackdrop,
-  blitFrameCell,
-  captureFrameBufferDamage,
-  transferFrameCell,
-  retainFrameBufferRows,
-  frameSnapshotWork,
-} from '../frame-buffer.ts';
-import { applyCursorStyle } from './cursor-style.ts';
-import { applyFramePasses, boxDrawingJoinPass } from '../frame-passes/index.ts';
-import { layoutRenderTree } from './render-tree-layout.ts';
-import {
-  accountAccessibleTree,
-  AccessibleRelationshipError,
-  accessibleNode,
-  accessibleSourceForTarget,
-  inertAccessibleRoot,
-  withControlLabelRelationships
-} from './render-accessibility.ts';
-import {
-  createDraftRenderRegion,
-  hitTargetOwnerIdentity,
-  regionIdForLayoutNode,
-  toRegionHitTarget
-} from './render-regions.ts';
-import { intersectRects } from './rect.ts';
-import {
-  hitTargetsForRenderNode,
-  renderNodeClipsChildren,
-  renderRenderNode
-} from './render-node-behavior.ts';
-import { decodeRenderedAccessibility } from './component-output.ts';
-import { renderNodeFactoryName } from './render-tree/node.ts';
-import {
-  createClippedRenderTarget,
-  createLocalComponentRenderTarget
-} from './scoped-render-target.ts';
-import {
-  assertDecorativeNodeHasNoHitTargets,
-  decorativeSubtreeNodes
-} from './decorative.ts';
-import type { TerminalSize } from '../../geometry/types.ts';
-import { createGraphicsBudget } from '../../graphics/index.ts';
-import { GraphicsBudgetExceededError } from '../../graphics/index.ts';
-import type { GraphicsBudgetLimits } from '../../graphics/index.ts';
-import { diagnostic } from '../../diagnostics.ts';
 import type { TerminalDiagnostic } from '../../diagnostics.ts';
-import type { TerminalTheme } from '../../theme/index.ts';
-import type { TextWidthProfile } from '../../text/index.ts';
-import type { FocusPath } from './focus.ts';
-import type { Frame, FrameBuffer, FrameCell, FrameHitTarget } from '../frame.ts';
-import type { FramePass } from '../frame-passes/index.ts';
-import type {
-  GraphicPlacement,
-  LayoutNode,
-  Rect,
-  RenderInstrumentation,
-  RenderStage,
-  RenderTarget
-} from '../contracts.ts';
-import type { DraftRenderRegion, RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
-import type { DirtyRegionSet } from './dirty-regions.ts';
-import type { TerminalStyle } from '../../visual/render-content.ts';
-import { createRenderBudget } from '../render-budget.ts';
-import type { RenderBudget, RenderBudgetLimits } from '../render-budget.ts';
+import { diagnostic } from '../../diagnostics.ts';
+import type { Element } from '../../element/types.ts';
+import { samePaintData } from '../../foundation/paint-data.ts';
+import { intersectRects } from '../../geometry/rect.ts';
+import type { Rect, TerminalSize } from '../../geometry/types.ts';
+import type { GraphicsBudgetLimits } from '../../graphics/budget.ts';
+import { createGraphicsBudget, GraphicsBudgetExceededError } from '../../graphics/budget.ts';
+import type { GraphicPlacement } from '../../graphics/types.ts';
+import type { FocusPath } from '../../interaction/focus.ts';
 import {
   pointerStateForOwner,
   samePointerVisualSnapshot,
   type PointerVisualSnapshot,
 } from '../../interaction/pointer-interaction.ts';
-import type { RenderElementOptions } from '../render-element.ts';
+import type { TextWidthProfile } from '../../text/types.ts';
+import type { TerminalTheme } from '../../theme/theme.ts';
+import type { TerminalStyle } from '../../visual/render-content.ts';
+import type {
+  Frame,
+  FrameCell,
+  FrameHitTarget,
+  LayoutNode,
+  RenderInstrumentation,
+  RenderStage,
+  RenderTarget,
+} from '../contracts.ts';
+import type { FrameBuffer } from '../frame-buffer.ts';
+import {
+  applyImplicitCanvasBackdrop,
+  blitFrameCell,
+  captureFrameBufferDamage,
+  createFrameBuffer,
+  frameSnapshotWork,
+  retainFrameBufferRows,
+  transferFrameCell,
+} from '../frame-buffer.ts';
+import { boxDrawingJoinPass } from '../frame-passes/box-drawing-join.ts';
+import type { FramePass } from '../frame-passes/frame-pass.ts';
+import { applyFramePasses } from '../frame-passes/frame-pass.ts';
+import type { RenderBudget, RenderBudgetLimits } from '../render-budget.ts';
+import { createRenderBudget } from '../render-budget.ts';
+import type { RenderElementOptions } from '../render-options.ts';
+import { decodeRenderedAccessibility } from './component-output.ts';
+import { applyCursorStyle } from './cursor-style.ts';
+import type { DirtyRegionSet } from './damage-contracts.ts';
+import { assertDecorativeNodeHasNoHitTargets, decorativeSubtreeNodes } from './decorative.ts';
+import {
+  findRenderNodeFocusTarget,
+  focusedTargetIdForLayoutNode,
+  focusPathForLayoutTarget,
+  layoutFocusPath,
+  renderFocusRelation,
+  renderNodeLayoutAncestorsForFocus,
+  resolveFocusPath,
+} from './focus.ts';
+import { frameSnapshotMetadata } from './frame-snapshot.ts';
+import type { RegionTargetIndex } from './region-target-index.ts';
+import { createRegionTargetIndex } from './region-target-index.ts';
+import {
+  accessibleNode,
+  AccessibleRelationshipError,
+  accessibleSourceForTarget,
+  accountAccessibleTree,
+  inertAccessibleRoot,
+  withControlLabelRelationships,
+} from './render-accessibility.ts';
+import { createRenderEnvironment } from './render-environment.ts';
+import {
+  hitTargetsForRenderNode,
+  renderNodeClipsChildren,
+  renderRenderNode,
+} from './render-node-behavior.ts';
+import type { DraftRenderRegion, RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
+import {
+  createDraftRenderRegion,
+  hitTargetOwnerIdentity,
+  regionIdForLayoutNode,
+  toRegionHitTarget,
+} from './render-regions.ts';
+import { layoutRenderTree } from './render-tree-layout.ts';
+import { toRenderNode } from './render-tree/element.ts';
+import { renderNodeFactoryName } from './render-tree/node.ts';
+import type { RenderNode } from './render-tree/types.ts';
+import { createPaintRetention } from './retained-paint.ts';
+import {
+  createClippedRenderTarget,
+  createLocalComponentRenderTarget,
+} from './scoped-render-target.ts';
 
 interface InternalRenderElementOptions extends RenderElementOptions {
   readonly previous?: Pick<InternalRenderResult, 'regions' | 'frame' | 'pointerVisuals' | 'node' | 'layout'>;

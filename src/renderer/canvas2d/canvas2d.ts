@@ -1,3 +1,18 @@
+import { executeSynchronousRenderCallback } from '../../foundation/synchronous-render.ts';
+import type { Rect } from '../../geometry/types.ts';
+import { measureTextCells } from '../../text/measure.ts';
+import type { TextWidthProfile } from '../../text/types.ts';
+import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
+import type {
+  Canvas2D,
+  CanvasPoint,
+  CanvasTransform,
+  CanvasTransformInput,
+  ComponentRenderTarget,
+  FrameRenderTarget,
+  RenderTarget,
+  StrokeFillOptions,
+} from '../contracts.ts';
 import { brailleCellForSubcell, brailleCharacter } from './braille.ts';
 import {
   clippedEllipseInteriorPoints,
@@ -8,23 +23,8 @@ import {
   composeCanvasTransform,
   identityCanvasTransform,
   transformCanvasPoint,
-  transformCanvasRect
+  transformCanvasRect,
 } from './transform.ts';
-import type {
-  Canvas2D,
-  CanvasPoint,
-  CanvasTransform,
-  CanvasTransformInput,
-  ComponentRenderTarget,
-  FrameRenderTarget,
-  RenderTarget,
-  StrokeFillOptions
-} from '../contracts.ts';
-import type { Rect } from '../contracts.ts';
-import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
-import { measureTextCells } from '../../text/index.ts';
-import { executeSynchronousRenderCallback } from '../../foundation/synchronous-render.ts';
-import type { TextWidthProfile } from '../../text/index.ts';
 
 /** Creates a bounded canvas on a one-based frame target; rejects a component-local target. */
 export function createCanvas2D(buffer: FrameRenderTarget, bounds: Rect): Canvas2D {

@@ -1,5 +1,9 @@
-import { diagnostic } from '../diagnostics.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
+import { diagnostic } from '../diagnostics.ts';
+import type { TerminalCellPixels } from '../protocol/graphics-geometry.ts';
+import type { KittyGraphicsTransport } from '../protocol/kitty-graphics.ts';
+import type { TextWidthProfile } from '../text/types.ts';
+import { defineTextWidthProfile } from '../text/width-profile.ts';
 import type {
   CapabilitySourceFact,
   CapabilitySupport,
@@ -9,11 +13,8 @@ import type {
   TerminalCapabilityProfile,
   TerminalColorCapability,
   TerminalFeatureSupport,
-  TerminalUnicodeCapability
+  TerminalUnicodeCapability,
 } from './capability-types.ts';
-import type { KittyGraphicsTransport, TerminalCellPixels } from '../protocol/index.ts';
-import { defineTextWidthProfile } from '../text/index.ts';
-import type { TextWidthProfile } from '../text/index.ts';
 import { inferControlCapability, protocolFloor } from './protocol-evidence.ts';
 
 export interface TerminalHostFacts {

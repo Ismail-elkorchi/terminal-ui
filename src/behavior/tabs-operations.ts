@@ -1,5 +1,5 @@
-import { adjacentItemId } from '../interaction/navigation.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
+import { adjacentItemId } from '../interaction/navigation.ts';
 import type { TabsActivation, TabsState, TabsTransition } from './tabs.ts';
 
 export interface TabBehaviorItem<TId extends string = string> {

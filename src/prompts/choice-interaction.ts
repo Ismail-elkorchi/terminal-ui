@@ -1,7 +1,7 @@
 import { diagnostic } from '../diagnostics.ts';
-import type { TerminalHost } from '../host/index.ts';
-import type { InputEvent, KeyEvent } from '../input/index.ts';
-import { segmentGraphemes } from '../text/index.ts';
+import type { TerminalHost } from '../host/types.ts';
+import type { InputEvent, KeyEvent } from '../input/types.ts';
+import { segmentGraphemes } from '../text/graphemes.ts';
 import { editPromptBufferForEvent } from './buffer-edit.ts';
 import { maybeLoadNextChoicePage, scheduleAutocompleteChoiceRefresh } from './choice-loading.ts';
 import {
@@ -10,7 +10,7 @@ import {
   firstEnabledChoiceIndex,
   isChoiceDisabled,
   lastEnabledChoiceIndex,
-  nextEnabledChoiceIndex
+  nextEnabledChoiceIndex,
 } from './choices.ts';
 import type { PromptInteractionHooks } from './interaction-hooks.ts';
 import { createPromptSnapshot, promptValueForSnapshot } from './snapshot.ts';
@@ -19,7 +19,7 @@ import type {
   AutocompletePromptDefinition,
   MultiSelectPromptDefinition,
   PromptResult,
-  SelectPromptDefinition
+  SelectPromptDefinition,
 } from './types.ts';
 
 export async function applySelectEvent<TValue>(

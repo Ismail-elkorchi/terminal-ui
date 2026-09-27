@@ -1,28 +1,28 @@
+import type { TerminalSize } from '../geometry/types.ts';
 import { resolveTerminalCapabilities } from './capabilities.ts';
-import { TerminalStateAuthorityBinding } from './terminal-state.ts';
-import { createTerminalHostOutputAuthority } from './ordered-output.ts';
-import { settleResourceDisposal } from './dispose.ts';
-import { throwIfTerminalOperationAborted } from './operation.ts';
-import { committedTerminalWrite, failedTerminalWrite } from './write-receipt.ts';
-import { TerminalInputAuthority } from './input-authority.ts';
 import { TerminalCapabilityDetector } from './capability-detection.ts';
+import { settleResourceDisposal } from './dispose.ts';
+import { TerminalInputAuthority } from './input-authority.ts';
+import { throwIfTerminalOperationAborted } from './operation.ts';
+import { createTerminalHostOutputAuthority } from './ordered-output.ts';
+import { TerminalStateAuthorityBinding } from './terminal-state.ts';
 import type {
   ControlledTerminalClock,
-  TerminalSleepOutcome,
   MemoryTerminalHostOptions,
   TerminalEnvironment,
   TerminalHost,
   TerminalInput,
   TerminalInputChunk,
   TerminalInputReadOptions,
-  TerminalOutput,
   TerminalOperationContext,
+  TerminalOutput,
   TerminalRestoreResult,
   TerminalSignal,
   TerminalSignalSource,
-  TerminalSize,
-  Unsubscribe
+  TerminalSleepOutcome,
+  Unsubscribe,
 } from './types.ts';
+import { committedTerminalWrite, failedTerminalWrite } from './write-receipt.ts';
 
 class QueueInput implements TerminalInput {
   #queue: TerminalInputChunk[] = [];

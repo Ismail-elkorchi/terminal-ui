@@ -1,6 +1,6 @@
-import type { AccessibleNode } from '../../../accessibility/index.ts';
-import type { FocusTarget, HitTarget, Measurement, Rect } from '../../contracts.ts';
-import type { RenderNodeKind } from '../render-tree/index.ts';
+import type { AccessibleNode } from '../../../accessibility/types.ts';
+import type { Rect } from '../../../geometry/types.ts';
+import type { FocusTarget, HitTarget, Measurement, RenderNodeKind } from '../../contracts.ts';
 import type {
   RenderNodeAccessibilityInput,
   RenderNodeFocusInput,
@@ -8,8 +8,8 @@ import type {
   RenderNodeLayoutInput,
   RenderNodeMeasureInput,
   RenderNodePlaceInput,
-  RenderNodeRenderInput
-} from '../render-tree/renderer.ts';
+  RenderNodeRenderInput,
+} from '../render-tree/types.ts';
 
 export type StructuralRenderNodeKind = Exclude<RenderNodeKind, 'component'>;
 

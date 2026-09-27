@@ -1,9 +1,5 @@
-import {
-  contrastRatio,
-  relativeLuminance,
-  themeColorToRgb
-} from '../visual/color-conversion.ts';
-import type { ThemeColor } from './tokens.ts';
+import { contrastRatio, relativeLuminance, themeColorToRgb } from '../visual/color-conversion.ts';
+import type { ThemeColor } from '../visual/color.ts';
 
 export function contrastColor(background: ThemeColor): ThemeColor;
 export function contrastColor(background: unknown): ThemeColor {

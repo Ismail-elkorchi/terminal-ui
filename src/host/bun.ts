@@ -1,11 +1,14 @@
-import { createStreamTerminalHost, runtimeInputSourceFromAsyncIterable } from './runtime-streams.ts';
-import { NodeTerminalOutput } from './node-output.ts';
 import { processSignalSubscriber } from './native-signals.ts';
+import { NodeTerminalOutput } from './node-output.ts';
+import {
+  createStreamTerminalHost,
+  runtimeInputSourceFromAsyncIterable,
+} from './runtime-streams.ts';
 import type {
   BunTerminalHostOptions,
   NodeWritableTerminalStream,
   RuntimeTerminalInputOptions,
-  TerminalHost
+  TerminalHost,
 } from './types.ts';
 
 interface BunLike {

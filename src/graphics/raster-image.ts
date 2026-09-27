@@ -1,34 +1,18 @@
-import { isNonArrayObject } from '../foundation/validation.ts';
 import { sha256ContentHex } from '../diagnostic-identity.ts';
-import { createGraphicsBudget } from './budget.ts';
+import { isNonArrayObject } from '../foundation/validation.ts';
 import type { GraphicsBudgetLimits } from './budget.ts';
-
-export type RasterPixelFormat = 'rgb8' | 'rgba8';
-
-export interface RasterImageInput {
-  readonly width: number;
-  readonly height: number;
-  readonly format: RasterPixelFormat;
-  readonly data: Uint8Array;
-}
-
-declare const rasterImageBrand: unique symbol;
-
-export interface RasterImageDescriptor {
-  readonly width: number;
-  readonly height: number;
-  readonly format: RasterPixelFormat;
-  readonly byteLength: number;
-  readonly contentDigest: string;
-}
-
-export interface RasterImage extends RasterImageDescriptor {
-  readonly [rasterImageBrand]: true;
-}
+import { createGraphicsBudget } from './budget.ts';
+import type {
+  RasterImage,
+  RasterImageDescriptor,
+  RasterImageInput,
+  RasterPixelFormat,
+} from './raster-types.ts';
 
 const pixelsByImage = new WeakMap<object, Uint8Array>();
 
 export function rasterImage(input: RasterImageInput, limits?: Partial<GraphicsBudgetLimits>): RasterImage;
+
 export function rasterImage(input: unknown, limits?: unknown): RasterImage {
   if (!isNonArrayObject(input)) throw new TypeError('Raster image input must be an object.');
   const width = positiveSafeInteger(input['width'], 'width');

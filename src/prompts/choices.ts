@@ -1,8 +1,8 @@
-import { diagnostic } from '../diagnostics.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { ChoicePromptDefinition, PromptChoice } from './types.ts';
-import { matchCollectionQuery } from '../text/query.ts';
+import { diagnostic } from '../diagnostics.ts';
 import type { QueryMatchMode } from '../text/query.ts';
+import { matchCollectionQuery } from '../text/query.ts';
+import type { ChoicePromptDefinition, PromptChoice } from './types.ts';
 
 export function isChoiceDisabled<TValue>(choice: PromptChoice<TValue>): boolean {
   return choice.disabled !== undefined && choice.disabled !== false;

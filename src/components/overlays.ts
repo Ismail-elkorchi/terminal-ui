@@ -1,15 +1,12 @@
 /** Dialog, menu, tooltip, and popup-trigger controls. */
-export { dialog } from './factories/dialog.ts';
-export { contextMenu, menu, menuBar, menuTrigger } from './factories/menus.ts';
-export { tooltip } from './factories/divider-and-tooltip.ts';
-export type * from './options/dialog.ts';
-export type * from './options/overlays.ts';
-export type { DialogDismissReason, DialogDismissal, DialogFocusPolicy } from './dialog.ts';
 export type {
   ContextMenuTransition,
-  MenuActivateEvent,
+  ContextMenuView,
   MenuActionItem,
+  MenuActionTone,
+  MenuActivateEvent,
   MenuBarTransition,
+  MenuBarView,
   MenuCheckItem,
   MenuItem,
   MenuRadioItem,
@@ -18,5 +15,29 @@ export type {
   MenuSubmenuItem,
   MenuTransition,
   MenuTriggerTransition,
+  MenuTriggerView,
+  MenuView,
+  MenuViewItem,
 } from '../behavior/menu.ts';
-export type { TooltipTransition, TooltipTone } from './tooltip.ts';
+export type { AnchoredSurfacePlacement } from '../interaction/anchored-surface.ts';
+export type {
+  DialogDismissEvent,
+  DialogDismissReason,
+  DialogDismissal,
+  DialogFocusPolicy,
+} from './dialog.ts';
+export { dialog } from './dialog/definition.ts';
+export type { DialogOptions } from './dialog/options.ts';
+export { contextMenu } from './menus/context-menu.ts';
+export { menuBar } from './menus/menu-bar.ts';
+export { menuTrigger } from './menus/menu-trigger.ts';
+export { menu } from './menus/menu.ts';
+export type {
+  ContextMenuOptions,
+  MenuBarOptions,
+  MenuOptions,
+  MenuTriggerOptions,
+} from './menus/options.ts';
+export type { TooltipTone, TooltipTransition } from './tooltip/contracts.ts';
+export { tooltip } from './tooltip/definition.ts';
+export type { TooltipOptions } from './tooltip/options.ts';

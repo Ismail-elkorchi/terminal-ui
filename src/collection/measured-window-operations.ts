@@ -1,10 +1,5 @@
-import {
-  readMeasuredCollection
-} from './measured-collection.ts';
-import type {
-  MeasuredCollection,
-  MeasuredCollectionReader
-} from './measured-collection.ts';
+import type { MeasuredCollection, MeasuredCollectionReader } from './measured-collection.ts';
+import { readMeasuredCollection } from './measured-collection.ts';
 import type {
   MeasuredAnchorAtOptions,
   MeasuredWindow,

@@ -1,9 +1,5 @@
-import {
-  findTextMatches,
-  createTextSearchIndex,
-  compileTextSearchQuery
-} from './search-index.ts';
 import type { TextHighlightMatch, TextHighlightOptions } from './search-index.ts';
+import { compileTextSearchQuery, createTextSearchIndex, findTextMatches } from './search-index.ts';
 
 export function findTextHighlightMatches(
   text: string,

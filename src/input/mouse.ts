@@ -1,6 +1,6 @@
-import type { MouseReportingMode } from '../host/index.ts';
-import type { MouseAction, MouseButton, MouseEncoding, MouseEvent } from './types.ts';
+import type { MouseReportingMode } from '../protocol/index.ts';
 import { InputDecodeError } from './decode-error.ts';
+import type { MouseAction, MouseButton, MouseEncoding, MouseEvent } from './types.ts';
 
 const sgrMousePattern = new RegExp(String.raw`^\u001B\[<(\d+);(\d+);(\d+)([Mm])`, 'u');
 

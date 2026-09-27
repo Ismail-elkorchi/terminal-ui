@@ -5,8 +5,8 @@ import {
   isNonEmptyString,
   isStringMember,
 } from '../foundation/validation.ts';
-import { interactionTranscriptFormatVersion, transcriptSources } from './types.ts';
 import type { InteractionTranscript } from './types.ts';
+import { interactionTranscriptFormatVersion, transcriptSources } from './types.ts';
 
 const maximumTranscriptIdCodeUnits = 256;
 const transcriptFields = new Set([

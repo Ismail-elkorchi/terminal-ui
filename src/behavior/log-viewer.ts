@@ -1,7 +1,7 @@
+import type { MouseModifiers } from '../input/types.ts';
 import type { ScrollRequest } from '../interaction/scroll.ts';
 import type { PointerSelectionTransition } from '../interaction/text-pointer.ts';
 import type { CollectionQuery } from '../text/query.ts';
-import type { MouseModifiers } from '../input/types.ts';
 
 export interface LogViewerBodyAnchor {
   readonly entryId: string;

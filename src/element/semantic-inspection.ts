@@ -2,7 +2,7 @@ import type {
   ComponentInspectionRecord,
   ComponentInspectionValue,
   ComponentSemanticInspection,
-} from './inspection.ts';
+} from './inspection-contracts.ts';
 
 const semanticFields = new Set([
   'value',

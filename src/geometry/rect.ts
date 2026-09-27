@@ -18,3 +18,8 @@ export function rectsOverlap(left: Rect, right: Rect): boolean {
     && left.column < right.column + right.width
     && left.column + left.width > right.column;
 }
+
+export function sameRect(left: Rect, right: Rect): boolean {
+  return left.row === right.row && left.column === right.column
+    && left.width === right.width && left.height === right.height;
+}

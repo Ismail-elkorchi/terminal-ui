@@ -1,34 +1,44 @@
-import { sameFrameCell } from './internal/frame-cell-equality.ts';
-import { terminalCellGraphemes } from '../text/measure.ts';
-import { measureTextCells, sanitizeTerminalCellText } from '../text/index.ts';
-import { createAccessibleSnapshot } from '../accessibility/index.ts';
-import { DirtyCoverageAccumulator } from './internal/dirty-coverage.ts';
-import { frameCellSource } from '../visual/frame-source.ts';
-import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { FrameCellSource } from '../visual/frame-source.ts';
-import type { FocusPath } from './internal/focus.ts';
-import type { CursorPosition, RenderInstrumentation } from './contracts.ts';
-import type { Frame, FrameCell, FrameHitTarget } from './contracts.ts';
-import type { Rect } from './contracts.ts';
-import { decodeTerminalLink, sameTerminalStyle, sameTerminalLink, sameFrameCellSource } from '../visual/render-content.ts';
-import { decodeTerminalStyle } from '../visual/terminal-style.ts';
-import type { RenderBlock, RenderLine, RenderSpan, TerminalColor, TerminalLink, TerminalStyle } from '../visual/render-content.ts';
-import type { FrameRenderTarget, RenderTarget } from './contracts.ts';
-import type { TextWidthProfile } from '../text/index.ts';
-import type { GraphemeSegment } from '../text/index.ts';
-import { defaultTextWidthProfile, defineTextWidthProfile } from '../text/index.ts';
-import { assertFrameDimensions } from './internal/frame-limits.ts';
+import { createAccessibleSnapshot } from '../accessibility/snapshot.ts';
+import type { AccessibleSnapshot } from '../accessibility/types.ts';
+import type { Rect } from '../geometry/types.ts';
 import { isRasterImage } from '../graphics/raster-image.ts';
 import type { GraphicPlacement, GraphicPlacementInput } from '../graphics/types.ts';
-import {
-  registerFrameSnapshotMetadata,
-  frameSnapshotMetadata,
-} from './internal/frame-snapshot.ts';
+import type { FocusPath } from '../interaction/focus.ts';
+import { measureTextCells, terminalCellGraphemes } from '../text/measure.ts';
+import { sanitizeTerminalCellText } from '../text/sanitize.ts';
+import type { GraphemeSegment, TextWidthProfile } from '../text/types.ts';
+import { defaultTextWidthProfile, defineTextWidthProfile } from '../text/width-profile.ts';
+import type { FrameCellSource } from '../visual/frame-source.ts';
+import { frameCellSource, sameFrameCellSource } from '../visual/frame-source.ts';
 import type {
-  FrameRowFingerprint,
-  FrameSnapshotRowIndex,
-} from './internal/frame-snapshot.ts';
-import type { DirtyRegionSet } from './internal/dirty-regions.ts';
+  RenderBlock,
+  RenderLine,
+  RenderSpan,
+  TerminalColor,
+  TerminalLink,
+  TerminalStyle,
+} from '../visual/render-content.ts';
+import {
+  decodeTerminalLink,
+  sameTerminalLink,
+  sameTerminalStyle,
+} from '../visual/render-content.ts';
+import { decodeTerminalStyle } from '../visual/terminal-style.ts';
+import type {
+  CursorPosition,
+  Frame,
+  FrameCell,
+  FrameHitTarget,
+  FrameRenderTarget,
+  RenderInstrumentation,
+  RenderTarget,
+} from './contracts.ts';
+import type { DirtyRegionSet } from './internal/damage-contracts.ts';
+import { DirtyCoverageAccumulator } from './internal/dirty-coverage.ts';
+import { sameFrameCell } from './internal/frame-cell-equality.ts';
+import { assertFrameDimensions } from './internal/frame-limits.ts';
+import type { FrameRowFingerprint, FrameSnapshotRowIndex } from './internal/frame-snapshot.ts';
+import { frameSnapshotMetadata, registerFrameSnapshotMetadata } from './internal/frame-snapshot.ts';
 
 const snapshotWork = new WeakMap<Frame, { readonly rows: number; readonly cells: number }>();
 export function frameSnapshotWork(frame: Frame): { readonly rows: number; readonly cells: number } {

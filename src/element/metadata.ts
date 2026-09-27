@@ -1,9 +1,9 @@
-import type { AccessibilityOptions, AccessibleNode } from '../accessibility/index.ts';
-import type { BindableKeyName, InputEvent, InputTrigger } from '../input/index.ts';
+import type { AccessibilityOptions, AccessibleNode } from '../accessibility/types.ts';
+import type { BindableKeyName, InputEvent, InputTrigger } from '../input/types.ts';
 import type { FocusPath, InitialFocusSelector } from '../interaction/focus.ts';
 import type { MessageResolution } from '../interaction/message.ts';
-import type { TerminalStyle } from '../visual/render-content.ts';
 import type { ElementVisualState } from '../visual/frame-source.ts';
+import type { TerminalStyle } from '../visual/render-content.ts';
 
 export type { ElementVisualState } from '../visual/frame-source.ts';
 

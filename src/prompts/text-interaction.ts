@@ -1,6 +1,6 @@
 import { diagnostic } from '../diagnostics.ts';
-import type { TerminalHost } from '../host/index.ts';
-import type { InputEvent } from '../input/index.ts';
+import type { TerminalHost } from '../host/types.ts';
+import type { InputEvent } from '../input/types.ts';
 import { editPromptBufferForEvent, isMultilineText } from './buffer-edit.ts';
 import type { PromptInteractionHooks, PromptRenderHook } from './interaction-hooks.ts';
 import { createPromptSnapshot, promptValueForSnapshot } from './snapshot.ts';

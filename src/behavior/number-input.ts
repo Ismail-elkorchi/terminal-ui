@@ -1,5 +1,5 @@
-import type { TextEditOperation, TextSelection } from '../text/index.ts';
 import type { TextPointerTransition } from '../interaction/text-pointer.ts';
+import type { TextEditOperation, TextSelection } from '../text/types.ts';
 
 export type NumberInputControlTransition =
   | { readonly kind: 'edit'; readonly operation: TextEditOperation }

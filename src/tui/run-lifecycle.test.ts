@@ -4,8 +4,8 @@ import test from 'node:test';
 import { text } from '../components/index.ts';
 import { createMemoryTerminalHost } from '../host/index.ts';
 import { defineTui } from './definition.ts';
-import { resolveTuiRunOptions } from './run-configuration.ts';
-import { TuiRunLifecycleOwner } from './run-lifecycle.ts';
+import { resolveTuiRunOptions } from './lifecycle/run-configuration.ts';
+import { TuiRunLifecycleOwner } from './lifecycle/run-lifecycle.ts';
 import { isTerminalTheme, resolveThemeColor } from '../theme/index.ts';
 
 void test('TUI run options own partial theme definitions at admission', () => {

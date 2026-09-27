@@ -1,5 +1,5 @@
 import { isNonArrayObject } from '../foundation/validation.ts';
-import type { RasterImageDescriptor } from './raster-image.ts';
+import type { RasterImageDescriptor } from './raster-types.ts';
 
 export interface GraphicsBudgetLimits {
   readonly sourcePixels: number;

@@ -1,27 +1,23 @@
+import type { EditHistoryPolicy } from '../text/bounded-history.ts';
+import type { TextEditHistory } from '../text/edit-history.ts';
 import {
   applyTextEditWithHistory,
   breakTextEditHistoryGroup,
   emptyTextEditHistory,
-  normalizeTextCursor,
-  sanitizeTerminalText,
-} from '../text/index.ts';
-import type {
-  EditHistoryPolicy,
-  TextEditBuffer,
-  TextEditHistory,
-  TextEditOperation,
-  TextSelection,
-} from '../text/index.ts';
+} from '../text/edit-history.ts';
+import { sanitizeTerminalText } from '../text/sanitize.ts';
+import { normalizeTextCursor } from '../text/text-range.ts';
+import type { TextEditBuffer, TextEditOperation, TextSelection } from '../text/types.ts';
+import type { AnchoredSurfaceDismissReason } from './anchored-surface.ts';
+import type { CollectionInteractionIndex } from './collection-interaction.ts';
 import {
   collectionInteractionHas,
   collectionInteractionIds,
   collectionInteractionPosition,
 } from './collection-interaction.ts';
-import type { CollectionInteractionIndex } from './collection-interaction.ts';
-import { adjacentItemId } from './navigation.ts';
 import type { NavigationPolicy } from './navigation.ts';
+import { adjacentItemId } from './navigation.ts';
 import { popupReducer } from './popup.ts';
-import type { AnchoredSurfaceDismissReason } from './anchored-surface.ts';
 import type { TextPointerTransition } from './text-pointer.ts';
 
 export interface EditablePopupCompletion {

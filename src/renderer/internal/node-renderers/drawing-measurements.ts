@@ -1,15 +1,11 @@
 import { finiteNonNegativeIntegerOrZero } from '../../../foundation/validation.ts';
-import {
-  combineMeasurementsOverlay,
-  measurement,
-  measureSize
-} from '../../measurement.ts';
 import { layoutInsetSize } from '../../../geometry/layout.ts';
+import { measureTextCells } from '../../../text/measure.ts';
+import { borderTitleAccessibleText } from '../../../visual/border.ts';
+import { combineMeasurementsOverlay, measurement, measureSize } from '../../measurement.ts';
 import { numberProp } from '../render-node-props.ts';
 import { surfaceBorderForLayout } from '../surface.ts';
 import { childMeasurements } from './measurement-support.ts';
-import { measureTextCells } from '../../../text/index.ts';
-import { borderTitleAccessibleText } from '../../../visual/border.ts';
 import type { StructuralMeasurementMap } from './types.ts';
 
 export const drawingMeasurements = {

@@ -1,6 +1,6 @@
-import { diagnostic } from '../diagnostics.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalHost } from '../host/index.ts';
+import { diagnostic } from '../diagnostics.ts';
+import type { TerminalHost } from '../host/types.ts';
 import type { PromptValueContract } from './types.ts';
 
 export type PromptValidationOutcome =

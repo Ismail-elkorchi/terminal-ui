@@ -4,11 +4,11 @@ import type {
   TerminalRestoreResult,
   TerminalStateChange,
   TerminalStateSnapshot,
-} from '../host/index.ts';
-import type { TerminalKeyboardProfile } from '../protocol/index.ts';
-import type { CursorPosition, RenderOperation } from '../renderer/index.ts';
-import type { TextWidthProfile } from '../text/index.ts';
-import type { TerminalStyle } from '../visual/index.ts';
+} from '../host/types.ts';
+import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
+import type { CursorPosition, RenderOperation } from '../renderer/contracts.ts';
+import type { TextWidthProfile } from '../text/types.ts';
+import type { TerminalStyle } from '../visual/render-content.ts';
 import type { TranscriptFrame, TranscriptRenderDiff } from './types.ts';
 
 export interface TranscriptAdoptions {

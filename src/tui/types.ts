@@ -1,15 +1,19 @@
-import type { AccessibleSnapshot } from '../accessibility/index.ts';
+import type { AccessibleSnapshot } from '../accessibility/types.ts';
 import type { DiagnosticOccurrence, TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalCapabilityProfile, TerminalClock, TerminalHost, TerminalInputChunk, TerminalSize } from '../host/index.ts';
-import type { InputEvent, InputPipelineOptions, InputTrigger } from '../input/index.ts';
-import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
-import type { InteractionTranscript, TranscriptRecorder } from '../transcript/index.ts';
-import type { Element } from '../element/index.ts';
-import type { Frame } from '../renderer/contracts.ts';
+import type { Element } from '../element/types.ts';
+import type { TerminalSize } from '../geometry/types.ts';
+import type { GraphicsBudgetLimits } from '../graphics/budget.ts';
+import type { TerminalGraphicsMode } from '../graphics/types.ts';
+import type { TerminalCapabilityProfile } from '../host/capability-types.ts';
+import type { TerminalClock, TerminalHost, TerminalInputChunk } from '../host/types.ts';
+import type { InputPipelineOptions } from '../input/pipeline.ts';
+import type { InputEvent, InputTrigger } from '../input/types.ts';
 import type { FocusPath, InitialFocusSelector } from '../interaction/focus.ts';
-import type { SessionProtocolPolicy } from './session-policy.ts';
 import type { MessageResolution, TuiMessageSource } from '../interaction/message.ts';
-import type { GraphicsBudgetLimits, TerminalGraphicsMode } from '../graphics/index.ts';
+import type { Frame } from '../renderer/contracts.ts';
+import type { TerminalTheme, TerminalThemeDefinition } from '../theme/theme.ts';
+import type { InteractionTranscript, TranscriptRecorder } from '../transcript/types.ts';
+import type { SessionProtocolPolicy } from './lifecycle/session-policy.ts';
 
 export interface TuiDefinition<TState, TMessage> {
   readonly id?: string;

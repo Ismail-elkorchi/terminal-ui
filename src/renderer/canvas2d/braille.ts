@@ -1,4 +1,4 @@
-import type { CanvasPoint } from './paths.ts';
+import type { CanvasPoint } from '../contracts.ts';
 
 const BRAILLE_BASE = 0x2800;
 

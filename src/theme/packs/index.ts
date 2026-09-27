@@ -1,4 +1,5 @@
 import { defineTheme } from '../index.ts';
+import type { TerminalTheme } from '../theme.ts';
 import { catppuccinMochaThemeDefinition } from './catppuccin.ts';
 import { draculaThemeDefinition } from './dracula.ts';
 import { gruvboxDarkThemeDefinition } from './gruvbox.ts';
@@ -6,7 +7,6 @@ import { monochromeThemeDefinition } from './monochrome.ts';
 import { nordThemeDefinition } from './nord.ts';
 import { solarizedDarkThemeDefinition } from './solarized.ts';
 import { tokyoNightThemeDefinition } from './tokyo-night.ts';
-import type { TerminalTheme } from '../index.ts';
 
 export const catppuccinMochaTheme: TerminalTheme = defineTheme(catppuccinMochaThemeDefinition);
 export const nordTheme: TerminalTheme = defineTheme(nordThemeDefinition);

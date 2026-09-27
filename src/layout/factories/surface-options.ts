@@ -1,7 +1,9 @@
-import type { Element } from '../../element/index.ts';
+import type { Element } from '../../element/types.ts';
 import type { LayoutFlowOptions } from '../../geometry/types.ts';
 import { toRenderNode } from '../../renderer/internal/render-tree/element.ts';
-import type { RenderNodeLayoutProps } from '../../renderer/internal/render-tree/props/shared-layout.ts';
+import type {
+  RenderNodeLayoutProps,
+} from '../../renderer/internal/render-tree/props/shared-layout.ts';
 
 export function surfaceLayoutProps(options: Omit<LayoutFlowOptions, 'gap'>): RenderNodeLayoutProps {
   return {

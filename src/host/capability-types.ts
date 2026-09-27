@@ -1,6 +1,7 @@
 import type { TerminalDiagnostic, TerminalDiagnosticValue } from '../diagnostics.ts';
-import type { TextWidthProfile } from '../text/index.ts';
-import type { KittyGraphicsTransport, TerminalCellPixels } from '../protocol/index.ts';
+import type { TerminalCellPixels } from '../protocol/graphics-geometry.ts';
+import type { KittyGraphicsTransport } from '../protocol/kitty-graphics.ts';
+import type { TextWidthProfile } from '../text/types.ts';
 
 export type RuntimeTarget = 'node' | 'deno' | 'bun' | 'memory';
 

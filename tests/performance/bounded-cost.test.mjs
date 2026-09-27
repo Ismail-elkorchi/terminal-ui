@@ -16,7 +16,7 @@ import {
 import { createCommandSuggestions } from '../../dist/behavior/index.js';
 import { dirtyRegionsForRegionChanges } from '../../dist/renderer/internal/dirty-regions.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render-element.js';
-import { createTextAreaProjection } from '../../dist/components/internal/text-area-projection.js';
+import { createTextAreaProjection } from '../../dist/components/text-area/projection.js';
 import {
   button,
   canvas,
@@ -50,7 +50,7 @@ import {
   textDocumentChunkMetrics,
   textDocumentPreviousMutation,
 } from '../../dist/text/document.js';
-import { readTextAreaDecorations } from '../../dist/components/text-area-decorations.js';
+import { readTextAreaDecorations } from '../../dist/components/text-area/decorations.js';
 import {
   appendLogHistory,
   createScrollState,
@@ -73,7 +73,7 @@ import {
   createTerminalTextIndex,
   editTextBuffer
 } from '../../dist/text/index.js';
-import { waitUntil } from '../helpers/async.ts';
+import { waitUntil } from '../support/async.ts';
 
 const outputCapabilities = await createMemoryTerminalHost().getCapabilities();
 

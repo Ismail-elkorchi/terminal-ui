@@ -1,5 +1,5 @@
-import type { LayoutFlowOptions } from '../geometry/types.ts';
 import { layoutInsetSize } from '../geometry/layout.ts';
+import type { LayoutFlowOptions } from '../geometry/types.ts';
 import type { Measurement } from '../renderer/contracts.ts';
 import { measurement, normalizeMeasurement } from '../renderer/measurement.ts';
 

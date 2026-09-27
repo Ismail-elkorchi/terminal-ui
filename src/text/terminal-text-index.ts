@@ -1,7 +1,7 @@
 import { segmentGraphemesForMeasurement } from './graphemes.ts';
 import { selectedText } from './text-range.ts';
-import { lineSelectionAt, createWordBoundaryIndex } from './word-boundaries.ts';
 import type { TerminalTextIndex, TextIndexOptions, TextSelection } from './types.ts';
+import { createWordBoundaryIndex, lineSelectionAt } from './word-boundaries.ts';
 
 const encoder = new TextEncoder();
 

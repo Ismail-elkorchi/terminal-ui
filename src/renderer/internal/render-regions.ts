@@ -1,25 +1,37 @@
-import { createCompositingFrameBuffer, seedFrameBufferRows, registerSpanTarget, transferFrameCell, transferFrameBufferSpans, recordTargetSegmentation } from '../frame-buffer.ts';
-import { createDirtyRegionSet } from './dirty-regions.ts';
-import type { TerminalSize } from '../../geometry/types.ts';
-import { intersectRects } from '../../geometry/rect.ts';
-import type { TextWidthProfile } from '../../text/index.ts';
-import type { DirtyRegionSet } from './dirty-regions.ts';
-import type { FrameBuffer, FrameBufferSnapshot, FrameBufferSnapshotOptions } from '../frame-buffer.ts';
-import { frameSnapshotMetadata, registerFrameSnapshotMetadata } from './frame-snapshot.ts';
-import type { FrameSnapshotMetadata } from './frame-snapshot.ts';
-import type { FrameCell, FrameHitTarget, RenderInstrumentation } from '../contracts.ts';
-import type { GraphicPlacement } from '../../graphics/index.ts';
-import type { FocusPath, LayoutFocusTarget } from './focus.ts';
-import type { ResolvedPointerFocusIntent } from '../../interaction/focus.ts';
 import type { LayerUnderlay } from '../../element/metadata.ts';
-import type { LayoutNode, Rect } from '../contracts.ts';
+import { intersectRects } from '../../geometry/rect.ts';
+import type { Rect, TerminalSize } from '../../geometry/types.ts';
+import type { GraphicPlacement } from '../../graphics/types.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../../input/pointer.ts';
-import type { HitTarget } from '../contracts.ts';
+import type { FocusPath, ResolvedPointerFocusIntent } from '../../interaction/focus.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
+import { scrollRouteDescriptor, type ScrollRoutable } from '../../interaction/scroll-route.ts';
+import type { TextWidthProfile } from '../../text/types.ts';
+import type {
+  FrameCell,
+  FrameHitTarget,
+  HitTarget,
+  LayoutNode,
+  RenderInstrumentation,
+} from '../contracts.ts';
+import type {
+  FrameBuffer,
+  FrameBufferSnapshot,
+  FrameBufferSnapshotOptions,
+} from '../frame-buffer.ts';
 import {
-  scrollRouteDescriptor,
-  type ScrollRoutable,
-} from '../../interaction/scroll-route.ts';
+  createCompositingFrameBuffer,
+  recordTargetSegmentation,
+  registerSpanTarget,
+  seedFrameBufferRows,
+  transferFrameBufferSpans,
+  transferFrameCell,
+} from '../frame-buffer.ts';
+import type { DirtyRegionSet } from './damage-contracts.ts';
+import { createDirtyRegionSet } from './dirty-regions.ts';
+import type { LayoutFocusTarget } from './focus.ts';
+import type { FrameSnapshotMetadata } from './frame-snapshot.ts';
+import { frameSnapshotMetadata, registerFrameSnapshotMetadata } from './frame-snapshot.ts';
 
 export interface RenderRegionHitTarget<TMessage = unknown> extends FrameHitTarget, ScrollRoutable<TMessage> {
   readonly ownerIdentity: string;

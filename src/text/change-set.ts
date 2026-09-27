@@ -2,7 +2,7 @@ import {
   textDocumentApplyChangesExact,
   textDocumentLength,
   textDocumentSlice,
-  type TextDocument
+  type TextDocument,
 } from './document.ts';
 import type { TextChangeSet, TextDocumentChange } from './types.ts';
 

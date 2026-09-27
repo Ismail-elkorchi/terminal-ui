@@ -1,10 +1,11 @@
+export { createAccessibleSnapshot, findAccessibleNode } from './snapshot.ts';
+export { accessibleRoles, accessibleSources, isAccessibleRole } from './types.ts';
 export type {
   AccessibilityOptions,
   AccessibleLiveRegion,
   AccessibleNode,
-  AccessibleTextWindow,
-  AccessiblePosition,
   AccessibleNumericValue,
+  AccessiblePosition,
   AccessibleRole,
   AccessibleScope,
   AccessibleScopeKind,
@@ -13,9 +14,8 @@ export type {
   AccessibleSnapshotSource,
   AccessibleTextPosition,
   AccessibleTextSelection,
+  AccessibleTextWindow,
   AccessibleValue,
-  AccessibleWindow
+  AccessibleWindow,
 } from './types.ts';
-export { accessibleRoles, accessibleSources, isAccessibleRole } from './types.ts';
-export { createAccessibleSnapshot, findAccessibleNode } from './snapshot.ts';
 export { decodeAccessibleSnapshot } from './validate.ts';

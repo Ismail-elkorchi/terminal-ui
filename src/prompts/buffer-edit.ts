@@ -1,6 +1,6 @@
-import { editTextBuffer } from '../text/index.ts';
-import type { InputEvent } from '../input/index.ts';
-import type { TextEditBuffer } from '../text/index.ts';
+import type { InputEvent } from '../input/types.ts';
+import { editTextBuffer } from '../text/edit.ts';
+import type { TextEditBuffer } from '../text/types.ts';
 
 interface PromptTextBufferState {
   buffer: TextEditBuffer;

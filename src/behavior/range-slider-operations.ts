@@ -1,7 +1,7 @@
 import type {
-  RangeSliderTransition,
   RangeSliderReducerOptions,
-  RangeSliderState
+  RangeSliderState,
+  RangeSliderTransition,
 } from './range-slider.ts';
 
 export function rangeSliderReducer(

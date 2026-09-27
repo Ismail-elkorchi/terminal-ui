@@ -1,13 +1,10 @@
-import { measureTextCells, sanitizeTerminalCellText } from '../../text/index.ts';
-import type { TerminalOutputCapabilityProfile } from '../../protocol/index.ts';
+import type { TerminalOutputCapabilityProfile } from '../../protocol/output-capabilities.ts';
+import { measureTextCells } from '../../text/measure.ts';
+import { sanitizeTerminalCellText } from '../../text/sanitize.ts';
 import type { RenderDiff, RenderOperation } from '../contracts.ts';
+import type { AnsiStyleState, RenderSerializeOptions, RenderSpanSerializer } from './ansi.ts';
 import { createRenderSpanSerializer } from './ansi.ts';
 import { createTerminalSerializationPolicy } from './serialization-policy.ts';
-import type {
-  AnsiStyleState,
-  RenderSerializeOptions,
-  RenderSpanSerializer,
-} from './ansi.ts';
 
 export interface TerminalOutputPlan {
   readonly text: string;

@@ -1,11 +1,14 @@
+import type { MeasuredCollection } from '../collection/measured-collection.ts';
+import { measuredWindow } from '../collection/measured-window-operations.ts';
+import type {
+  CollectionInteractionIndex,
+  CollectionInteractionState,
+  CollectionInteractionTransition,
+} from '../interaction/collection-interaction.ts';
 import { collectionInteractionReducer } from '../interaction/collection-interaction.ts';
-import type { CollectionInteractionIndex } from '../interaction/collection-interaction.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
-import type { CollectionInteractionTransition, CollectionInteractionState } from '../interaction/collection-interaction.ts';
 import type { ScrollRequest, ScrollState } from '../interaction/scroll.ts';
 import { applyScrollRequest } from './scroll.ts';
-import { measuredWindow } from '../collection/measured-window-operations.ts';
-import type { MeasuredCollection } from '../collection/measured-collection.ts';
 
 /** @beta */
 export interface UnscrolledListViewState extends CollectionInteractionState {

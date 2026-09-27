@@ -1,25 +1,27 @@
 /** Status, progress, and notification feedback components. */
-export { activityIndicator, progressBar, statusBar } from './factories/feedback-indicators.ts';
-export { notificationHistory, notificationRegion } from './factories/notifications.ts';
-export type {
-  ActivityIndicatorOptions,
-  NotificationHistoryOptions,
-  NotificationRegionOptions,
-  ProgressBarOptions,
-  StatusBarOptions,
-} from './options/feedback-and-visualizations.ts';
+export type { NotificationHistoryTransition } from '../behavior/notification-history.ts';
 export type {
   NotificationItem,
   NotificationPlacement,
   NotificationTone,
 } from '../behavior/notification.ts';
+export { activityIndicator } from './feedback/activity-indicator.ts';
+export type {
+  ActivityIndicatorOptions,
+  ProgressBarOptions,
+  StatusBarOptions,
+} from './feedback/options.ts';
+export { progressBar } from './feedback/progress-bar.ts';
 export type {
   ProgressBarDisplay,
   ProgressBarLabelPosition,
   ProgressBarMode,
-} from './progress.ts';
+} from './feedback/progress.ts';
+export type { StatusBarItem } from './feedback/status-bar-contracts.ts';
+export { statusBar } from './feedback/status-bar.ts';
+export { notificationHistory, notificationRegion } from './notifications/definition.ts';
 export type {
-  StatusBarItem,
-} from './status-bar.ts';
-export type { NotificationHistoryTransition } from '../behavior/notification-history.ts';
+  NotificationHistoryOptions,
+  NotificationRegionOptions,
+} from './notifications/options.ts';
 export { isNotificationTone, isProcessStatus, isStatusBarStatus } from './status.ts';

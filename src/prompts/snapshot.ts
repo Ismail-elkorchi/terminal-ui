@@ -1,7 +1,12 @@
-import { createAccessibleSnapshot } from '../accessibility/index.ts';
+import { createAccessibleSnapshot } from '../accessibility/snapshot.ts';
+import type {
+  AccessibleNode,
+  AccessibleRole,
+  AccessibleSnapshot,
+  AccessibleValue,
+} from '../accessibility/types.ts';
 import { isChoiceDisabled } from './choices.ts';
 import { createProgress } from './progress.ts';
-import type { AccessibleNode, AccessibleRole, AccessibleSnapshot, AccessibleValue } from '../accessibility/index.ts';
 import type { PromptChoice, PromptDefinition, PromptKind } from './types.ts';
 
 export interface PromptSnapshotState {

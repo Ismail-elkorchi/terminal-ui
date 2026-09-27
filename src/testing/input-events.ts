@@ -2,14 +2,14 @@ import type {
   InputEvent,
   KeyEvent,
   KeyEventLike,
+  MouseAction,
   MouseModifiers,
   MousePointerButton,
   MousePointerEvent,
-  MouseAction,
   MouseWheelButton,
   MouseWheelEvent,
   PasteEvent,
-} from '../input/index.ts';
+} from '../input/types.ts';
 
 const noKeyModifiers = Object.freeze({ ctrl: false, alt: false, shift: false, meta: false });
 const noMouseModifiers = Object.freeze({ ctrl: false, alt: false, shift: false });

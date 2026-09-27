@@ -1,8 +1,14 @@
-import { segmentGraphemes } from '../text/index.ts';
+import { segmentGraphemes } from '../text/graphemes.ts';
 import { defaultTheme } from '../theme/index.ts';
+import type { TerminalTheme } from '../theme/theme.ts';
 import type { PromptRuntimeState } from './state.ts';
-import type { ChoicePromptDefinition, ConfirmPromptDefinition, PasswordPromptDefinition, PromptChoice, PromptDefinition } from './types.ts';
-import type { TerminalTheme } from '../theme/index.ts';
+import type {
+  ChoicePromptDefinition,
+  ConfirmPromptDefinition,
+  PasswordPromptDefinition,
+  PromptChoice,
+  PromptDefinition,
+} from './types.ts';
 
 export function promptLine<TChoice>(
   prompt: PromptDefinition<TChoice>,

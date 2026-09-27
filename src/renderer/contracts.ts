@@ -1,9 +1,5 @@
-import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type {
-  ElementFocusScope,
-  ElementVisualState,
-  LayerUnderlay
-} from '../element/metadata.ts';
+import type { AccessibleSnapshot } from '../accessibility/types.ts';
+import type { ElementFocusScope, LayerUnderlay } from '../element/metadata.ts';
 import type { Rect } from '../geometry/types.ts';
 import type {
   GraphicOperation,
@@ -11,26 +7,31 @@ import type {
   GraphicPlacement,
   GraphicPlacementDescriptor,
   GraphicPlacementInput,
-} from '../graphics/index.ts';
-import type { PointerEventKind, RoutedPointerEvent } from '../input/index.ts';
+} from '../graphics/types.ts';
+import type { PointerEventKind, RoutedPointerEvent } from '../input/pointer.ts';
 import type {
-  FocusPath,
   FocusNavigation,
-  MessageResolution,
+  FocusPath,
   PointerFocusIntent,
-  ResolvedPointerFocusIntent
-} from '../interaction/index.ts';
-import type { TextWidthProfile } from '../text/index.ts';
-import type { TerminalTheme } from '../theme/index.ts';
+  ResolvedPointerFocusIntent,
+} from '../interaction/focus.ts';
+import type { MessageResolution } from '../interaction/message.ts';
+import type { TextWidthProfile } from '../text/types.ts';
+import type { TerminalTheme } from '../theme/theme.ts';
+import type { ElementVisualState, FrameCellRole, FrameCellSource } from '../visual/frame-source.ts';
 import type {
-  FrameCellRole,
-  FrameCellSource,
   RenderBlock,
   RenderLine,
   RenderSpan,
   TerminalLink,
-  TerminalStyle
-} from '../visual/index.ts';
+  TerminalStyle,
+} from '../visual/render-content.ts';
+
+/** Runtime scheduling for optional work before synchronous frame materialization. */
+export interface RenderPreparationContext {
+  readonly signal: AbortSignal;
+  readonly yield: () => Promise<void>;
+}
 
 export interface Measurement {
   readonly minWidth: number;
@@ -372,4 +373,4 @@ export type {
   GraphicPlacement,
   GraphicPlacementDescriptor,
   GraphicPlacementInput,
-} from '../graphics/index.ts';
+} from '../graphics/types.ts';

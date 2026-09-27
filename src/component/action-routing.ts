@@ -1,25 +1,19 @@
 import type { ElementKeyBindings, ElementKeyEvent } from '../element/metadata.ts';
 import {
   findUnsupportedField,
-  isNonEmptyString,
   isNonArrayObject,
+  isNonEmptyString,
   isStringMember,
 } from '../foundation/validation.ts';
 import type { Rect } from '../geometry/types.ts';
-import type {
-  BindableKeyName,
-  InputTrigger,
-} from '../input/types.ts';
-import { keyNames } from '../input/types.ts';
-import { pointerEventKinds } from '../input/pointer.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../input/pointer.ts';
+import { pointerEventKinds } from '../input/pointer.ts';
 import { decodeInputTrigger } from '../input/triggers.ts';
+import type { BindableKeyName, InputTrigger } from '../input/types.ts';
+import { keyNames } from '../input/types.ts';
+import { scrollRouteDescriptor, type ScrollRoutable } from '../interaction/scroll-route.ts';
 import type { HitTarget } from '../renderer/contracts.ts';
-import {
-  scrollRouteDescriptor,
-  type ScrollRoutable,
-} from '../interaction/scroll-route.ts';
-import { segmentGraphemes } from '../text/index.ts';
+import { segmentGraphemes } from '../text/graphemes.ts';
 import { executeComponentPhase, type ComponentDefinitionName } from './execution-error.ts';
 import { mapComponentAction } from './message.ts';
 

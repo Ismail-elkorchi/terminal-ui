@@ -1,3 +1,5 @@
+import { sameDocumentSelection, sameTextCaret } from './comparison.ts';
+import type { TextDocument } from './document.ts';
 import {
   normalizeTextCaret,
   normalizeTextDocumentSelection,
@@ -6,24 +8,19 @@ import {
   textDocumentLineAt,
   textDocumentLineCount,
   textDocumentLineIndexAtOffset,
-  textDocumentSelectionRange
+  textDocumentSelectionRange,
 } from './document.ts';
 import { createTerminalTextIndex } from './terminal-text-index.ts';
-import { sameDocumentSelection, sameTextCaret } from './comparison.ts';
-import { textWidthProfileKey } from './width-profile.ts';
-import { standaloneWordBoundaryIndex } from './word-boundaries.ts';
-import {
-  nextGraphemeBoundary,
-  previousGraphemeBoundary
-} from './text-range.ts';
+import { nextGraphemeBoundary, previousGraphemeBoundary } from './text-range.ts';
 import type {
   TextCaret,
-  TextIndexOptions,
   TextDocumentSelection,
   TextEditOperation,
-  TextPosition
+  TextIndexOptions,
+  TextPosition,
 } from './types.ts';
-import type { TextDocument } from './document.ts';
+import { textWidthProfileKey } from './width-profile.ts';
+import { standaloneWordBoundaryIndex } from './word-boundaries.ts';
 
 const lineIndexCacheLimit = 33_554_432;
 const lineIndexCache = new Map<string, ReturnType<typeof createTerminalTextIndex>>();

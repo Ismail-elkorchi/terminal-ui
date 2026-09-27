@@ -1,6 +1,7 @@
-import { createInputAmbiguityDeadline, createInputPipeline } from '../input/index.ts';
-import type { TerminalHost, TerminalInputChunk } from '../host/index.ts';
-import type { InputEvent, InputPendingState } from '../input/index.ts';
+import type { TerminalHost, TerminalInputChunk } from '../host/types.ts';
+import { createInputAmbiguityDeadline } from '../input/ambiguity-deadline.ts';
+import { createInputPipeline } from '../input/pipeline.ts';
+import type { InputEvent, InputPendingState } from '../input/types.ts';
 import { raisePromptCleanupFailure } from './session.ts';
 
 type InputRead =

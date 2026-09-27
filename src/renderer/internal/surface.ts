@@ -1,15 +1,17 @@
-import { borderStyleFromValue, drawBorder } from '../border.ts';
-import type { BorderStyle, BorderTitle } from '../border.ts';
-import type { SurfaceAppearance } from '../../visual/surface-appearance.ts';
-import type { RenderTarget } from '../contracts.ts';
+import type { Rect } from '../../geometry/types.ts';
+import type { TerminalTheme } from '../../theme/theme.ts';
+import { terminalStyleHasBackground } from '../../theme/theme.ts';
+import type { ThemeColorToken } from '../../visual/color.ts';
+import type { FrameCellSource } from '../../visual/frame-source.ts';
 import { renderNodeFrameSource } from '../../visual/frame-source.ts';
-import type { Rect } from '../contracts.ts';
-import type { FrameCellSource, TerminalStyle } from '../../visual/render-content.ts';
+import type { TerminalStyle } from '../../visual/render-content.ts';
+import type { SurfaceAppearance } from '../../visual/surface-appearance.ts';
+import type { BorderStyle, BorderTitle } from '../border.ts';
+import { borderStyleFromValue, drawBorder } from '../border.ts';
+import type { RenderTarget } from '../contracts.ts';
 import { mergeStyles, resolveRenderNodeStyle } from '../style-resolution.ts';
-import { terminalStyleHasBackground } from '../../theme/index.ts';
-import type { TerminalTheme, ThemeColorToken } from '../../theme/index.ts';
-import type { RenderNodeOfKind } from './render-tree/index.ts';
 import { renderBorderTitle } from './border-title.ts';
+import type { RenderNodeOfKind } from './render-tree/types.ts';
 
 export type { SurfaceAppearance } from '../../visual/surface-appearance.ts';
 

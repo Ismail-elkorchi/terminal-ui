@@ -1,13 +1,18 @@
-import { createFrameBuffer } from '../frame-buffer.ts';
-import { textWidthProfileKey } from '../../text/index.ts';
-import { sameFrameCellSource, sameTerminalStyle } from '../../visual/render-content.ts';
-import { sameFrameCell } from '../frame.ts';
-import type { FrameDescriptor, RenderDiffDescriptor, RenderOperation } from '../contracts.ts';
-import type { CursorPosition } from '../contracts.ts';
-import type { FrameCell } from '../contracts.ts';
-import type { GraphicPlacementDescriptor } from '../../graphics/index.ts';
-import type { TextWidthProfile } from '../../text/index.ts';
+import type { GraphicPlacementDescriptor } from '../../graphics/types.ts';
+import type { TextWidthProfile } from '../../text/types.ts';
+import { textWidthProfileKey } from '../../text/width-profile.ts';
+import { sameFrameCellSource } from '../../visual/frame-source.ts';
 import type { TerminalStyle } from '../../visual/render-content.ts';
+import { sameTerminalStyle } from '../../visual/render-content.ts';
+import type {
+  CursorPosition,
+  FrameCell,
+  FrameDescriptor,
+  RenderDiffDescriptor,
+  RenderOperation,
+} from '../contracts.ts';
+import { createFrameBuffer } from '../frame-buffer.ts';
+import { sameFrameCell } from './frame-cell-equality.ts';
 
 export function fullRewriteDiffFromFrame(frame: FrameDescriptor): RenderDiffDescriptor {
   const operations: RenderOperation[] = [];

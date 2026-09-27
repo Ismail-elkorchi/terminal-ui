@@ -1,12 +1,12 @@
-import type { Rect } from '../geometry/types.ts';
 import {
   assertFiniteNumber,
   assertOptionalEnum,
   assertOptionalFiniteNumber,
   finiteNonNegativeIntegerOrZero,
   isNonArrayObject,
-  isStringMember
+  isStringMember,
 } from '../foundation/validation.ts';
+import type { Rect } from '../geometry/types.ts';
 
 const anchoredSurfaceSides = ['above', 'below', 'left', 'right'] as const;
 const anchoredSurfacePlacements = [...anchoredSurfaceSides, 'auto', 'cursor'] as const;

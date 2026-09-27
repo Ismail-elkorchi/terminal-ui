@@ -1,10 +1,6 @@
+import type { AccessibleNode, AccessibleSnapshot, AccessibleSnapshotInput } from './types.ts';
 import { decodeAccessibleSnapshotWithPolicy } from './validate.ts';
 export { nodePath } from './traversal.ts';
-import type {
-  AccessibleNode,
-  AccessibleSnapshot,
-  AccessibleSnapshotInput
-} from './types.ts';
 
 export function createAccessibleSnapshot(input: AccessibleSnapshotInput): AccessibleSnapshot {
   const result = decodeAccessibleSnapshotWithPolicy(input, true);

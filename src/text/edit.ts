@@ -1,24 +1,24 @@
+import { sanitizeTerminalSingleLineText } from './sanitize.ts';
 import {
   nextGraphemeBoundary,
   normalizeTextCursor,
   normalizeTextSelection,
   previousGraphemeBoundary,
-  replaceTextRange
+  replaceTextRange,
 } from './text-range.ts';
-import {
-  lineEndOffset,
-  lineOffsetByDelta,
-  lineStartOffset,
-  standaloneWordBoundaryIndex
-} from './word-boundaries.ts';
-import type { WordBoundaryIndex } from './word-boundaries.ts';
-import { sanitizeTerminalSingleLineText } from './sanitize.ts';
 import type {
   TextBoundaryOptions,
   TextEditBuffer,
   TextEditOperation,
-  TextSelection
+  TextSelection,
 } from './types.ts';
+import type { WordBoundaryIndex } from './word-boundaries.ts';
+import {
+  lineEndOffset,
+  lineOffsetByDelta,
+  lineStartOffset,
+  standaloneWordBoundaryIndex,
+} from './word-boundaries.ts';
 
 export function editTextBuffer(
   buffer: TextEditBuffer,

@@ -1,17 +1,13 @@
-import { measureTextWidth } from '../text/measure.ts';
-import { measuredGraphemes } from '../text/graphemes.ts';
-import {
-  clipTextCells,
-  fillTextCells,
-  measureTextCells,
-  sanitizeTerminalCellText,
-  sanitizeTerminalText
-} from '../text/index.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
+import { fillTextCells } from '../text/cell-geometry.ts';
+import { clipTextCells } from '../text/clip.ts';
+import { measuredGraphemes } from '../text/graphemes.ts';
+import { measureTextCells, measureTextWidth } from '../text/measure.ts';
+import { sanitizeTerminalCellText, sanitizeTerminalText } from '../text/sanitize.ts';
+import type { TextMeasurementOptions, TextWrapOptions } from '../text/types.ts';
 import type { ThemeColorReference } from './color.ts';
-import { sameFrameCellSource } from './frame-source.ts';
 import type { FrameCellSource } from './frame-source.ts';
-import type { TextMeasurementOptions, TextWrapOptions } from '../text/index.ts';
+import { sameFrameCellSource } from './frame-source.ts';
 
 export interface TerminalStyle {
   readonly fg?: TerminalColor;
@@ -434,5 +430,5 @@ function compactSpans(
   return Object.freeze(result);
 }
 
-export type { FrameCellSource } from './frame-source.ts';
 export { sameFrameCellSource } from './frame-source.ts';
+export type { FrameCellSource } from './frame-source.ts';

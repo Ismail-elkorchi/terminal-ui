@@ -1,11 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  findTextMatches,
-  createTextSearchIndex,
-  compileTextSearchQuery
-} from './search-index.ts';
+import { findTextMatches, createTextSearchIndex, compileTextSearchQuery } from './search-index.ts';
 
 void test('indexed text search preserves grapheme boundaries and normalization', () => {
   const index = createTextSearchIndex('Cafe\u0301 CAFÉ 👨‍👩‍👧‍👦 café', {

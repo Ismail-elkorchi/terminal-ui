@@ -94,3 +94,10 @@ export function finiteNonNegativeIntegerOr(value: unknown, fallback: number): nu
     ? Math.max(0, Math.floor(value))
     : fallback;
 }
+
+export function nonNegativeSafeInteger(value: unknown, owner: string): number {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+    throw new RangeError(`${owner} must be a non-negative safe integer.`);
+  }
+  return value;
+}

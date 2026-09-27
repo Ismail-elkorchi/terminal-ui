@@ -1,11 +1,26 @@
-import { collectionInteractionReducer, createCollectionInteractionIndex } from '../interaction/collection-interaction.ts';
-import type { NavigationPolicy } from '../interaction/navigation.ts';
-import type { CollectionWindow } from '../collection/snapshot.ts';
-import { collectionItemById, createCompleteCollection, createWindowedCollection } from '../collection/snapshot.ts';
 import { assertUniqueRecursiveIds } from '../collection/identity.ts';
+import type { CollectionWindow } from '../collection/snapshot.ts';
+import {
+  collectionItemById,
+  createCompleteCollection,
+  createWindowedCollection,
+} from '../collection/snapshot.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
-import { sanitizeTerminalText } from '../text/index.ts';
+import {
+  collectionInteractionReducer,
+  createCollectionInteractionIndex,
+} from '../interaction/collection-interaction.ts';
+import type { NavigationPolicy } from '../interaction/navigation.ts';
+import type { CollectionQuery, CompiledCollectionQuery } from '../text/query.ts';
+import {
+  compileCollectionQuery,
+  indexQueryCandidate,
+  matchCompiledCollectionQuery,
+} from '../text/query.ts';
+import { sanitizeTerminalText } from '../text/sanitize.ts';
+import { applyScrollRequest, scrollReducer } from './scroll.ts';
 import type {
+  ScrollableTreeState,
   TreeCollection,
   TreeCollectionRow,
   TreeControlTransition,
@@ -13,17 +28,13 @@ import type {
   TreeLoadStatus,
   TreeNode,
   TreeSource,
-  TreeView,
   TreeState,
-  ScrollableTreeState,
   TreeTransition,
+  TreeView,
   TreeVisibleRow,
   UnscrolledTreeState,
 } from './tree.ts';
 import { treeNodeChildren } from './tree.ts';
-import { applyScrollRequest, scrollReducer } from './scroll.ts';
-import { matchCompiledCollectionQuery, compileCollectionQuery, indexQueryCandidate } from '../text/query.ts';
-import type { CollectionQuery, CompiledCollectionQuery } from '../text/query.ts';
 
 export interface TreeReducerOptions<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,

@@ -166,30 +166,21 @@ test('entrypoint declarations expose layered public type contracts', async () =>
   const declaration = await readFile(new URL('../../dist/index.d.ts', import.meta.url), 'utf8');
   const componentDomainDeclarations = (await Promise.all([
     '../../dist/collection/item.d.ts',
-    '../../dist/components/status-bar.d.ts',
-    '../../dist/components/progress.d.ts',
+    '../../dist/components/feedback/status-bar-contracts.d.ts',
+    '../../dist/components/feedback/progress.d.ts',
     '../../dist/behavior/log-history.d.ts',
     '../../dist/components/validation.d.ts'
   ].map((path) => readFile(new URL(path, import.meta.url), 'utf8')))).join('\n');
   const componentElementDeclaration = await readFile(new URL('../../dist/element/types.d.ts', import.meta.url), 'utf8');
   const componentOptionDeclarations = (await Promise.all([
-    'base',
-    'content-and-collections',
-    'patterns',
-    'drawing',
-    'feedback-and-visualizations',
-    'foundations',
-    'forms',
-    'overlays',
-    'tabs',
-    'collections'
-  ].map((name) => name === 'base'
-    ? readFile(new URL('../../dist/element/metadata.d.ts', import.meta.url), 'utf8')
-    : readFile(new URL(`../../dist/components/options/${name}.d.ts`, import.meta.url), 'utf8')))).join('\n');
+    readFile(new URL('../../dist/element/metadata.d.ts', import.meta.url), 'utf8'),
+    ...["action-button", "boolean-controls", "calendar", "charts", "choice-controls", "combobox", "command-input", "compact-visualizations", "data-table", "dialog", "divider", "drawing", "feedback", "form-layout", "foundation-controls", "list", "listbox", "log-viewer", "menus", "notifications", "pagination", "range-controls", "search-picker", "tabs", "text-area", "text-content", "text-entry", "tooltip", "tree"].map((name) =>
+      readFile(new URL(`../../dist/components/${name}/options.d.ts`, import.meta.url), 'utf8')),
+  ])).join('\n');
   const layoutDeclaration = await readFile(new URL('../../dist/layout/index.d.ts', import.meta.url), 'utf8');
   const behaviorDeclaration = await readFile(new URL('../../dist/behavior/index.d.ts', import.meta.url), 'utf8');
   const componentDefinitionDeclaration = await readFile(
-    new URL('../../dist/component/definition.d.ts', import.meta.url),
+    new URL('../../dist/component/contracts.d.ts', import.meta.url),
     'utf8'
   );
   const rendererDeclaration = await readFile(new URL('../../dist/renderer/index.d.ts', import.meta.url), 'utf8');

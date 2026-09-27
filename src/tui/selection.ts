@@ -1,12 +1,12 @@
-import { diagnostic } from '../diagnostics.ts';
-import { sanitizeTerminalText } from '../text/index.ts';
-import { writeClipboardText } from '../protocol/index.ts';
-import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalCapabilityProfile, TerminalHost } from '../host/index.ts';
-import type { ClipboardWritePolicy, ClipboardWriteResult } from '../protocol/index.ts';
-import { decodeClipboardWritePolicy } from '../protocol/clipboard.ts';
+import { diagnostic } from '../diagnostics.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
+import type { TerminalCapabilityProfile } from '../host/capability-types.ts';
+import type { TerminalHost } from '../host/types.ts';
+import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
+import type { ClipboardWritePolicy, ClipboardWriteResult } from '../protocol/clipboard.ts';
+import { decodeClipboardWritePolicy, writeClipboardText } from '../protocol/clipboard.ts';
+import { sanitizeTerminalText } from '../text/sanitize.ts';
 
 export interface SelectedText {
   readonly sourceId: string;

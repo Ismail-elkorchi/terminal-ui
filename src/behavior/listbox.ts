@@ -1,13 +1,16 @@
-import type { ScrollRequest, ScrollState } from '../interaction/scroll.ts';
-import type { CollectionInteractionTransition, CollectionInteractionState } from '../interaction/collection-interaction.ts';
-import type { CollectionInteractionIndex } from '../interaction/collection-interaction.ts';
-import type { QueryMatchRange } from '../text/query.ts';
 import type {
-  CollectionSnapshot,
   CollectionItem,
+  CollectionSnapshot,
   CompleteCollectionSnapshot,
-  WindowedCollectionSnapshot
+  WindowedCollectionSnapshot,
 } from '../collection/snapshot.ts';
+import type {
+  CollectionInteractionIndex,
+  CollectionInteractionState,
+  CollectionInteractionTransition,
+} from '../interaction/collection-interaction.ts';
+import type { ScrollRequest, ScrollState } from '../interaction/scroll.ts';
+import type { QueryMatchRange } from '../text/query.ts';
 
 export interface ListboxOption {
   readonly id: string;

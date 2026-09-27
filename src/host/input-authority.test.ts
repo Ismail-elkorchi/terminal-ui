@@ -2,10 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { TerminalInputAuthority } from './input-authority.ts';
-import {
-  RuntimeInput,
-  runtimeInputSourceFromAsyncIterable
-} from './runtime-streams.ts';
+import { RuntimeInput, runtimeInputSourceFromAsyncIterable } from './runtime-streams.ts';
 import type { TerminalClock, TerminalInputChunk } from './types.ts';
 
 const probeClock: TerminalClock = {

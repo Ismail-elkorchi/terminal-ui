@@ -1,5 +1,5 @@
-import { validateTranscript } from './validate.ts';
 import type { InteractionResult, InteractionTranscript, TranscriptReplayTarget } from './types.ts';
+import { validateTranscript } from './validate.ts';
 
 export async function replayTranscript(
   target: TranscriptReplayTarget,

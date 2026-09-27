@@ -1,14 +1,18 @@
-import type { MouseEvent as TerminalMouseEvent, MouseWheelEvent } from '../../input/index.ts';
-import type { PointerClickCount, PointerEventKind, RoutedPointerEvent } from '../../input/pointer.ts';
-import { ignoreMessage, isIgnoredMessage } from '../../interaction/message.ts';
+import type { Rect } from '../../geometry/types.ts';
+import type {
+  PointerClickCount,
+  PointerEventKind,
+  RoutedPointerEvent,
+} from '../../input/pointer.ts';
+import type { MouseWheelEvent, MouseEvent as TerminalMouseEvent } from '../../input/types.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
+import { ignoreMessage, isIgnoredMessage } from '../../interaction/message.ts';
 import type { PointerVisualSnapshot } from '../../interaction/pointer-interaction.ts';
 import { scrollRouteDescriptor } from '../../interaction/scroll-route.ts';
 import type { ScrollState } from '../../interaction/scroll.ts';
-import type { Rect } from '../contracts.ts';
-import type { RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
-import { createRowSpatialIndex } from './region-target-index.ts';
 import type { RowSpatialIndex } from './region-target-index.ts';
+import { createRowSpatialIndex } from './region-target-index.ts';
+import type { RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
 
 export interface PointerRouteResult<TMessage> {
   readonly event: RoutedPointerEvent;

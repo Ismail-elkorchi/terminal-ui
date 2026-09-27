@@ -1,9 +1,8 @@
-import { createTranscriptRecorder } from '../transcript/index.ts';
-import type { TerminalRestoreResult } from '../host/index.ts';
-import type { TranscriptRecorder } from '../transcript/index.ts';
-import type { TranscriptRuntimeCommit } from '../transcript/index.ts';
-import type { TuiApp, TuiExit } from './types.ts';
+import type { TerminalRestoreResult } from '../host/types.ts';
+import { createTranscriptRecorder } from '../transcript/recorder.ts';
+import type { TranscriptRecorder, TranscriptRuntimeCommit } from '../transcript/types.ts';
 import { tuiDefinition } from './definition.ts';
+import type { TuiApp, TuiExit } from './types.ts';
 
 export function createTuiTranscript<TState, TMessage>(
   app: TuiApp<TState, TMessage>

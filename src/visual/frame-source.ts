@@ -1,5 +1,5 @@
-import { sanitizeTerminalText } from '../text/index.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
+import { sanitizeTerminalText } from '../text/sanitize.ts';
 
 export type FrameCellRole =
   | 'text'

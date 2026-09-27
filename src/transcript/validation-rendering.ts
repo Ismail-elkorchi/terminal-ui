@@ -1,23 +1,23 @@
-import { decodeAccessibleSnapshot } from '../accessibility/index.ts';
-import type { AccessibleSnapshot } from '../accessibility/index.ts';
+import type { AccessibleSnapshot } from '../accessibility/types.ts';
+import { decodeAccessibleSnapshot } from '../accessibility/validate.ts';
 import {
   findUnsupportedField,
   isNonArrayObject,
   isNonEmptyString,
   isStringMember,
 } from '../foundation/validation.ts';
+import type { Rect } from '../geometry/types.ts';
+import type { RasterImageDescriptor } from '../graphics/raster-types.ts';
+import type { GraphicOperationDescriptor, GraphicPlacementDescriptor } from '../graphics/types.ts';
 import { pointerEventKinds } from '../input/pointer.ts';
-import type { CursorPosition, FrameCell, FrameHitTarget, Rect } from '../renderer/index.ts';
-import { defineTextWidthProfile, measureTextCells } from '../text/index.ts';
-import type { TextWidthProfile } from '../text/index.ts';
+import type { CursorPosition, FrameCell, FrameHitTarget } from '../renderer/contracts.ts';
+import { measureTextCells } from '../text/measure.ts';
+import type { TextWidthProfile } from '../text/types.ts';
+import { defineTextWidthProfile } from '../text/width-profile.ts';
+import type { FrameCellSource } from '../visual/frame-source.ts';
 import { isFrameCellInteractionState, isFrameCellRole } from '../visual/frame-source.ts';
-import type { FrameCellSource, RenderSpan, TerminalLink } from '../visual/index.ts';
+import type { RenderSpan, TerminalLink } from '../visual/render-content.ts';
 import { decodeTerminalStyle } from '../visual/terminal-style.ts';
-import type {
-  GraphicOperationDescriptor,
-  GraphicPlacementDescriptor,
-  RasterImageDescriptor,
-} from '../graphics/index.ts';
 import type { TranscriptAdoptions } from './validation-adoptions.ts';
 
 const frameCellSourceFields = new Set([

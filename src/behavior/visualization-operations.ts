@@ -1,12 +1,12 @@
-import { collectionInteractionReducer, normalizeCollectionInteraction, createCollectionInteractionIndex } from '../interaction/collection-interaction.ts';
 import type { CollectionInteractionTransition } from '../interaction/collection-interaction.ts';
-import { adjacentItemId } from '../interaction/navigation.ts';
+import {
+  collectionInteractionReducer,
+  createCollectionInteractionIndex,
+  normalizeCollectionInteraction,
+} from '../interaction/collection-interaction.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
-import type {
-  BarChartItem,
-  ChartSeries,
-  HeatmapCell,
-} from './visualization-data.ts';
+import { adjacentItemId } from '../interaction/navigation.ts';
+import type { BarChartItem, ChartSeries, HeatmapCell } from './visualization-data.ts';
 import type {
   BarChartTransition,
   ChartTransition,

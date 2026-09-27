@@ -1,8 +1,5 @@
-import {
-  applyRenderDiff,
-  replayedFrameMatches,
-} from '../renderer/internal/diff-interpreter.ts';
 import type { ReplayedFrame } from '../renderer/internal/diff-interpreter.ts';
+import { applyRenderDiff, replayedFrameMatches } from '../renderer/internal/diff-interpreter.ts';
 import type { InteractionTranscriptStep } from './types.ts';
 
 export function transcriptConsistencyIssue(

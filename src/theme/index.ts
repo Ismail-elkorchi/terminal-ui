@@ -1,29 +1,29 @@
 import { adaptiveColors, defaultColors, highContrastColors } from './palettes.ts';
 import { asciiSymbols, unicodeSymbols } from './symbols.ts';
-import { createTheme, mergeThemes } from './theme.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from './theme.ts';
+import { createTheme, mergeThemes } from './theme.ts';
 
+export { coreColorTokens, isThemeColorToken, themeColor } from '../visual/color.ts';
 export type {
   CoreColorToken,
-  TerminalDesignTokenDefinition,
-  TerminalDesignTokens,
   ThemeColor,
   ThemeColorReference,
   ThemeColorToken,
-  ThemeColorTokens
-} from './tokens.ts';
-export { coreColorTokens, isThemeColorToken, themeColor } from './tokens.ts';
+} from '../visual/color.ts';
 export type {
   BorderGlyphSet,
   BorderGlyphSetDefinition,
   TerminalSymbols,
-  TerminalSymbolsDefinition
+  TerminalSymbolsDefinition,
 } from './symbols.ts';
+export type { TerminalTheme, TerminalThemeDefinition } from './theme.ts';
 export type {
-  TerminalTheme,
-  TerminalThemeDefinition
-} from './theme.ts';
+  TerminalDesignTokenDefinition,
+  TerminalDesignTokens,
+  ThemeColorTokens,
+} from './tokens.ts';
 
+export { contrastColor, deriveSurface, ensureContrast } from './contrast.ts';
 export { asciiSymbols, unicodeSymbols } from './symbols.ts';
 export {
   createTheme,
@@ -32,9 +32,8 @@ export {
   mergeThemes,
   resolveTerminalStyle,
   resolveThemeColor,
-  terminalStyleHasBackground
+  terminalStyleHasBackground,
 } from './theme.ts';
-export { contrastColor, deriveSurface, ensureContrast } from './contrast.ts';
 
 export const minimalTheme: TerminalTheme = createTheme({
   name: 'minimal',

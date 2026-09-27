@@ -1,4 +1,8 @@
-import type { ScrollRequest, ScrollKeyboardPolicy, ScrollPolicy } from '../../../../interaction/scroll.ts';
+import type {
+  ScrollKeyboardPolicy,
+  ScrollPolicy,
+  ScrollRequest,
+} from '../../../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../../../interaction/scrollbar.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
 

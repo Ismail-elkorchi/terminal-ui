@@ -1,12 +1,16 @@
-import { OrderedOutputQueue } from './ordered-output.ts';
 import { throwIfTerminalOperationAborted } from './operation.ts';
-import { committedTerminalWrite, failedTerminalWrite, indeterminateTerminalWrite } from './write-receipt.ts';
+import { OrderedOutputQueue } from './ordered-output.ts';
 import type {
   NodeWritableTerminalStream,
   TerminalOperationContext,
   TerminalOutput,
-  TerminalWriteReceipt
+  TerminalWriteReceipt,
 } from './types.ts';
+import {
+  committedTerminalWrite,
+  failedTerminalWrite,
+  indeterminateTerminalWrite,
+} from './write-receipt.ts';
 
 export class NodeTerminalOutput implements TerminalOutput {
   readonly #queue = new OrderedOutputQueue();

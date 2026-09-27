@@ -1,7 +1,21 @@
+export type { ControlledTerminalClock } from '../host/types.ts';
+export { replayTranscript } from '../transcript/replay.ts';
+export type { InteractionResult } from '../transcript/types.ts';
+export {
+  assertFocus,
+  assertHitTarget,
+  assertNoSecretLeak,
+  assertSelected,
+  assertTerminalRestored,
+  assertVisibleText,
+} from './assertions.ts';
+export { createTerminalHarness } from './harness.ts';
+export { keyInput, pasteInput, pointerInput, wheelInput } from './input-events.ts';
+export { createPtyTerminalHarness, isPtyHarnessUnavailable } from './pty-harness.ts';
+export { InteractionScriptError, runInteractionScript } from './script.ts';
 export type {
   FocusAssertion,
   HitTargetAssertion,
-  InteractionResult,
   InteractionScript,
   InteractionStep,
   PtyTerminalHarness,
@@ -11,25 +25,12 @@ export type {
   SnapshotAssertion,
   TerminalHarness,
   TerminalHarnessOptions,
-  VisibleTextAssertion
+  VisibleTextAssertion,
 } from './types.ts';
+export { createVisualSnapshot, renderElementSnapshot } from './visual-snapshots.ts';
 export type {
   ElementSnapshotInput,
   ElementSnapshotResult,
   VisualSnapshotArtifacts,
-  VisualSnapshotInput
+  VisualSnapshotInput,
 } from './visual-snapshots.ts';
-export type { ControlledTerminalClock } from '../host/index.ts';
-export { createTerminalHarness } from './harness.ts';
-export { createPtyTerminalHarness, isPtyHarnessUnavailable } from './pty-harness.ts';
-export { createVisualSnapshot, renderElementSnapshot } from './visual-snapshots.ts';
-export {
-  assertFocus,
-  assertHitTarget,
-  assertNoSecretLeak,
-  assertSelected,
-  assertTerminalRestored,
-  assertVisibleText
-} from './assertions.ts';
-export { InteractionScriptError, replayTranscript, runInteractionScript } from './script.ts';
-export { keyInput, pasteInput, pointerInput, wheelInput } from './input-events.ts';

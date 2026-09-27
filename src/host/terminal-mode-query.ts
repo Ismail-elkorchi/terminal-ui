@@ -1,8 +1,8 @@
-import { csiBody } from './terminal-response.ts';
 import type {
   TerminalResponseClassification,
-  TerminalResponseProtocol
+  TerminalResponseProtocol,
 } from './terminal-response.ts';
+import { csiBody } from './terminal-response.ts';
 
 export const queriedPrivateModes = Object.freeze([
   25,

@@ -1,5 +1,5 @@
 import type { RenderSpan } from '../../visual/render-content.ts';
-import type { CanvasPoint } from './paths.ts';
+import type { CanvasPoint } from '../contracts.ts';
 
 export interface AxisLine {
   readonly points: readonly CanvasPoint[];

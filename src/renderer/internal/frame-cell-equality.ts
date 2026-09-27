@@ -1,5 +1,6 @@
+import { sameFrameCellSource } from '../../visual/frame-source.ts';
+import { sameTerminalLink, sameTerminalStyle } from '../../visual/render-content.ts';
 import type { FrameCell } from '../contracts.ts';
-import { sameFrameCellSource, sameTerminalLink, sameTerminalStyle } from '../../visual/render-content.ts';
 
 export function sameFrameCell(left: FrameCell | undefined, right: FrameCell | undefined): boolean {
   if (left === right) return true;

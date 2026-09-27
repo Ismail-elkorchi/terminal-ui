@@ -1,36 +1,26 @@
-import { createDiagnosticOccurrenceReporter, diagnostic } from '../diagnostics.ts';
-import { createTuiSignalQueue, runTuiInputLoop } from './input-loop.ts';
-import {
-  restoreReasonForExit,
-  setupTuiSession,
-  tuiSnapshot
-} from './lifecycle.ts';
-import { createTerminalHost } from '../host/index.ts';
-import { TerminalUiError } from '../errors.ts';
-import { runTuiNonTty } from './non-tty.ts';
-import { createTuiRuntimeWithCapabilitySnapshot, tuiRuntimeRunner } from './runtime.ts';
-import { assertTuiApp } from './definition.ts';
-import { TuiRunLifecycleOwner } from './run-lifecycle.ts';
-import { runTuiLifecyclePhase } from './lifecycle-phase.ts';
-import { TuiInputSuspensionController } from './input-suspension.ts';
-import { createTerminalSuspension } from './terminal-suspension.ts';
-import { resolveTuiRunOptions } from './run-configuration.ts';
-import { inputProfileForSession } from './session-policy.ts';
-import { createTuiTranscript, withTuiTranscript } from './transcript.ts';
 import type {
   DiagnosticOccurrence,
   DiagnosticOccurrenceReporter,
-  TerminalDiagnostic
+  TerminalDiagnostic,
 } from '../diagnostics.ts';
-import type { TuiLifecyclePhase } from './lifecycle-phase.ts';
-import type { NormalizedTuiRunOptions } from './run-configuration.ts';
-import type {
-  TuiApp,
-  TuiExit,
-  TuiRunOptions,
-  TuiRunResult,
-  TuiRuntime
-} from './types.ts';
+import { createDiagnosticOccurrenceReporter, diagnostic } from '../diagnostics.ts';
+import { TerminalUiError } from '../errors.ts';
+import { createTerminalHost } from '../host/index.ts';
+import { assertTuiApp } from './definition.ts';
+import { createTuiSignalQueue, runTuiInputLoop } from './input/input-loop.ts';
+import { TuiInputSuspensionController } from './input-suspension.ts';
+import type { TuiLifecyclePhase } from './lifecycle/lifecycle-phase.ts';
+import { runTuiLifecyclePhase } from './lifecycle/lifecycle-phase.ts';
+import { restoreReasonForExit, setupTuiSession, tuiSnapshot } from './lifecycle/lifecycle.ts';
+import { runTuiNonTty } from './non-tty.ts';
+import type { NormalizedTuiRunOptions } from './lifecycle/run-configuration.ts';
+import { resolveTuiRunOptions } from './lifecycle/run-configuration.ts';
+import { TuiRunLifecycleOwner } from './lifecycle/run-lifecycle.ts';
+import { createTuiRuntimeWithCapabilitySnapshot, tuiRuntimeRunner } from './runtime.ts';
+import { inputProfileForSession } from './lifecycle/session-policy.ts';
+import { createTerminalSuspension } from './lifecycle/terminal-suspension.ts';
+import { createTuiTranscript, withTuiTranscript } from './transcript.ts';
+import type { TuiApp, TuiExit, TuiRunOptions, TuiRunResult, TuiRuntime } from './types.ts';
 
 export async function runTui<TState, TMessage>(
   app: TuiApp<TState, TMessage>,

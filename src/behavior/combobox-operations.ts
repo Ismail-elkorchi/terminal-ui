@@ -1,34 +1,33 @@
+import type { CollectionInteractionIndex } from '../interaction/collection-interaction.ts';
 import {
   collectionInteractionHas,
   collectionInteractionIds,
   collectionInteractionReducer,
   normalizeCollectionInteraction,
 } from '../interaction/collection-interaction.ts';
-import type { CollectionInteractionIndex } from '../interaction/collection-interaction.ts';
+import type {
+  CreateEditablePopupInputStateInput,
+  EditablePopupInputReducerOptions,
+} from '../interaction/editable-popup-input.ts';
 import {
   acceptEditablePopupCompletion,
   createEditablePopupInputState,
   editablePopupInputReducer,
 } from '../interaction/editable-popup-input.ts';
-import type {
-  CreateEditablePopupInputStateInput,
-  EditablePopupInputReducerOptions,
-} from '../interaction/editable-popup-input.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
-import { applyScrollRequest } from './scroll.ts';
-import { scrollReducer } from './scroll.ts';
+import { popupReducer } from '../interaction/popup.ts';
 import type {
+  AutocompleteComboboxState,
+  AutocompleteComboboxTransition,
+  AutocompleteComboboxView,
   ComboboxCommitEvent,
   ComboboxControlTransition,
   ComboboxState,
-  ScrollableComboboxState,
   ComboboxTransition,
+  ScrollableComboboxState,
   UnscrolledComboboxState,
-  AutocompleteComboboxState,
-  AutocompleteComboboxView,
-  AutocompleteComboboxTransition,
 } from './combobox.ts';
-import { popupReducer } from '../interaction/popup.ts';
+import { applyScrollRequest, scrollReducer } from './scroll.ts';
 
 export interface ComboboxReducerOptions {
   readonly index: CollectionInteractionIndex;

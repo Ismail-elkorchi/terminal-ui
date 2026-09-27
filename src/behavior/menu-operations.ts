@@ -1,19 +1,19 @@
 import type { AnchoredSurfaceAnchor } from '../interaction/anchored-surface.ts';
+import { adjacentItemId } from '../interaction/navigation.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import type {
   ContextMenuTransition,
   ContextMenuView,
-  MenuTriggerTransition,
-  MenuTriggerView,
-  MenuTransition,
   MenuBarTransition,
   MenuBarView,
   MenuItem,
+  MenuTransition,
+  MenuTriggerTransition,
+  MenuTriggerView,
   MenuView,
-  MenuViewItem
+  MenuViewItem,
 } from './menu.ts';
 import { assertValidMenuItems, menuItemChildren } from './menu.ts';
-import { adjacentItemId } from '../interaction/navigation.ts';
 import { applyScrollRequest } from './scroll.ts';
 
 export interface MenuState {

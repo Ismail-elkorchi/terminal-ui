@@ -1,14 +1,14 @@
+import type { AccessibleSnapshot } from '../accessibility/types.ts';
+import type { TerminalDiagnostic } from '../diagnostics.ts';
 import { diagnostic } from '../diagnostics.ts';
+import type { TerminalHost } from '../host/types.ts';
 import { createPromptSnapshot } from './snapshot.ts';
 import { submitPrompt } from './submit.ts';
-import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalHost } from '../host/index.ts';
 import type {
   EditorPromptDefinition,
   PromptEditorCommand,
   PromptEditorResult,
-  PromptResult
+  PromptResult,
 } from './types.ts';
 
 export async function runEditorPrompt(

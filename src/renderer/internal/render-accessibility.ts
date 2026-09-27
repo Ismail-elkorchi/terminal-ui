@@ -1,24 +1,21 @@
+import type { AccessibilityOptions, AccessibleNode } from '../../accessibility/types.ts';
+import { intersectRects } from '../../geometry/rect.ts';
+import type { FocusPath } from '../../interaction/focus.ts';
+import type { TextWidthProfile } from '../../text/types.ts';
+import type { TerminalTheme } from '../../theme/theme.ts';
+import type { LayoutNode, RenderInstrumentation } from '../contracts.ts';
+import type { RenderBudget } from '../render-budget.ts';
+import { assertComponentAccessibilityFocus } from './component-output.ts';
+import { isDecorativeAccessibility } from './decorative.ts';
 import {
   focusPathIncludes,
   focusedTargetIdForLayoutNode,
   layoutFocusPath,
-  renderFocusRelation
+  renderFocusRelation,
 } from './focus.ts';
-import {
-  accessibilityForRenderNode,
-  renderNodeClipsChildren
-} from './render-node-behavior.ts';
+import { accessibilityForRenderNode, renderNodeClipsChildren } from './render-node-behavior.ts';
 import { renderNodeFactoryName } from './render-tree/node.ts';
-import type { AccessibilityOptions, AccessibleNode } from '../../accessibility/index.ts';
-import type { TerminalTheme } from '../../theme/index.ts';
-import type { RenderNode } from './render-tree/index.ts';
-import type { FocusPath } from './focus.ts';
-import type { LayoutNode, RenderInstrumentation } from '../contracts.ts';
-import type { TextWidthProfile } from '../../text/index.ts';
-import { intersectRects } from './rect.ts';
-import { isDecorativeAccessibility } from './decorative.ts';
-import { assertComponentAccessibilityFocus } from './component-output.ts';
-import type { RenderBudget } from '../render-budget.ts';
+import type { RenderNode } from './render-tree/types.ts';
 
 export function accessibleNode(
   renderNode: RenderNode,

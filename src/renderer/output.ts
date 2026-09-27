@@ -1,6 +1,7 @@
+import type { AccessibleNode, AccessibleSnapshot } from '../accessibility/types.ts';
+import type { Frame } from './contracts.ts';
 import { renderFrameAnsi, renderFramePlain } from './frame.ts';
-import type { AccessibleNode, AccessibleSnapshot } from '../accessibility/index.ts';
-import type { Frame, RenderSerializeOptions } from './frame.ts';
+import type { RenderSerializeOptions } from './internal/ansi.ts';
 
 export interface RenderTuiOutputOptions {
   readonly frame: Frame;

@@ -6,10 +6,7 @@ import { span } from '../../visual/render-content.ts';
 import { applyRenderDiff, replayedFrameMatches } from './diff-interpreter.ts';
 import { createFrameBuffer } from '../frame-buffer.ts';
 import { diffFrames } from '../frame.ts';
-import {
-  applyTerminalRowMovement,
-  planTerminalFrameOutput
-} from './terminal-frame-planner.ts';
+import { applyTerminalRowMovement, planTerminalFrameOutput } from './terminal-frame-planner.ts';
 import type { Frame } from '../contracts.ts';
 
 void test('terminal frame planning uses an explicitly supported scrolling region when it wins', () => {

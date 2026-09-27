@@ -1,12 +1,16 @@
-import { sanitizeTerminalCellText } from '../../text/index.ts';
-import { defaultTheme, resolveTerminalStyle } from '../../theme/index.ts';
-import { resolveThemeInput } from '../../theme/theme.ts';
-import type { TerminalOutputCapabilityProfile } from '../../protocol/index.ts';
-import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
-import { createTerminalSerializationPolicy } from './serialization-policy.ts';
-import type { TerminalSerializationPolicy } from './serialization-policy.ts';
+import type { TerminalOutputCapabilityProfile } from '../../protocol/output-capabilities.ts';
+import { sanitizeTerminalCellText } from '../../text/sanitize.ts';
+import { defaultTheme } from '../../theme/index.ts';
+import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/theme.ts';
+import { resolveTerminalStyle, resolveThemeInput } from '../../theme/theme.ts';
 import type { RenderSpan, TerminalLink, TerminalStyle } from '../../visual/render-content.ts';
-import { decodeTerminalLink, sameTerminalLink, sameTerminalStyle } from '../../visual/render-content.ts';
+import {
+  decodeTerminalLink,
+  sameTerminalLink,
+  sameTerminalStyle,
+} from '../../visual/render-content.ts';
+import type { TerminalSerializationPolicy } from './serialization-policy.ts';
+import { createTerminalSerializationPolicy } from './serialization-policy.ts';
 
 export interface RenderSerializeOptions {
   readonly capabilities: TerminalOutputCapabilityProfile;

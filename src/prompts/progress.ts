@@ -1,8 +1,8 @@
-import { createAccessibleSnapshot } from '../accessibility/index.ts';
-import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { ProgressOptions, ProgressSnapshot, ProgressState } from './types.ts';
+import { createAccessibleSnapshot } from '../accessibility/snapshot.ts';
+import type { AccessibleSnapshot } from '../accessibility/types.ts';
 import { assertSupportedFields, isNonArrayObject } from '../foundation/validation.ts';
-import { sanitizeTerminalText } from '../text/index.ts';
+import { sanitizeTerminalText } from '../text/sanitize.ts';
+import type { ProgressOptions, ProgressSnapshot, ProgressState } from './types.ts';
 
 export function createProgress(options: ProgressOptions): ProgressState;
 export function createProgress(options: unknown): ProgressState {

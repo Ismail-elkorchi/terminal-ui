@@ -1,30 +1,24 @@
+import type { DiagnosticOccurrence } from '../diagnostics.ts';
 import { diagnostic } from '../diagnostics.ts';
 import { snapshotCanonicalJsonValue } from '../foundation/json.ts';
-import {
-  findUnsupportedField,
-  isNonArrayObject
-} from '../foundation/validation.ts';
-import { failure, success } from '../result.ts';
+import { findUnsupportedField, isNonArrayObject } from '../foundation/validation.ts';
 import type { Result } from '../result.ts';
+import { failure, success } from '../result.ts';
+import type {
+  InteractionTranscript,
+  InteractionTranscriptStep,
+  TranscriptRedaction,
+  TranscriptValidationLimits,
+} from './types.ts';
 import { interactionTranscriptFormatVersion } from './types.ts';
-import { decodeTranscriptEnvelope } from './validation-envelope.ts';
+import { createTranscriptAdoptions, type TranscriptAdoptions } from './validation-adoptions.ts';
 import { transcriptConsistencyIssue } from './validation-consistency.ts';
-import {
-  createTranscriptAdoptions,
-  type TranscriptAdoptions,
-} from './validation-adoptions.ts';
+import { decodeTranscriptEnvelope } from './validation-envelope.ts';
 import {
   decodeTranscriptOccurrence,
   decodeTranscriptStep,
   transcriptDiagnosticOccurrenceIssue,
 } from './validation-steps.ts';
-import type { DiagnosticOccurrence } from '../diagnostics.ts';
-import type {
-  InteractionTranscript,
-  InteractionTranscriptStep,
-  TranscriptRedaction,
-  TranscriptValidationLimits
-} from './types.ts';
 
 const redactionFields = new Set(['path', 'reason']);
 

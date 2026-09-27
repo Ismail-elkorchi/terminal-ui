@@ -1,26 +1,26 @@
-import { focusFromPrefix } from './focus.ts';
+import type { TerminalInputChunk } from '../host/types.ts';
+import { LEGACY_KEYBOARD_PROFILE, decodeKeyboardProfile } from '../protocol/keyboard.ts';
 import { InputDecodeError } from './decode-error.ts';
 import { enhancedKeyFromPrefix } from './enhanced-keyboard.ts';
+import { focusFromPrefix } from './focus.ts';
 import { keyFromPrefix } from './keys.ts';
 import { mouseFromPrefix } from './mouse.ts';
 import {
-  BRACKETED_PASTE_START,
   BRACKETED_PASTE_END,
+  BRACKETED_PASTE_START,
   bracketedPasteFromPrefix,
   incompleteBracketedPastePayloadLength,
-  isIncompleteBracketedPaste
+  isIncompleteBracketedPaste,
 } from './paste.ts';
-import { createUtf8StreamDecoder, decodeUtf8Chunk } from './utf8-stream.ts';
-import type { TerminalInputChunk } from '../host/index.ts';
-import { LEGACY_KEYBOARD_PROFILE, decodeKeyboardProfile } from '../protocol/index.ts';
 import type {
   InputDecodeLimits,
   InputDecodeOptions,
   InputDecoder,
   InputDecoderBatch,
   InputEvent,
-  InputPendingState
+  InputPendingState,
 } from './types.ts';
+import { createUtf8StreamDecoder, decodeUtf8Chunk } from './utf8-stream.ts';
 
 export const defaultInputDecodeLimits: InputDecodeLimits = Object.freeze({
   maxHostChunkBytes: 1_048_576,

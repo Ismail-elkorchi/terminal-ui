@@ -1,4 +1,4 @@
-import type { TextWidthProfile } from '../text/index.ts';
+import type { TextWidthProfile } from '../text/types.ts';
 
 export interface TerminalOutputFeatureSupport {
   readonly support: 'supported' | 'unsupported' | 'unknown';

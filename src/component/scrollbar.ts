@@ -1,30 +1,28 @@
 import { normalizeScrollState, scrollReducer } from '../behavior/scroll.ts';
+import { assertOptionalEnum, isNonArrayObject } from '../foundation/validation.ts';
+import { sameRect } from '../geometry/rect.ts';
 import type { Rect } from '../geometry/types.ts';
 import type { RoutedPointerEvent } from '../input/pointer.ts';
 import { ignoreMessage, type MessageResolution } from '../interaction/message.ts';
+import { scrollRouteDescriptor, type ScrollRoutable } from '../interaction/scroll-route.ts';
 import type {
-  ScrollTransition,
+  ScrollGeometry,
+  ScrollPolicy,
   ScrollRequest,
   ScrollRequestSource,
   ScrollRequestTarget,
-  ScrollGeometry,
-  ScrollPolicy,
-  ScrollState
+  ScrollState,
+  ScrollTransition,
 } from '../interaction/scroll.ts';
 import type {
   ScrollbarOptions,
   ScrollbarState,
-  ScrollbarVisualState
+  ScrollbarVisualState,
 } from '../interaction/scrollbar.ts';
 import type { HitTarget, RenderTarget } from '../renderer/contracts.ts';
-import { oneCellGlyph } from '../text/index.ts';
-import type { TerminalTheme } from '../theme/index.ts';
+import { oneCellGlyph } from '../text/cell-geometry.ts';
+import type { TerminalTheme } from '../theme/theme.ts';
 import type { FrameCellSource } from '../visual/frame-source.ts';
-import { assertOptionalEnum, isNonArrayObject } from '../foundation/validation.ts';
-import {
-  scrollRouteDescriptor,
-  type ScrollRoutable,
-} from '../interaction/scroll-route.ts';
 
 export function decodeComponentScrollState(
   value: unknown,
@@ -671,11 +669,4 @@ function normalizeLocalRect(bounds: Rect): Rect {
     width: Math.max(0, Math.floor(bounds.width)),
     height: Math.max(0, Math.floor(bounds.height))
   });
-}
-
-function sameRect(left: Rect, right: Rect): boolean {
-  return left.row === right.row
-    && left.column === right.column
-    && left.width === right.width
-    && left.height === right.height;
 }

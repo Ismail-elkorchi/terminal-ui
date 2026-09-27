@@ -1,17 +1,24 @@
-import type { Element, ElementChildren, ElementChildrenMessage, ElementMessage, ElementValue } from '../../../element/index.ts';
-import {
-  inspectRegisteredElement,
-  internalElementValue,
-  registerElement
-} from '../../../element/registry.ts';
 import type {
   ElementFactoryCategory,
   ElementFactoryIdentity,
-  ElementInspection
-} from '../../../element/inspection.ts';
+  ElementInspection,
+} from '../../../element/inspection-contracts.ts';
+import {
+  inspectRegisteredElement,
+  internalElementValue,
+  registerElement,
+} from '../../../element/registry.ts';
+import type {
+  Element,
+  ElementChildren,
+  ElementChildrenMessage,
+  ElementMessage,
+  ElementValue,
+} from '../../../element/types.ts';
 import { renderNodeId } from '../../../foundation/identity.ts';
-import type { RenderNode, RenderNodeKind, RenderNodeOfKind } from './types.ts';
+import type { RenderNodeKind } from '../../contracts.ts';
 import { renderNodeFocusUnavailable } from './node.ts';
+import type { RenderNode, RenderNodeOfKind } from './types.ts';
 
 const renderNodeInspections = new WeakMap<object, ElementInspection>();
 
@@ -199,7 +206,7 @@ function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
 
 function componentInspection(
   node: RenderNodeOfKind<unknown, 'component'>,
-): import('../../../element/inspection.ts').ComponentCapabilityInspection {
+): import("../../../element/inspection-contracts.ts").ComponentCapabilityInspection {
   const inspection = node.definition.inspection;
   if (inspection.semantics === 'decorative') {
     return Object.freeze({

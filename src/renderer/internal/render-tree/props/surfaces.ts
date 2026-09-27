@@ -1,12 +1,12 @@
-import type { BorderOptions, BorderTitle } from '../../../../visual/border.ts';
-import type { SurfaceAppearance } from '../../../../visual/surface-appearance.ts';
-import type { RenderNodeLayoutProps } from './shared-layout.ts';
 import type {
   AnchoredSurfaceAnchor,
   AnchoredSurfaceFit,
   AnchoredSurfacePlacement,
-  AnchoredSurfaceSide
+  AnchoredSurfaceSide,
 } from '../../../../interaction/anchored-surface.ts';
+import type { BorderOptions, BorderTitle } from '../../../../visual/border.ts';
+import type { SurfaceAppearance } from '../../../../visual/surface-appearance.ts';
+import type { RenderNodeLayoutProps } from './shared-layout.ts';
 
 export interface SurfaceRenderProps extends RenderNodeLayoutProps {
   readonly title?: BorderTitle;

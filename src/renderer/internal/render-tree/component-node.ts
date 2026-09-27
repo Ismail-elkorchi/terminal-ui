@@ -1,3 +1,4 @@
+export { resolveRenderNodeStyle } from '../../style-resolution.ts';
 export {
   componentElementFromRenderNode,
   mapElementMessages,
@@ -7,10 +8,9 @@ export {
   toRenderNodes,
 } from './element.ts';
 export { renderNodeInteraction } from './metadata.ts';
-export { resolveRenderNodeStyle } from '../../style-resolution.ts';
-export type { RenderNodeRenderer } from './renderer.ts';
 export type {
   RenderNode,
   RenderNodeOfKind,
+  RenderNodeRenderer,
   RuntimeComponentDefinition,
 } from './types.ts';

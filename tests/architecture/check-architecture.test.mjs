@@ -19,6 +19,8 @@ test('architecture checker rejects authority, determinism, and dependency-cycle 
   assert.match(result.output, /runtime dependency cycle/u);
   assert.match(result.output, /type dependency cycle crosses architecture boundaries/u);
   assert.match(result.output, /imports itself/u);
+  assert.match(result.output, /imports public facade text\/index\.ts/u);
+  assert.match(result.output, /type dependency cycle:.*foundation/u);
   assert.match(result.output, /creates a raw timer/u);
   assert.match(result.output, /calls nondeterministic runtime API Math\.random/u);
   assert.match(result.output, /imports forbidden host runtime dependency/u);
@@ -62,3 +64,26 @@ function run(command, arguments_) {
     child.once('close', (code) => resolve({ code: code ?? 1, output }));
   });
 }
+
+test('focused foundations import loads only its implementation dependencies', async () => {
+  const result = await run(process.execPath, ['--input-type=module', '--eval', `
+    import { registerHooks } from 'node:module';
+    import { pathToFileURL } from 'node:url';
+    import path from 'node:path';
+    const root = pathToFileURL(path.join(process.cwd(), 'dist') + path.sep).href;
+    const loaded = new Set();
+    registerHooks({ load(url, context, nextLoad) {
+      if (url.startsWith(root)) loaded.add(url.slice(root.length));
+      return nextLoad(url, context);
+    } });
+    await import('@ismail-elkorchi/terminal-ui/components/foundations');
+    console.log(JSON.stringify([...loaded]));
+  `]);
+  assert.equal(result.code, 0, result.output);
+  const loaded = JSON.parse(result.output);
+  assert.ok(loaded.length <= 70, `foundations loaded ${loaded.length} modules: ${loaded.join(', ')}`);
+  for (const unrelated of [
+    'text/document.js', 'text/document-edit.js', 'text/edit-history.js', 'text/query.js',
+    'renderer/internal/render-element.js',
+  ]) assert.ok(!loaded.includes(unrelated), `foundations loaded ${unrelated}`);
+});

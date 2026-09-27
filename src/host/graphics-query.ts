@@ -1,8 +1,11 @@
-import { csiBody } from './terminal-response.ts';
-import type { TerminalResponseClassification, TerminalResponseProtocol } from './terminal-response.ts';
+import type { TerminalCellPixels } from '../protocol/graphics-geometry.ts';
 import { wrapKittyControl } from '../protocol/kitty-graphics.ts';
-import type { TerminalCellPixels } from '../protocol/index.ts';
 import type { GraphicsProbeFacts, KittyGraphicsProbeFacts } from './capabilities.ts';
+import type {
+  TerminalResponseClassification,
+  TerminalResponseProtocol,
+} from './terminal-response.ts';
+import { csiBody } from './terminal-response.ts';
 
 const ESC = '\u001b';
 const ST = `${ESC}\\`;

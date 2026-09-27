@@ -1,28 +1,26 @@
-import type { AccessibleNode, AccessibleSnapshot } from '../accessibility/index.ts';
-import {
-  terminalDiagnosticFromContent
-} from '../diagnostics.ts';
+import type { AccessibleNode, AccessibleSnapshot } from '../accessibility/types.ts';
 import type {
   DiagnosticOccurrence,
   TerminalDiagnostic,
-  TerminalDiagnosticValue
+  TerminalDiagnosticValue,
 } from '../diagnostics.ts';
+import { terminalDiagnosticFromContent } from '../diagnostics.ts';
 import type { JsonValue } from '../foundation/json.ts';
-import type { TerminalRestoreResult } from '../host/index.ts';
-import type { RecordedInputEvent } from '../input/index.ts';
+import type { TerminalRestoreResult } from '../host/types.ts';
+import type { RecordedInputEvent } from '../input/types.ts';
 import type {
   CursorPosition,
   FrameCell,
   FrameHitTarget,
-  RenderOperation
-} from '../renderer/index.ts';
-import {
-  applyRenderDiff
-} from '../renderer/internal/diff-interpreter.ts';
+  RenderOperation,
+} from '../renderer/contracts.ts';
 import type { ReplayedFrame } from '../renderer/internal/diff-interpreter.ts';
-import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
-import type { TextWidthProfile } from '../text/index.ts';
-import type { FrameCellSource, RenderSpan, TerminalLink } from '../visual/index.ts';
+import { applyRenderDiff } from '../renderer/internal/diff-interpreter.ts';
+import { measureTextCells } from '../text/measure.ts';
+import { sanitizeTerminalText } from '../text/sanitize.ts';
+import type { TextWidthProfile } from '../text/types.ts';
+import type { FrameCellSource } from '../visual/frame-source.ts';
+import type { RenderSpan, TerminalLink } from '../visual/render-content.ts';
 import type {
   InteractionTranscript,
   InteractionTranscriptStep,
@@ -30,7 +28,7 @@ import type {
   TranscriptFrame,
   TranscriptRedaction,
   TranscriptRenderDiff,
-  TranscriptRuntimeCommit
+  TranscriptRuntimeCommit,
 } from './types.ts';
 
 interface RedactionContext {

@@ -1,13 +1,14 @@
-import { resolveTerminalCapabilities } from './capabilities.ts';
+import type { TerminalSize } from '../geometry/types.ts';
 import { abortableSleep } from './abortable-sleep.ts';
-import { settleResourceDisposal } from './dispose.ts';
-import { TerminalStateAuthorityBinding } from './terminal-state.ts';
-import { OrderedOutputQueue, createTerminalHostOutputAuthority } from './ordered-output.ts';
-import { waitForTerminalOperation } from './operation.ts';
-import { TerminalInputAuthority } from './input-authority.ts';
+import type { TerminalCapabilityConfiguration } from './capabilities.ts';
+import { resolveTerminalCapabilities } from './capabilities.ts';
 import { TerminalCapabilityDetector } from './capability-detection.ts';
-import { committedTerminalWrite, failedTerminalWrite, indeterminateTerminalWrite } from './write-receipt.ts';
 import type { RuntimeTarget } from './capability-types.ts';
+import { settleResourceDisposal } from './dispose.ts';
+import { TerminalInputAuthority } from './input-authority.ts';
+import { waitForTerminalOperation } from './operation.ts';
+import { OrderedOutputQueue, createTerminalHostOutputAuthority } from './ordered-output.ts';
+import { TerminalStateAuthorityBinding } from './terminal-state.ts';
 import type {
   RuntimeInputSource,
   RuntimeTerminalInputOptions,
@@ -18,15 +19,18 @@ import type {
   TerminalInput,
   TerminalInputChunk,
   TerminalInputReadOptions,
-  TerminalOutput,
   TerminalOperationContext,
+  TerminalOutput,
   TerminalSignal,
   TerminalSignalSource,
   TerminalSleepOutcome,
-  TerminalSize,
-  Unsubscribe
+  Unsubscribe,
 } from './types.ts';
-import type { TerminalCapabilityConfiguration } from './capabilities.ts';
+import {
+  committedTerminalWrite,
+  failedTerminalWrite,
+  indeterminateTerminalWrite,
+} from './write-receipt.ts';
 
 export interface StreamTerminalHostOptions {
   readonly id: string;

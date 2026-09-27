@@ -1,6 +1,12 @@
 import type { ScrollRequest, ScrollState } from '../interaction/scroll.ts';
-import type { TextCaret, TextChangeSet, TextDocument, TextDocumentSelection, TextEditOperation } from '../text/index.ts';
 import type { TextPointerTransition } from '../interaction/text-pointer.ts';
+import type { TextDocument } from '../text/document.ts';
+import type {
+  TextCaret,
+  TextChangeSet,
+  TextDocumentSelection,
+  TextEditOperation,
+} from '../text/types.ts';
 
 interface TextAreaControlStateBase {
   readonly document: TextDocument;

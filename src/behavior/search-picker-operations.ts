@@ -1,21 +1,17 @@
-import type { NavigationPolicy } from '../interaction/navigation.ts';
-import type { ScrollState } from '../interaction/scroll.ts';
+import type { SearchEntry } from '../collection/item.ts';
+import type { EditablePopupInputState } from '../interaction/editable-popup-input.ts';
 import {
   createEditablePopupInputState,
   editablePopupInputReducer,
 } from '../interaction/editable-popup-input.ts';
-import type { EditablePopupInputState } from '../interaction/editable-popup-input.ts';
-import type { SearchEntry } from '../collection/item.ts';
-import type {
-  SearchPickerView,
-  SearchPickerTransition,
-} from './search-picker.ts';
-import { querySearchPickerIndex } from './search-picker-index.ts';
-import type { SearchPickerIndex } from './search-picker-index.ts';
+import type { NavigationPolicy } from '../interaction/navigation.ts';
+import type { ScrollState } from '../interaction/scroll.ts';
 import type { CollectionQuery } from '../text/query.ts';
+import { applyScrollRequest, scrollReducer } from './scroll.ts';
+import type { SearchPickerIndex } from './search-picker-index.ts';
+import { querySearchPickerIndex } from './search-picker-index.ts';
+import type { SearchPickerTransition, SearchPickerView } from './search-picker.ts';
 import { sliceVisibleRows } from './visible-row-window.ts';
-import { applyScrollRequest } from './scroll.ts';
-import { scrollReducer } from './scroll.ts';
 
 export interface SearchPickerReducerOptions<TValue = string> {
   readonly searchPickerIndex: SearchPickerIndex<TValue>;

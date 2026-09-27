@@ -1,7 +1,7 @@
 import type { ScrollState } from '../interaction/scroll.ts';
+import { sanitizeTerminalText } from '../text/sanitize.ts';
 import type { NotificationHistoryTransition } from './notification-history.ts';
 import type { NotificationItem, NotificationTone } from './notification.ts';
-import { sanitizeTerminalText } from '../text/index.ts';
 
 export interface NotificationInput extends NotificationItem {
   readonly durationMs?: number;

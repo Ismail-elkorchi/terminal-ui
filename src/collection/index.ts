@@ -1,5 +1,5 @@
-export type { ChoiceItem, LabeledItem, SearchEntry } from './item.ts';
 export { assertStableIds } from './identity.ts';
+export type { ChoiceItem, LabeledItem, SearchEntry } from './item.ts';
 export {
   appendMeasuredItems,
   createMeasuredCollection,
@@ -8,10 +8,7 @@ export {
   removeMeasuredItems,
   replaceMeasuredItem,
 } from './measured-collection.ts';
-export type {
-  MeasuredCollection,
-  MeasuredCollectionItem,
-} from './measured-collection.ts';
+export type { MeasuredCollection, MeasuredCollectionItem } from './measured-collection.ts';
 export {
   isMeasuredWindow,
   measuredAnchorAt,

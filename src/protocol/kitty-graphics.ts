@@ -1,7 +1,7 @@
+import type { GraphicsBudget } from '../graphics/budget.ts';
+import { createGraphicsBudget } from '../graphics/budget.ts';
 import { rasterImagePixels } from '../graphics/raster-image.ts';
-import { createGraphicsBudget } from '../graphics/index.ts';
-import type { RasterImage } from '../graphics/index.ts';
-import type { GraphicsBudget } from '../graphics/index.ts';
+import type { RasterImage } from '../graphics/raster-types.ts';
 import type { ResolvedGraphicGeometry } from './graphics-geometry.ts';
 import { kittyPlaceholderDiacritic } from './kitty-placeholder-diacritics.ts';
 

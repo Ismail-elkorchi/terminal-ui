@@ -5,11 +5,10 @@ import type {
   ElementLayer,
   ElementState,
   ElementStyles,
-  ElementVisualState,
 } from '../../../element/metadata.ts';
-import type { RenderNodeRenderer } from './renderer.ts';
-import type { RenderNodePropsByKind } from './props/index.ts';
+import type { ElementVisualState } from '../../../visual/frame-source.ts';
 import type { RenderNodeKind } from '../../contracts.ts';
+import type { RenderNodePropsByKind } from './props/index.ts';
 
 export type { RenderNodeKind } from '../../contracts.ts';
 
@@ -24,7 +23,7 @@ interface RenderNodeBase<TMessage, TKind extends RenderNodeKind> {
   /** Children visible to public element inspection. */
   readonly inspectionChildren?: readonly RenderNode<TMessage>[];
   /** Definition-owned semantic description adopted for public inspection. */
-  readonly semanticInspection?: import('../../../element/inspection.ts').ComponentSemanticInspection;
+  readonly semanticInspection?: import("../../../element/inspection-contracts.ts").ComponentSemanticInspection;
   readonly keyMap?: ElementKeyBindings<TMessage>;
   readonly inputMap?: RenderNodeInputMap<TMessage>;
   readonly focusLifecycle?: (
@@ -68,6 +67,143 @@ export interface RenderNodeInputMap<TMessage> {
 export interface RuntimeComponentDefinition<TMessage = unknown> {
   readonly name: string;
   readonly sensitiveInput: boolean;
-  readonly inspection: import('../../../element/inspection.ts').ComponentDefinitionInspection;
+  readonly inspection: import("../../../element/inspection-contracts.ts").ComponentDefinitionInspection;
   readonly renderer: RenderNodeRenderer<TMessage, 'component'>;
+}
+
+import type { AccessibleNode } from '../../../accessibility/types.ts';
+import type { Rect } from '../../../geometry/types.ts';
+import type { PointerInteractionState } from '../../../interaction/pointer-interaction.ts';
+import type { TextWidthProfile } from '../../../text/types.ts';
+import type { TerminalTheme } from '../../../theme/theme.ts';
+import type {
+  FocusTarget,
+  HitTarget,
+  LayoutNode,
+  Measurement,
+  RenderFocusRelation,
+  RenderPreparationContext,
+  RenderTarget,
+} from '../../contracts.ts';
+
+export interface RenderNodeMeasureInput<
+  TMessage = unknown,
+  TKind extends RenderNodeKind = RenderNodeKind
+> {
+  readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
+  readonly bounds: Rect;
+  readonly theme: TerminalTheme;
+  readonly childCount: number;
+  readonly measureChild: (index: number, constraints?: Rect) => Measurement;
+  readonly widthProfile: TextWidthProfile;
+}
+
+export interface RenderNodeLayoutInput<
+  TMessage = unknown,
+  TKind extends RenderNodeKind = RenderNodeKind
+> {
+  readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
+  readonly bounds: Rect;
+  readonly viewport: Rect;
+  readonly theme: TerminalTheme;
+  readonly childCount: number;
+  readonly measureChild: (index: number, constraints?: Rect) => Measurement;
+  readonly widthProfile: TextWidthProfile;
+}
+
+export interface RenderNodePlaceInput<
+  TMessage = unknown,
+  TKind extends RenderNodeKind = RenderNodeKind
+> {
+  readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
+  readonly bounds: Rect;
+  readonly viewport: Rect;
+  readonly theme: TerminalTheme;
+  readonly measurement: () => Measurement;
+  readonly childCount: number;
+  readonly measureChild: (index: number, constraints?: Rect) => Measurement;
+  readonly widthProfile: TextWidthProfile;
+}
+
+export interface RenderNodeRenderInput<
+  TMessage = unknown,
+  TKind extends RenderNodeKind = RenderNodeKind
+> {
+  readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
+  readonly layoutNode: LayoutNode;
+  readonly buffer: RenderTarget;
+  readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
+  readonly focus: RenderFocusRelation;
+  readonly focusedTargetId?: string;
+  readonly pointerState?: PointerInteractionState;
+  readonly renderChildren: (target?: RenderTarget) => void;
+}
+
+export interface RenderNodeAccessibilityInput<
+  TMessage = unknown,
+  TKind extends RenderNodeKind = RenderNodeKind
+> {
+  readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
+  readonly layoutNode: LayoutNode;
+  readonly id: string;
+  readonly focused: boolean;
+  readonly focus: RenderFocusRelation;
+  readonly focusedTargetId?: string;
+  readonly children: readonly AccessibleNode[];
+  /** Accessible output keyed by the private render node that produced it. */
+  readonly accessibleNodes: ReadonlyMap<RenderNode, AccessibleNode>;
+  readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
+}
+
+export interface RenderNodeFocusInput<
+  TMessage = unknown,
+  TKind extends RenderNodeKind = RenderNodeKind
+> {
+  readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
+  readonly bounds: Rect;
+  readonly viewport: Rect;
+  readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
+}
+
+export interface RenderNodeHitInput<
+  TMessage = unknown,
+  TKind extends RenderNodeKind = RenderNodeKind
+> {
+  readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
+  readonly layoutNode: LayoutNode;
+  readonly bounds: Rect;
+  readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
+}
+
+export interface RenderNodeKeyInput<
+  TMessage = unknown,
+  TKind extends RenderNodeKind = RenderNodeKind
+> {
+  readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
+  readonly layoutNode: LayoutNode;
+  readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
+  readonly focus: RenderFocusRelation;
+  readonly focusedTargetId?: string;
+}
+
+export interface RenderNodeRenderer<
+  TMessage = unknown,
+  TKind extends RenderNodeKind = RenderNodeKind
+> {
+  readonly clipChildren?: boolean;
+  readonly retainPaint?: boolean;
+  prepare?(input: { readonly renderNode: RenderNodeOfKind<TMessage, TKind>; readonly context: RenderPreparationContext }): Promise<void>;
+  keyMap?(input: RenderNodeKeyInput<TMessage, TKind>): import('../../../element/metadata.ts').ElementKeyBindings<TMessage> | undefined;
+  place?(input: RenderNodePlaceInput<TMessage, TKind>): Rect;
+  measure(input: RenderNodeMeasureInput<TMessage, TKind>): Measurement;
+  layout?(input: RenderNodeLayoutInput<TMessage, TKind>): readonly Rect[];
+  render(input: RenderNodeRenderInput<TMessage, TKind>): void;
+  accessibility?(input: RenderNodeAccessibilityInput<TMessage, TKind>): AccessibleNode;
+  focusTargets?(input: RenderNodeFocusInput<TMessage, TKind>): readonly FocusTarget[];
+  hitTargets?(input: RenderNodeHitInput<TMessage, TKind>): readonly HitTarget<TMessage>[];
 }

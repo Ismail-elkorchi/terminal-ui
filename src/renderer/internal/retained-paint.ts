@@ -1,13 +1,18 @@
 import { samePaintData } from '../../foundation/paint-data.ts';
-import { hitTargetOwnerIdentity } from './render-regions.ts';
-import { registerSpanTarget, transferFrameBufferSpans, transferFrameCell, recordTargetSegmentation } from '../frame-buffer.ts';
-import type { FrameBufferSpan } from '../frame-buffer.ts';
-import type { RenderNode } from './render-tree/index.ts';
-import type { RenderNodeRenderInput } from './render-tree/renderer.ts';
-import type { RenderRegion } from './render-regions.ts';
-import type { RenderTarget, FrameCell, Rect } from '../contracts.ts';
+import type { Rect } from '../../geometry/types.ts';
 import type { GraphicPlacementInput } from '../../graphics/types.ts';
-import type { FocusPath } from './focus.ts';
+import type { FocusPath } from '../../interaction/focus.ts';
+import type { FrameCell, RenderTarget } from '../contracts.ts';
+import type { FrameBufferSpan } from '../frame-buffer.ts';
+import {
+  recordTargetSegmentation,
+  registerSpanTarget,
+  transferFrameBufferSpans,
+  transferFrameCell,
+} from '../frame-buffer.ts';
+import type { RenderRegion } from './render-regions.ts';
+import { hitTargetOwnerIdentity } from './render-regions.ts';
+import type { RenderNode, RenderNodeRenderInput } from './render-tree/types.ts';
 
 type PaintOperation =
   | { readonly kind: 'spans'; readonly row: number; readonly column: number; readonly spans: readonly FrameBufferSpan[] }

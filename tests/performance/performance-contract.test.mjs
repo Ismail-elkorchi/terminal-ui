@@ -7,7 +7,7 @@ import {
   requiredWorkKinds,
   structuralBudgetViolations,
   timingRegressionViolations
-} from '../../scripts/performance-contract.mjs';
+} from '../../scripts/performance/performance-contract.mjs';
 
 test('structural budgets report the scenario and exceeded work kind', () => {
   const report = performanceReport();

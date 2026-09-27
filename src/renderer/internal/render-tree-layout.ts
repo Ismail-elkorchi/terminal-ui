@@ -1,32 +1,32 @@
-import type { TerminalSize } from '../../geometry/types.ts';
 import type { LayerUnderlay } from '../../element/metadata.ts';
-import type { Rect } from '../../geometry/types.ts';
-import type { RenderNode } from './render-tree/index.ts';
+import { intersectRects } from '../../geometry/rect.ts';
+import type { Rect, TerminalSize } from '../../geometry/types.ts';
+import type { TextWidthProfile } from '../../text/types.ts';
+import { defaultTextWidthProfile } from '../../text/width-profile.ts';
 import { defaultTheme } from '../../theme/index.ts';
+import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/theme.ts';
 import { resolveThemeInput } from '../../theme/theme.ts';
-import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
-import { defaultTextWidthProfile } from '../../text/index.ts';
-import type { TextWidthProfile } from '../../text/index.ts';
 import type { LayoutFocusRegion, LayoutNode, RenderInstrumentation } from '../contracts.ts';
-import {
-  focusTargetsForRenderNode,
-  createRenderMeasurementContext,
-  layoutChildBounds,
-  placeRenderNode,
-  renderNodeClipsChildren
-} from './render-node-behavior.ts';
-import type { RenderMeasurementContext } from './render-node-behavior.ts';
-import { cellInsideRect, intersectRects } from './rect.ts';
+import type { RenderBudget } from '../render-budget.ts';
+import { createRenderBudget } from '../render-budget.ts';
+import { markTransparentFocusLayout } from './focus-identity.ts';
 import {
   markFocusRevealLayout,
   markLogicalFocusBounds,
   markPaintOrderedFocusChildren,
 } from './focus.ts';
-import { markTransparentFocusLayout } from './focus-identity.ts';
-import { renderNodeFactoryName } from './render-tree/node.ts';
-import { createRenderBudget } from '../render-budget.ts';
-import type { RenderBudget } from '../render-budget.ts';
 import { resolveMeasuredViewport } from './measured-viewport.ts';
+import { cellInsideRect } from './rect.ts';
+import type { RenderMeasurementContext } from './render-node-behavior.ts';
+import {
+  createRenderMeasurementContext,
+  focusTargetsForRenderNode,
+  layoutChildBounds,
+  placeRenderNode,
+  renderNodeClipsChildren,
+} from './render-node-behavior.ts';
+import { renderNodeFactoryName } from './render-tree/node.ts';
+import type { RenderNode } from './render-tree/types.ts';
 
 interface LaidOutRenderNode<TMessage = unknown> {
   readonly node: RenderNode<TMessage>;

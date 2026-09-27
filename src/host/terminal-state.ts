@@ -1,72 +1,75 @@
+import type { TerminalDiagnostic } from '../diagnostics.ts';
 import { diagnostic } from '../diagnostics.ts';
-import { createProtocolWriter, decodeMouseReportingState } from '../protocol/index.ts';
-import {
-  LEGACY_KEYBOARD_PROFILE,
-  decodeKeyboardProfile
-} from '../protocol/keyboard.ts';
+import type { MouseReportingMode } from '../protocol/index.ts';
+import { createProtocolWriter } from '../protocol/index.ts';
+import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
+import { decodeKeyboardProfile, LEGACY_KEYBOARD_PROFILE } from '../protocol/keyboard.ts';
+import type { TerminalCapabilityName, TerminalCapabilityProfile } from './capability-types.ts';
 import {
   terminalOperationApplied,
   terminalOperationIndeterminate,
-  terminalOperationRejected
+  terminalOperationRejected,
 } from './operation-outcome.ts';
-import { requireCommittedTerminalWrite, TerminalWriteError } from './write-receipt.ts';
-import { createTerminalRestorePlan } from './session-restore.ts';
 import { waitForTerminalOperation } from './operation.ts';
-import { modeIsSet } from './terminal-mode-query.ts';
+import { createTerminalRestorePlan } from './session-restore.ts';
 import type { TerminalModeReports, TerminalModeReportState } from './terminal-mode-query.ts';
-import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
-import type { TerminalCapabilityName, TerminalCapabilityProfile } from './capability-types.ts';
+import { modeIsSet } from './terminal-mode-query.ts';
 import type {
-  MouseReportingMode,
+  KeyboardFrame,
+  KeyboardFrameState,
+  KeyboardScreenState,
+  RestoreAttempt,
+  RestoredKeyboardFrame,
+  RestoreOperationOutcome,
+  TerminalScreen,
+  TerminalStateAuthorityOptions,
+  TerminalStateKey,
+} from './terminal-state/contracts.ts';
+import {
+  aggregateRestoreResults,
+  assuranceForKnowledge,
+  cancelledOperationDiagnostic,
+  cancelledRestore,
+  capabilityForState,
+  failedRestore,
+  freezeRestoreResult,
+  indeterminateOperationDiagnostic,
+  permanentModeTransitionDiagnostic,
+  rawInputObservationMismatchDiagnostic,
+  restoreCancellationDiagnostic,
+  restoreWasCancelled,
+  supersededOperationDiagnostic,
+  supersededRestore,
+  supersededRestoreDiagnostic,
+  unavailableCapabilityOutcome,
+} from './terminal-state/outcomes.ts';
+import {
+  cloneTerminalState,
+  freezeTerminalState,
+  initialTerminalState,
+  keyboardProfilesEqual,
+  keyboardScreenState,
+  knowledgeAfterMutation,
+  otherTerminalScreen,
+  sameMouseReportingState,
+  terminalScreen,
+} from './terminal-state/snapshot.ts';
+import type {
   TerminalHost,
-  TerminalInitialState,
   TerminalOperationContext,
   TerminalOperationOutcome,
-  TerminalRestoreOptions,
   TerminalRestoreCompletion,
+  TerminalRestoreOptions,
   TerminalRestoreReason,
   TerminalRestoreResult,
   TerminalSession,
   TerminalStateChange,
   TerminalStateKnowledge,
-  TerminalStateProvenanceSnapshot,
-  TerminalStateSnapshot
+  TerminalStateSnapshot,
 } from './types.ts';
+import { requireCommittedTerminalWrite, TerminalWriteError } from './write-receipt.ts';
 
-type TerminalStateKey = keyof Omit<TerminalStateSnapshot, 'provenance'>;
-type TerminalScreen = 'main' | 'alternate';
 
-interface KeyboardScreenState {
-  readonly profile: TerminalKeyboardProfile;
-  readonly knowledge: TerminalStateKnowledge;
-  readonly uncertain: boolean;
-}
-
-interface KeyboardFrame {
-  readonly state: KeyboardFrameState;
-  readonly previous: KeyboardScreenState;
-}
-
-interface RestoredKeyboardFrame {
-  readonly screen: TerminalScreen;
-  readonly previous: KeyboardScreenState;
-}
-
-interface RestoreOperationOutcome {
-  readonly continue: boolean;
-  readonly completion?: TerminalRestoreCompletion;
-  readonly diagnostic?: TerminalDiagnostic;
-}
-
-export interface TerminalStateAuthorityOptions {
-  readonly rawInputKnowledge: TerminalStateKnowledge;
-  readonly initialState?: TerminalInitialState;
-  readonly verifyKeyboardProfile?: (
-    flags: number,
-    context: TerminalOperationContext
-  ) => Promise<'verified' | 'unsupported' | 'inconclusive'>;
-}
 
 export class TerminalStateAuthorityBinding {
   #authority: TerminalStateAuthority | undefined;
@@ -842,7 +845,7 @@ export class TerminalStateAuthority {
   }
 }
 
-class TerminalSessionLease implements TerminalSession {
+export class TerminalSessionLease implements TerminalSession {
   readonly id: string;
   readonly host: TerminalHost;
   readonly capabilities: TerminalCapabilityProfile;
@@ -1018,405 +1021,4 @@ class TerminalSessionLease implements TerminalSession {
       }
     });
   }
-}
-
-interface RestoreAttempt {
-  readonly promise: Promise<TerminalRestoreResult>;
-}
-
-type KeyboardFrameState = 'none' | 'push_uncertain' | 'owned' | 'pop_uncertain';
-
-function terminalScreen(alternateScreen: boolean): TerminalScreen {
-  return alternateScreen ? 'alternate' : 'main';
-}
-
-function otherTerminalScreen(screen: TerminalScreen): TerminalScreen {
-  return screen === 'main' ? 'alternate' : 'main';
-}
-
-function keyboardScreenState(
-  profile: TerminalKeyboardProfile,
-  knowledge: TerminalStateKnowledge,
-  uncertain = false
-): KeyboardScreenState {
-  return Object.freeze({
-    profile: Object.isFrozen(profile) ? profile : Object.freeze({ ...profile }),
-    knowledge,
-    uncertain
-  });
-}
-
-function initialTerminalState(
-  host: TerminalHost,
-  options: TerminalStateAuthorityOptions
-): TerminalStateSnapshot {
-  const explicit = decodeInitialTerminalState(options.initialState);
-  const rawInput = explicit.rawInput ?? host.stdin.isRawModeEnabled?.() ?? false;
-  const values = {
-    rawInput,
-    alternateScreen: explicit.alternateScreen ?? false,
-    bracketedPaste: explicit.bracketedPaste ?? false,
-    mouseReporting: explicit.mouseReporting ?? Object.freeze({ tracking: 'none', encoding: 'default' }),
-    focusReporting: explicit.focusReporting ?? false,
-    metaSendsEscape: explicit.metaSendsEscape ?? false,
-    unicodeGraphemeMode: explicit.unicodeGraphemeMode ?? false,
-    keyboardProfile: explicit.keyboardProfile ?? LEGACY_KEYBOARD_PROFILE,
-    cursorVisible: explicit.cursorVisible ?? true
-  } satisfies Omit<TerminalStateSnapshot, 'provenance'>;
-  const provenance: TerminalStateProvenanceSnapshot = {
-    rawInput: Object.hasOwn(explicit, 'rawInput') ? 'explicit' : options.rawInputKnowledge,
-    alternateScreen: initialKnowledge(explicit, 'alternateScreen'),
-    bracketedPaste: initialKnowledge(explicit, 'bracketedPaste'),
-    mouseReporting: initialKnowledge(explicit, 'mouseReporting'),
-    focusReporting: initialKnowledge(explicit, 'focusReporting'),
-    metaSendsEscape: initialKnowledge(explicit, 'metaSendsEscape'),
-    unicodeGraphemeMode: initialKnowledge(explicit, 'unicodeGraphemeMode'),
-    keyboardProfile: initialKnowledge(explicit, 'keyboardProfile'),
-    cursorVisible: initialKnowledge(explicit, 'cursorVisible')
-  };
-  return freezeTerminalState({ ...values, provenance });
-}
-
-function initialKnowledge(
-  state: TerminalInitialState,
-  kind: Exclude<TerminalStateKey, 'rawInput'>
-): TerminalStateKnowledge {
-  return Object.hasOwn(state, kind) ? 'explicit' : 'assumed';
-}
-
-function decodeInitialTerminalState(initial: unknown): TerminalInitialState {
-  if (initial === undefined) return {};
-  if (typeof initial !== 'object' || initial === null || Array.isArray(initial)) {
-    throw new TypeError('Terminal initial state must be an object.');
-  }
-  const supplied = initial as Readonly<Record<string, unknown>>;
-  const rawInput = optionalInitialBoolean(supplied['rawInput'], 'rawInput');
-  const alternateScreen = optionalInitialBoolean(supplied['alternateScreen'], 'alternateScreen');
-  const bracketedPaste = optionalInitialBoolean(supplied['bracketedPaste'], 'bracketedPaste');
-  const focusReporting = optionalInitialBoolean(supplied['focusReporting'], 'focusReporting');
-  const metaSendsEscape = optionalInitialBoolean(supplied['metaSendsEscape'], 'metaSendsEscape');
-  const unicodeGraphemeMode = optionalInitialBoolean(
-    supplied['unicodeGraphemeMode'],
-    'unicodeGraphemeMode',
-  );
-  const cursorVisible = optionalInitialBoolean(supplied['cursorVisible'], 'cursorVisible');
-  const mouseReporting = supplied['mouseReporting'];
-  const keyboardProfile = supplied['keyboardProfile'];
-  return Object.freeze({
-    ...(rawInput === undefined ? {} : { rawInput }),
-    ...(alternateScreen === undefined ? {} : { alternateScreen }),
-    ...(bracketedPaste === undefined ? {} : { bracketedPaste }),
-    ...(focusReporting === undefined ? {} : { focusReporting }),
-    ...(metaSendsEscape === undefined ? {} : { metaSendsEscape }),
-    ...(unicodeGraphemeMode === undefined
-      ? {}
-      : { unicodeGraphemeMode }),
-    ...(cursorVisible === undefined ? {} : { cursorVisible }),
-    ...(mouseReporting === undefined
-      ? {}
-      : { mouseReporting: decodeMouseReportingState(mouseReporting) }),
-    ...(keyboardProfile === undefined
-      ? {}
-      : { keyboardProfile: decodeKeyboardProfile(keyboardProfile) })
-  });
-}
-
-function optionalInitialBoolean(value: unknown, field: string): boolean | undefined {
-  if (value === undefined || typeof value === 'boolean') return value;
-  throw new TypeError(`Terminal initial state ${field} must be a boolean.`);
-}
-
-function cloneTerminalState(
-  state: TerminalStateSnapshot,
-  uncertain: ReadonlySet<TerminalStateKey>
-): TerminalStateSnapshot {
-  const provenance = { ...state.provenance };
-  for (const key of uncertain) provenance[key] = 'indeterminate';
-  return freezeTerminalState({ ...state, provenance });
-}
-
-function freezeTerminalState(state: TerminalStateSnapshot): TerminalStateSnapshot {
-  return Object.freeze({
-    ...state,
-    mouseReporting: Object.isFrozen(state.mouseReporting)
-      ? state.mouseReporting
-      : Object.freeze({ ...state.mouseReporting }),
-    keyboardProfile: Object.isFrozen(state.keyboardProfile)
-      ? state.keyboardProfile
-      : Object.freeze({ ...state.keyboardProfile }),
-    provenance: Object.freeze({ ...state.provenance })
-  });
-}
-
-function knowledgeAfterMutation(
-  kind: TerminalStateKey,
-  rawInputKnowledge: TerminalStateKnowledge
-): TerminalStateKnowledge {
-  return kind === 'rawInput' && rawInputKnowledge === 'observed' ? 'observed' : 'library_known';
-}
-
-function unavailableCapabilityOutcome(
-  lease: TerminalSessionLease,
-  kind: TerminalCapabilityName
-): TerminalOperationOutcome | undefined {
-  const capability = lease.capabilities[kind];
-  if (capability.support === 'supported' && capability.availability === 'available') return undefined;
-  return terminalOperationRejected(diagnostic(
-    'HOST_PROTOCOL_UNSUPPORTED',
-    `Terminal protocol is unavailable: ${kind}.`,
-    {
-      severity: 'warning',
-      target: lease.id,
-      data: {
-        capability: kind,
-        support: capability.support,
-        availability: capability.availability,
-        diagnostics: capability.diagnostics.map((item) => item.message)
-      }
-    }
-  ));
-}
-
-function permanentModeTransitionDiagnostic(
-  lease: TerminalSessionLease,
-  change: TerminalStateChange,
-  reports: TerminalModeReports
-): TerminalDiagnostic | undefined {
-  const requestedModes = requestedPrivateModes(change);
-  for (const [mode, requested] of requestedModes) {
-    const fixed = permanentModeValue(reports[mode]);
-    if (fixed === undefined || fixed === requested) continue;
-    return diagnostic(
-      'HOST_PROTOCOL_UNSUPPORTED',
-      `Terminal mode ${String(mode)} is permanent and cannot reach the requested ${change.kind} state.`,
-      {
-        severity: 'warning',
-        target: lease.id,
-        data: { operation: change.kind, mode, fixed, requested }
-      }
-    );
-  }
-  return undefined;
-}
-
-function requestedPrivateModes(
-  change: TerminalStateChange
-): readonly (readonly [keyof TerminalModeReports, boolean])[] {
-  switch (change.kind) {
-    case 'alternateScreen': return [[1049, change.state]];
-    case 'bracketedPaste': return [[2004, change.state]];
-    case 'cursorVisible': return [[25, change.state]];
-    case 'focusReporting': return [[1004, change.state]];
-    case 'metaSendsEscape': return [[1036, change.state]];
-    case 'unicodeGraphemeMode': return [[2027, change.state]];
-    case 'mouseReporting': {
-      const mouse = change.state;
-      return [
-        [1000, mouse.tracking === 'click'],
-        [1002, mouse.tracking === 'drag'],
-        [1003, mouse.tracking === 'all'],
-        [1006, mouse.encoding === 'sgr']
-      ];
-    }
-    case 'rawInput':
-    case 'keyboardProfile':
-      return [];
-  }
-}
-
-function permanentModeValue(report: TerminalModeReportState | undefined): boolean | undefined {
-  if (report === 'permanently_set') return true;
-  if (report === 'permanently_reset') return false;
-  return undefined;
-}
-
-function assuranceForKnowledge(
-  knowledge: TerminalStateKnowledge
-): Extract<TerminalOperationOutcome, { readonly status: 'applied' }>['assurance'] {
-  if (knowledge === 'observed') return 'observed';
-  if (knowledge === 'library_known') return 'sent';
-  return 'assumed';
-}
-
-function capabilityForState(kind: TerminalStateKey): TerminalCapabilityName {
-  switch (kind) {
-    case 'rawInput': return 'rawInput';
-    case 'alternateScreen': return 'alternateScreen';
-    case 'bracketedPaste': return 'bracketedPaste';
-    case 'mouseReporting': return 'mouseReporting';
-    case 'focusReporting': return 'focusReporting';
-    case 'metaSendsEscape': return 'metaSendsEscape';
-    case 'unicodeGraphemeMode': return 'unicodeGraphemeMode';
-    case 'keyboardProfile': return 'keyboardProtocol';
-    case 'cursorVisible': return 'cursorVisibility';
-  }
-}
-
-function cancelledOperationDiagnostic(
-  lease: TerminalSessionLease,
-  context: TerminalOperationContext
-): TerminalDiagnostic | undefined {
-  if (context.signal?.aborted !== true) return undefined;
-  return diagnostic('HOST_OPERATION_CANCELLED', 'Terminal operation was cancelled before it started.', {
-    severity: 'warning',
-    target: lease.id
-  });
-}
-
-function indeterminateOperationDiagnostic(
-  lease: TerminalSessionLease,
-  change: TerminalStateChange,
-  cause: unknown
-): TerminalDiagnostic {
-  return diagnostic('HOST_OUTPUT_INDETERMINATE', `Terminal operation outcome is indeterminate: ${change.kind}.`, {
-    severity: 'error',
-    target: lease.id,
-    cause,
-    data: { operation: change.kind }
-  });
-}
-
-function supersededOperationDiagnostic(
-  lease: TerminalSessionLease,
-  change: TerminalStateChange
-): TerminalDiagnostic {
-  return indeterminateOperationDiagnostic(
-    lease,
-    change,
-    new Error('Terminal operation was superseded by emergency recovery.')
-  );
-}
-
-function rawInputObservationMismatchDiagnostic(
-  lease: TerminalSessionLease,
-  observed: boolean
-): TerminalDiagnostic {
-  return diagnostic(
-    'HOST_PROTOCOL_UNSUPPORTED',
-    'The terminal input adapter did not reach the requested raw-input state.',
-    {
-      severity: 'error',
-      target: lease.id,
-      data: { operation: 'rawInput', observed }
-    }
-  );
-}
-
-function keyboardProfilesEqual(left: TerminalKeyboardProfile, right: TerminalKeyboardProfile): boolean {
-  return left.kind === right.kind
-    && (left.kind === 'legacy' || (right.kind === 'kitty' && left.flags === right.flags));
-}
-
-function sameMouseReportingState(
-  left: TerminalStateSnapshot['mouseReporting'],
-  right: TerminalStateSnapshot['mouseReporting']
-): boolean {
-  return left.tracking === right.tracking && left.encoding === right.encoding;
-}
-
-function failedRestore(
-  requested: TerminalStateSnapshot,
-  reason: TerminalRestoreReason,
-  resultingState: TerminalStateSnapshot,
-  diagnostics: readonly TerminalDiagnostic[]
-): TerminalRestoreResult {
-  return { status: 'failed', reason, requested, attempted: [], completed: [], resultingState, diagnostics };
-}
-
-function supersededRestore(
-  lease: TerminalSessionLease,
-  reason: TerminalRestoreReason,
-  resultingState: TerminalStateSnapshot
-): TerminalRestoreResult {
-  return failedRestore(lease.initialState, reason, resultingState, [
-    supersededRestoreDiagnostic(lease)
-  ]);
-}
-
-function supersededRestoreDiagnostic(
-  lease: TerminalSessionLease,
-  operation?: TerminalStateKey,
-  cause?: unknown
-): TerminalDiagnostic {
-  return diagnostic('HOST_RESTORE_FAILED', operation === undefined
-    ? 'Terminal restoration was superseded by emergency recovery.'
-    : `Terminal restoration was superseded while restoring terminal state: ${operation}.`, {
-    severity: 'error',
-    target: lease.id,
-    ...(cause === undefined ? {} : { cause }),
-    data: {
-      superseded: true,
-      ...(operation === undefined ? {} : { operation })
-    }
-  });
-}
-
-function cancelledRestore(
-  lease: TerminalSessionLease,
-  reason: TerminalRestoreReason,
-  resultingState: TerminalStateSnapshot,
-  signal: AbortSignal
-): TerminalRestoreResult {
-  return failedRestore(lease.initialState, reason, resultingState, [
-    restoreCancellationDiagnostic(lease, signal)
-  ]);
-}
-
-function restoreCancellationDiagnostic(
-  lease: TerminalSessionLease,
-  signal: AbortSignal,
-  operation?: TerminalStateKey,
-  cause: unknown = signal.reason
-): TerminalDiagnostic {
-  return diagnostic('HOST_RESTORE_FAILED', operation === undefined
-    ? 'Terminal restoration was not started because finalization had expired.'
-    : `Terminal restoration expired while restoring terminal state: ${operation}.`, {
-    severity: 'error',
-    target: lease.id,
-    cause,
-    data: {
-      cancelled: true,
-      ...(operation === undefined ? {} : { operation })
-    }
-  });
-}
-
-function restoreWasCancelled(context: TerminalOperationContext): context is { readonly signal: AbortSignal } {
-  return context.signal?.aborted === true;
-}
-
-function aggregateRestoreResults(
-  results: readonly TerminalRestoreResult[],
-  reason: TerminalRestoreReason
-): TerminalRestoreResult {
-  const first = results[0];
-  const last = results.at(-1);
-  if (first === undefined || last === undefined) throw new Error('Terminal restore aggregation invariant failed.');
-  const diagnostics = results.flatMap((item) => item.diagnostics);
-  const completed = results.flatMap((item) => item.completed);
-  return freezeRestoreResult({
-    status: diagnostics.length === 0 ? 'restored' : completed.length === 0 ? 'failed' : 'partial',
-    reason,
-    requested: last.requested,
-    attempted: results.flatMap((item) => item.attempted),
-    completed,
-    resultingState: last.resultingState,
-    diagnostics
-  });
-}
-
-function freezeRestoreResult(result: TerminalRestoreResult): TerminalRestoreResult {
-  return Object.freeze({
-    ...result,
-    attempted: Object.freeze(result.attempted.map(freezeTerminalStateChange)),
-    completed: Object.freeze(result.completed.map((item) => Object.freeze({
-      ...freezeTerminalStateChange(item),
-      assurance: item.assurance
-    }))),
-    diagnostics: Object.freeze([...result.diagnostics])
-  });
-}
-
-function freezeTerminalStateChange(change: TerminalStateChange): TerminalStateChange {
-  return Object.freeze({ ...change });
 }

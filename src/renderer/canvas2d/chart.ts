@@ -1,7 +1,7 @@
+import { oneCellGlyph } from '../../text/cell-geometry.ts';
 import { frameCellSource } from '../../visual/frame-source.ts';
 import type { RenderSpan } from '../../visual/render-content.ts';
 import type { Canvas2D } from '../contracts.ts';
-import { oneCellGlyph } from '../../text/index.ts';
 
 export interface ChartScale {
   readonly domain: readonly [number, number];

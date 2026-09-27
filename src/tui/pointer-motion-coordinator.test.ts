@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createPointerMotionCoordinator } from './pointer-motion-coordinator.ts';
-import type { PointerMotionEvent, PointerMotionSample } from './pointer-motion-coordinator.ts';
+import { createPointerMotionCoordinator } from './input/pointer-motion-coordinator.ts';
+import type {
+  PointerMotionEvent,
+  PointerMotionSample,
+} from './input/pointer-motion-coordinator.ts';
 
 void test('pointer motion retains only the latest queued sample while a dispatch is active', async () => {
   const firstStarted = deferred<boolean>();

@@ -1,28 +1,25 @@
-import { decodeDiagnosticOccurrence, decodeTerminalDiagnostic } from '../diagnostics.ts';
 import type { DiagnosticOccurrence, TerminalDiagnostic } from '../diagnostics.ts';
+import { decodeDiagnosticOccurrence, decodeTerminalDiagnostic } from '../diagnostics.ts';
+import type { JsonValue } from '../foundation/json.ts';
 import {
   findUnsupportedField,
   isNonArrayObject,
   isNonEmptyString,
   isStringMember,
 } from '../foundation/validation.ts';
-import type { JsonValue } from '../foundation/json.ts';
+import type { TerminalSize } from '../geometry/types.ts';
 import type {
   TerminalRestoreCompletion,
   TerminalRestoreResult,
   TerminalStateChange,
   TerminalStateSnapshot,
-  TerminalSize,
-} from '../host/index.ts';
-import { decodeInputEvent } from '../input/index.ts';
+} from '../host/types.ts';
+import { decodeInputEvent } from '../input/snapshot.ts';
 import { tuiMessageSources } from '../interaction/message.ts';
-import { LEGACY_KEYBOARD_PROFILE, kittyKeyboardProfile } from '../protocol/index.ts';
-import { decodeSnapshot, frameIssue, renderDiffIssue } from './validation-rendering.ts';
+import { LEGACY_KEYBOARD_PROFILE, kittyKeyboardProfile } from '../protocol/keyboard.ts';
+import type { InteractionTranscriptStep, TranscriptRuntimeCommit } from './types.ts';
 import type { TranscriptAdoptions } from './validation-adoptions.ts';
-import type {
-  InteractionTranscriptStep,
-  TranscriptRuntimeCommit,
-} from './types.ts';
+import { decodeSnapshot, frameIssue, renderDiffIssue } from './validation-rendering.ts';
 
 const transcriptStepFields: Readonly<Record<string, ReadonlySet<string>>> = Object.freeze({
   input: new Set(['kind', 'event']),

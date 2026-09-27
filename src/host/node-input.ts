@@ -2,7 +2,7 @@ import type {
   NodeReadableTerminalStream,
   TerminalInput,
   TerminalInputChunk,
-  TerminalInputReadOptions
+  TerminalInputReadOptions,
 } from './types.ts';
 
 export class NodeInput implements TerminalInput {

@@ -1,19 +1,14 @@
+import type { TerminalDiagnostic } from '../diagnostics.ts';
 import { decodeTerminalDiagnostic, diagnostic } from '../diagnostics.ts';
 import {
   findUnsupportedField,
   isNonArrayObject,
-  isNonEmptyString
+  isNonEmptyString,
 } from '../foundation/validation.ts';
-import { failure, success } from '../result.ts';
-import { sanitizeTerminalText } from '../text/index.ts';
-import { nodePath } from './traversal.ts';
-import {
-  accessibleRoles,
-  accessibleRoleSupportsReadOnly,
-  accessibleSources
-} from './types.ts';
 import type { Result } from '../result.ts';
-import type { TerminalDiagnostic } from '../diagnostics.ts';
+import { failure, success } from '../result.ts';
+import { sanitizeTerminalText } from '../text/sanitize.ts';
+import { nodePath } from './traversal.ts';
 import type {
   AccessibleNode,
   AccessibleNumericValue,
@@ -23,8 +18,9 @@ import type {
   AccessibleTextPosition,
   AccessibleTextWindow,
   AccessibleValue,
-  AccessibleWindow
+  AccessibleWindow,
 } from './types.ts';
+import { accessibleRoles, accessibleRoleSupportsReadOnly, accessibleSources } from './types.ts';
 
 const decodedAccessibleSnapshots = new WeakMap<object, AccessibleSnapshot>();
 

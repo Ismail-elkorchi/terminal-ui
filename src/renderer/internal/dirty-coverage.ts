@@ -1,6 +1,7 @@
+import type { Rect } from '../../geometry/types.ts';
+import type { DirtyRegionSet } from './damage-contracts.ts';
+import { normalizeDamageRect as normalizeRect } from './damage-geometry.ts';
 import { createDirtyRegionSet } from './dirty-regions.ts';
-import type { DirtyRegionSet } from './dirty-regions.ts';
-import type { Rect } from '../contracts.ts';
 
 interface ColumnInterval {
   start: number;
@@ -83,12 +84,4 @@ function mergeSpan(intervals: ColumnInterval[], start: number, end: number): voi
     last += 1;
   }
   intervals.splice(first, last - first, { start: nextStart, end: nextEnd });
-}
-
-function normalizeRect(rect: Rect): Rect | undefined {
-  const row = Math.floor(rect.row);
-  const column = Math.floor(rect.column);
-  const width = Math.max(0, Math.floor(rect.width));
-  const height = Math.max(0, Math.floor(rect.height));
-  return width === 0 || height === 0 ? undefined : { row, column, width, height };
 }

@@ -1,0 +1,247 @@
+import type { TerminalDiagnostic } from '../../diagnostics.ts';
+import { diagnostic } from '../../diagnostics.ts';
+import type {
+  TerminalHost,
+  TerminalRestoreReason,
+  TerminalRestoreResult,
+  TerminalSession,
+} from '../../host/types.ts';
+import type { TranscriptRecorder } from '../../transcript/types.ts';
+import { tuiDefinition } from '../definition.ts';
+import type {
+  TuiLifecyclePhase,
+  TuiLifecyclePhaseOutcome,
+  TuiLifecyclePhaseResult,
+} from './lifecycle-phase.ts';
+import { lifecyclePhaseResult, runTuiLifecyclePhase } from './lifecycle-phase.ts';
+import { restoreTuiSession } from './lifecycle.ts';
+import type { NormalizedTuiRunOptions } from './run-configuration.ts';
+import { recordTuiRestore } from '../transcript.ts';
+import type { TuiApp, TuiExit, TuiRuntime } from '../types.ts';
+
+export type TuiRunPhase =
+  | 'created'
+  | 'session_open'
+  | 'runtime_active'
+  | 'cleaning'
+  | 'restoring'
+  | 'ended';
+
+export interface TuiRunFinalization {
+  readonly diagnostics: readonly TerminalDiagnostic[];
+  readonly phases: readonly TuiLifecyclePhaseResult[];
+  readonly phase: 'ended';
+}
+
+export class TuiRunLifecycleOwner<TState, TMessage> {
+  readonly #app: TuiApp<TState, TMessage>;
+  readonly #host: TerminalHost;
+  readonly #ownsHost: boolean;
+  readonly #options: NormalizedTuiRunOptions<TState>;
+  readonly #transcript: TranscriptRecorder | undefined;
+  #phase: TuiRunPhase = 'created';
+  #session: TerminalSession | undefined;
+  #runtime: TuiRuntime<TState, TMessage> | undefined;
+  #exit: TuiExit<TState> | undefined;
+  #finalization: Promise<TuiRunFinalization> | undefined;
+  #inputRetirement: Promise<void> | undefined;
+  #inputRetirementFailure: unknown;
+
+  constructor(
+    app: TuiApp<TState, TMessage>,
+    host: TerminalHost,
+    ownsHost: boolean,
+    options: NormalizedTuiRunOptions<TState>,
+    transcript: TranscriptRecorder | undefined
+  ) {
+    this.#app = app;
+    this.#host = host;
+    this.#ownsHost = ownsHost;
+    this.#options = options;
+    this.#transcript = transcript;
+  }
+
+  get phase(): TuiRunPhase {
+    return this.#phase;
+  }
+
+  get runtime(): TuiRuntime<TState, TMessage> | undefined {
+    return this.#runtime;
+  }
+
+  get session(): TerminalSession | undefined {
+    return this.#session;
+  }
+
+  openSession(session: TerminalSession): void {
+    this.expectPhase('created');
+    this.#session = session;
+    this.#phase = 'session_open';
+  }
+
+  activateRuntime(runtime: TuiRuntime<TState, TMessage>): void {
+    this.expectPhase('session_open');
+    this.#runtime = runtime;
+    this.#phase = 'runtime_active';
+  }
+
+  replaceSession(session: TerminalSession): void {
+    if (this.#phase !== 'runtime_active') {
+      throw new Error(`Cannot replace the terminal session from phase ${this.#phase}.`);
+    }
+    this.#session = session;
+  }
+
+  complete(exit: TuiExit<TState>): void {
+    if (this.#phase !== 'runtime_active') {
+      throw new Error(`Cannot complete TUI run from phase ${this.#phase}.`);
+    }
+    this.#exit = exit;
+  }
+
+  retireInput(retirement: Promise<void>): void {
+    if (this.#inputRetirement !== undefined) {
+      throw new Error('TUI input retirement was registered more than once.');
+    }
+    this.#inputRetirement = retirement.catch((cause: unknown) => {
+      this.#inputRetirementFailure = cause;
+      throw cause;
+    });
+    void this.#inputRetirement.catch(() => undefined);
+  }
+
+  finalize(reason: TerminalRestoreReason): Promise<TuiRunFinalization> {
+    this.#finalization ??= this.#finalize(reason);
+    return this.#finalization;
+  }
+
+  async #finalize(reason: TerminalRestoreReason): Promise<TuiRunFinalization> {
+    const phases: TuiLifecyclePhaseResult[] = [];
+    const restorationDiagnostics: TerminalDiagnostic[] = [];
+    this.#phase = 'cleaning';
+    if (this.#inputRetirement !== undefined) {
+      phases.push(lifecyclePhaseResult(await this.runPhase(
+        'input',
+        this.#options.lifecycle.inputRetirementTimeoutMs,
+        async () => {
+          if (this.#inputRetirementFailure !== undefined) {
+            throw this.#inputRetirementFailure instanceof Error
+              ? this.#inputRetirementFailure
+              : new Error('TUI input retirement failed.', { cause: this.#inputRetirementFailure });
+          }
+          await this.#inputRetirement;
+        }
+      )));
+    }
+    if (this.#runtime !== undefined) {
+      phases.push(lifecyclePhaseResult(await this.runPhase(
+        'runtime',
+        this.#options.lifecycle.runtimeDisposalTimeoutMs,
+        async (signal) => this.#runtime?.dispose({ signal, timeoutMs: this.#options.lifecycle.runtimeDisposalTimeoutMs })
+      )));
+    }
+    const onExit = tuiDefinition(this.#app).onExit;
+    if (this.#exit !== undefined && 'state' in this.#exit && onExit !== undefined) {
+      const state = this.#exit.state;
+      phases.push(lifecyclePhaseResult(await this.runPhase(
+        'onExit',
+        this.#options.lifecycle.exitHandlerTimeoutMs,
+        async () => { await onExit(state); }
+      )));
+    }
+
+    this.#phase = 'restoring';
+    const session = this.#session;
+    if (session !== undefined) {
+      const restoreReason = phases.some(isPhaseFailure) ? 'error' : reason;
+      const restoration = await this.runPhase('restore', this.#options.lifecycle.restorationTimeoutMs, async (signal) => {
+        const result = await restoreTuiSession(session, restoreReason, { operationSignal: signal });
+        this.requireRestored(result, session.id, restorationDiagnostics);
+      });
+      phases.push(lifecyclePhaseResult(restoration));
+      if (restoration.status !== 'settled') {
+        phases.push(lifecyclePhaseResult(await this.runPhase(
+          'recovery',
+          this.#options.lifecycle.restorationTimeoutMs,
+          async (signal) => {
+            const result = await this.#host.recoverTerminalState('error', { operationSignal: signal });
+            this.requireRestored(result, this.#host.id, restorationDiagnostics);
+          }
+        )));
+      }
+    }
+
+    phases.push(lifecyclePhaseResult(await this.runPhase(
+      'flush',
+      this.#options.lifecycle.outputFlushTimeoutMs,
+      async (signal) => this.#host.flush({ signal })
+    )));
+    if (this.#ownsHost) {
+      phases.push(lifecyclePhaseResult(await this.runPhase(
+        'host',
+        this.#options.lifecycle.hostDisposalTimeoutMs,
+        async (signal) => this.#host.dispose({ signal })
+      )));
+    }
+
+    this.#phase = 'ended';
+    return {
+      diagnostics: [
+        ...restorationDiagnostics,
+        ...phases.flatMap((item) => item.diagnostic === undefined ? [] : [item.diagnostic])
+      ],
+      phases,
+      phase: 'ended'
+    };
+  }
+
+  private runPhase<TValue>(
+    phase: TuiLifecyclePhase,
+    timeoutMs: number,
+    operation: (signal: AbortSignal) => TValue | Promise<TValue>
+  ): Promise<TuiLifecyclePhaseOutcome<TValue>> {
+    return runTuiLifecyclePhase({
+      clock: this.#host.clock,
+      target: this.#app.id,
+      phase,
+      timeoutMs,
+      operation
+    });
+  }
+
+  private requireRestored(
+    result: TerminalRestoreResult,
+    target: string,
+    diagnostics: TerminalDiagnostic[]
+  ): void {
+    try {
+      recordTuiRestore(this.#transcript, result, 'shutdown');
+    } catch (cause) {
+      diagnostics.push(diagnostic('TRANSCRIPT_SINK_FAILED', 'Transcript restore sink failed.', {
+        severity: 'warning',
+        target,
+        cause
+      }));
+    }
+    if (result.status === 'restored') return;
+    diagnostics.push(...result.diagnostics);
+    if (result.diagnostics.length === 0) {
+      diagnostics.push(diagnostic(
+        'HOST_RESTORE_FAILED',
+        `Terminal restoration completed with status ${result.status}.`,
+        { target, data: { status: result.status } }
+      ));
+    }
+    throw new Error(`Terminal restoration completed with status ${result.status}.`);
+  }
+
+  private expectPhase(expected: TuiRunPhase): void {
+    if (this.#phase !== expected) {
+      throw new Error(`Expected TUI run phase ${expected}, received ${this.#phase}.`);
+    }
+  }
+}
+
+function isPhaseFailure(item: TuiLifecyclePhaseResult): boolean {
+  return item.status !== 'settled';
+}

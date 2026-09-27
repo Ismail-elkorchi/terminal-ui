@@ -1,12 +1,21 @@
+import { createCollectionInteractionIndex } from '../interaction/collection-interaction.ts';
+import type {
+  CollectionQuery,
+  CompiledCollectionQuery,
+  IndexedQueryCandidate,
+  QueryMatchRange,
+} from '../text/query.ts';
+import {
+  compileCollectionQuery,
+  indexQueryCandidate,
+  queryIndexedCandidates,
+} from '../text/query.ts';
 import type {
   ListboxCollection,
-  ListboxViewEntry,
+  ListboxCollectionItem,
   ListboxView,
+  ListboxViewEntry,
 } from './listbox.ts';
-import { compileCollectionQuery, indexQueryCandidate, queryIndexedCandidates } from '../text/query.ts';
-import { createCollectionInteractionIndex } from '../interaction/collection-interaction.ts';
-import type { CollectionQuery, CompiledCollectionQuery, IndexedQueryCandidate, QueryMatchRange } from '../text/query.ts';
-import type { ListboxCollectionItem } from './listbox.ts';
 
 interface ListboxViewIndex<TValue> {
   readonly view: ListboxView<TValue>;

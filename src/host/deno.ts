@@ -1,6 +1,14 @@
-import { createStreamTerminalHost, runtimeInputSourceFromReadableStream } from './runtime-streams.ts';
 import { denoSignalSubscriber } from './native-signals.ts';
-import type { DenoTerminalHostOptions, RuntimeTerminalInputOptions, RuntimeTerminalOutputOptions, TerminalHost } from './types.ts';
+import {
+  createStreamTerminalHost,
+  runtimeInputSourceFromReadableStream,
+} from './runtime-streams.ts';
+import type {
+  DenoTerminalHostOptions,
+  RuntimeTerminalInputOptions,
+  RuntimeTerminalOutputOptions,
+  TerminalHost,
+} from './types.ts';
 
 interface DenoLike {
   readonly build?: { readonly os?: string };

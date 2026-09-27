@@ -29,7 +29,7 @@ import { confirm, runPrompt } from '@ismail-elkorchi/terminal-ui/prompts';
 import { createAccessibleSnapshot, decodeAccessibleSnapshot } from '@ismail-elkorchi/terminal-ui/accessibility';
 import { createTranscriptRecorder, validateTranscript } from '@ismail-elkorchi/terminal-ui/transcript';
 import { createTerminalHarness, renderElementSnapshot } from '@ismail-elkorchi/terminal-ui/testing';
-import { peerBadge } from 'terminal-ui-peer-component-fixture';
+import { peerBadge, peerBadgeMetrics } from 'terminal-ui-peer-component-fixture';
 
 type Message =
   | { readonly kind: 'increment' }
@@ -230,6 +230,23 @@ const componentSnapshot = renderElementSnapshot({
 const peerComponentSnapshot = renderElementSnapshot({
   element: peerBadge({ id: 'peer-badge', label: 'Shared package instance' }),
   terminalSize: { columns: 24, rows: 1 }
+});
+const peerHarness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
+const peerBefore = peerBadgeMetrics();
+await peerHarness.runApp(defineTui({
+  id: 'peer-component-lifecycle',
+  init: () => ({ state: 0 }),
+  update: (state: number, _message: 'next') => ({ state: state + 1 }),
+  view: (state: number) => column([
+    peerBadge({ id: 'retained-peer', label: 'Prepared peer' }),
+    text({ content: String(state) }),
+  ]),
+}), async (runtime) => {
+  await runtime.dispatch('next');
+  const metrics = peerBadgeMetrics();
+  if (metrics.preparations - peerBefore.preparations !== 2 || metrics.paints - peerBefore.paints !== 1) {
+    throw new Error('External components must share preparation and retained painting with built-ins.');
+  }
 });
 const result = success('root-entrypoint');
 const protocolWrites: string[] = [];

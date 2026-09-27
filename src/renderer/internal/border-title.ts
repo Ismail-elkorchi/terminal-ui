@@ -1,11 +1,12 @@
-import { sanitizeTerminalText } from '../../text/index.ts';
-import type { TerminalTheme } from '../../theme/index.ts';
+import { sanitizeTerminalText } from '../../text/sanitize.ts';
+import type { TerminalTheme } from '../../theme/theme.ts';
 import type {
-  BorderTitle as BorderTitleInput,
   BorderTitleContent as BorderTitleContentInput,
-  BorderTitleSlots as BorderTitleSlotsInput
+  BorderTitle as BorderTitleInput,
+  BorderTitleSlots as BorderTitleSlotsInput,
 } from '../../visual/border.ts';
-import type { FrameCellSource, TerminalStyle } from '../../visual/render-content.ts';
+import type { FrameCellSource } from '../../visual/frame-source.ts';
+import type { TerminalStyle } from '../../visual/render-content.ts';
 import { span } from '../../visual/render-content.ts';
 import type { BorderTitle, BorderTitleContent, BorderTitleSlots } from '../border.ts';
 import { renderInlineContent } from './inline-content.ts';

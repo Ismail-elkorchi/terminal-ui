@@ -1,5 +1,5 @@
-import type { CollectionSnapshot } from '../collection/index.ts';
-import { createCompleteCollection } from '../collection/index.ts';
+import type { CollectionSnapshot } from '../collection/snapshot.ts';
+import { createCompleteCollection } from '../collection/snapshot.ts';
 
 const Date = Object.freeze({ now: () => 7 });
 const Math = Object.freeze({ random: () => 0.5 });
@@ -19,5 +19,5 @@ export function acceptedArchitectureFixture(): {
 }
 
 export async function loadAllowedCollectionDependency(): Promise<unknown> {
-  return import('../collection/index.ts');
+  return import('../collection/snapshot.ts');
 }

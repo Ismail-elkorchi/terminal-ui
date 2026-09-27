@@ -1,11 +1,12 @@
-import type { AccessibleSnapshot } from '../accessibility/index.ts';
+import type { AccessibleSnapshot } from '../accessibility/types.ts';
 import type { DiagnosticOccurrence, TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalRestoreResult, TerminalSize } from '../host/index.ts';
-import type { FocusPath } from '../interaction/focus.ts';
-import type { RecordedInputEvent } from '../input/index.ts';
-import type { FrameDescriptor, RenderDiffDescriptor } from '../renderer/index.ts';
-import type { TuiMessageSource } from '../interaction/message.ts';
 import type { JsonValue } from '../foundation/json.ts';
+import type { TerminalSize } from '../geometry/types.ts';
+import type { TerminalRestoreResult } from '../host/types.ts';
+import type { RecordedInputEvent } from '../input/types.ts';
+import type { FocusPath } from '../interaction/focus.ts';
+import type { TuiMessageSource } from '../interaction/message.ts';
+import type { FrameDescriptor, RenderDiffDescriptor } from '../renderer/contracts.ts';
 
 export const interactionTranscriptFormatVersion = 1 as const;
 

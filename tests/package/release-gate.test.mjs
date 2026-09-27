@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const ciWorkflow = await workflowSource(new URL('../../.github/workflows/ci.yml', import.meta.url));
 const publishWorkflow = await workflowSource(new URL('../../.github/workflows/publish.yml', import.meta.url));
+const emulatorWorkflow = await workflowSource(new URL('../../.github/workflows/emulator.yml', import.meta.url));
 const sourceRoot = new URL('../../src/', import.meta.url);
 const repositoryRoot = new URL('../../', import.meta.url);
 
@@ -23,16 +24,34 @@ test('CI verifies the complete package on Node 24 across Ubuntu, macOS, and Wind
 test('CI verifies graphics through pinned direct and tmux emulator paths', () => {
   const verification = workflowJob(ciWorkflow, 'emulator-real');
 
+  assertReusableEmulatorCall(verification);
+  assert.match(verification, /checkout-ref: \$\{\{ github\.sha \}\}/u);
+  assert.match(verification, /node-version: '24'/u);
+  assert.match(verification, /artifact-prefix: real-emulator-evidence$/mu);
+  assert.match(verification, /retention-days: 14/u);
+
+});
+
+test('shared emulator workflow checks the supplied ref and retains every emulator gate', () => {
+  assert.match(emulatorWorkflow, /workflow_call:/u);
+  const verification = workflowJob(emulatorWorkflow, 'emulator');
   assert.match(verification, /runs-on: ubuntu-24\.04/u);
   assertGraphicsEmulatorMatrix(verification);
-  assert.match(verification, /node scripts\/install-kitty-emulator\.mjs/u);
-  assert.match(verification, /node scripts\/install-tmux-emulator\.mjs/u);
-  assert.match(verification, /node scripts\/install-xterm-emulator\.mjs/u);
-  assert.match(verification, /node scripts\/install-wezterm-emulator\.mjs/u);
+  assert.match(verification, /ref: \$\{\{ inputs\.checkout-ref \}\}/u);
+  assert.match(verification, /node-version: \$\{\{ inputs\.node-version \}\}/u);
+  for (const name of ['kitty', 'tmux', 'xterm', 'wezterm']) {
+    assert.ok(verification.includes(`node scripts/emulator/install-${name}.mjs`));
+  }
   assert.match(verification, /xvfb-run.*npm run \$\{\{ matrix\.command \}\}/u);
-  assert.match(verification, /name: real-emulator-evidence-\$\{\{ matrix\.path \}\}/u);
+  assert.match(verification, /name: \$\{\{ inputs\.artifact-prefix \}\}-\$\{\{ matrix\.path \}\}/u);
   assert.match(verification, /path: \.artifacts\/emulator\/\$\{\{ matrix\.path \}\}/u);
+  assert.match(verification, /retention-days: \$\{\{ inputs\.retention-days \}\}/u);
 });
+
+function assertReusableEmulatorCall(job) {
+  assert.match(job, /uses: \.\/\.github\/workflows\/emulator\.yml/u);
+  assert.doesNotMatch(job, /matrix:|steps:|runs-on:/u);
+}
 
 test('registry publication is gated by a verified immutable release tag', () => {
   assert.match(publishWorkflow, /^  release:\n    types: \[published\]$/mu);
@@ -48,15 +67,11 @@ test('registry publication is gated by a verified immutable release tag', () => 
   assert.match(verification, /npm run check:release/u);
   assert.match(verification, /npm run check$/mu);
   assert.match(verification, /ref: \$\{\{ env\.RELEASE_TAG \}\}/u);
-  assert.match(emulatorVerification, /ref: \$\{\{ env\.RELEASE_TAG \}\}/u);
-  assertGraphicsEmulatorMatrix(emulatorVerification);
-  assert.match(emulatorVerification, /node scripts\/install-kitty-emulator\.mjs/u);
-  assert.match(emulatorVerification, /node scripts\/install-tmux-emulator\.mjs/u);
-  assert.match(emulatorVerification, /node scripts\/install-xterm-emulator\.mjs/u);
-  assert.match(emulatorVerification, /node scripts\/install-wezterm-emulator\.mjs/u);
-  assert.match(emulatorVerification, /xvfb-run.*npm run \$\{\{ matrix\.command \}\}/u);
-  assert.match(emulatorVerification, /name: real-emulator-evidence-\$\{\{ env\.RELEASE_TAG \}\}-\$\{\{ matrix\.path \}\}/u);
-  assert.match(emulatorVerification, /path: \.artifacts\/emulator\/\$\{\{ matrix\.path \}\}/u);
+  assertReusableEmulatorCall(emulatorVerification);
+  assert.match(emulatorVerification, /checkout-ref: \$\{\{ github\.event\.release\.tag_name \|\| inputs\.release_tag \}\}/u);
+  assert.match(emulatorVerification, /node-version: '24\.14\.0'/u);
+  assert.match(emulatorVerification, /artifact-prefix: real-emulator-evidence-\$\{\{ github\.event\.release\.tag_name \|\| inputs\.release_tag \}\}/u);
+  assert.match(emulatorVerification, /retention-days: 30/u);
   assert.match(npmPublication, /needs: \[verify, verify-emulator\]/u);
   assert.match(npmPublication, /if: github\.event_name == 'release' \|\| inputs\.registry == 'npm'/u);
   assert.match(npmPublication, /runs-on: ubuntu-latest/u);

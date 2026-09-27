@@ -1,8 +1,8 @@
 import { findUnsupportedField, isNonArrayObject } from '../foundation/validation.ts';
-import type { ElementStyles, ElementVisualState } from './metadata.ts';
-import { decodeTerminalStyle } from '../visual/terminal-style.ts';
-import { mergeTerminalStyles } from '../visual/terminal-style.ts';
+import type { ElementVisualState } from '../visual/frame-source.ts';
 import type { TerminalStyle } from '../visual/render-content.ts';
+import { decodeTerminalStyle, mergeTerminalStyles } from '../visual/terminal-style.ts';
+import type { ElementStyles } from './metadata.ts';
 
 const allVisualStates = new Set<Exclude<ElementVisualState, 'default'>>([
   'focused',

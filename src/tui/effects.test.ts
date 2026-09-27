@@ -4,8 +4,8 @@ import test from 'node:test';
 import type { TerminalDiagnostic, TerminalDiagnosticValue } from '../diagnostics.ts';
 import { createMemoryTerminalHost } from '../host/memory.ts';
 import type { MemoryTerminalHost } from '../host/memory.ts';
-import { createTuiEffectManager } from './effects.ts';
-import type { TuiEffectManagerOptions } from './effects.ts';
+import { createTuiEffectManager } from './lifecycle/effects.ts';
+import type { TuiEffectManagerOptions } from './lifecycle/effects.ts';
 import type { TuiEffect, TuiEffectConcurrency, TuiEffectPolicy } from './types.ts';
 
 interface TestManagerOptions<TMessage> {

@@ -1,9 +1,12 @@
 import { normalizeScrollState } from '../../behavior/scroll.ts';
-import type { RenderNode, RenderNodeOfKind } from './render-tree/types.ts';
-import type { Rect } from '../contracts.ts';
+import type { Rect } from '../../geometry/types.ts';
+import {
+  retainViewportScrollbarPlan,
+  scrollbarsForRenderNode,
+} from './node-renderers/support/scroll.ts';
 import type { RenderMeasurementContext } from './render-node-behavior.ts';
 import type { MeasuredColumnRenderEntry } from './render-tree/props/layout.ts';
-import { retainViewportScrollbarPlan, scrollbarsForRenderNode } from './node-renderers/support/scroll.ts';
+import type { RenderNode, RenderNodeOfKind } from './render-tree/types.ts';
 
 export function resolveMeasuredViewport<TMessage>(
   node: RenderNodeOfKind<TMessage, 'viewport'>,

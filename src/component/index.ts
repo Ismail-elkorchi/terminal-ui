@@ -1,102 +1,44 @@
-export {
-  ComponentExecutionError,
-  defineComponent,
-  defineDecorativeLeafComponent,
-  defineSemanticLeafComponent,
-} from './definition.ts';
 export type {
-  ComponentAccessibilityInput,
-  ComponentCapturedMessageInput,
-  ComponentCompositionInput,
-  ComponentDefinition,
-  ComponentDefinitionName,
-  ComponentExecutionPhase,
-  ComponentIdentity,
-  ComponentInput,
-  ComponentInspectionInput,
-  ComponentInteractionInput,
-  ComponentKeyInput,
-  ComponentLayoutInput,
-  ComponentMeasureConstraints,
-  ComponentMeasureInput,
-  ComponentMessage,
-  ComponentModelContext,
-  ComponentRenderInput,
-  ComponentSlotCardinality,
-  ComponentSlotDefinition,
-  ComponentSlotLayout,
-  ComponentSlotMessagePolicy,
-  ComponentSlotOwner,
-  ComponentSlotShape,
-  ComponentSlotsDefinition,
-  ComponentCallerSlotValues,
-  ComponentImplementationSlotValues,
-  ComponentFrameSourceInput,
-  ComponentMetadataCapability,
-  ComponentMetadataOptions,
-  ComponentStateCapability,
-  ComponentStyleInput,
-  ComponentTextInput,
-  ComponentVisualState,
-  DecorativeLeafComponentFactory,
-  DecorativeLeafDefinition,
-  DecorativeLeafComponentDefinition,
-  SemanticCompositeComponentFactory,
-  SemanticCompositeComponentDefinition,
-  SemanticComposedComponentDefinition,
-  SemanticLeafComponentFactory,
-  SemanticLeafComponentDefinition,
-  SemanticLeafDefinition,
-  StagedComponentFactory,
-} from './definition.ts';
+  ComponentInspectionRecord,
+  ComponentInspectionValue,
+  ComponentSemanticInspection,
+} from '../element/inspection-contracts.ts';
+export type { ElementStyles } from '../element/metadata.ts';
+export { mergeElementStyles } from '../element/styles.ts';
+export type {
+  Element,
+  ElementChildren,
+  ElementChildrenMessage,
+  ElementMessage,
+} from '../element/types.ts';
+export {
+  collectionInteractionReducer,
+  normalizeCollectionInteraction,
+} from '../interaction/collection-interaction.ts';
+export type {
+  CollectionInteractionOptions,
+  CollectionInteractionState,
+  CollectionInteractionTransition,
+  SelectionState,
+} from '../interaction/collection-interaction.ts';
 export type {
   FocusLifecycleEvent,
   FocusNavigation,
   FocusTargetLifecycleEvent,
 } from '../interaction/focus.ts';
-export type {
-  ComponentInspectionRecord,
-  ComponentInspectionValue,
-  ComponentSemanticInspection,
-} from '../element/inspection.ts';
-export type {
-  Element,
-  ElementChildren,
-  ElementChildrenMessage,
-  ElementMessage
-} from '../element/index.ts';
-export type {
-  ElementStyles,
-  ElementVisualState,
-} from '../element/metadata.ts';
+export { formatKeyboardBinding } from '../interaction/key-binding.ts';
+export type { KeyboardBinding } from '../interaction/key-binding.ts';
 export { ignoreMessage } from '../interaction/message.ts';
-export { mapComponentStyles } from './styles.ts';
-export { mergeElementStyles } from '../element/styles.ts';
-export { measureConstrainedBox } from './measurement.ts';
-export type { ComponentStylePartMapping } from './styles.ts';
 export type { IgnoredMessage, MessageResolution } from '../interaction/message.ts';
-export {
-  adjacentItemId,
-  collectionInteractionReducer,
-  defaultNavigationPolicy,
-  formatKeyboardBinding,
-  normalizeCollectionInteraction,
-  popupReducer,
-} from '../interaction/index.ts';
-export type {
-  CollectionInteractionTransition,
-  CollectionInteractionOptions,
-  CollectionInteractionState,
-  KeyboardBinding,
-  NavigationPolicy,
-  PopupState,
-  PopupTransition,
-  SelectionState,
-} from '../interaction/index.ts';
+export { adjacentItemId, defaultNavigationPolicy } from '../interaction/navigation.ts';
+export type { NavigationPolicy } from '../interaction/navigation.ts';
+export { popupReducer } from '../interaction/popup.ts';
+export type { PopupState, PopupTransition } from '../interaction/popup.ts';
+export type { HitTarget } from '../renderer/contracts.ts';
 export {
   compareCollectionText,
-  matchCollectionQuery,
   compileCollectionQuery,
+  matchCollectionQuery,
   queryCandidates,
 } from '../text/query.ts';
 export type {
@@ -107,6 +49,7 @@ export type {
   QueryMatch,
   QueryMatchRange,
 } from '../text/query.ts';
+export type { ElementVisualState } from '../visual/frame-source.ts';
 export {
   clipRenderLine,
   clipRenderSpans,
@@ -114,23 +57,80 @@ export {
   measureRenderSpans,
   padRenderLine,
   span,
-  wrapRenderSpans
+  wrapRenderSpans,
 } from '../visual/render-content.ts';
-export type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from '../visual/render-content.ts';
-export type { HitTarget } from '../renderer/contracts.ts';
-export { decodeTerminalStyle } from '../visual/terminal-style.ts';
-export { mergeTerminalStyles } from '../visual/terminal-style.ts';
+export type {
+  RenderBlock,
+  RenderLine,
+  RenderSpan,
+  TerminalStyle,
+} from '../visual/render-content.ts';
+export { decodeTerminalStyle, mergeTerminalStyles } from '../visual/terminal-style.ts';
+export type {
+  ComponentAccessibilityInput,
+  ComponentCallerSlotValues,
+  ComponentCapturedMessageInput,
+  ComponentCompositionInput,
+  ComponentDefinition,
+  ComponentFrameSourceInput,
+  ComponentIdentity,
+  ComponentImplementationSlotValues,
+  ComponentInput,
+  ComponentInspectionInput,
+  ComponentInteractionInput,
+  ComponentKeyInput,
+  ComponentLayoutInput,
+  ComponentMeasureConstraints,
+  ComponentMeasureInput,
+  ComponentMetadataCapability,
+  ComponentMetadataOptions,
+  ComponentModelContext,
+  ComponentPreparationInput,
+  ComponentRenderInput,
+  ComponentSlotCardinality,
+  ComponentSlotDefinition,
+  ComponentSlotLayout,
+  ComponentSlotMessagePolicy,
+  ComponentSlotOwner,
+  ComponentSlotShape,
+  ComponentSlotsDefinition,
+  ComponentStateCapability,
+  ComponentStyleInput,
+  ComponentTextInput,
+  ComponentVisualState,
+  DecorativeLeafComponentDefinition,
+  DecorativeLeafComponentFactory,
+  DecorativeLeafDefinition,
+  SemanticComposedComponentDefinition,
+  SemanticCompositeComponentDefinition,
+  SemanticCompositeComponentFactory,
+  SemanticLeafComponentDefinition,
+  SemanticLeafComponentFactory,
+  SemanticLeafDefinition,
+  StagedComponentFactory,
+} from './contracts.ts';
+export {
+  defineComponent,
+  defineDecorativeLeafComponent,
+  defineSemanticLeafComponent,
+} from './definition.ts';
+export { ComponentExecutionError } from './execution-error.ts';
+export type { ComponentDefinitionName, ComponentExecutionPhase } from './execution-error.ts';
+export { measureConstrainedBox } from './measurement.ts';
+export type { ComponentMessage } from './message.ts';
 export {
   componentScrollbarHitTargets,
-  paintComponentScrollbar,
-  layoutComponentScrollbar,
-  decodeComponentScrollbarOptions,
   decodeComponentScrollPolicy,
-  decodeComponentScrollState
+  decodeComponentScrollState,
+  decodeComponentScrollbarOptions,
+  layoutComponentScrollbar,
+  paintComponentScrollbar,
 } from './scrollbar.ts';
 export type {
   ComponentScrollbarLayout,
   ComponentScrollbarPlan,
   ComponentScrollbarThumb,
-  ComponentScrollbarTrack
+  ComponentScrollbarTrack,
 } from './scrollbar.ts';
+export { mapComponentStyles } from './styles.ts';
+export type { ComponentStylePartMapping } from './styles.ts';

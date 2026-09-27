@@ -1,10 +1,15 @@
 import { throwIfTerminalOperationAborted, waitForTerminalOperation } from './operation.ts';
+import type {
+  TerminalHost,
+  TerminalOperationContext,
+  TerminalOutput,
+  TerminalOutputChunk,
+} from './types.ts';
 import {
   committedTerminalWrite,
   failedTerminalWrite,
-  indeterminateTerminalWrite
+  indeterminateTerminalWrite,
 } from './write-receipt.ts';
-import type { TerminalHost, TerminalOperationContext, TerminalOutput, TerminalOutputChunk } from './types.ts';
 
 export class OrderedOutputQueue {
   #tail: Promise<void> | undefined;

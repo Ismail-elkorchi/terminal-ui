@@ -1,12 +1,13 @@
 import process from 'node:process';
+import type { TerminalSize } from '../geometry/types.ts';
 import { abortableSleep } from './abortable-sleep.ts';
-import { settleResourceDisposal } from './dispose.ts';
 import { resolveTerminalCapabilities } from './capabilities.ts';
+import { TerminalCapabilityDetector } from './capability-detection.ts';
+import { settleResourceDisposal } from './dispose.ts';
+import { TerminalInputAuthority } from './input-authority.ts';
+import { NodeInput } from './node-input.ts';
 import { NodeTerminalOutput } from './node-output.ts';
 import { createTerminalHostOutputAuthority } from './ordered-output.ts';
-import { NodeInput } from './node-input.ts';
-import { TerminalInputAuthority } from './input-authority.ts';
-import { TerminalCapabilityDetector } from './capability-detection.ts';
 import { TerminalStateAuthorityBinding } from './terminal-state.ts';
 import type {
   NodeTerminalHostOptions,
@@ -15,10 +16,9 @@ import type {
   TerminalEnvironment,
   TerminalHost,
   TerminalSignal,
-  TerminalSleepOutcome,
   TerminalSignalSource,
-  TerminalSize,
-  Unsubscribe
+  TerminalSleepOutcome,
+  Unsubscribe,
 } from './types.ts';
 
 class NodeSignals implements TerminalSignalSource {

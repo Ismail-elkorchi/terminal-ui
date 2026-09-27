@@ -1,13 +1,13 @@
-import { editTextBuffer } from './edit.ts';
-import { sameTextSelection } from './comparison.ts';
+import type { BoundedEditHistory, EditHistoryPolicy } from './bounded-history.ts';
 import {
   breakEditHistoryGroup,
   createBoundedEditHistory,
   recordEditHistory,
   redoEditHistory,
-  undoEditHistory
+  undoEditHistory,
 } from './bounded-history.ts';
-import type { BoundedEditHistory, EditHistoryPolicy } from './bounded-history.ts';
+import { sameTextSelection } from './comparison.ts';
+import { editTextBuffer } from './edit.ts';
 import type { TextEditBuffer, TextEditOperation } from './types.ts';
 
 export type TextEditHistoryGroup = 'insert';

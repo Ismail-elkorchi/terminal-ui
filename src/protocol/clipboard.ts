@@ -1,8 +1,8 @@
 import { Buffer } from 'node:buffer';
-import { diagnostic } from '../diagnostics.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalProtocolSink } from './types.ts';
+import { diagnostic } from '../diagnostics.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
+import type { TerminalProtocolSink } from './types.ts';
 
 export interface ClipboardWritePolicy {
   readonly allowed: boolean;

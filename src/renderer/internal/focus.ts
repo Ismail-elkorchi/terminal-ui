@@ -1,11 +1,16 @@
-import type { RenderNode } from './render-tree/index.ts';
-import { focusPathsEqual } from '../../interaction/focus.ts';
-import { hasTransparentFocusIdentity } from './focus-identity.ts';
+import type { Rect } from '../../geometry/types.ts';
 import type { FocusPath, InitialFocusSelector } from '../../interaction/focus.ts';
-import type { CursorPosition } from '../contracts.ts';
-import type { RenderFocusRelation } from '../contracts.ts';
-import type { Layer, LayoutFocusRegion, LayoutNode, Rect } from '../contracts.ts';
-import type { RenderInstrumentation } from '../contracts.ts';
+import { focusPathsEqual } from '../../interaction/focus.ts';
+import type {
+  CursorPosition,
+  Layer,
+  LayoutFocusRegion,
+  LayoutNode,
+  RenderFocusRelation,
+  RenderInstrumentation,
+} from '../contracts.ts';
+import { hasTransparentFocusIdentity } from './focus-identity.ts';
+import type { RenderNode } from './render-tree/types.ts';
 
 export type { FocusPath } from '../../interaction/focus.ts';
 

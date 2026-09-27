@@ -1,4 +1,4 @@
-import type { ElementValue } from '../../element/index.ts';
+import type { ElementValue } from '../../element/types.ts';
 
 export function parseGridAreas(source: string): readonly (readonly string[])[] {
   const rows = source

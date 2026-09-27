@@ -1,12 +1,15 @@
-import { resolveTerminalCapabilities } from '../host/index.ts';
+import type { Element } from '../element/types.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
-import { diffFrames, renderTuiOutput, renderElementFrame } from '../renderer/index.ts';
-import type { Element } from '../element/index.ts';
-import type { TerminalSize } from '../host/index.ts';
-import type { FocusPath } from '../interaction/index.ts';
-import type { Frame, FrameHitTarget, RenderDiff, RenderSerializeOptions } from '../renderer/index.ts';
-import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
-import type { TextWidthProfile } from '../text/index.ts';
+import type { TerminalSize } from '../geometry/types.ts';
+import { resolveTerminalCapabilities } from '../host/capabilities.ts';
+import type { FocusPath } from '../interaction/focus.ts';
+import type { Frame, FrameHitTarget, RenderDiff } from '../renderer/contracts.ts';
+import { diffFrames } from '../renderer/frame.ts';
+import type { RenderSerializeOptions } from '../renderer/internal/ansi.ts';
+import { renderTuiOutput } from '../renderer/output.ts';
+import { renderElementFrame } from '../renderer/render-element.ts';
+import type { TextWidthProfile } from '../text/types.ts';
+import type { TerminalTheme, TerminalThemeDefinition } from '../theme/theme.ts';
 
 export interface VisualSnapshotInput {
   readonly frame: Frame;

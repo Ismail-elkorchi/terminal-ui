@@ -1,14 +1,16 @@
-import type { RuntimeTarget } from './capability-types.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalCapabilityProfile } from './capability-types.ts';
-import type { TerminalCapabilityConfiguration } from './capabilities.ts';
 import type { TerminalSize } from '../geometry/types.ts';
-import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
 import type { MouseReportingMode, MouseReportingState } from '../protocol/index.ts';
+import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
+import type { TerminalCapabilityConfiguration } from './capabilities.ts';
+import type { RuntimeTarget, TerminalCapabilityProfile } from './capability-types.ts';
 
 export type { TerminalSize } from '../geometry/types.ts';
-export type { MouseReportingMode } from '../protocol/index.ts';
-export type { MouseReportingEncoding, MouseReportingState } from '../protocol/index.ts';
+export type {
+  MouseReportingEncoding,
+  MouseReportingMode,
+  MouseReportingState,
+} from '../protocol/index.ts';
 
 export interface TerminalOutputChunk {
   readonly text?: string;

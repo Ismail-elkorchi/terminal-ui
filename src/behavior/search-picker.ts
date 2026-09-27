@@ -1,7 +1,7 @@
 import type { ScrollRequest, ScrollState } from '../interaction/scroll.ts';
-import type { CollectionQuery } from '../text/query.ts';
-import type { TextEditBuffer, TextEditOperation } from '../text/index.ts';
 import type { TextPointerTransition } from '../interaction/text-pointer.ts';
+import type { CollectionQuery } from '../text/query.ts';
+import type { TextEditBuffer, TextEditOperation } from '../text/types.ts';
 
 export type SearchPickerQueryOptions = Omit<CollectionQuery, 'text'>;
 

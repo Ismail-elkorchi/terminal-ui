@@ -1,4 +1,4 @@
-import { segmentGraphemesForMeasurement, measuredGraphemes } from './graphemes.ts';
+import { measuredGraphemes, segmentGraphemesForMeasurement } from './graphemes.ts';
 import { sanitizeTerminalCellText, sanitizeTerminalText } from './sanitize.ts';
 import type { TextCellMetrics, TextMeasurementOptions } from './types.ts';
 import { textWidthProfileKey } from './width-profile.ts';

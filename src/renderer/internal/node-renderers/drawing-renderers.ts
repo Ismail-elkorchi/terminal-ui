@@ -1,3 +1,6 @@
+import type { Rect } from '../../../geometry/types.ts';
+import { placeAnchoredSurfaceFromValidatedInput } from '../../../interaction/anchored-surface.ts';
+import type { HitTarget } from '../../contracts.ts';
 import {
   absoluteAccessibleBase,
   absoluteChildBounds,
@@ -5,14 +8,11 @@ import {
   overlayChildBounds,
   placeSurface,
   surfaceAccessibleBase,
-  surfaceChildBounds
+  surfaceChildBounds,
 } from '../drawing-rendering.ts';
 import { drawSurface } from '../surface.ts';
-import { placeAnchoredSurfaceFromValidatedInput } from '../../../interaction/anchored-surface.ts';
 import { drawingMeasurements } from './drawing-measurements.ts';
 import type { StructuralRendererMap } from './types.ts';
-import type { Rect } from '../../../geometry/types.ts';
-import type { HitTarget } from '../../contracts.ts';
 
 export const drawingRenderers = {
   surface: {

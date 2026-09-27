@@ -30,7 +30,7 @@ import {
   runPopupChoiceConformance,
   runTooltipConformance,
   runVirtualCollectionConformance
-} from '../helpers/component-conformance.mjs';
+} from '../support/component-conformance.mjs';
 import {
   externalButton,
   externalChart,

@@ -1,34 +1,33 @@
-import { serializeRenderSpans } from './internal/ansi.ts';
-import { createDirtyRegionSet } from './internal/dirty-regions.ts';
-import { createTerminalSerializationPolicy } from './internal/serialization-policy.ts';
-import { planTerminalOutput } from './internal/output-planner.ts';
+import { sameRect } from '../geometry/rect.ts';
+import type { Rect } from '../geometry/types.ts';
+import { sameRasterImageContent } from '../graphics/raster-image.ts';
+import type { GraphicOperation, GraphicPlacement } from '../graphics/types.ts';
+import { measureTerminalCellText } from '../text/measure.ts';
+import { textWidthProfileKey } from '../text/width-profile.ts';
+import { sameFrameCellSource } from '../visual/frame-source.ts';
+import type { RenderSpan, TerminalStyle } from '../visual/render-content.ts';
+import { sameTerminalLink, sameTerminalStyle, span } from '../visual/render-content.ts';
 import type {
   Frame,
   FrameCell,
   FrameDescriptor,
   FrameRowDiff,
   RenderDiff,
+  RenderInstrumentation,
   RenderOperation,
-  RenderInstrumentation
 } from './contracts.ts';
-import type { Rect } from './contracts.ts';
-import type {
-  RenderSpan,
-  TerminalStyle
-} from '../visual/render-content.ts';
-import { sameFrameCellSource, sameTerminalLink, sameTerminalStyle, span } from '../visual/render-content.ts';
 import type { RenderSerializeOptions } from './internal/ansi.ts';
-import { textWidthProfileKey } from '../text/index.ts';
-import { measureTerminalCellText } from '../text/index.ts';
-import { frameIndex } from './internal/frame-index.ts';
-import type { FrameIndex } from './internal/frame-index.ts';
-import type { GraphicOperation, GraphicPlacement } from '../graphics/index.ts';
-import { sameRasterImageContent } from '../graphics/raster-image.ts';
+import { serializeRenderSpans } from './internal/ansi.ts';
+import { createDirtyRegionSet } from './internal/dirty-regions.ts';
 import { sameTerminalFrameCell } from './internal/frame-cell-equality.ts';
+import type { FrameIndex } from './internal/frame-index.ts';
+import { frameIndex } from './internal/frame-index.ts';
+import { planTerminalOutput } from './internal/output-planner.ts';
+import { createTerminalSerializationPolicy } from './internal/serialization-policy.ts';
 
 export type { CursorPosition, Frame, FrameCell, FrameHitTarget } from './contracts.ts';
 
-export type { FocusPath } from './internal/focus.ts';
+export type { FocusPath } from '../interaction/focus.ts';
 
 export interface DiffFramesOptions {
   readonly dirtyRegions?: readonly Rect[];
@@ -43,27 +42,13 @@ export type { FrameRowDiff, RenderDiff, RenderOperation } from './contracts.ts';
 
 export type { AnsiStyleState, RenderSerializeOptions } from './internal/ansi.ts';
 
-export type {
-  ClipRenderSpansOptions,
-  FrameCellSource,
-  PadRenderLineOptions,
-  RenderAlignment,
-  RenderBlock,
-  RenderBlockSize,
-  RenderClipMode,
-  RenderLine,
-  RenderSpan,
-  TerminalColor,
-  TerminalLink,
-  TerminalStyle
-} from '../visual/render-content.ts';
-export type {
-  FrameBuffer,
-  FrameBufferOptions,
-  FrameBufferSnapshot,
-  FrameBufferSnapshotOptions,
-} from './frame-buffer.ts';
-export { createFrameBuffer } from './frame-buffer.ts';
+export {
+  frameCellSource,
+  frameSourcePart,
+  renderNodeFrameSource,
+  sameFrameCellSource,
+} from '../visual/frame-source.ts';
+export type { FrameCellSource } from '../visual/frame-source.ts';
 export {
   alignRenderLine,
   block,
@@ -76,18 +61,32 @@ export {
   measureRenderLine,
   measureRenderSpans,
   padRenderLine,
-  sameFrameCellSource,
   sameTerminalColor,
   sameTerminalLink,
   sameTerminalStyle,
   span,
-  wrapRenderSpans
+  wrapRenderSpans,
 } from '../visual/render-content.ts';
-export {
-  frameCellSource,
-  frameSourcePart,
-  renderNodeFrameSource
-} from '../visual/frame-source.ts';
+export type {
+  ClipRenderSpansOptions,
+  PadRenderLineOptions,
+  RenderAlignment,
+  RenderBlock,
+  RenderBlockSize,
+  RenderClipMode,
+  RenderLine,
+  RenderSpan,
+  TerminalColor,
+  TerminalLink,
+  TerminalStyle,
+} from '../visual/render-content.ts';
+export { createFrameBuffer } from './frame-buffer.ts';
+export type {
+  FrameBuffer,
+  FrameBufferOptions,
+  FrameBufferSnapshot,
+  FrameBufferSnapshotOptions,
+} from './frame-buffer.ts';
 export { serializeRenderSpansStateful } from './internal/ansi.ts';
 
 export function renderFramePlain(frame: FrameDescriptor): string {
@@ -240,13 +239,6 @@ function sameGraphicPlacement(left: GraphicPlacement, right: GraphicPlacement): 
     && left.fit === right.fit
     && sameRect(left.bounds, right.bounds)
     && sameRect(left.clip, right.clip);
-}
-
-function sameRect(left: Rect, right: Rect): boolean {
-  return left.row === right.row
-    && left.column === right.column
-    && left.width === right.width
-    && left.height === right.height;
 }
 
 export function renderDiffAnsi(diff: RenderDiff, options?: RenderDiffAnsiOptions): string {

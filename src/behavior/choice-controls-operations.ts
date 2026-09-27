@@ -1,16 +1,16 @@
+import { assertStableIds } from '../collection/identity.ts';
 import type { ChoiceItem } from '../collection/item.ts';
+import type { CollectionInteractionState } from '../interaction/collection-interaction.ts';
+import {
+  collectionInteractionReducer,
+  createCollectionInteractionIndex,
+  normalizeCollectionInteraction,
+} from '../interaction/collection-interaction.ts';
 import type {
   CheckboxGroupTransition,
   ColorSwatchPickerTransition,
   RadioGroupTransition,
 } from './choice-controls.ts';
-import {
-  collectionInteractionReducer,
-  normalizeCollectionInteraction,
-  createCollectionInteractionIndex,
-} from '../interaction/collection-interaction.ts';
-import type { CollectionInteractionState } from '../interaction/collection-interaction.ts';
-import { assertStableIds } from '../collection/identity.ts';
 
 export type CheckboxGroupState = CollectionInteractionState;
 export type RadioGroupState = CollectionInteractionState;

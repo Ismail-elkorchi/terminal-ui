@@ -5,7 +5,7 @@ import type {
   KeyLocation,
   KeyModifiers,
   KeyName,
-  LetterKeyName
+  LetterKeyName,
 } from './types.ts';
 
 const modifiedNavigationFinalPattern = new RegExp(String.raw`^\u001B\[1;(\d+)([ABCDFHPQRS])`, 'u');

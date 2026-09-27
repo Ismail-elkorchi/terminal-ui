@@ -1,10 +1,7 @@
-import type {
-  MouseReportingMode,
-  TerminalInputChunk,
-  TerminalSignal,
-  TerminalSize
-} from '../host/index.ts';
-import type { TerminalKeyboardProfile } from '../protocol/index.ts';
+import type { TerminalSize } from '../geometry/types.ts';
+import type { TerminalInputChunk, TerminalSignal } from '../host/types.ts';
+import type { MouseReportingMode } from '../protocol/index.ts';
+import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
 
 export type InputEvent =
   | KeyEvent

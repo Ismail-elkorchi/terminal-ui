@@ -1,24 +1,29 @@
-import { sanitizeTerminalCellText } from '../text/index.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
+import { sanitizeTerminalCellText } from '../text/sanitize.ts';
+import type { TerminalKeyboardProfile } from './keyboard.ts';
+import { decodeKeyboardProfile } from './keyboard.ts';
+import type { TerminalProtocolSink } from './types.ts';
+export { createClipboardWriteSequence, writeClipboardText } from './clipboard.ts';
 export type {
   ClipboardWritePolicy,
   ClipboardWriteRejection,
   ClipboardWriteResult,
   ClipboardWriteSequenceResult,
 } from './clipboard.ts';
-export { createClipboardWriteSequence, writeClipboardText } from './clipboard.ts';
-export type { TerminalProtocolSink } from './types.ts';
+export { resolveGraphicGeometry } from './graphics-geometry.ts';
+export type { ResolvedGraphicGeometry, TerminalCellPixels } from './graphics-geometry.ts';
 export {
-  KITTY_KEYBOARD_FLAGS,
-  LEGACY_KEYBOARD_PROFILE,
   decodeKeyboardProfile,
+  KITTY_KEYBOARD_FLAGS,
   kittyKeyboardFlags,
-  kittyKeyboardProfile
+  kittyKeyboardProfile,
+  LEGACY_KEYBOARD_PROFILE,
 } from './keyboard.ts';
-export type { KittyKeyboardFlagMap, KittyKeyboardFlags, TerminalKeyboardProfile } from './keyboard.ts';
-import type { TerminalProtocolSink } from './types.ts';
-import { decodeKeyboardProfile } from './keyboard.ts';
-import type { TerminalKeyboardProfile } from './keyboard.ts';
+export type {
+  KittyKeyboardFlagMap,
+  KittyKeyboardFlags,
+  TerminalKeyboardProfile,
+} from './keyboard.ts';
 export {
   encodeKittyDirectPlacement,
   encodeKittyImageDelete,
@@ -28,11 +33,15 @@ export {
   encodeKittyVirtualPlacement,
   wrapKittyControl,
 } from './kitty-graphics.ts';
-export { encodeSixelImage } from './sixel-graphics.ts';
-export { resolveGraphicGeometry } from './graphics-geometry.ts';
 export type { KittyGraphicsTransport } from './kitty-graphics.ts';
+export { defaultTerminalOutputCapabilities } from './output-capabilities.ts';
+export type {
+  TerminalOutputCapabilityProfile,
+  TerminalOutputFeatureSupport,
+} from './output-capabilities.ts';
+export { encodeSixelImage } from './sixel-graphics.ts';
 export type { RgbColor } from './sixel-graphics.ts';
-export type { ResolvedGraphicGeometry, TerminalCellPixels } from './graphics-geometry.ts';
+export type { TerminalProtocolSink } from './types.ts';
 
 export interface TerminalProtocolWriter {
   enableAlternateScreen(): Promise<void>;
@@ -157,10 +166,3 @@ function decodeMouseReportingMode(mode: unknown): MouseReportingMode {
   if (mode === 'none' || mode === 'click' || mode === 'drag' || mode === 'all') return mode;
   throw new RangeError('mouse reporting mode must be none, click, drag, or all.');
 }
-export {
-  defaultTerminalOutputCapabilities
-} from './output-capabilities.ts';
-export type {
-  TerminalOutputCapabilityProfile,
-  TerminalOutputFeatureSupport
-} from './output-capabilities.ts';

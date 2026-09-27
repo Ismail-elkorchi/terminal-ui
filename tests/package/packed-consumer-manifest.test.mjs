@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createPackedConsumerManifest } from '../../scripts/packed-consumer-manifest.mjs';
+import { createPackedConsumerManifest } from '../../scripts/package/packed-consumer-manifest.mjs';
 
 const source = JSON.stringify({
   name: 'consumer',

@@ -1,12 +1,18 @@
+import type { SplitPaneTransition } from '../../behavior/split-pane.ts';
 import { mergeKeyBindings } from '../../element/metadata-normalization.ts';
-import { optionalRenderNodeId, requiredRenderNodeId, renderNodeChildren } from '../../renderer/internal/render-tree/element.ts';
-import { renderNodeLayoutProps } from '../../renderer/internal/render-tree/props/shared-layout.ts';
-import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
 import type { ElementKeyBindings } from '../../element/metadata.ts';
 import { decodeElementStyles } from '../../element/styles.ts';
-import { layoutElementFromRenderNode } from '../../renderer/internal/render-tree/element.ts';
-import { renderNodeInteraction as interactionProps } from '../../renderer/internal/render-tree/metadata.ts';
-import type { SplitPaneTransition } from '../../behavior/split-pane.ts';
+import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/types.ts';
+import {
+  layoutElementFromRenderNode,
+  optionalRenderNodeId,
+  renderNodeChildren,
+  requiredRenderNodeId,
+} from '../../renderer/internal/render-tree/element.ts';
+import {
+  renderNodeInteraction as interactionProps,
+} from '../../renderer/internal/render-tree/metadata.ts';
+import { renderNodeLayoutProps } from '../../renderer/internal/render-tree/props/shared-layout.ts';
 import type { ResizableSplitPaneOptions, SplitPaneOptions } from '../options.ts';
 
 export function splitPane<

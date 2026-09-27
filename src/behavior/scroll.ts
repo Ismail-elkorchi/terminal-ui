@@ -1,10 +1,10 @@
 import { finiteNonNegativeIntegerOrZero } from '../foundation/validation.ts';
 import type {
   CreateScrollStateInput,
-  ScrollTransition,
-  ScrollRequest,
   ScrollGeometry,
+  ScrollRequest,
   ScrollState,
+  ScrollTransition,
   ScrollVisibleWindow,
 } from '../interaction/scroll.ts';
 

@@ -1,35 +1,34 @@
-import type {
-  AutocompletePromptOptions,
-  BasePromptOptions,
-  ValuePromptOptions,
-  AutocompletePromptDefinition,
-  ConfirmPromptDefinition,
-  ConfirmPromptOptions,
-  EditorPromptOptions,
-  EditorPromptDefinition,
-  InputPromptDefinition,
-  InputPromptOptions,
-  MultiSelectPromptOptions,
-  PasswordPromptOptions,
-  MultiSelectPromptDefinition,
-  PasswordPromptDefinition,
-  ProgressPromptDefinition,
-  ProgressPromptOptions,
-  SelectPromptDefinition,
-  SelectPromptOptions
-} from './types.ts';
-import { minimalTheme } from '../theme/index.ts';
-import { resolveThemeInput } from '../theme/theme.ts';
 import { decodeTerminalDiagnostic } from '../diagnostics.ts';
 import { assertSupportedFields, isNonArrayObject } from '../foundation/validation.ts';
-import { measureTextCells, sanitizeTerminalCellText, sanitizeTerminalText } from '../text/index.ts';
+import { measureTextCells } from '../text/measure.ts';
+import { sanitizeTerminalCellText, sanitizeTerminalText } from '../text/sanitize.ts';
+import { minimalTheme } from '../theme/index.ts';
+import { resolveThemeInput } from '../theme/theme.ts';
 import { decodeProgressSnapshot } from './progress.ts';
 import type {
+  AutocompletePromptDefinition,
+  AutocompletePromptOptions,
+  BasePromptOptions,
+  ConfirmPromptDefinition,
+  ConfirmPromptOptions,
+  EditorPromptDefinition,
+  EditorPromptOptions,
+  InputPromptDefinition,
+  InputPromptOptions,
+  MultiSelectPromptDefinition,
+  MultiSelectPromptOptions,
+  PasswordPromptDefinition,
+  PasswordPromptOptions,
+  ProgressPromptDefinition,
+  ProgressPromptOptions,
   PromptChoice,
   PromptDataSource,
   PromptDataSourceQuery,
   PromptDataSourceResult,
   PromptValidator,
+  SelectPromptDefinition,
+  SelectPromptOptions,
+  ValuePromptOptions,
 } from './types.ts';
 
 const registeredPromptDefinitions = new WeakSet<object>();

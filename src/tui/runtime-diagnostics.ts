@@ -1,6 +1,6 @@
-import { createDiagnosticOccurrenceReporter, diagnostic } from '../diagnostics.ts';
 import type { DiagnosticOccurrence, TerminalDiagnostic } from '../diagnostics.ts';
-import type { TranscriptRecorder } from '../transcript/index.ts';
+import { createDiagnosticOccurrenceReporter, diagnostic } from '../diagnostics.ts';
+import type { TranscriptRecorder } from '../transcript/types.ts';
 
 interface TrackedRuntimeTask {
   completion: Promise<void>;

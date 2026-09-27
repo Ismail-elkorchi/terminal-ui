@@ -1,20 +1,22 @@
+import type { TerminalDiagnostic } from '../diagnostics.ts';
 import { diagnostic } from '../diagnostics.ts';
-import { LEGACY_KEYBOARD_PROFILE, decodeKeyboardProfile } from '../protocol/index.ts';
+import type { TerminalCapabilityProfile } from '../host/capability-types.ts';
+import type { TerminalInputChunk } from '../host/types.ts';
+import type { MouseReportingMode } from '../protocol/index.ts';
+import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
+import { LEGACY_KEYBOARD_PROFILE, decodeKeyboardProfile } from '../protocol/keyboard.ts';
+import type { NormalizedInputDecodeOptions } from './decoder.ts';
 import {
   createInputDecoderFromNormalizedOptions,
   decodeInputChunk,
-  resolveInputDecodeLimits
+  resolveInputDecodeLimits,
 } from './decoder.ts';
-import type { NormalizedInputDecodeOptions } from './decoder.ts';
-import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { MouseReportingMode, TerminalCapabilityProfile, TerminalInputChunk } from '../host/index.ts';
-import type { TerminalKeyboardProfile } from '../protocol/index.ts';
 import type {
   InputDecodeLimits,
   InputDecodeOptions,
   InputDecoderBatch,
   InputEvent,
-  InputPendingState
+  InputPendingState,
 } from './types.ts';
 
 export type KeyboardInputProfileRequest = TerminalKeyboardProfile;

@@ -1,6 +1,6 @@
-import { rasterImage } from '../graphics/index.ts';
-import { rasterImagePixels } from '../graphics/raster-image.ts';
-import type { GraphicsBudgetLimits, RasterImage } from '../graphics/index.ts';
+import type { GraphicsBudgetLimits } from '../graphics/budget.ts';
+import { rasterImage, rasterImagePixels } from '../graphics/raster-image.ts';
+import type { RasterImage } from '../graphics/raster-types.ts';
 import type { ResolvedGraphicGeometry } from './graphics-geometry.ts';
 
 export function resampleRasterRegion(

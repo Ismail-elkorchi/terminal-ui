@@ -1,9 +1,9 @@
+import type { TerminalSize } from '../geometry/types.ts';
 import {
   maximumFrameCells,
   maximumFrameColumns,
   maximumFrameRows,
 } from '../renderer/internal/frame-limits.ts';
-import type { TerminalSize } from '../geometry/types.ts';
 
 export function decodeTuiTerminalSize(value: unknown): TerminalSize {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -26,4 +26,11 @@ export function decodeTuiTerminalSize(value: unknown): TerminalSize {
     throw new RangeError(`TUI terminal size must not exceed ${String(maximumFrameCells)} cells.`);
   }
   return Object.freeze({ columns, rows });
+}
+
+export function sameTerminalSize(
+  left: TerminalSize,
+  right: TerminalSize
+): boolean {
+  return left.columns === right.columns && left.rows === right.rows;
 }

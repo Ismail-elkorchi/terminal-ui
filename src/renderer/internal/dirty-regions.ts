@@ -1,10 +1,9 @@
-import type { Rect } from '../contracts.ts';
-import { intersectRects } from '../../geometry/rect.ts';
+import { intersectRects, sameRect } from '../../geometry/rect.ts';
+import type { Rect } from '../../geometry/types.ts';
+import type { DirtyRegionSet } from './damage-contracts.ts';
+import { normalizeDamageRect as normalizeRect } from './damage-geometry.ts';
 import type { FrameSnapshotMetadata } from './frame-snapshot.ts';
-import {
-  sameTerminalSnapshotRow,
-  snapshotRow,
-} from './frame-snapshot.ts';
+import { sameTerminalSnapshotRow, snapshotRow } from './frame-snapshot.ts';
 
 interface DirtyRegionSource {
   readonly id: string;
@@ -14,13 +13,6 @@ interface DirtyRegionSource {
   readonly underlay: string;
   readonly backdropBounds?: Rect;
   readonly metadata: FrameSnapshotMetadata;
-}
-
-export interface DirtyRegionSet {
-  readonly rects: readonly Rect[];
-  add(rect: Rect): DirtyRegionSet;
-  union(other: DirtyRegionSet): DirtyRegionSet;
-  intersect(bounds: Rect): DirtyRegionSet;
 }
 
 export function createDirtyRegionSet(rects: readonly Rect[] = []): DirtyRegionSet {
@@ -140,14 +132,6 @@ function normalizeRects(input: readonly Rect[]): readonly Rect[] {
   return Object.freeze(merged.map((rect) => Object.freeze(rect)));
 }
 
-function normalizeRect(rect: Rect): Rect | undefined {
-  const row = Math.floor(rect.row);
-  const column = Math.floor(rect.column);
-  const width = Math.max(0, Math.floor(rect.width));
-  const height = Math.max(0, Math.floor(rect.height));
-  return width === 0 || height === 0 ? undefined : { row, column, width, height };
-}
-
 function sameRegionSurface(left: DirtyRegionSource, right: DirtyRegionSource): boolean {
   return left.zIndex === right.zIndex
     && left.order === right.order
@@ -253,11 +237,4 @@ export function intersectDirtyRegionSets(left: DirtyRegionSet, right: DirtyRegio
     }
   }
   return output.build();
-}
-
-function sameRect(left: Rect, right: Rect): boolean {
-  return left.row === right.row
-    && left.column === right.column
-    && left.width === right.width
-    && left.height === right.height;
 }

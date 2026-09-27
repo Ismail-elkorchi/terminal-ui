@@ -1,5 +1,6 @@
-import { applyScrollRequest, createScrollState } from './scroll.ts';
-import { sameDocumentSelection, sameTextCaret } from '../text/comparison.ts';
+import type { ScrollState } from '../interaction/scroll.ts';
+import type { TextPointerTransition } from '../interaction/text-pointer.ts';
+import type { BoundedEditHistory, EditHistoryPolicy } from '../text/bounded-history.ts';
 import {
   breakEditHistoryGroup,
   createBoundedEditHistory,
@@ -7,42 +8,38 @@ import {
   replaceEditHistoryGroup,
 } from '../text/bounded-history.ts';
 import {
-  editTextDocument,
+  applyTextChangePlan,
   applyTextChangeSet,
+  createTextChangePlan,
   createTextChangeSet,
   emptyTextChangeSet,
-  editTextBuffer,
+  invertTextChangePlan,
+  invertTextChangeSet,
+} from '../text/change-set.ts';
+import { sameDocumentSelection, sameTextCaret } from '../text/comparison.ts';
+import { textCaretAt, textDocumentSelectionBetween } from '../text/coordinates.ts';
+import { editTextDocument } from '../text/document-edit.ts';
+import type { TextDocument } from '../text/document.ts';
+import {
+  createTextDocument,
   normalizeTextCaret,
-  normalizeTextCursor,
   normalizeTextDocumentOffset,
   normalizeTextDocumentSelection,
-  normalizeTextSelection,
-  createTextDocument,
-  textCaretAt,
-  textDocumentSelectionBetween,
-  textDocumentSlice
-} from '../text/index.ts';
-import {
-  applyTextChangePlan,
-  createTextChangePlan,
-  invertTextChangeSet,
-  invertTextChangePlan
-} from '../text/change-set.ts';
+  textDocumentRevision,
+  textDocumentSlice,
+} from '../text/document.ts';
+import { editTextBuffer } from '../text/edit.ts';
+import { normalizeTextCursor, normalizeTextSelection } from '../text/text-range.ts';
 import type {
-  BoundedEditHistory,
-  EditHistoryPolicy,
   TextCaret,
   TextChangeSet,
-  TextDocument,
   TextDocumentSelection,
   TextEditBuffer,
-  TextSelection
-} from '../text/index.ts';
-import type { TextPointerTransition } from '../interaction/text-pointer.ts';
-import type { ScrollState } from '../interaction/scroll.ts';
+  TextSelection,
+} from '../text/types.ts';
+import { applyScrollRequest, createScrollState } from './scroll.ts';
 import type { TextAreaTransition } from './text-area.ts';
 import type { TextInputTransition } from './text-input.ts';
-import { textDocumentRevision } from '../text/document.ts';
 
 const utf8Encoder = new TextEncoder();
 

@@ -1,7 +1,8 @@
-import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
+import { measureTextCells } from '../text/measure.ts';
+import { sanitizeTerminalText } from '../text/sanitize.ts';
+import type { TerminalLink, TerminalStyle } from './render-content.ts';
 import { decodeTerminalLink } from './render-content.ts';
 import { decodeTerminalStyle } from './terminal-style.ts';
-import type { TerminalLink, TerminalStyle } from './render-content.ts';
 
 interface InlineSegmentBase {
   readonly style?: TerminalStyle;

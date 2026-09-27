@@ -1,8 +1,9 @@
+import { assertSupportedFields } from '../foundation/validation.ts';
+import type { ThemeColor, ThemeColorToken } from '../visual/color.ts';
+import { isThemeColorToken } from '../visual/color.ts';
 import type { TerminalStyle } from '../visual/render-content.ts';
 import { decodeTerminalSymbols, mergeSymbols, symbolEntries } from './symbols.ts';
-import type { TerminalDesignTokenDefinition, TerminalDesignTokens, ThemeColor, ThemeColorToken } from './tokens.ts';
-import { isThemeColorToken } from '../visual/color.ts';
-import { assertSupportedFields } from '../foundation/validation.ts';
+import type { TerminalDesignTokenDefinition, TerminalDesignTokens } from './tokens.ts';
 
 const canonicalThemes = new WeakSet<object>();
 const canonicalDesignTokens = new WeakSet<object>();

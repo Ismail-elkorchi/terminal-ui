@@ -1,18 +1,15 @@
-import { applyScrollRequest, createScrollState, scrollReducer } from './scroll.ts';
-import type { ScrollState } from '../interaction/scroll.ts';
-import {
-  logHistoryRecordMatches,
-  logHistorySegments,
-} from './log-history.ts';
-import type { LogHistory, LogSearchMatch } from './log-history.ts';
-import type {
-  LogViewerTransition,
-  LogViewerControlTransition,
-  LogViewerSelection
-} from './log-viewer.ts';
 import { cyclicIndex } from '../foundation/cyclic-index.ts';
-import { compileCollectionQuery } from '../text/query.ts';
+import type { ScrollState } from '../interaction/scroll.ts';
 import type { CollectionQuery, CompiledCollectionQuery } from '../text/query.ts';
+import { compileCollectionQuery } from '../text/query.ts';
+import type { LogHistory, LogSearchMatch } from './log-history.ts';
+import { logHistoryRecordMatches, logHistorySegments } from './log-history.ts';
+import type {
+  LogViewerControlTransition,
+  LogViewerSelection,
+  LogViewerTransition,
+} from './log-viewer.ts';
+import { applyScrollRequest, createScrollState, scrollReducer } from './scroll.ts';
 
 interface LogViewerStateBase {
   readonly query?: CompiledCollectionQuery;

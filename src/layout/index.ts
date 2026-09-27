@@ -1,73 +1,17 @@
-export {
-  absolute,
-  anchored,
-  column,
-  flow,
-  grid,
-  measuredColumn,
-  measuredViewport,
-  overlay,
-  portal,
-  row,
-  splitPane,
-  surface,
-  viewport
-} from './factories/index.ts';
-export type {
-  AbsoluteOptions,
-  AnchoredOptions,
-  ColumnOptions,
-  FlowOptions,
-  GridAreasOptions,
-  GridOptions,
-  RowOptions,
-  PortalOptions,
-  SplitPaneStylePart,
-  SplitPaneOptions,
-  SurfaceStylePart,
-  SurfaceOptions,
-  ScrollableViewportOptions,
-  MeasuredViewportOptions,
-  MeasuredViewportLayout,
-  ViewportOffset,
-  ViewportOptions
-} from './options.ts';
 export type { SplitPaneTransition } from '../behavior/split-pane.ts';
-export {
-  defineBreakpoints,
-  responsive,
-  viewportVariant
-} from './responsive.ts';
 export type {
-  BreakpointRange,
-  ResponsiveBreakpointMap,
-  ResponsiveVariants,
-  ViewportDimensions
-} from './responsive.ts';
-export type {
-  GridLayoutOptions,
-  LayoutAlignment,
-  LayoutFlowOptions,
-  LayoutInsetInput,
-  LayoutInsets,
-  LayoutJustification,
-  LayoutOverflow,
-  LayoutSize
-} from '../geometry/types.ts';
-export type {
+  ElementAccessibility,
+  ElementFocus,
+  ElementFocusScope,
   ElementKeyBindings,
   ElementKeyEvent,
   ElementKeyHandler,
   ElementKeyTriggerBinding,
-  ElementAccessibility,
-  ElementFocus,
-  ElementFocusScope,
   ElementLayer,
   ElementMeta,
   ElementOptions,
   ElementOverflowPriority,
   ElementStyles,
-  ElementVisualState,
   InteractiveElementOptions,
   LayerUnderlay,
   StructuralElementOptions,
@@ -79,6 +23,49 @@ export {
   layoutInsetSize,
   layoutMarginBounds,
   layoutPaddingBounds,
-  splitTracks
+  splitTracks,
 } from '../geometry/layout.ts';
+export type {
+  GridLayoutOptions,
+  LayoutAlignment,
+  LayoutFlowOptions,
+  LayoutInsetInput,
+  LayoutInsets,
+  LayoutJustification,
+  LayoutOverflow,
+  LayoutSize,
+} from '../geometry/types.ts';
+export type { MeasuredViewportLayout } from '../interaction/scroll.ts';
+export type { ElementVisualState } from '../visual/frame-source.ts';
 export { decodeLayoutFlowOptions } from './decode-options.ts';
+export { column, flow, row } from './factories/flow.ts';
+export { measuredColumn, measuredViewport } from './factories/measured-column.ts';
+export { splitPane } from './factories/split-pane.ts';
+export { grid } from './factories/structured.ts';
+export { absolute, anchored, overlay, portal, surface } from './factories/surfaces.ts';
+export { viewport } from './factories/viewport.ts';
+export type {
+  AbsoluteOptions,
+  AnchoredOptions,
+  ColumnOptions,
+  FlowOptions,
+  GridAreasOptions,
+  GridOptions,
+  MeasuredViewportOptions,
+  PortalOptions,
+  RowOptions,
+  ScrollableViewportOptions,
+  SplitPaneOptions,
+  SplitPaneStylePart,
+  SurfaceOptions,
+  SurfaceStylePart,
+  ViewportOffset,
+  ViewportOptions,
+} from './options.ts';
+export { defineBreakpoints, responsive, viewportVariant } from './responsive.ts';
+export type {
+  BreakpointRange,
+  ResponsiveBreakpointMap,
+  ResponsiveVariants,
+  ViewportDimensions,
+} from './responsive.ts';

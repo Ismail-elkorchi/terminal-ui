@@ -1,8 +1,7 @@
-import { decodeInputTrigger, inputTriggerIdentity } from '../input/index.ts';
-import type { TuiBindingHelpItem } from './types.ts';
-import type { InputTrigger } from '../input/index.ts';
-import type { TuiApp, TuiDefinition, TuiInputBinding } from './types.ts';
 import { assertSupportedFields, isNonArrayObject } from '../foundation/validation.ts';
+import { decodeInputTrigger, inputTriggerIdentity } from '../input/triggers.ts';
+import type { InputTrigger } from '../input/types.ts';
+import type { TuiApp, TuiBindingHelpItem, TuiDefinition, TuiInputBinding } from './types.ts';
 
 const tuiDefinitions = new WeakMap<object, object>();
 

@@ -1,8 +1,6 @@
 import type { ElementOverflowPriority } from '../../../../element/metadata.ts';
 import { isNonArrayObject } from '../../../../foundation/validation.ts';
-import type { RenderNode, RenderNodeOfKind, RenderNodesOfKind } from '../../render-tree/index.ts';
 import { layoutContentBounds, splitTracks } from '../../../../geometry/layout.ts';
-import type { Rect } from '../../../contracts.ts';
 import type {
   GridLayoutOptions,
   LayoutAlignment,
@@ -10,10 +8,12 @@ import type {
   LayoutInsetInput,
   LayoutJustification,
   LayoutOverflow,
-  LayoutSize
+  LayoutSize,
+  Rect,
 } from '../../../../geometry/types.ts';
 import type { Measurement } from '../../../contracts.ts';
 import { emptyRect } from '../../rect.ts';
+import type { RenderNode, RenderNodeOfKind, RenderNodesOfKind } from '../../render-tree/types.ts';
 
 type GridNode = RenderNodeOfKind<unknown, 'grid'>;
 type SplitPaneNode = RenderNodeOfKind<unknown, 'splitPane'>;

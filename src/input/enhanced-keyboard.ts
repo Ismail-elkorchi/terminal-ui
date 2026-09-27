@@ -1,3 +1,6 @@
+import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
+import { KITTY_KEYBOARD_FLAGS } from '../protocol/keyboard.ts';
+import { InputDecodeError } from './decode-error.ts';
 import { normalizeKeyEvent } from './keys.ts';
 import type {
   KeyEvent,
@@ -5,12 +8,9 @@ import type {
   KeyLocation,
   KeyModifiers,
   KeyName,
-  LetterKeyName
+  LetterKeyName,
 } from './types.ts';
 import { functionKeyNames } from './types.ts';
-import { KITTY_KEYBOARD_FLAGS } from '../protocol/index.ts';
-import type { TerminalKeyboardProfile } from '../protocol/index.ts';
-import { InputDecodeError } from './decode-error.ts';
 
 const csiUnicodeKeyPattern = new RegExp(String.raw`^\u001B\[(\d+)(?::(\d+)?(?::(\d+))?)?(?:;(\d+)(?::([123]))?)?(?:;([\d:]+))?u`, 'u');
 const csiFinalKeyPattern = new RegExp(String.raw`^\u001B\[1(?:;(\d+)(?::([123]))?)?([ABCDEFHPQRS])`, 'u');

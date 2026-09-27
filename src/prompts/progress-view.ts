@@ -1,4 +1,4 @@
-import { sanitizeTerminalText } from '../text/index.ts';
+import { sanitizeTerminalText } from '../text/sanitize.ts';
 import type { ProgressState } from './types.ts';
 
 export function progressDisplayLine(progress: ProgressState): string {

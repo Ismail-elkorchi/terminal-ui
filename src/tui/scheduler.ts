@@ -1,11 +1,11 @@
-import type { TuiEventSource, TuiSubscriptionContext } from './types.ts';
+import type { AnimationFrame } from './animation-timeline.ts';
 import {
   advanceAnimationTimeline,
   createAnimationTimeline,
-  nextAnimationDeadline
+  nextAnimationDeadline,
 } from './animation-timeline.ts';
-import type { AnimationFrame } from './animation-timeline.ts';
-import { reliableSourceMessage, replaceableSourceMessage } from './source-channel.ts';
+import { reliableSourceMessage, replaceableSourceMessage } from './lifecycle/source-channel.ts';
+import type { TuiEventSource, TuiSubscriptionContext } from './types.ts';
 
 /** @beta */
 export function intervalSource<TMessage extends NonNullable<unknown>>(

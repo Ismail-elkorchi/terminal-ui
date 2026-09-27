@@ -5,8 +5,8 @@ import type {
   ElementLayer,
   ElementMeta,
   ElementStyles,
-  ElementVisualState,
 } from '../../../element/metadata.ts';
+import type { ElementVisualState } from '../../../visual/frame-source.ts';
 import type { RenderNode } from './types.ts';
 
 export function renderNodeInteraction<TMessage, TPart extends string = never>(options: {

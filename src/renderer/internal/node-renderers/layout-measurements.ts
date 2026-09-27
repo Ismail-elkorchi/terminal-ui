@@ -3,7 +3,7 @@ import {
   combineMeasurementsHorizontally,
   combineMeasurementsOverlay,
   combineMeasurementsVertically,
-  measureSize
+  measureSize,
 } from '../../measurement.ts';
 import { numberProp } from '../render-node-props.ts';
 import { childMeasurements } from './measurement-support.ts';

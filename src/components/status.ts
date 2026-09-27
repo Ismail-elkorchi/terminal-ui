@@ -1,6 +1,6 @@
 import type { NotificationTone } from '../behavior/notification.ts';
 import { isStringMember } from '../foundation/validation.ts';
-import type { ProcessStatus, StatusBarStatus } from './status-bar.ts';
+import type { ProcessStatus, StatusBarStatus } from './feedback/status-bar-contracts.ts';
 import type { ValidationLevel } from './validation.ts';
 
 const statusBarStatuses = [

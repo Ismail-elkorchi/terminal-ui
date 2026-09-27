@@ -1,14 +1,16 @@
-import { numberProp } from '../../render-node-props.ts';
-import { finiteNonNegativeIntegerOrZero, isNonArrayObject } from '../../../../foundation/validation.ts';
 import { normalizeScrollState } from '../../../../behavior/scroll.ts';
-import { renderNodeStyle } from '../../../style-resolution.ts';
+import {
+  finiteNonNegativeIntegerOrZero,
+  isNonArrayObject,
+} from '../../../../foundation/validation.ts';
+import type { Rect } from '../../../../geometry/types.ts';
+import { oneCellGlyph } from '../../../../text/cell-geometry.ts';
+import type { TerminalTheme } from '../../../../theme/theme.ts';
 import { renderNodeFrameSource } from '../../../../visual/frame-source.ts';
-import type { RenderTarget } from '../../../contracts.ts';
-import type { LayoutNode, Rect } from '../../../contracts.ts';
-import type { Measurement } from '../../../contracts.ts';
-import type { RenderNodeOfKind } from '../../render-tree/index.ts';
-import type { TerminalTheme } from '../../../../theme/index.ts';
-import { oneCellGlyph } from '../../../../text/index.ts';
+import type { LayoutNode, Measurement, RenderTarget } from '../../../contracts.ts';
+import { renderNodeStyle } from '../../../style-resolution.ts';
+import { numberProp } from '../../render-node-props.ts';
+import type { RenderNodeOfKind } from '../../render-tree/types.ts';
 
 type ViewportNode = RenderNodeOfKind<unknown, 'viewport'>;
 

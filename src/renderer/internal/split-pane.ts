@@ -1,18 +1,16 @@
-import type { AccessibleNode } from '../../accessibility/index.ts';
-import type { RoutedPointerEvent } from '../../input/pointer.ts';
-import { ignoreMessage } from '../../interaction/message.ts';
-import type { MessageResolution } from '../../interaction/message.ts';
-import type { TerminalTheme } from '../../theme/index.ts';
+import type { AccessibleNode } from '../../accessibility/types.ts';
 import type { SplitPaneTransition } from '../../behavior/split-pane.ts';
-import type { Rect } from '../contracts.ts';
-import type { HitTarget } from '../contracts.ts';
-import type { RenderNodeOfKind } from './render-tree/types.ts';
-import type { RenderTarget } from '../contracts.ts';
-import type { LayoutNode } from '../contracts.ts';
-import type { TerminalStyle } from '../../visual/render-content.ts';
+import type { Rect } from '../../geometry/types.ts';
+import type { RoutedPointerEvent } from '../../input/pointer.ts';
+import type { MessageResolution } from '../../interaction/message.ts';
+import { ignoreMessage } from '../../interaction/message.ts';
+import { oneCellGlyph } from '../../text/cell-geometry.ts';
+import type { TerminalTheme } from '../../theme/theme.ts';
 import { renderNodeFrameSource } from '../../visual/frame-source.ts';
-import { oneCellGlyph } from '../../text/index.ts';
+import type { TerminalStyle } from '../../visual/render-content.ts';
+import type { HitTarget, LayoutNode, RenderTarget } from '../contracts.ts';
 import { mergeStyles, renderNodeStyle, themeStyle } from '../style-resolution.ts';
+import type { RenderNodeOfKind } from './render-tree/types.ts';
 
 type SplitPaneNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'splitPane'>;
 

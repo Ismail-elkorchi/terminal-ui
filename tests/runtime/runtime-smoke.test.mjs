@@ -4,7 +4,7 @@ import process from 'node:process';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-const runtimeSmokeScript = fileURLToPath(new URL('../../scripts/runtime-smoke.mjs', import.meta.url));
+const runtimeSmokeScript = fileURLToPath(new URL('../../scripts/package/runtime-smoke.mjs', import.meta.url));
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
 
 const runtimeCommands = [

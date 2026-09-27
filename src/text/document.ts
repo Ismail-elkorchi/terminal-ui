@@ -1,5 +1,5 @@
-import { normalizeTextCursor } from './text-range.ts';
 import { isTerminalControlTextSafe, isTerminalTextSafe } from './sanitize.ts';
+import { normalizeTextCursor } from './text-range.ts';
 import type {
   TextCaret,
   TextDocumentChange,

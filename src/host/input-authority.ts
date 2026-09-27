@@ -1,16 +1,19 @@
+import { settleResourceDisposal } from './dispose.ts';
+import type {
+  TerminalResponseClassification,
+  TerminalResponseProtocol,
+} from './terminal-response.ts';
+import {
+  csiBody,
+  findTerminalResponse,
+  incompleteTerminalResponseStart,
+} from './terminal-response.ts';
 import type {
   TerminalClock,
   TerminalInput,
   TerminalInputChunk,
-  TerminalInputReadOptions
+  TerminalInputReadOptions,
 } from './types.ts';
-import { settleResourceDisposal } from './dispose.ts';
-import {
-  csiBody,
-  findTerminalResponse,
-  incompleteTerminalResponseStart
-} from './terminal-response.ts';
-import type { TerminalResponseClassification, TerminalResponseProtocol } from './terminal-response.ts';
 
 const MAX_KITTY_FLAG_DIGITS = String(Number.MAX_SAFE_INTEGER).length;
 const MAX_PROBE_BYTES = 64 * 1024;

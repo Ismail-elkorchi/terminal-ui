@@ -1,5 +1,6 @@
-import type { RenderNode, RenderNodeKind, RenderNodeOfKind } from './types.ts';
 import { isIgnoredMessage } from '../../../interaction/message.ts';
+import type { RenderNodeKind } from '../../contracts.ts';
+import type { RenderNode, RenderNodeOfKind } from './types.ts';
 
 export function renderNodeFactoryName(renderNode: RenderNode): string {
   return renderNode.kind === 'component' ? renderNode.definition.name : renderNode.kind;

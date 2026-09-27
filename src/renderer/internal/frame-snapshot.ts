@@ -1,6 +1,6 @@
-import type { DirtyRegionSet } from './dirty-regions.ts';
+import type { AccessibleSnapshot } from '../../accessibility/types.ts';
 import type { Frame, FrameCell, FrameDescriptor } from '../contracts.ts';
-import type { AccessibleSnapshot } from '../../accessibility/index.ts';
+import type { DirtyRegionSet } from './damage-contracts.ts';
 import { sameFrameCell, sameTerminalFrameCell } from './frame-cell-equality.ts';
 
 export interface FrameRowFingerprint {

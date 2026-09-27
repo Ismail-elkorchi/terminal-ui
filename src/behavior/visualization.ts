@@ -1,4 +1,7 @@
-import type { CollectionInteractionTransition, CollectionInteractionState } from '../interaction/collection-interaction.ts';
+import type {
+  CollectionInteractionState,
+  CollectionInteractionTransition,
+} from '../interaction/collection-interaction.ts';
 
 export type VisualizationState = CollectionInteractionState;
 

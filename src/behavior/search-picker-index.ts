@@ -1,9 +1,18 @@
-import { sanitizeTerminalText } from '../text/index.ts';
 import type { SearchEntry } from '../collection/item.ts';
-import { compileCollectionQuery, indexQueryCandidate, queryIndexedCandidates } from '../text/query.ts';
-import { createCollectionInteractionIndex } from '../interaction/collection-interaction.ts';
 import type { CollectionInteractionIndex } from '../interaction/collection-interaction.ts';
-import type { CollectionQuery, CompiledCollectionQuery, IndexedQueryCandidate, QueryMatch } from '../text/query.ts';
+import { createCollectionInteractionIndex } from '../interaction/collection-interaction.ts';
+import type {
+  CollectionQuery,
+  CompiledCollectionQuery,
+  IndexedQueryCandidate,
+  QueryMatch,
+} from '../text/query.ts';
+import {
+  compileCollectionQuery,
+  indexQueryCandidate,
+  queryIndexedCandidates,
+} from '../text/query.ts';
+import { sanitizeTerminalText } from '../text/sanitize.ts';
 
 const searchPickerIndexBrand: unique symbol = Symbol('terminal-ui.search-picker-index');
 const queryCacheLimit = 8;

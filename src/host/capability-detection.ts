@@ -1,27 +1,13 @@
-import { waitForTerminalOperation } from './operation.ts';
-import { resolveTerminalCapabilities } from './capabilities.ts';
-import type { TerminalInputAuthority } from './input-authority.ts';
-import type {
-  ProtocolProbeFacts,
-  TerminalCapabilityResolverInput
-} from './capabilities.ts';
-import type { TerminalCapabilityProfile } from './capability-types.ts';
-import type {
-  TerminalCapabilityDetectionOptions,
-  TerminalClock,
-  TerminalOutputChunk,
-  TerminalSession,
-  TerminalWriteReceipt
-} from './types.ts';
-import { requireCommittedTerminalWrite } from './write-receipt.ts';
-import { LEGACY_KEYBOARD_PROFILE, kittyKeyboardProfile } from '../protocol/keyboard.ts';
-import {
-  createTerminalModeResponseProtocol,
-  modeIsMutable,
-  terminalModeQueryRequest
-} from './terminal-mode-query.ts';
-import type { TerminalModeReports, TerminalModeReportState } from './terminal-mode-query.ts';
 import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
+import { kittyKeyboardProfile, LEGACY_KEYBOARD_PROFILE } from '../protocol/keyboard.ts';
+import type {
+  GraphicsProbeFacts,
+  KittyGraphicsProbeFacts,
+  ProtocolProbeFacts,
+  TerminalCapabilityResolverInput,
+} from './capabilities.ts';
+import { resolveTerminalCapabilities } from './capabilities.ts';
+import type { TerminalCapabilityProfile } from './capability-types.ts';
 import {
   cellPixelGeometryQueryRequest,
   createCellPixelGeometryResponseProtocol,
@@ -32,7 +18,22 @@ import {
   kittyPassthroughQueryRequest,
   primaryDeviceAttributesQueryRequest,
 } from './graphics-query.ts';
-import type { GraphicsProbeFacts, KittyGraphicsProbeFacts } from './capabilities.ts';
+import type { TerminalInputAuthority } from './input-authority.ts';
+import { waitForTerminalOperation } from './operation.ts';
+import type { TerminalModeReports, TerminalModeReportState } from './terminal-mode-query.ts';
+import {
+  createTerminalModeResponseProtocol,
+  modeIsMutable,
+  terminalModeQueryRequest,
+} from './terminal-mode-query.ts';
+import type {
+  TerminalCapabilityDetectionOptions,
+  TerminalClock,
+  TerminalOutputChunk,
+  TerminalSession,
+  TerminalWriteReceipt,
+} from './types.ts';
+import { requireCommittedTerminalWrite } from './write-receipt.ts';
 
 const KITTY_KEYBOARD_QUERY = '\u001B[?u\u001B[c';
 const DEFAULT_PROBE_TIMEOUT_MS = 100;

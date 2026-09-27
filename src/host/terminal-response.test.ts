@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  findTerminalResponse,
-  incompleteTerminalResponseStart
-} from './terminal-response.ts';
+import { findTerminalResponse, incompleteTerminalResponseStart } from './terminal-response.ts';
 import type { TerminalResponseProtocol } from './terminal-response.ts';
 
 const escape = 0x1b;

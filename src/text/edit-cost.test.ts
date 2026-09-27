@@ -4,7 +4,11 @@ import test from 'node:test';
 import { createTextDocument, textDocumentEdit, textDocumentLineAt } from './document.ts';
 import { editTextDocument } from './document-edit.ts';
 import { editTextBuffer } from './edit.ts';
-import { nextGraphemeBoundary, normalizeTextCursor, previousGraphemeBoundary } from './text-range.ts';
+import {
+  nextGraphemeBoundary,
+  normalizeTextCursor,
+  previousGraphemeBoundary,
+} from './text-range.ts';
 import type { TextCaret } from './types.ts';
 
 function countSegmentIteration(run: (count: () => number) => void): void {

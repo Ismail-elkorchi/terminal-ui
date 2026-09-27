@@ -1,28 +1,28 @@
-import type { NavigationPolicy } from '../interaction/navigation.ts';
-import { defaultNavigationPolicy, navigateIndex } from '../interaction/navigation.ts';
-import { applyScrollRequest, scrollReducer } from './scroll.ts';
-import type {
-  DataGridCell,
-  DataGridCellSelection,
-  DataGridInteraction,
-  DataGridState,
-  ScrollableDataGridState,
-  DataGridTransition,
-  TableCollection,
-  TableCollectionRow,
-  CompleteTableCollection,
-  TableSortState,
-  WindowedTableCollection,
-  UnscrolledDataGridState,
-} from './table.ts';
+import type { CollectionWindow } from '../collection/snapshot.ts';
 import {
   collectionIds,
   collectionItemById,
   createCompleteCollection,
   createWindowedCollection,
 } from '../collection/snapshot.ts';
-import type { CollectionWindow } from '../collection/snapshot.ts';
+import type { NavigationPolicy } from '../interaction/navigation.ts';
+import { defaultNavigationPolicy, navigateIndex } from '../interaction/navigation.ts';
 import { compareCollectionText } from '../text/query.ts';
+import { applyScrollRequest, scrollReducer } from './scroll.ts';
+import type {
+  CompleteTableCollection,
+  DataGridCell,
+  DataGridCellSelection,
+  DataGridInteraction,
+  DataGridState,
+  DataGridTransition,
+  ScrollableDataGridState,
+  TableCollection,
+  TableCollectionRow,
+  TableSortState,
+  UnscrolledDataGridState,
+  WindowedTableCollection,
+} from './table.ts';
 
 export interface DataGridReducerOptions<TRow> {
   readonly collection: TableCollection<TRow>;

@@ -13,7 +13,7 @@ import {
 } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
 import { appendLogHistory, createLogHistory } from '../../dist/behavior/index.js';
-import { waitUntil } from '../helpers/async.ts';
+import { waitUntil } from '../support/async.ts';
 
 const enterKey = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
 

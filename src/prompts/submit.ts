@@ -1,6 +1,6 @@
-import type { AccessibleSnapshot } from '../accessibility/index.ts';
+import type { AccessibleSnapshot } from '../accessibility/types.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalHost } from '../host/index.ts';
+import type { TerminalHost } from '../host/types.ts';
 import type { PromptAbortResult, PromptSubmitResult, PromptValueContract } from './types.ts';
 import { validatePromptValue } from './validation.ts';
 

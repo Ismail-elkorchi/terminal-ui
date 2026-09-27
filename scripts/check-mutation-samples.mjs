@@ -12,21 +12,21 @@ const samples = Object.freeze([
     module: 'dist/interaction/navigation.js',
     from: ': Math.max(0, Math.min(count - 1, candidate));',
     to: ': cyclicIndex(candidate, count);',
-    test: 'tests/unit/navigation-behavior.test.ts',
+    test: 'tests/unit/behavior/navigation-behavior.test.ts',
   }),
   Object.freeze({
     name: 'terminal sanitizer preserves an unsafe sequence',
     module: 'dist/text/sanitize.js',
     from: '        return replacement;',
     to: '        return sequence;',
-    test: 'tests/unit/text.test.mjs',
+    test: 'tests/unit/text/text.test.mjs',
   }),
   Object.freeze({
     name: 'initial frame diff dereferences a missing baseline',
     module: 'dist/renderer/frame.js',
     from: '    return previous?.width === next.width',
     to: '    return previous === undefined || previous.width === next.width',
-    test: 'tests/unit/render-instrumentation.test.mjs',
+    test: 'tests/unit/renderer/render-instrumentation.test.mjs',
   }),
 ]);
 

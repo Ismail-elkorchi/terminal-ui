@@ -1,8 +1,8 @@
-import type { ElementVisualState } from '../element/metadata.ts';
-import type { ThemeColorToken } from '../theme/index.ts';
-import type { RenderNode } from './internal/render-tree/index.ts';
+import type { ThemeColorToken } from '../visual/color.ts';
+import type { ElementVisualState } from '../visual/frame-source.ts';
 import type { TerminalStyle } from '../visual/render-content.ts';
 import { mergeTerminalStyles } from '../visual/terminal-style.ts';
+import type { RenderNode } from './internal/render-tree/types.ts';
 
 export interface RenderNodeStyleInput {
   readonly part: string;

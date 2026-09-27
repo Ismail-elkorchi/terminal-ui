@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createMemoryTerminalHost } from '../host/memory.ts';
-import { reliableSourceMessage } from './source-channel.ts';
-import { createTuiSubscriptionManager } from './subscriptions.ts';
+import { reliableSourceMessage } from './lifecycle/source-channel.ts';
+import { createTuiSubscriptionManager } from './lifecycle/subscriptions.ts';
 
 void test('subscription cancellation retires a source blocked on channel capacity', async () => {
   const host = createMemoryTerminalHost();

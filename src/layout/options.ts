@@ -1,22 +1,22 @@
-import type { ScrollRequest, ScrollPolicy } from '../interaction/scroll.ts';
-import type { ElementValue } from '../element/index.ts';
+import type { SplitPaneTransition } from '../behavior/split-pane.ts';
 import type {
   ElementKeyBindings,
   ElementOptions,
   InteractiveElementOptions,
-  StructuralElementOptions
+  StructuralElementOptions,
 } from '../element/metadata.ts';
-import type { BorderOptions, BorderTitle } from '../visual/border.ts';
-import type { ScrollbarOptions } from '../interaction/scrollbar.ts';
-import type { SurfaceAppearance } from '../visual/surface-appearance.ts';
+import type { ElementValue } from '../element/types.ts';
 import type { GridLayoutOptions, LayoutFlowOptions, LayoutSize } from '../geometry/types.ts';
-import type { SplitPaneTransition } from '../behavior/split-pane.ts';
 import type {
   AnchoredSurfaceAnchor,
   AnchoredSurfaceFit,
   AnchoredSurfacePlacement,
-  AnchoredSurfaceSide
+  AnchoredSurfaceSide,
 } from '../interaction/anchored-surface.ts';
+import type { ScrollPolicy, ScrollRequest } from '../interaction/scroll.ts';
+import type { ScrollbarOptions } from '../interaction/scrollbar.ts';
+import type { BorderOptions, BorderTitle } from '../visual/border.ts';
+import type { SurfaceAppearance } from '../visual/surface-appearance.ts';
 
 export type SurfaceStylePart = 'border' | 'title';
 export type SplitPaneStylePart = 'divider' | 'dividerActive';

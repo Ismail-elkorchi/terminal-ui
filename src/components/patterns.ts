@@ -1,31 +1,41 @@
 /** First-party application patterns built from the foundational controls. */
-export { commandInput } from './factories/command-input.ts';
-export { searchPicker } from './factories/search-picker.ts';
-export { logViewer } from './factories/log-viewer.ts';
-export { helpBar } from './factories/feedback-indicators.ts';
 export { createCommandSuggestions } from '../behavior/command-input-operations.ts';
-export type * from './options/patterns.ts';
-export type { HelpBarOptions } from './options/feedback-and-visualizations.ts';
 export type {
-  CommandInputView,
   CommandInputSubmitEvent,
   CommandInputTransition,
+  CommandInputView,
   CommandSuggestion,
 } from '../behavior/command-input.ts';
-export type { CommandInputDisplay, CommandInputValidation } from './command-input.ts';
-export type { LogEntry } from '../behavior/log-history.ts';
+export type { LogEntry, LogHistory } from '../behavior/log-history.ts';
 export type {
-  SearchPickerAcceptEvent,
-  SearchPickerControlTransition,
-  SearchPickerView,
-  ScrollableSearchPickerView,
-  SearchPickerTransition,
-  UnscrolledSearchPickerView,
-} from '../behavior/search-picker.ts';
-export type {
-  LogViewerTransition,
   LogViewerBodyAnchor,
   LogViewerContextMenuEvent,
   LogViewerControlTransition,
   LogViewerSelection,
+  LogViewerTransition,
 } from '../behavior/log-viewer.ts';
+export type {
+  ScrollableSearchPickerView,
+  SearchPickerAcceptEvent,
+  SearchPickerControlTransition,
+  SearchPickerTransition,
+  SearchPickerView,
+  UnscrolledSearchPickerView,
+} from '../behavior/search-picker.ts';
+export type { CommandInputDisplay, CommandInputValidation } from './command-input.ts';
+export { commandInput } from './command-input/definition.ts';
+export type { CommandInputOptions } from './command-input/options.ts';
+export { helpBar } from './feedback/help-bar.ts';
+export type { HelpBarOptions } from './feedback/options.ts';
+export { logViewer } from './log-viewer/definition.ts';
+export type {
+  LogViewerOptions,
+  ScrollableLogViewerOptions,
+  UnscrolledLogViewerOptions,
+} from './log-viewer/options.ts';
+export { searchPicker } from './search-picker/definition.ts';
+export type {
+  ScrollableSearchPickerOptions,
+  SearchPickerOptions,
+  UnscrolledSearchPickerOptions,
+} from './search-picker/options.ts';

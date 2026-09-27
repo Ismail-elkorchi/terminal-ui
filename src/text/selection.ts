@@ -1,15 +1,8 @@
+import type { TextDocument } from './document.ts';
+import { normalizeTextDocumentSelection, textDocumentSlice } from './document.ts';
 import { sanitizeTerminalText } from './sanitize.ts';
 import { normalizeTextSelection, selectedText } from './text-range.ts';
-import {
-  normalizeTextDocumentSelection,
-  textDocumentSlice,
-} from './document.ts';
-import type { TextDocument } from './document.ts';
-import type {
-  TextDocumentSelection,
-  TextEditBuffer,
-  TextSelection,
-} from './types.ts';
+import type { TextDocumentSelection, TextEditBuffer, TextSelection } from './types.ts';
 
 export interface ExtractTextSelectionInput {
   readonly text: string;

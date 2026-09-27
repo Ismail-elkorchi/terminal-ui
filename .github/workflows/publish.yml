@@ -52,85 +52,13 @@ jobs:
       - run: npm run check
 
   verify-emulator:
-    name: verify-release-emulator-${{ matrix.path }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - path: kitty-direct
-            kitty: true
-            tmux: false
-            xterm: false
-            wezterm: false
-            command: check:emulator:kitty
-          - path: kitty-tmux
-            kitty: true
-            tmux: true
-            xterm: false
-            wezterm: false
-            command: check:emulator:kitty-tmux
-          - path: sixel-direct
-            kitty: false
-            tmux: false
-            xterm: true
-            wezterm: false
-            command: check:emulator:sixel
-          - path: sixel-tmux
-            kitty: false
-            tmux: true
-            xterm: true
-            wezterm: false
-            command: check:emulator:sixel-tmux
-          - path: sixel-wezterm
-            kitty: false
-            tmux: false
-            xterm: false
-            wezterm: true
-            command: check:emulator:wezterm
-    env:
-      LIBGL_ALWAYS_SOFTWARE: '1'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ env.RELEASE_TAG }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-      - run: npm ci
-      - name: Install virtual display dependencies
-        run: sudo apt-get update && sudo apt-get install --yes bison build-essential fonts-dejavu-core imagemagick libdbus-1-3 libegl1 libevent-dev libfontconfig1-dev libgl1-mesa-dri libncurses-dev libutempter-dev libwayland-client0 libx11-dev libxaw7-dev libxcb-xkb1 libxcursor1 libxext-dev libxft-dev libxinerama-dev libxkbcommon-x11-0 libxkbfile-dev libxmu-dev libxpm-dev libxrender-dev libxt-dev pkg-config x11-utils xdotool xvfb
-      - name: Install pinned emulators and multiplexer
-        run: |
-          if [[ "${{ matrix.kitty }}" == "true" ]]; then
-            node scripts/install-kitty-emulator.mjs "$RUNNER_TEMP/kitty"
-            echo "TERMINAL_UI_KITTY=$RUNNER_TEMP/kitty/bin/kitty" >> "$GITHUB_ENV"
-            echo "TERMINAL_UI_KITTEN=$RUNNER_TEMP/kitty/bin/kitten" >> "$GITHUB_ENV"
-          fi
-          if [[ "${{ matrix.tmux }}" == "true" ]]; then
-            node scripts/install-tmux-emulator.mjs "$RUNNER_TEMP/tmux"
-            echo "TERMINAL_UI_TMUX=$RUNNER_TEMP/tmux/bin/tmux" >> "$GITHUB_ENV"
-          fi
-          if [[ "${{ matrix.xterm }}" == "true" ]]; then
-            node scripts/install-xterm-emulator.mjs "$RUNNER_TEMP/xterm"
-            echo "TERMINAL_UI_XTERM=$RUNNER_TEMP/xterm/bin/xterm" >> "$GITHUB_ENV"
-          fi
-          if [[ "${{ matrix.wezterm }}" == "true" ]]; then
-            node scripts/install-wezterm-emulator.mjs "$RUNNER_TEMP/wezterm"
-            echo "TERMINAL_UI_WEZTERM=$RUNNER_TEMP/wezterm/usr/bin/wezterm" >> "$GITHUB_ENV"
-          fi
-      - name: Run real-emulator conformance
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" npm run ${{ matrix.command }}
-      - name: Upload emulator evidence
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: real-emulator-evidence-${{ env.RELEASE_TAG }}-${{ matrix.path }}
-          path: .artifacts/emulator/${{ matrix.path }}
-          if-no-files-found: error
-          retention-days: 30
+    uses: ./.github/workflows/emulator.yml
+    with:
+      checkout-ref: ${{ github.event.release.tag_name || inputs.release_tag }}
+      node-version: '24.14.0'
+      job-prefix: verify-release-emulator
+      artifact-prefix: real-emulator-evidence-${{ github.event.release.tag_name || inputs.release_tag }}
+      retention-days: 30
 
   publish-npm:
     name: publish-npm

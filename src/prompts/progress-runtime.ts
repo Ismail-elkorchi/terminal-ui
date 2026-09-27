@@ -1,30 +1,30 @@
+import { createAccessibleSnapshot } from '../accessibility/snapshot.ts';
+import type { AccessibleSnapshot } from '../accessibility/types.ts';
 import { diagnostic } from '../diagnostics.ts';
+import type { TerminalHost } from '../host/types.ts';
 import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
-import { isCancelKey, isInterruptKey } from '../input/index.ts';
-import { createAccessibleSnapshot } from '../accessibility/index.ts';
-import { createProgress } from './progress.ts';
-import { progressDisplayLine } from './progress-view.ts';
+import { isCancelKey, isInterruptKey } from '../input/keys.ts';
+import type { InputEvent } from '../input/types.ts';
+import type { TranscriptRecorder } from '../transcript/types.ts';
+import { promptInputEvents } from './input-events.ts';
 import { nonTtyDiagnosticOptions } from './non-tty.ts';
+import { progressDisplayLine } from './progress-view.ts';
+import { createProgress } from './progress.ts';
 import { runOwnedPrompt, type PromptTaskOwner } from './session.ts';
 import { submitPrompt } from './submit.ts';
-import { promptInputEvents } from './input-events.ts';
 import {
   createPromptTranscript,
   createTranscriptOnlyPromptTranscript,
   recordPromptResult,
   transcriptEvent,
-  withPromptTranscript
+  withPromptTranscript,
 } from './transcript.ts';
-import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { TerminalHost } from '../host/index.ts';
-import type { InputEvent } from '../input/index.ts';
-import type { TranscriptRecorder } from '../transcript/index.ts';
 import type {
   ProgressController,
+  ProgressPromptDefinition,
   ProgressResult,
   ProgressState,
-  ProgressPromptDefinition,
-  PromptResult
+  PromptResult,
 } from './types.ts';
 
 type ProgressOutcome =

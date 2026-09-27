@@ -1,4 +1,4 @@
-import type { TerminalInputChunk } from '../host/index.ts';
+import type { TerminalInputChunk } from '../host/types.ts';
 
 export interface Utf8StreamDecoder {
   decode(chunk: TerminalInputChunk): string;

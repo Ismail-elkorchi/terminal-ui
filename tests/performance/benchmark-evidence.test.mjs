@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import test from 'node:test';
-import { evidenceViolations, structuralBudgetViolations } from '../../scripts/performance-contract.mjs';
+import { evidenceViolations, structuralBudgetViolations } from '../../scripts/performance/performance-contract.mjs';
 
 test('interactive benchmark emits reproducible structural evidence', async () => {
   const result = await runBenchmark();
@@ -44,7 +44,7 @@ test('interactive benchmark emits reproducible structural evidence', async () =>
 
 function runBenchmark() {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ['scripts/benchmark-interactive.mjs'], {
+    const child = spawn(process.execPath, ['scripts/performance/benchmark-interactive.mjs'], {
       cwd: process.cwd(),
       env: { ...process.env, TERMINAL_UI_BENCHMARK_QUICK: '1' },
       stdio: ['ignore', 'pipe', 'pipe']

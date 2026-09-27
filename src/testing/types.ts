@@ -1,23 +1,23 @@
-import type { AccessibleSnapshot } from '../accessibility/index.ts';
+import type { AccessibleSnapshot } from '../accessibility/types.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
+import type { TerminalSize } from '../geometry/types.ts';
+import type { MemoryTerminalHost } from '../host/memory.ts';
 import type {
   ControlledTerminalClock,
-  MemoryTerminalHost,
   PtyTerminalHost,
   TerminalClock,
   TerminalHost,
   TerminalRestoreResult,
-  TerminalSize
-} from '../host/index.ts';
-import type { InputEvent, RecordedInputEvent } from '../input/index.ts';
-import type { Frame, FrameDescriptor, RenderDiffDescriptor } from '../renderer/index.ts';
-import type { ThemeColorToken } from '../theme/index.ts';
-import type { TuiApp, TuiRuntime } from '../tui/types.ts';
+} from '../host/types.ts';
+import type { InputEvent, RecordedInputEvent } from '../input/types.ts';
+import type { Frame, FrameDescriptor, RenderDiffDescriptor } from '../renderer/contracts.ts';
 import type {
   InteractionResult,
   TranscriptRecorder,
-  TranscriptReplayTarget
-} from '../transcript/index.ts';
+  TranscriptReplayTarget,
+} from '../transcript/types.ts';
+import type { TuiApp, TuiRuntime } from '../tui/types.ts';
+import type { ThemeColorToken } from '../visual/color.ts';
 
 export interface TerminalHarnessOptions {
   readonly terminalSize?: TerminalSize;

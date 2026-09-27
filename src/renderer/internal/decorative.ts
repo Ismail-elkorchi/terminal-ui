@@ -1,8 +1,8 @@
-import { isNonArrayObject } from '../../foundation/validation.ts';
+import type { AccessibilityOptions } from '../../accessibility/types.ts';
 import type { ElementAccessibility } from '../../element/metadata.ts';
-import type { AccessibilityOptions } from '../../accessibility/index.ts';
+import { isNonArrayObject } from '../../foundation/validation.ts';
 import type { LayoutNode } from '../contracts.ts';
-import type { RenderNode } from './render-tree/index.ts';
+import type { RenderNode } from './render-tree/types.ts';
 
 export function isDecorativeAccessibility(
   value: ElementAccessibility | undefined

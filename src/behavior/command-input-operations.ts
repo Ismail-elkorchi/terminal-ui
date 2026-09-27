@@ -1,33 +1,32 @@
-import {
-  acceptEditablePopupCompletion,
-  createEditablePopupInputState,
-  editablePopupInputReducer,
-} from '../interaction/editable-popup-input.ts';
+import type { CollectionWindow } from '../collection/snapshot.ts';
+import { collectionItemById } from '../collection/snapshot.ts';
+import { collectionInteractionPosition } from '../interaction/collection-interaction.ts';
 import type {
   EditablePopupInputState,
   EditablePopupInputTransition,
 } from '../interaction/editable-popup-input.ts';
 import {
-  sanitizeTerminalText
-} from '../text/index.ts';
-import type { EditHistoryPolicy, TextEditBuffer } from '../text/index.ts';
+  acceptEditablePopupCompletion,
+  createEditablePopupInputState,
+  editablePopupInputReducer,
+} from '../interaction/editable-popup-input.ts';
+import type { EditHistoryPolicy } from '../text/bounded-history.ts';
+import { sanitizeTerminalText } from '../text/sanitize.ts';
+import type { TextEditBuffer } from '../text/types.ts';
 import type {
-  CommandInputView,
   CommandCompletion,
   CommandInputTransition,
-  CommandSuggestion
+  CommandInputView,
+  CommandSuggestion,
 } from './command-input.ts';
+import { createListboxCollection } from './listbox-operations.ts';
+import { createListboxView } from './listbox-view.ts';
 import type {
   CompleteListboxCollection,
   ListboxCollection,
   ListboxViewEntry,
   WindowedListboxCollection,
 } from './listbox.ts';
-import type { CollectionWindow } from '../collection/snapshot.ts';
-import { collectionItemById } from '../collection/snapshot.ts';
-import { createListboxCollection } from './listbox-operations.ts';
-import { createListboxView } from './listbox-view.ts';
-import { collectionInteractionPosition } from '../interaction/collection-interaction.ts';
 
 const DEFAULT_SUBMISSION_LIMIT = 100;
 

@@ -1,14 +1,16 @@
-import { layoutElementFromRenderNode } from '../../renderer/internal/render-tree/element.ts';
-import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
-import type { ColumnOptions, FlowOptions, RowOptions } from '../options.ts';
-import { renderNodeMeta as componentMetaProps } from '../../renderer/internal/render-tree/metadata.ts';
-import { optionalRenderNodeId, renderNodeChildren } from '../../renderer/internal/render-tree/element.ts';
-import { renderNodeLayoutProps } from '../../renderer/internal/render-tree/props/shared-layout.ts';
-import { assertTrackCount } from './track-options.ts';
+import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/types.ts';
+import { assertOptionalFiniteNumber, isStringMember } from '../../foundation/validation.ts';
 import {
-  assertOptionalFiniteNumber,
-  isStringMember
-} from '../../foundation/validation.ts';
+  layoutElementFromRenderNode,
+  optionalRenderNodeId,
+  renderNodeChildren,
+} from '../../renderer/internal/render-tree/element.ts';
+import {
+  renderNodeMeta as componentMetaProps,
+} from '../../renderer/internal/render-tree/metadata.ts';
+import { renderNodeLayoutProps } from '../../renderer/internal/render-tree/props/shared-layout.ts';
+import type { ColumnOptions, FlowOptions, RowOptions } from '../options.ts';
+import { assertTrackCount } from './track-options.ts';
 
 export function column<const TChildren extends ElementChildren>(
   children: TChildren,

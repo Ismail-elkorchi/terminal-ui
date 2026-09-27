@@ -1,13 +1,12 @@
-import type { TerminalOutputCapabilityProfile } from '../../protocol/index.ts';
-import type { TerminalTheme } from '../../theme/index.ts';
-import type { Frame, FrameCell } from '../contracts.ts';
-import type { RenderDiff } from '../contracts.ts';
+import type { TerminalOutputCapabilityProfile } from '../../protocol/output-capabilities.ts';
+import type { TerminalTheme } from '../../theme/theme.ts';
+import type { Frame, FrameCell, RenderDiff } from '../contracts.ts';
 import { diffFrames } from '../frame.ts';
+import type { RenderSerializeOptions } from './ansi.ts';
 import { sameTerminalFrameCell } from './frame-cell-equality.ts';
 import { frameIndex } from './frame-index.ts';
-import { frameRecoverySuffix, planTerminalOutput } from './output-planner.ts';
 import type { FrameProtocolUsage } from './output-planner.ts';
-import type { RenderSerializeOptions } from './ansi.ts';
+import { frameRecoverySuffix, planTerminalOutput } from './output-planner.ts';
 import { createTerminalSerializationPolicy } from './serialization-policy.ts';
 
 export interface TerminalRowMovement {

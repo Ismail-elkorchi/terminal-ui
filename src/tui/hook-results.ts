@@ -8,9 +8,9 @@ import type {
   TuiEffectOutput,
   TuiEventSource,
   TuiInitialResult,
-  TuiSubscriptionContext,
   TuiSourceSink,
-  TuiUpdateResult
+  TuiSubscriptionContext,
+  TuiUpdateResult,
 } from './types.ts';
 
 export function decodeTuiInitialResult<TState, TMessage>(

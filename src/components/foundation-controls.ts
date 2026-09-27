@@ -1,4 +1,4 @@
-import type { KeyModifiers, MouseButton, MouseModifiers } from '../input/index.ts';
+import type { KeyModifiers, MouseButton, MouseModifiers } from '../input/types.ts';
 
 export interface LinkActivateEvent {
   readonly kind: 'activate';

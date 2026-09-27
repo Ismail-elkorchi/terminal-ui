@@ -1,12 +1,16 @@
 import { diagnostic } from '../diagnostics.ts';
+import type { TerminalHost } from '../host/types.ts';
+import type { InputEvent } from '../input/types.ts';
 import { filterStaticChoices, firstEnabledChoiceIndex } from './choices.ts';
-import { setChoiceTotal } from './state.ts';
-import type { TerminalHost } from '../host/index.ts';
-import type { InputEvent } from '../input/index.ts';
 import type { PromptRenderHook } from './interaction-hooks.ts';
 import type { PromptTaskOwner } from './session.ts';
 import type { PromptRuntimeState } from './state.ts';
-import type { AutocompletePromptDefinition, ChoicePromptDefinition, PromptChoice } from './types.ts';
+import { setChoiceTotal } from './state.ts';
+import type {
+  AutocompletePromptDefinition,
+  ChoicePromptDefinition,
+  PromptChoice,
+} from './types.ts';
 
 export function scheduleAutocompleteChoiceRefresh<TValue>(
   prompt: AutocompletePromptDefinition<TValue>,

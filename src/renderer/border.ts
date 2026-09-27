@@ -1,14 +1,14 @@
-import { oneCellGlyph, sanitizeTerminalText } from '../text/index.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
-import type { TextWidthProfile } from '../text/index.ts';
-import type { TerminalTheme } from '../theme/index.ts';
+import type { Rect } from '../geometry/types.ts';
+import { oneCellGlyph } from '../text/cell-geometry.ts';
+import { sanitizeTerminalText } from '../text/sanitize.ts';
+import type { TextWidthProfile } from '../text/types.ts';
+import type { TerminalTheme } from '../theme/theme.ts';
 import type { BorderKind } from '../visual/border.ts';
 import { frameCellSource } from '../visual/frame-source.ts';
-import type { TerminalStyle } from './frame.ts';
-import type { RenderTarget } from './contracts.ts';
-import type { Rect } from './contracts.ts';
+import type { RenderSpan, TerminalStyle } from '../visual/render-content.ts';
 import { clipRenderSpans, measureRenderSpans, span } from '../visual/render-content.ts';
-import type { RenderSpan } from '../visual/render-content.ts';
+import type { RenderTarget } from './contracts.ts';
 
 export type { BorderKind } from '../visual/border.ts';
 

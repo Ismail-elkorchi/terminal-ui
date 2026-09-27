@@ -1,5 +1,5 @@
 import type { Rect } from '../geometry/types.ts';
-import type { RasterImage, RasterImageDescriptor } from './raster-image.ts';
+import type { RasterImage, RasterImageDescriptor } from './raster-types.ts';
 
 export type ImageFit = 'contain' | 'cover' | 'fill';
 export type TerminalGraphicsMode = 'auto' | 'kitty' | 'sixel' | 'none';

@@ -1,6 +1,6 @@
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import { diagnostic } from '../diagnostics.ts';
-import type { TerminalHost, TerminalSession } from '../host/index.ts';
+import type { TerminalHost, TerminalSession } from '../host/types.ts';
 import type { PromptResult } from './types.ts';
 
 export class PromptCleanupFailure extends Error {

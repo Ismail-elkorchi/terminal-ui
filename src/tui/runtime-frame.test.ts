@@ -6,7 +6,7 @@ import { createMemoryTerminalHost } from '../host/memory.ts';
 import { committedTerminalWrite, failedTerminalWrite } from '../host/write-receipt.ts';
 import { renderElementFrame } from '../renderer/index.ts';
 import { defineTheme } from '../theme/index.ts';
-import { commitFrame } from './runtime-frame.ts';
+import { commitFrame } from './commit/runtime-frame.ts';
 import type { TerminalOperationContext } from '../host/types.ts';
 
 void test('a committed write remains successful when cancellation arrives during host publication', async () => {

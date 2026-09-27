@@ -1,7 +1,7 @@
 import { measuredGraphemes, segmentGraphemesForMeasurement } from './graphemes.ts';
 import { measureTextCells } from './measure.ts';
 import { sanitizeTerminalText } from './sanitize.ts';
-import type { TextLine, TextWrapOptions, TextMeasurementOptions } from './types.ts';
+import type { TextLine, TextMeasurementOptions, TextWrapOptions } from './types.ts';
 
 /** Geometry-only wrapping, without retaining off-screen strings or grapheme arrays. */
 export function countWrappedTextRows(text: string, width: number, options: TextMeasurementOptions): number {

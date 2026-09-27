@@ -1,4 +1,8 @@
-import type { RuntimeTarget, TerminalCapabilityName, TerminalFeatureSupport } from './capability-types.ts';
+import type {
+  RuntimeTarget,
+  TerminalCapabilityName,
+  TerminalFeatureSupport,
+} from './capability-types.ts';
 
 export interface TerminalProtocolEvidence {
   readonly runtime: RuntimeTarget;

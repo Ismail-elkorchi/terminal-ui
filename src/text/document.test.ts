@@ -13,7 +13,7 @@ import {
   textDocumentLineIndexAtOffset,
   textDocumentLines,
   textDocumentPreviousMutation,
-  textDocumentText
+  textDocumentText,
 } from './document.ts';
 
 void test('text documents are opaque retained values', () => {

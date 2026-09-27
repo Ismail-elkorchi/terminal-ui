@@ -1,8 +1,8 @@
 import type {
   CalendarDate,
+  CalendarDay,
   CalendarMonth,
   CalendarTransition,
-  CalendarDay,
   CalendarView,
 } from './calendar.ts';
 import { decodeCalendarDate } from './calendar.ts';

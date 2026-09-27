@@ -1,0 +1,96 @@
+import type {
+  ListViewActivateEvent,
+  ListViewControlTransition,
+  ListViewTransition,
+  ScrollableListViewState,
+  UnscrolledListViewState,
+} from '../../behavior/list-view.ts';
+import type { MeasuredWindow } from '../../collection/measured-window.ts';
+import type { ComponentMetadataOptions } from '../../component/contracts.ts';
+import type { ComponentMessage } from '../../component/message.ts';
+import type { MessageResolution } from '../../interaction/message.ts';
+import type { ScrollPolicy } from '../../interaction/scroll.ts';
+import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
+import type { RetainedCallbacks } from '../shared/availability.ts';
+import type { ListViewStylePart, SemanticListStylePart } from '../style-parts.ts';
+import type { ListViewItemRenderer, SemanticListItem } from './item.ts';
+
+export interface ListOptions<TItems extends readonly SemanticListItem[]> {
+  readonly id?: string;
+  readonly items: TItems;
+  readonly ordered?: boolean;
+  readonly styles?: import("../../element/metadata.ts").ElementStyles<SemanticListStylePart>;
+  readonly meta?: ComponentMetadataOptions<readonly ['layer', 'styles']>;
+}
+
+interface ListViewBaseOptions<TValue, TContent extends import('../../element/index.ts').Element<ComponentMessage>> {
+  readonly id: string;
+  readonly window: MeasuredWindow<TValue>;
+  readonly renderItem: ListViewItemRenderer<TValue, TContent>;
+  readonly busy?: boolean;
+  readonly inert?: boolean;
+  readonly styles?: import("../../element/metadata.ts").ElementStyles<ListViewStylePart, 'focused' | 'hovered' | 'pressed' | 'active' | 'selected' | 'disabled' | 'busy'>;
+  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles']>;
+}
+
+/** @beta */
+export type ListViewScrollbarOptions = Omit<ScrollbarOptions, 'axis'> & {
+  readonly axis?: 'vertical';
+};
+
+interface ActiveListViewOptions<TTransition, TMessage extends ComponentMessage> {
+  readonly disabled?: boolean;
+  readonly inert?: boolean;
+  readonly onTransition: (transition: TTransition) => MessageResolution<TMessage>;
+  readonly onActivate?: (event: ListViewActivateEvent) => MessageResolution<TMessage>;
+}
+
+type InertListViewOptions<TTransition, TMessage extends ComponentMessage> = {
+  readonly disabled?: boolean;
+  readonly inert: true;
+} & RetainedCallbacks<ActiveListViewOptions<TTransition, TMessage>>;
+
+type DisabledListViewOptions<TTransition, TMessage extends ComponentMessage> = {
+  readonly disabled: true;
+  readonly busy?: never;
+} & RetainedCallbacks<ActiveListViewOptions<TTransition, TMessage>>;
+
+/** @beta */
+export type ListViewOptions<
+  TValue,
+  TContent extends import('../../element/index.ts').Element<ComponentMessage>,
+  TMessage extends ComponentMessage = never,
+> = UnscrolledListViewOptions<TValue, TContent, TMessage> | ScrollableListViewOptions<TValue, TContent, TMessage>;
+
+/** @beta */
+export type UnscrolledListViewOptions<
+  TValue,
+  TContent extends import('../../element/index.ts').Element<ComponentMessage>,
+  TMessage extends ComponentMessage = never,
+> = ListViewBaseOptions<TValue, TContent> & {
+  readonly state: UnscrolledListViewState;
+  readonly scrollbar?: never;
+  readonly scrollPolicy?: never;
+} & (ActiveListViewOptions<ListViewControlTransition, TMessage> | DisabledListViewOptions<ListViewControlTransition, TMessage> | InertListViewOptions<ListViewControlTransition, TMessage>);
+
+/** @beta */
+export type ScrollableListViewOptions<
+  TValue,
+  TContent extends import('../../element/index.ts').Element<ComponentMessage>,
+  TMessage extends ComponentMessage = never,
+> = ListViewBaseOptions<TValue, TContent> & {
+  readonly state: ScrollableListViewState;
+  readonly scrollbar?: ListViewScrollbarOptions;
+  readonly scrollPolicy?: ScrollPolicy;
+} & (ActiveListViewOptions<ListViewTransition, TMessage> | DisabledListViewOptions<ListViewTransition, TMessage> | InertListViewOptions<ListViewTransition, TMessage>);
+
+export type {
+  ListViewActivateEvent,
+  ListViewControlTransition,
+  ListViewState,
+  ListViewTransition,
+  ScrollableListViewState,
+  UnscrolledListViewState,
+} from '../../behavior/list-view.ts';
+export type { MeasuredWindow } from '../../collection/measured-window.ts';
+export type { ListViewItemContent, ListViewItemRenderer, SemanticListItem } from './item.ts';

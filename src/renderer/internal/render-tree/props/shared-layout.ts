@@ -3,7 +3,7 @@ import type {
   LayoutFlowOptions,
   LayoutInsetInput,
   LayoutJustification,
-  LayoutOverflow
+  LayoutOverflow,
 } from '../../../../geometry/types.ts';
 
 export interface RenderNodeLayoutProps {

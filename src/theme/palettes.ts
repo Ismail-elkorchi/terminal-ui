@@ -1,4 +1,4 @@
-import type { CoreColorToken, ThemeColor } from './tokens.ts';
+import type { CoreColorToken, ThemeColor } from '../visual/color.ts';
 import { completeSemanticColors } from './packs/shared.ts';
 
 function rgb(r: number, g: number, b: number): ThemeColor {

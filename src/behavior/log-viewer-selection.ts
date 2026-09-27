@@ -1,9 +1,6 @@
-import { extractTextSelection } from '../text/index.ts';
-import {
-  logHistoryRecordById,
-  logHistorySegments,
-} from './log-history.ts';
+import { extractTextSelection } from '../text/selection.ts';
 import type { LogHistory, LogHistoryRecord } from './log-history.ts';
+import { logHistoryRecordById, logHistorySegments } from './log-history.ts';
 import type { LogViewerBodyAnchor, LogViewerSelection } from './log-viewer.ts';
 
 export interface ExtractLogViewerSelectionTextInput {

@@ -1,5 +1,9 @@
-import type { RemovedControlSequence, SanitizedTerminalText, SanitizeTerminalTextOptions } from './types.ts';
 import { graphemeBoundaryOffsets, segmentGraphemesForMeasurement } from './graphemes.ts';
+import type {
+  RemovedControlSequence,
+  SanitizedTerminalText,
+  SanitizeTerminalTextOptions,
+} from './types.ts';
 
 const escape = '\u001B';
 const stringTerminator = String.raw`(?:\u001B\\|\u009C)`;

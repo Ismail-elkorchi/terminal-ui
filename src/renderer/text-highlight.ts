@@ -1,5 +1,6 @@
-import { createTerminalTextIndex, findTextHighlightMatches } from '../text/index.ts';
-import type { TextHighlightOptions } from '../text/index.ts';
+import { findTextHighlightMatches } from '../text/search-highlight.ts';
+import type { TextHighlightOptions } from '../text/search-index.ts';
+import { createTerminalTextIndex } from '../text/terminal-text-index.ts';
 import type { RenderSpan, TerminalStyle } from '../visual/render-content.ts';
 
 export interface HighlightRenderSpansOptions extends TextHighlightOptions {

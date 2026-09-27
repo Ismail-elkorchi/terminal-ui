@@ -1,5 +1,5 @@
-import type { TerminalStyle } from '../visual/render-content.ts';
 import type { ChoiceItem } from '../collection/item.ts';
+import type { TerminalStyle } from '../visual/render-content.ts';
 
 export type ButtonTone = 'default' | 'primary' | 'secondary' | 'ghost' | 'destructive';
 export interface ButtonPressEvent {

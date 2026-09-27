@@ -1,7 +1,7 @@
+import type { GraphicsBudget } from '../graphics/budget.ts';
+import { createGraphicsBudget } from '../graphics/budget.ts';
 import { rasterImagePixels } from '../graphics/raster-image.ts';
-import { createGraphicsBudget } from '../graphics/index.ts';
-import type { RasterImage } from '../graphics/index.ts';
-import type { GraphicsBudget } from '../graphics/index.ts';
+import type { RasterImage } from '../graphics/raster-types.ts';
 import type { ResolvedGraphicGeometry, TerminalCellPixels } from './graphics-geometry.ts';
 
 const ESC = '\u001b';

@@ -1,0 +1,90 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { resolveTerminalCapabilities } from '../../../dist/host/index.js';
+import { createVisualSnapshot } from '../../../dist/testing/index.js';
+import { highContrastTheme } from '../../../dist/theme/index.js';
+import { renderElementFrame } from '../../../dist/renderer/index.js';
+import {
+  activityIndicator,
+  helpBar,
+  progressBar,
+  statusBar
+} from '../../../dist/components/index.js';
+import { column } from '../../../dist/layout/index.js';
+
+test('feedback status components preserve state in high contrast and no color output', () => {
+  const frame = renderElementFrame(column([
+    statusBar({ id: 'status', leading: [{ id: 'ready', kind: 'status', text: 'Ready', status: 'success' }] }),
+    helpBar({ id: 'help', groups: [{ id: 'primary', bindings: [{ binding: { kind: 'key', key: 'enter' }, label: 'run' }] }] }),
+    activityIndicator({ id: 'activity', label: 'Indexing', status: 'warning' }),
+    activityIndicator({ id: 'settled-activity', label: 'Done', status: 'success' }),
+    progressBar({
+      id: 'progress',
+      label: 'Deploy',
+      mode: { kind: 'determinate', value: 2, max: 4 },
+      barWidth: 4,
+      status: 'error',
+      display: 'bar+value+percent'
+    })
+  ], { gap: 0 }), { columns: 48, rows: 5 }, { theme: highContrastTheme });
+  const highContrast = createVisualSnapshot({
+    frame,
+    ansi: { capabilities: colorCapabilities(), theme: highContrastTheme }
+  });
+  const noColor = createVisualSnapshot({
+    frame,
+    ansi: { capabilities: noColorCapabilities(), theme: highContrastTheme }
+  });
+
+  assert.equal(highContrast.plainTextFrame, [
+    '+ Ready',
+    'Enter run',
+    '! Indexing (warning)',
+    '+ Done (success)',
+    'x Deploy ##-- 2/4 50%'
+  ].join('\n'));
+  assert.equal(noColor.plainTextFrame, highContrast.plainTextFrame);
+  assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'activity' && cell.text === '!')?.source?.description, 'status.marker');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'settled-activity' && cell.text === '+')?.source?.description, 'status.marker');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'progress' && cell.text === 'x')?.source?.description, 'status.marker');
+});
+
+test('feedback factories reject invalid caller-supplied status values', () => {
+  const componentTypeError = (error) => error.name === 'ComponentExecutionError'
+    && error.cause instanceof TypeError;
+  assert.throws(() => activityIndicator({ label: 'Invalid', status: 'finished' }), componentTypeError);
+  assert.throws(() => progressBar({
+    label: 'Invalid',
+    mode: { kind: 'determinate', value: 1 },
+    status: 'progress'
+  }), componentTypeError);
+  assert.throws(() => statusBar({
+    id: 'invalid-status',
+    leading: [{ id: 'item', kind: 'status', text: 'Broken', status: 'finished' }]
+  }), componentTypeError);
+});
+
+function colorCapabilities() {
+  return resolveTerminalCapabilities({
+    host: {
+      runtime: 'memory',
+      inputIsTty: true,
+      outputIsTty: true,
+      supportsRawInput: true
+    }
+  });
+}
+
+function noColorCapabilities() {
+  return {
+    ...colorCapabilities(),
+    color: {
+      depth: 0,
+      hasBasicColors: false,
+      has256Colors: false,
+      hasTrueColor: false
+    }
+  };
+}

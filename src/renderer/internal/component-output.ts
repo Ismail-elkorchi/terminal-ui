@@ -1,9 +1,10 @@
-import { decodeAccessibleSnapshot } from '../../accessibility/index.ts';
+import type { AccessibleNode, AccessibleSnapshot } from '../../accessibility/types.ts';
+import { decodeAccessibleSnapshot } from '../../accessibility/validate.ts';
 import { isNonArrayObject } from '../../foundation/validation.ts';
-import { decodeTerminalStyle } from '../../visual/terminal-style.ts';
+import type { Rect } from '../../geometry/types.ts';
 import { decodeFrameCellSource } from '../../visual/frame-source.ts';
-import type { AccessibleNode, AccessibleSnapshot } from '../../accessibility/index.ts';
-import type { CursorPosition, FocusTarget, Rect } from '../contracts.ts';
+import { decodeTerminalStyle } from '../../visual/terminal-style.ts';
+import type { CursorPosition, FocusTarget } from '../contracts.ts';
 
 export function decodeComponentFocusTargets(
   value: unknown,

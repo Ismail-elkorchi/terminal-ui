@@ -1,5 +1,7 @@
 import type { DiagnosticOccurrence } from '../diagnostics.ts';
-import type { TerminalCapabilityProfile, TerminalHost, TerminalSize } from '../host/index.ts';
+import type { TerminalSize } from '../geometry/types.ts';
+import type { TerminalCapabilityProfile } from '../host/capability-types.ts';
+import type { TerminalHost } from '../host/types.ts';
 import type { TuiContext } from './types.ts';
 
 export function createRuntimeContextFactory(
