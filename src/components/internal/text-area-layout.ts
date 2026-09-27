@@ -1,3 +1,4 @@
+import { measureTextWidth } from '../../text/measure.ts';
 import {
   createTerminalTextIndex,
   textDocumentLineAt,
@@ -75,7 +76,7 @@ export function layoutTextAreaDocument(
   widthProfile: TextWidthProfile,
 ): TextAreaDocumentLayout {
   const normalizedWidth = Math.max(0, Math.floor(width));
-  const key = `${wrap ? 'wrap' : 'single'}:${String(normalizedWidth)}:${
+  const key = `${wrap ? 'wrap' : 'single'}:${String(wrap ? normalizedWidth : 0)}:${
     textWidthProfileKey(widthProfile)
   }`;
   const cache = layoutCaches.get(document) ?? new Map<string, TextAreaDocumentLayout>();
@@ -458,7 +459,7 @@ function layoutLogicalLine(
   widthProfile: TextWidthProfile,
 ): LogicalLineLayout {
   const cacheKey = text.length <= sharedLineMaximumTextLength
-    ? `${wrap ? 'wrap' : 'single'}:${String(width)}:${textWidthProfileKey(widthProfile)}\u0000${text}`
+    ? `${wrap ? 'wrap' : 'single'}:${String(wrap ? width : 0)}:${textWidthProfileKey(widthProfile)}\u0000${text}`
     : undefined;
   const cached = cacheKey === undefined ? undefined : sharedLineLayouts.get(cacheKey);
   if (cacheKey !== undefined && cached !== undefined) {
@@ -466,14 +467,15 @@ function layoutLogicalLine(
     sharedLineLayouts.set(cacheKey, cached);
     return cached;
   }
-  const index = createTerminalTextIndex(text, { widthProfile });
-  if (!wrap || width <= 0 || index.cells <= width || text === '') {
+  const cells = measureTextWidth(text, { widthProfile });
+  if (!wrap || width <= 0 || cells <= width || text === '') {
     return retainSharedLineLayout(cacheKey, Object.freeze({
       text,
-      intrinsicColumns: index.cells,
-      visualLines: Object.freeze([{ text, localStart: 0, firstVisualLine: true, index }]),
+      intrinsicColumns: cells,
+      visualLines: Object.freeze([visualLine(text, 0, widthProfile)]),
     }));
   }
+  const index = createTerminalTextIndex(text, { widthProfile });
   const visualLines: VisualLineLayout[] = [];
   let visualColumn = 0;
   while (visualColumn < index.cells) {
@@ -485,12 +487,7 @@ function layoutLogicalLine(
     const startOffset = index.graphemeIndexToCodeUnitOffset(startGrapheme);
     const endOffset = index.graphemeIndexToCodeUnitOffset(endGrapheme);
     const visualText = text.slice(startOffset, endOffset);
-    visualLines.push(Object.freeze({
-      text: visualText,
-      localStart: startOffset,
-      firstVisualLine: startOffset === 0,
-      index: createTerminalTextIndex(visualText, { widthProfile }),
-    }));
+    visualLines.push(visualLine(visualText, startOffset, widthProfile));
     visualColumn = index.graphemeIndexToVisualColumn(endGrapheme);
     if (endOffset >= text.length) break;
   }
@@ -501,18 +498,29 @@ function layoutLogicalLine(
   }));
 }
 
+function visualLine(text: string, localStart: number, widthProfile: TextWidthProfile): VisualLineLayout {
+  let index: TerminalTextIndex | undefined;
+  return Object.freeze({ text, localStart, firstVisualLine: localStart === 0,
+    get index() { return index ??= createTerminalTextIndex(text, { widthProfile }); } });
+}
+
+function lineLayoutWeight(key: string, layout: LogicalLineLayout): number {
+  return key.length * 2 + layout.text.length * 16 + layout.visualLines.length * 256;
+}
+
 function retainSharedLineLayout(
   key: string | undefined,
   layout: LogicalLineLayout,
 ): LogicalLineLayout {
   if (key === undefined) return layout;
   sharedLineLayouts.set(key, layout);
-  sharedLineWeight += key.length;
+  sharedLineWeight += lineLayoutWeight(key, layout);
   while (sharedLineWeight > sharedLineWeightLimit) {
     const oldest = sharedLineLayouts.keys().next().value;
     if (oldest === undefined) break;
+    const removed = sharedLineLayouts.get(oldest);
     sharedLineLayouts.delete(oldest);
-    sharedLineWeight -= oldest.length;
+    if (removed !== undefined) sharedLineWeight -= lineLayoutWeight(oldest, removed);
   }
   return layout;
 }

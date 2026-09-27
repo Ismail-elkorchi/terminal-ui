@@ -1,3 +1,4 @@
+import { retainPaint } from '../../component/retained-paint.ts';
 import {
   clipRenderSpans,
   componentScrollbarHitTargets,
@@ -104,7 +105,7 @@ const treeBase = {
   ] as const,
   visualStates: ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy'] as const,
   measure: measureTree,
-  render: paintTree,
+  render: retainPaint(paintTree),
   accessibility: treeAccessibility,
   inspection: ({ model }: { readonly model: Readonly<TreeModel> }) => ({
     ...(model.activeId === undefined ? {} : { active: model.activeId }),

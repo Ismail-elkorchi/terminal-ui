@@ -123,6 +123,7 @@ export function decodeFrameCellSource(source: unknown): FrameCellSource {
 }
 
 export function sameFrameCellSource(left: FrameCellSource | undefined, right: FrameCellSource | undefined): boolean {
+  if (left === right) return true;
   if (left === undefined || right === undefined) return left === right;
   return left.elementId === right.elementId
     && left.elementKind === right.elementKind

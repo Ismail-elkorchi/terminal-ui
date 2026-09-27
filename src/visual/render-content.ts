@@ -1,8 +1,11 @@
+import { measureTextWidth } from '../text/measure.ts';
+import { measuredGraphemes } from '../text/graphemes.ts';
 import {
   clipTextCells,
   fillTextCells,
   measureTextCells,
-  sanitizeTerminalCellText
+  sanitizeTerminalCellText,
+  sanitizeTerminalText
 } from '../text/index.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
 import type { ThemeColorReference } from './color.ts';
@@ -133,20 +136,22 @@ export function clipRenderSpans(
 ): readonly RenderSpan[] {
   if (maxCells < 0) throw new RangeError('maxCells must be non-negative.');
   if (maxCells === 0 || spans.length === 0) return [];
-  const segments = spans.flatMap((currentSpan) =>
-    measureTextCells(currentSpan.text, options).graphemes.map((segment) => ({
-      text: segment.text,
-      cells: segment.cells,
-      options: spanOptions(currentSpan)
-    }))
-  );
-  const totalCells = segments.reduce((sum, current) => sum + current.cells, 0);
+  const segments = [];
+  let totalCells = 0;
+  collect: for (const currentSpan of spans) {
+    const metadata = spanOptions(currentSpan);
+    for (const segment of renderGraphemes(currentSpan.text, options)) {
+      segments.push({ text: segment.text, cells: segment.cells, options: metadata });
+      totalCells += segment.cells;
+      if (options.mode !== 'middle' && totalCells > maxCells) break collect;
+    }
+  }
   if (totalCells <= maxCells) {
     return compactSpans(segments.map((segment) => ({ text: segment.text, options: segment.options })));
   }
   const ellipsis = options.ellipsis ?? '';
   const fittedEllipsis = ellipsis.length === 0 ? '' : clipTextCells(ellipsis, maxCells, options).text;
-  const ellipsisCells = measureTextCells(fittedEllipsis, options).cells;
+  const ellipsisCells = measureTextWidth(fittedEllipsis, options);
   const budget = Math.max(0, maxCells - ellipsisCells);
   if (options.mode === 'middle') {
     return middleClipSegments(segments, budget, fittedEllipsis);
@@ -177,7 +182,7 @@ export function clipRenderLine(
 }
 
 export function measureRenderSpans(spans: readonly RenderSpan[], options: TextMeasurementOptions = {}): number {
-  return spans.reduce((sum, currentSpan) => sum + measureTextCells(currentSpan.text, options).cells, 0);
+  return spans.reduce((sum, currentSpan) => sum + measureTextWidth(currentSpan.text, options), 0);
 }
 
 export function measureRenderLine(renderLine: RenderLine, options: TextMeasurementOptions = {}): number {
@@ -240,7 +245,7 @@ export function wrapRenderSpans(
 
   for (const currentSpan of spans) {
     const spanMetadata = spanOptions(currentSpan);
-    for (const segment of measureTextCells(currentSpan.text, options).graphemes) {
+    for (const segment of renderGraphemes(currentSpan.text, options)) {
       if (segment.text === '\n') {
         pushLine();
         continue;
@@ -272,6 +277,12 @@ export function wrapRenderSpans(
   return Object.freeze(lines);
 }
 
+function renderGraphemes(text: string, options: TextMeasurementOptions) {
+  return text.length <= 256
+    ? measureTextCells(text, options).graphemes
+    : measuredGraphemes(sanitizeTerminalText(text).text, options);
+}
+
 function styledWordSplit<TSegment extends { readonly text: string }>(
   segments: readonly TSegment[],
 ): { readonly line: TSegment[]; readonly rest: TSegment[] } | undefined {
@@ -292,6 +303,7 @@ function styledWordSplit<TSegment extends { readonly text: string }>(
 }
 
 export function sameTerminalStyle(left: TerminalStyle | undefined, right: TerminalStyle | undefined): boolean {
+  if (left === right) return true;
   if (left === undefined || right === undefined) return left === right;
   return sameTerminalColor(left.fg, right.fg)
     && sameTerminalColor(left.bg, right.bg)
@@ -305,6 +317,7 @@ export function sameTerminalStyle(left: TerminalStyle | undefined, right: Termin
 }
 
 export function sameTerminalColor(left: TerminalColor | undefined, right: TerminalColor | undefined): boolean {
+  if (left === right) return true;
   if (left === undefined || right === undefined) return left === right;
   if (left.kind !== right.kind) return false;
   switch (left.kind) {
@@ -320,6 +333,7 @@ export function sameTerminalColor(left: TerminalColor | undefined, right: Termin
 }
 
 export function sameTerminalLink(left: TerminalLink | undefined, right: TerminalLink | undefined): boolean {
+  if (left === right) return true;
   if (left === undefined || right === undefined) return left === right;
   return left.href === right.href && left.id === right.id;
 }

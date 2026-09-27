@@ -87,7 +87,8 @@ test('retained repaint counts render hooks without claiming layout or measuremen
   assert.equal(collected.work.get('render_hooks'), 1);
   assert.equal(collected.work.get('layout_nodes') ?? 0, 0);
   assert.equal(collected.work.get('measurement_calls') ?? 0, 0);
-  assert.equal(collected.work.get('snapshot_cells'), repaint.frame.cells.length);
+  assert.equal(collected.work.get('snapshot_cells'), 0);
+  assert.deepEqual(repaint.frame.cells, initial.frame.cells);
   assert.equal(repaint.frame.cells.length, 3);
 });
 
@@ -107,11 +108,11 @@ test('failed render candidates still report invoked hooks', () => {
   assert.equal(collected.work.get('snapshot_cells') ?? 0, 0);
 });
 
-test('runtime redraw includes render, diff and encoded output work', async () => {
+test('runtime work counts distinguish retained redraws from changed paint', async () => {
   const app = defineTui({
     id: 'instrumented-runtime',
     init: () => ({ state: 0 }),
-    update: (state) => ({ state }),
+    update: (state) => ({ state: state + 1 }),
     view: (state) => text({ content: `state ${String(state)}` })
   });
   const host = createMemoryTerminalHost();
@@ -121,9 +122,15 @@ test('runtime redraw includes render, diff and encoded output work', async () =>
     await runtime.start();
     collected.work.clear();
     await runtime.redraw();
-    assert.ok(collected.work.get('render_hooks') > 0);
+    assert.equal(collected.work.get('render_hooks') ?? 0, 0);
+    assert.equal(collected.work.get('snapshot_cells'), 0);
     assert.ok(collected.work.has('diff_operations'));
     assert.ok(collected.work.has('encoded_bytes'));
+    collected.work.clear();
+    await runtime.dispatch({ kind: 'increment' });
+    assert.equal(collected.work.get('render_hooks'), 1);
+    assert.ok(collected.work.get('snapshot_cells') > 0);
+    assert.ok(collected.work.get('encoded_bytes') > 0);
   } finally {
     await runtime.dispose();
     await host.dispose();

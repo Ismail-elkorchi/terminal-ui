@@ -1,3 +1,5 @@
+import { samePaintData } from '../../foundation/paint-data.ts';
+import { retainPaint, paintStyleData } from '../../component/retained-paint.ts';
 import {
   clipRenderSpans,
   componentScrollbarHitTargets,
@@ -160,7 +162,7 @@ const tableBase = {
   ] as const,
   visualStates: ['active', 'selected'] as const,
   measure: measureTable,
-  render: paintTable,
+  render: retainPaint(paintTable),
   accessibility: tableAccessibility,
   inspection: ({ model }: { readonly model: Readonly<TableModel> }) => ({
     ...(model.activeRowId === undefined ? {} : {
@@ -1069,6 +1071,9 @@ function boundedTableContentWidth(
 
 function paintTable(input: ComponentRenderInput<TableModel, TableStylePart>): undefined {
   const plan = tablePlan(input);
+  const source = tableSourceFor(input.model);
+  const previousRows = retainedTableRows.get(source);
+  const paintedRows = new Map<TableRowModel, RetainedTableRow>();
   if (plan.headerHeight > 0) {
     input.target.write(
       0,
@@ -1098,7 +1103,7 @@ function paintTable(input: ComponentRenderInput<TableModel, TableStylePart>): un
         plan.headerHeight + visibleIndex,
         0,
         scrollTableSpans(
-          tableRowSpans(input, row, plan),
+          tableRowSpans(input, row, plan, previousRows, paintedRows),
           plan.horizontalOffset,
           plan.geometry.contentBounds.width,
           input.widthProfile,
@@ -1106,6 +1111,7 @@ function paintTable(input: ComponentRenderInput<TableModel, TableStylePart>): un
       );
     });
   }
+  retainedTableRows.set(source, paintedRows);
   paintComponentScrollbar({
     target: input.target,
     plan: plan.geometry,
@@ -1213,7 +1219,40 @@ function tableHeaderSpans(
   return result;
 }
 
+interface RetainedTableRow {
+  readonly dependencies: readonly unknown[];
+  readonly spans: readonly import('../../visual/render-content.ts').RenderSpan[];
+}
+// Keep the painted window, rather than retaining every row visited during scrolling.
+const retainedTableRows = new WeakMap<TableRenderSource, ReadonlyMap<TableRowModel, RetainedTableRow>>();
+
 function tableRowSpans(
+  input: ComponentRenderInput<TableModel, TableStylePart>,
+  row: TableRowModel,
+  plan: TablePlan,
+  previous: ReadonlyMap<TableRowModel, RetainedTableRow> | undefined,
+  next: Map<TableRowModel, RetainedTableRow>,
+): readonly import('../../visual/render-content.ts').RenderSpan[] {
+  const active = input.model.activeRowId === row.id;
+  const prefix = `${input.id ?? 'table'}:row:${row.id}`;
+  const dependencies = [input.id, input.theme, input.widthProfile, input.model.columns,
+    input.model.semanticRole, input.model.interactionKind, input.model.density, plan.widths,
+    input.model.selectedRowIds.includes(row.id), active, active ? input.model.activeColumnId : undefined,
+    input.model.selectedCells.filter(cell => cell.rowId === row.id).map(cell => cell.columnId),
+    pointerVisualState(input.pointerState, prefix),
+    input.model.columns.map(column => pointerVisualState(input.pointerState, `${prefix}:cell:${String(column.index)}`)),
+    paintStyleData(input.style)];
+  const cached = previous?.get(row);
+  if (cached !== undefined && samePaintData(cached.dependencies, dependencies)) {
+    next.set(row, cached);
+    return cached.spans;
+  }
+  const spans = Object.freeze(buildTableRowSpans(input, row, plan));
+  next.set(row, { dependencies, spans });
+  return spans;
+}
+
+function buildTableRowSpans(
   input: ComponentRenderInput<TableModel, TableStylePart>,
   row: TableRowModel,
   plan: TablePlan,

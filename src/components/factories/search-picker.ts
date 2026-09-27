@@ -1,3 +1,4 @@
+import { retainPaint } from '../../component/retained-paint.ts';
 import {
   clipRenderSpans,
   componentScrollbarHitTargets,
@@ -44,9 +45,7 @@ import type {
 import { searchPickerWindow } from '../../behavior/search-picker-operations.ts';
 import { assertSearchPickerIndex } from '../../behavior/search-picker-index.ts';
 import {
-  matchCompiledCollectionQuery,
   compileCollectionQuery,
-  indexQueryCandidate,
 } from '../../text/query.ts';
 import type { CompiledCollectionQuery, QueryMatchRange } from '../../text/query.ts';
 import { queryLabelSpans } from '../internal/query-label-spans.ts';
@@ -241,7 +240,7 @@ const instantiateSearchPicker = defineComponent<SearchPickerComponentOptions, Se
       ),
     };
   },
-  render: paintSearchPicker,
+  render: retainPaint(paintSearchPicker),
   accessibility(input) {
     return {
       id: input.id,
@@ -427,12 +426,7 @@ function createSearchPickerModel(value: Readonly<SearchPickerComponentOptions>):
   });
   const rows = Object.freeze(
     window.entries.map((entry, position): SearchEntryModel => {
-      const matches = matchCompiledCollectionQuery(indexQueryCandidate({
-        id: entry.id,
-        primary: entry.label,
-        secondary: [entry.description, ...(entry.keywords ?? [])]
-          .filter((item): item is string => item !== undefined),
-      }), query)?.ranges.filter((range) => range.field === 'primary') ?? [];
+      const matches = window.matches[position]?.ranges.filter(range => range.field === 'primary') ?? [];
       return Object.freeze({
         id: entry.id,
         itemIndex: window.startIndex + position,

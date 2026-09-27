@@ -1,3 +1,4 @@
+import { retainPaint } from '../../component/retained-paint.ts';
 import { defineComponent, ignoreMessage, span } from '../../component/index.ts';
 import type {
   ComponentMessage,
@@ -100,7 +101,7 @@ const barChartBase = {
   parts: ['label', 'axis', 'series', 'value', 'legend', 'muted'] as const,
   visualStates: ['active', 'selected', 'disabled', 'busy'] as const,
   measure: measureBarChart,
-  render: paintBarChart,
+  render: retainPaint(paintBarChart),
   accessibility: barChartAccessibility,
   inspection: ({ model }: { readonly model: Readonly<BarChartModel> }) => ({
     ...(model.activeId === undefined ? {} : { active: model.activeId }),
@@ -400,7 +401,7 @@ const chartBase = {
   parts: ['label', 'axis', 'series', 'value', 'legend', 'muted', 'baseline'] as const,
   visualStates: ['active', 'selected', 'disabled', 'busy'] as const,
   measure: measureChart,
-  render: paintChart,
+  render: retainPaint(paintChart),
   accessibility: chartAccessibility,
   inspection: ({ model }: { readonly model: Readonly<ChartModel> }) => ({
     ...(model.activeId === undefined ? {} : { active: model.activeId }),
@@ -1135,7 +1136,7 @@ const heatmapBase = {
   parts: ['label', 'axis', 'series', 'value', 'legend', 'muted'] as const,
   visualStates: ['active', 'selected', 'disabled', 'busy'] as const,
   measure: measureHeatmap,
-  render: paintHeatmap,
+  render: retainPaint(paintHeatmap),
   accessibility: heatmapAccessibility,
   inspection: ({ model }: { readonly model: Readonly<HeatmapModel> }) => ({
     ...(model.activeId === undefined ? {} : { active: model.activeId }),

@@ -107,6 +107,7 @@ export interface SearchPickerWindowInput<TValue = string> {
 }
 
 export interface SearchPickerWindow<TValue = string> {
+  readonly matches: readonly import('../text/query.ts').QueryMatch[];
   readonly entries: readonly SearchEntry<TValue>[];
   readonly activeIndex?: number;
   readonly activeEntry?: SearchEntry<TValue>;
@@ -176,15 +177,17 @@ export function searchPickerReducer<TValue>(
 export function searchPickerWindow<TValue>(
   input: SearchPickerWindowInput<TValue>,
 ): SearchPickerWindow<TValue> {
-  const filtered = querySearchPickerIndex(
+  const result = querySearchPickerIndex(
     input.searchPickerIndex,
     input.query ?? { text: '', mode: 'fuzzy' },
-  ).entries;
+  );
+  const filtered = result.entries;
   const totalCount = filtered.length;
   const limit = Math.max(1, Math.floor(input.limit ?? Math.max(1, totalCount)));
   if (totalCount === 0) {
     return {
       entries: [],
+      matches: [],
       totalCount: 0,
       startIndex: 0,
       endIndexExclusive: 0,
@@ -205,6 +208,7 @@ export function searchPickerWindow<TValue>(
   const activeEntry = activeAbsolute === undefined ? undefined : filtered[activeAbsolute];
   return {
     entries: window.rows,
+    matches: result.matches.slice(window.startIndex, window.endIndexExclusive),
     ...(window.activeVisibleIndex === undefined ? {} : { activeIndex: window.activeVisibleIndex }),
     ...(activeEntry === undefined ? {} : { activeEntry }),
     totalCount,

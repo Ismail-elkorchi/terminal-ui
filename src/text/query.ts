@@ -1,4 +1,5 @@
-import { segmentGraphemes } from './graphemes.ts';
+import { createTextSearchIndex, compileTextSearchQuery, textMatchStarts, textSearchOffset } from './search-index.ts';
+import type { TextSearchIndex, CompiledTextSearchQuery } from './search-index.ts';
 import { sanitizeTerminalText } from './sanitize.ts';
 
 export type QueryMatchMode = 'contains' | 'prefix' | 'exact' | 'fuzzy';
@@ -45,14 +46,8 @@ export interface QueryMatchRange {
 
 interface IndexedQueryField {
   readonly text: string;
-  readonly graphemes: readonly IndexedQueryGrapheme[];
-}
-
-interface IndexedQueryGrapheme {
-  readonly folded: string;
-  readonly original: string;
-  readonly start: number;
-  readonly end: number;
+  readonly original: TextSearchIndex;
+  folded?: TextSearchIndex;
 }
 
 interface QueryCandidateIndex {
@@ -60,10 +55,12 @@ interface QueryCandidateIndex {
 }
 
 interface CompiledQueryData {
-  readonly graphemes: readonly string[];
+  readonly search: CompiledTextSearchQuery;
 }
 
 const queryCandidateIndexes = new WeakMap<object, QueryCandidateIndex>();
+const canonicalQueries = new Map<string, CompiledCollectionQuery>();
+let canonicalQueryWeight = 0;
 const compiledQueries = new WeakMap<object, CompiledQueryData>();
 
 function isNonArrayObject(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -88,6 +85,9 @@ export function compileCollectionQuery(query: unknown): CompiledCollectionQuery 
   }
   const normalizedText = sanitizeTerminalText(text).text.trim();
   const sensitive = caseSensitive === true;
+  const key = `${mode ?? 'contains'}:${sensitive ? '1' : '0'}:${normalizedText}`;
+  const cached = canonicalQueries.get(key);
+  if (cached !== undefined) return cached;
   const indexed = Object.freeze({
     kind: 'compiled-collection-query' as const,
     text: normalizedText,
@@ -95,9 +95,18 @@ export function compileCollectionQuery(query: unknown): CompiledCollectionQuery 
     caseSensitive: sensitive
   });
   compiledQueries.set(indexed, Object.freeze({
-    graphemes: Object.freeze(segmentGraphemes(normalizedText).map((part) =>
-      normalizeGrapheme(part.text, sensitive)))
+    search: compileTextSearchQuery(normalizedText, { caseSensitive: sensitive })
   }));
+  if (key.length <= 4096) {
+    canonicalQueries.set(key, indexed);
+    canonicalQueryWeight += key.length;
+    while (canonicalQueries.size > 256 || canonicalQueryWeight > 65536) {
+      const oldest = canonicalQueries.keys().next().value;
+      if (oldest === undefined) break;
+      canonicalQueries.delete(oldest);
+      canonicalQueryWeight -= oldest.length;
+    }
+  }
   return indexed;
 }
 
@@ -142,12 +151,13 @@ export function matchCompiledCollectionQuery(
   if (candidateData === undefined) throw new TypeError('candidate must be created by indexQueryCandidate().');
   const queryData = compiledQueries.get(query);
   if (queryData === undefined) throw new TypeError('query must be created by compileCollectionQuery().');
-  if (queryData.graphemes.length === 0) return queryMatch(candidate, 0, []);
+  if (queryData.search.graphemes.length === 0) return queryMatch(candidate, 0, []);
 
   let best: { readonly score: number; readonly indexes: readonly number[]; readonly fieldIndex: number } | undefined;
   for (const [fieldIndex, field] of candidateData.fields.entries()) {
-    const haystack = field.graphemes.map((part) => query.caseSensitive ? part.original : part.folded);
-    const match = matchGraphemes(haystack, queryData.graphemes, query.mode);
+    const haystack = query.caseSensitive ? field.original
+      : field.folded ??= createTextSearchIndex(field.text);
+    const match = matchGraphemes(haystack, queryData.search, query.mode);
     if (match !== undefined && (best === undefined || match.score > best.score)) {
       best = { ...match, fieldIndex };
     }
@@ -239,27 +249,16 @@ function assertQueryCandidate(candidate: unknown, index?: number): asserts candi
 }
 
 function indexQueryField(text: string): IndexedQueryField {
-  return Object.freeze({
-    text,
-    graphemes: Object.freeze(segmentGraphemes(text).map((part) => Object.freeze({
-      original: part.text.normalize('NFC'),
-      folded: normalizeGrapheme(part.text, false),
-      start: part.startOffset,
-      end: part.endOffsetExclusive
-    })))
-  });
-}
-
-function normalizeGrapheme(value: string, caseSensitive: boolean): string {
-  const canonical = value.normalize('NFC');
-  return (caseSensitive ? canonical : canonical.toLowerCase()).normalize('NFC');
+  return { text, original: createTextSearchIndex(text, { caseSensitive: true }) };
 }
 
 function matchGraphemes(
-  text: readonly string[],
-  needle: readonly string[],
+  index: TextSearchIndex,
+  query: CompiledTextSearchQuery,
   mode: QueryMatchMode,
 ): { readonly score: number; readonly indexes: readonly number[] } | undefined {
+  const text = index.graphemes;
+  const needle = query.graphemes;
   if (mode === 'exact') {
     return sequencesEqual(text, needle)
       ? { score: 1000, indexes: indexesFrom(0, needle.length) }
@@ -271,7 +270,7 @@ function matchGraphemes(
       : undefined;
   }
   if (mode === 'contains') {
-    const start = sequenceIndexOf(text, needle);
+    const start = textMatchStarts(index, query).next().value ?? -1;
     return start < 0
       ? undefined
       : { score: 600 - start, indexes: indexesFrom(start, needle.length) };
@@ -304,14 +303,14 @@ function rangesForIndexes(
       previous = current;
       continue;
     }
-    const first = field.graphemes[runStart];
-    const last = field.graphemes[previous];
-    if (first !== undefined && last !== undefined) {
+    const first = textSearchOffset(field.original, runStart);
+    const last = textSearchOffset(field.original, previous + 1);
+    if (runStart < field.original.graphemes.length) {
       ranges.push(Object.freeze({
         field: fieldIndex === 0 ? 'primary' : 'secondary',
         fieldIndex: fieldIndex === 0 ? 0 : fieldIndex - 1,
-        start: first.start,
-        end: last.end
+        start: first,
+        end: last
       }));
     }
     if (current !== undefined) {
@@ -335,14 +334,7 @@ function queryMatch(
   });
 }
 
-function sequenceIndexOf(text: readonly string[], needle: readonly string[]): number {
-  for (let start = 0; start <= text.length - needle.length; start += 1) {
-    if (sequenceMatchesAt(text, needle, start)) return start;
-  }
-  return -1;
-}
-
-function sequenceMatchesAt(text: readonly string[], needle: readonly string[], start: number): boolean {
+function sequenceMatchesAt(text: string | readonly string[], needle: string | readonly string[], start: number): boolean {
   if (start < 0 || start + needle.length > text.length) return false;
   for (let offset = 0; offset < needle.length; offset += 1) {
     if (text[start + offset] !== needle[offset]) return false;
@@ -350,7 +342,7 @@ function sequenceMatchesAt(text: readonly string[], needle: readonly string[], s
   return true;
 }
 
-function sequencesEqual(left: readonly string[], right: readonly string[]): boolean {
+function sequencesEqual(left: string | readonly string[], right: string | readonly string[]): boolean {
   return left.length === right.length && sequenceMatchesAt(left, right, 0);
 }
 

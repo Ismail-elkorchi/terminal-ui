@@ -1,5 +1,5 @@
-import { createTerminalTextIndex } from './terminal-text-index.ts';
-import type { TerminalTextIndex, TextMeasurementOptions } from './types.ts';
+import { graphemeSegments } from './graphemes.ts';
+import type { TextMeasurementOptions } from './types.ts';
 
 export interface TextHighlightMatch {
   readonly startGraphemeIndex: number;
@@ -12,67 +12,85 @@ export interface TextHighlightOptions extends TextMeasurementOptions {
   readonly locale?: string;
 }
 
+/** ASCII tokens are represented by the string itself. Unicode keeps original boundaries. */
 export interface TextSearchIndex {
-  readonly textIndex: TerminalTextIndex;
-  readonly graphemes: readonly string[];
+  readonly graphemes: string | readonly string[];
+  readonly offsets?: Uint32Array;
 }
 
 export interface CompiledTextSearchQuery {
-  readonly graphemes: readonly string[];
+  readonly graphemes: string | readonly string[];
+  readonly failure: Uint32Array;
 }
 
 export function createTextSearchIndex(
   text: string,
   options: TextHighlightOptions = {}
 ): TextSearchIndex {
-  const textIndex = createTerminalTextIndex(text, options);
-  return Object.freeze({
-    textIndex,
-    graphemes: normalizedGraphemes(textIndex, options)
-  });
+  if (/^[\x20-\x7e]*$/u.test(text)) {
+    return Object.freeze({ graphemes: normalizedSearchText(text, options) });
+  }
+  const tokens: string[] = [];
+  const offsets: number[] = [];
+  for (const part of graphemeSegments(text)) {
+    tokens.push(normalizedSearchText(part.segment, options));
+    offsets.push(part.index);
+  }
+  offsets.push(text.length);
+  return Object.freeze({ graphemes: Object.freeze(tokens), offsets: Uint32Array.from(offsets) });
+}
+
+export function textSearchOffset(index: TextSearchIndex, position: number): number {
+  return index.offsets?.[position] ?? position;
 }
 
 export function compileTextSearchQuery(
   query: string,
   options: TextHighlightOptions = {}
 ): CompiledTextSearchQuery {
-  return Object.freeze({
-    graphemes: normalizedGraphemes(createTerminalTextIndex(query, options), options)
-  });
+  const { graphemes } = createTextSearchIndex(query, options);
+  const failure = new Uint32Array(graphemes.length);
+  for (let i = 1, prefix = 0; i < graphemes.length; i += 1) {
+    while (prefix > 0 && graphemes[i] !== graphemes[prefix]) prefix = failure[prefix - 1] ?? 0;
+    if (graphemes[i] === graphemes[prefix]) prefix += 1;
+    failure[i] = prefix;
+  }
+  return Object.freeze({ graphemes, failure });
+}
+
+/** Linear token matching; native string search handles the common ASCII representation. */
+export function* textMatchStarts(
+  index: TextSearchIndex,
+  query: CompiledTextSearchQuery,
+): Generator<number, void> {
+  const text = index.graphemes;
+  const needle = query.graphemes;
+  if (needle.length === 0 || (typeof needle !== 'string' && needle.every(part => part.length === 0))) return;
+  if (typeof text === 'string' && typeof needle === 'string') {
+    for (let start = text.indexOf(needle); start >= 0; start = text.indexOf(needle, start + needle.length)) {
+      yield start;
+    }
+    return;
+  }
+  let matched = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    while (matched > 0 && text[i] !== needle[matched]) matched = query.failure[matched - 1] ?? 0;
+    if (text[i] === needle[matched]) matched += 1;
+    if (matched === needle.length) {
+      yield i - matched + 1;
+      matched = 0;
+    }
+  }
 }
 
 export function findTextMatches(
   index: TextSearchIndex,
   query: CompiledTextSearchQuery
 ): readonly TextHighlightMatch[] {
-  if (query.graphemes.length === 0 || query.graphemes.every((grapheme) => grapheme.length === 0)) return [];
-  const matches: TextHighlightMatch[] = [];
-  for (let start = 0; start <= index.graphemes.length - query.graphemes.length;) {
-    if (matchesAt(index.graphemes, query.graphemes, start)) {
-      matches.push({
-        startGraphemeIndex: start,
-        endGraphemeIndexExclusive: start + query.graphemes.length
-      });
-      start += query.graphemes.length;
-    } else {
-      start += 1;
-    }
-  }
-  return Object.freeze(matches);
-}
-
-function normalizedGraphemes(
-  index: TerminalTextIndex,
-  options: TextHighlightOptions
-): readonly string[] {
-  return Object.freeze(index.graphemes.map((grapheme) => normalizedSearchText(grapheme.text, options)));
-}
-
-function matchesAt(text: readonly string[], query: readonly string[], start: number): boolean {
-  for (let offset = 0; offset < query.length; offset += 1) {
-    if (text[start + offset] !== query[offset]) return false;
-  }
-  return true;
+  return Object.freeze(Array.from(textMatchStarts(index, query), start => ({
+    startGraphemeIndex: start,
+    endGraphemeIndexExclusive: start + query.graphemes.length,
+  })));
 }
 
 function normalizedSearchText(text: string, options: TextHighlightOptions): string {

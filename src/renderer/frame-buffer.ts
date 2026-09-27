@@ -1,3 +1,5 @@
+import { sameFrameCell } from './internal/frame-cell-equality.ts';
+import { terminalCellGraphemes } from '../text/measure.ts';
 import { measureTextCells, sanitizeTerminalCellText } from '../text/index.ts';
 import { createAccessibleSnapshot } from '../accessibility/index.ts';
 import { DirtyCoverageAccumulator } from './internal/dirty-coverage.ts';
@@ -8,7 +10,7 @@ import type { FocusPath } from './internal/focus.ts';
 import type { CursorPosition, RenderInstrumentation } from './contracts.ts';
 import type { Frame, FrameCell, FrameHitTarget } from './contracts.ts';
 import type { Rect } from './contracts.ts';
-import { decodeTerminalLink } from '../visual/render-content.ts';
+import { decodeTerminalLink, sameTerminalStyle, sameTerminalLink, sameFrameCellSource } from '../visual/render-content.ts';
 import { decodeTerminalStyle } from '../visual/terminal-style.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalColor, TerminalLink, TerminalStyle } from '../visual/render-content.ts';
 import type { FrameRenderTarget, RenderTarget } from './contracts.ts';
@@ -20,12 +22,18 @@ import { isRasterImage } from '../graphics/raster-image.ts';
 import type { GraphicPlacement, GraphicPlacementInput } from '../graphics/types.ts';
 import {
   registerFrameSnapshotMetadata,
+  frameSnapshotMetadata,
 } from './internal/frame-snapshot.ts';
 import type {
   FrameRowFingerprint,
   FrameSnapshotRowIndex,
 } from './internal/frame-snapshot.ts';
 import type { DirtyRegionSet } from './internal/dirty-regions.ts';
+
+const snapshotWork = new WeakMap<Frame, { readonly rows: number; readonly cells: number }>();
+export function frameSnapshotWork(frame: Frame): { readonly rows: number; readonly cells: number } {
+  return snapshotWork.get(frame) ?? { rows: 0, cells: 0 };
+}
 
 export interface FrameBufferOptions {
   readonly widthProfile?: TextWidthProfile;
@@ -97,8 +105,9 @@ export function blitFrameCell(buffer: RenderTarget, cell: FrameCell): void {
 
 /** Transfers a cell already produced by a framework-owned frame snapshot. */
 export function transferFrameCell(buffer: RenderTarget, cell: FrameCell): void {
-  if (buffer instanceof CellFrameBuffer) {
-    buffer[transferCell](cell);
+  const admitted = admittedSpanTargets.get(buffer);
+  if (admitted !== undefined) {
+    admitted.cell(cell);
     return;
   }
   buffer.writeCell(cell);
@@ -111,6 +120,23 @@ export interface FrameBufferSpan {
   readonly source?: FrameCellSource;
 }
 
+interface AdmittedSpanTarget {
+  readonly cell: (cell: FrameCell) => void;
+  readonly transfer: (row: number, column: number, spans: readonly FrameBufferSpan[]) => void;
+  readonly segmented: (codeUnits: number) => void;
+}
+const admittedSpanTargets = new WeakMap<RenderTarget, AdmittedSpanTarget>();
+
+/** Framework-only registration; component-facing targets never expose this capability. */
+export function registerSpanTarget<T extends RenderTarget>(target: T, admission: AdmittedSpanTarget): T {
+  admittedSpanTargets.set(target, admission);
+  return target;
+}
+
+export function recordTargetSegmentation(target: RenderTarget, codeUnits: number): void {
+  admittedSpanTargets.get(target)?.segmented(codeUnits);
+}
+
 /** Transfers spans already sanitized, measured, and canonicalized by a scoped renderer boundary. */
 export function transferFrameBufferSpans(
   buffer: RenderTarget,
@@ -118,8 +144,9 @@ export function transferFrameBufferSpans(
   column: number,
   spans: readonly FrameBufferSpan[],
 ): void {
-  if (buffer instanceof CellFrameBuffer) {
-    buffer[transferSpans](row, column, spans);
+  const admitted = admittedSpanTargets.get(buffer);
+  if (admitted !== undefined) {
+    admitted.transfer(row, column, spans);
     return;
   }
   buffer.write(row, column, spans.map((current) => ({
@@ -151,6 +178,17 @@ export function captureFrameBufferDamage(buffer: FrameBuffer, operation: () => v
   return buffer[captureDamage](operation);
 }
 
+/** Supplies immutable row metadata for structural sharing on the next snapshot. */
+export function retainFrameBufferRows(buffer: FrameBuffer, previous: Frame): void {
+  if (buffer instanceof CellFrameBuffer && buffer.width === previous.width && buffer.height === previous.height) {
+    seedFrameBufferRows(buffer, frameSnapshotMetadata(previous)?.rowIndexes ?? []);
+  }
+}
+export function seedFrameBufferRows(buffer: FrameBuffer, rows: readonly FrameSnapshotRowIndex[]): void {
+  if (buffer instanceof CellFrameBuffer) buffer[retainRows](rows);
+}
+const retainRows = Symbol('terminal-ui.retain-frame-rows');
+
 const blitCell = Symbol('terminal-ui.blit-frame-cell');
 const transferCell = Symbol('terminal-ui.transfer-frame-cell');
 const transferSpans = Symbol('terminal-ui.transfer-render-spans');
@@ -171,6 +209,7 @@ class CellFrameBuffer implements FrameBuffer {
   private readonly writtenCoverage = new DirtyCoverageAccumulator();
   private readonly clearedCoverage = new DirtyCoverageAccumulator();
   private readonly damageScopes: DirtyCoverageAccumulator[] = [];
+  private previousRows = new Map<number, FrameSnapshotRowIndex>();
   private canvasStyleOverride: TerminalStyle | undefined;
   private readonly onSegmentation?: (codeUnits: number) => void;
 
@@ -186,6 +225,11 @@ class CellFrameBuffer implements FrameBuffer {
     this.height = height;
     this.widthProfile = widthProfile;
     this.inheritBackground = inheritBackground;
+    registerSpanTarget(this, {
+      cell: cell => { this[transferCell](cell); },
+      transfer: (row, column, spans) => { this[transferSpans](row, column, spans); },
+      segmented: codeUnits => this.onSegmentation?.(codeUnits),
+    });
     if (instrumentation?.recordWork !== undefined) {
       this.onSegmentation = (codeUnits) => {
         instrumentation.recordWork?.({ kind: 'buffer_segmentations', count: 1 });
@@ -198,14 +242,17 @@ class CellFrameBuffer implements FrameBuffer {
     if (!this.containsRow(row)) return;
     let nextColumn = Math.floor(column);
     for (const currentSpan of spans) {
-      const text = sanitizeTerminalCellText(currentSpan.text).text;
-      const measured = measureTextCells(text, { widthProfile: this.widthProfile }, this.onSegmentation);
+      if (nextColumn > this.width + 1) break;
+      const graphemes = terminalCellGraphemes(currentSpan.text, { widthProfile: this.widthProfile }, this.onSegmentation);
       const style = currentSpan.style === undefined
         ? undefined
         : decodeTerminalStyle(currentSpan.style, 'Frame span style');
       const link = currentSpan.link === undefined ? undefined : decodeTerminalLink(currentSpan.link);
       const source = currentSpan.source === undefined ? undefined : frameCellSource(currentSpan.source);
-      for (const segment of measured.graphemes) {
+      for (const segment of graphemes) {
+        if (nextColumn > this.width || nextColumn + segment.cells > this.width + 1) {
+          if (segment.cells > 0) { nextColumn += segment.cells; break; }
+        }
         if (segment.cells === 0) {
           this.appendCombining(row, nextColumn, segment.text);
           continue;
@@ -311,6 +358,7 @@ class CellFrameBuffer implements FrameBuffer {
   }
 
   occludeGraphics(rect: Rect): void {
+    if (this.graphics.size === 0) return;
     const clipped = this.clipRect(rect);
     if (clipped === undefined) return;
     for (const [id, placement] of [...this.graphics]) {
@@ -342,7 +390,7 @@ class CellFrameBuffer implements FrameBuffer {
     const canvasStyle = requestedCanvasStyle === undefined
       ? undefined
       : decodeTerminalStyle(requestedCanvasStyle, 'Frame canvas style');
-    const { cells, rowFingerprints, rowIndexes } = this.snapshotCellsAndFingerprints(canvasStyle);
+    const { cells, rowFingerprints, rowIndexes, work } = this.snapshotCellsAndFingerprints(canvasStyle);
     const cursor = options.cursor === undefined ? undefined : Object.freeze({
       ...options.cursor,
       ...(options.cursor.style === undefined
@@ -364,6 +412,7 @@ class CellFrameBuffer implements FrameBuffer {
       ...(cursor === undefined ? {} : { cursor }),
       ...(options.focusPath === undefined ? {} : { focusPath: Object.freeze([...options.focusPath]) })
     }) as FrameBufferSnapshot;
+    snapshotWork.set(frame, work);
     return registerFrameSnapshotMetadata(frame, Object.freeze({
       writtenBounds: this.writtenCoverage.toDirtyRegionSet(),
       clearedBounds: this.clearedCoverage.toDirtyRegionSet(),
@@ -397,6 +446,12 @@ class CellFrameBuffer implements FrameBuffer {
   [transferCell](cell: FrameCell): void {
     if (cell.continuation === true || !this.containsCell(cell.row, cell.column)) return;
     if (cell.width < 1 || cell.column + cell.width - 1 > this.width) return;
+    if (cell.width === 1 && this.cellAt(cell.row, cell.column) === undefined) {
+      if (this.graphics.size > 0) this.occludeGraphics({ row: cell.row, column: cell.column, width: 1, height: 1 });
+      this.recordWriteSpan(cell.row, cell.column, 1);
+      this.setCell(cell.row, cell.column, cell);
+      return;
+    }
     this.writeGrapheme(cell.row, cell.column, {
       text: cell.text,
       width: cell.width,
@@ -410,6 +465,10 @@ class CellFrameBuffer implements FrameBuffer {
     if (!this.containsRow(row)) return;
     let nextColumn = Math.floor(column);
     for (const currentSpan of spans) {
+      if (this.writeSimpleSpan(row, nextColumn, currentSpan)) {
+        nextColumn += currentSpan.graphemes.length;
+        continue;
+      }
       for (const grapheme of currentSpan.graphemes) {
         if (grapheme.cells === 0) {
           this.appendCombining(row, nextColumn, grapheme.text);
@@ -427,6 +486,36 @@ class CellFrameBuffer implements FrameBuffer {
         nextColumn += grapheme.cells;
       }
     }
+  }
+
+  /** Admit an unobstructed run once, reusing immutable cells before allocating replacements. */
+  private writeSimpleSpan(row: number, column: number, span: FrameBufferSpan): boolean {
+    const width = span.graphemes.length;
+    if (width === 0 || column < 1 || column + width - 1 > this.width) return false;
+    const cells = this.rows.get(row) ?? new Map<number, FrameCell>();
+    for (let offset = 0; offset < width; offset += 1) {
+      if (span.graphemes[offset]?.cells !== 1 || cells.has(column + offset)) return false;
+    }
+    this.occludeGraphics({ row, column, width, height: 1 });
+    this.recordWriteSpan(row, column, width);
+    this.rows.set(row, cells);
+    const previous = this.previousRows.get(row)?.cells;
+    for (const [offset, grapheme] of span.graphemes.entries()) {
+      const position = column + offset;
+      const old = previous?.get(position);
+      const cell = old?.width === 1 && old.text === grapheme.text
+        && sameTerminalStyle(old.style, span.style) && sameTerminalLink(old.link, span.link)
+        && sameFrameCellSource(old.source, span.source)
+        ? old
+        : Object.freeze({ row, column: position, text: grapheme.text, width: 1,
+            ...(span.style === undefined ? {} : { style: span.style }),
+            ...(span.link === undefined ? {} : { link: span.link }),
+            ...(span.source === undefined ? {} : { source: span.source }),
+          });
+      cells.set(position, cell);
+      if (isMergeableFrameCell(cell)) this.mergeableCellValues.add(cell);
+    }
+    return true;
   }
 
   [applyBackdrop](bounds: Rect, style: TerminalStyle): boolean {
@@ -466,6 +555,10 @@ class CellFrameBuffer implements FrameBuffer {
     }
   }
 
+  [retainRows](rows: readonly FrameSnapshotRowIndex[]): void {
+    this.previousRows = new Map(rows.map(row => [row.row, row]));
+  }
+
   private containsRow(row: number): boolean {
     return Number.isInteger(row) && row >= 1 && row <= this.height;
   }
@@ -488,7 +581,9 @@ class CellFrameBuffer implements FrameBuffer {
     readonly cells: readonly FrameCell[];
     readonly rowFingerprints: readonly FrameRowFingerprint[];
     readonly rowIndexes: readonly FrameSnapshotRowIndex[];
+    readonly work: { readonly rows: number; readonly cells: number };
   } {
+    const work = { rows: 0, cells: 0 };
     const output: FrameCell[] = [];
     const rowFingerprints: FrameRowFingerprint[] = [];
     const rowIndexes: FrameSnapshotRowIndex[] = [];
@@ -496,6 +591,16 @@ class CellFrameBuffer implements FrameBuffer {
       let rowHash = fnvOffset;
       let terminalRowHash = fnvOffset;
       const cells = this.rows.get(row);
+      const previous = this.previousRows.get(row);
+      if (previous !== undefined && cells?.size === previous.cells.size
+        && [...cells.values()].every(cell => sameFrameCell(previous.cells.get(cell.column), effectiveCanvasCell(cell, canvasStyle)))) {
+        output.push(...previous.cells.values());
+        rowFingerprints.push({ row, fingerprint: previous.fingerprint, terminalFingerprint: previous.terminalFingerprint });
+        rowIndexes.push(previous);
+        continue;
+      }
+      work.rows += 1;
+      work.cells += cells?.size ?? 0;
       const indexedCells = new Map<number, FrameCell>();
       const renderable: FrameCell[] = [];
       for (const storedCell of cells === undefined
@@ -522,6 +627,7 @@ class CellFrameBuffer implements FrameBuffer {
       }
     }
     return {
+      work,
       cells: Object.freeze(output),
       rowFingerprints: Object.freeze(rowFingerprints),
       rowIndexes: Object.freeze(rowIndexes)
@@ -717,12 +823,15 @@ function subtractRect(source: Rect, occlusion: Rect): readonly Rect[] {
   ].filter((rect) => rect.width > 0 && rect.height > 0);
 }
 
+const effectiveCanvasCells = new WeakMap<FrameCell, { readonly style: TerminalStyle; readonly cell: FrameCell }>();
+
 function effectiveCanvasCell(cell: FrameCell, canvasStyle: TerminalStyle | undefined): FrameCell {
   if (canvasStyle === undefined) return cell;
-  return Object.freeze({
-    ...cell,
-    style: effectiveCellStyle(canvasStyle, cell.style)
-  });
+  const cached = effectiveCanvasCells.get(cell);
+  if (cached?.style === canvasStyle) return cached.cell;
+  const projected = Object.freeze({ ...cell, style: effectiveCellStyle(canvasStyle, cell.style) });
+  effectiveCanvasCells.set(cell, { style: canvasStyle, cell: projected });
+  return projected;
 }
 
 const effectiveCanvasStyles = new WeakMap<TerminalStyle, WeakMap<TerminalStyle, TerminalStyle>>();

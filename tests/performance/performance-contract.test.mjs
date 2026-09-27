@@ -78,6 +78,15 @@ test('high variance and too few timing samples are inconclusive', () => {
   assert.ok(timingRegressionViolations(baseline, current).includes('unchanged-focus-tree-32/total: inconclusive timing evidence'));
 });
 
+test('picker filtering cannot pass with absent or zero candidate evidence', () => {
+  const report = performanceReport();
+  const scenario = report.scenarios.find(item => item.name === 'large-search-picker-filter');
+  scenario.work.query_candidates = workSummary(0);
+  assert.ok(evidenceViolations(report).includes('large-search-picker-filter/query_candidates: no exercised work observed'));
+  delete scenario.work.query_candidates;
+  assert.ok(evidenceViolations(report).includes('large-search-picker-filter/query_candidates: missing or invalid exercised work evidence'));
+});
+
 function performanceReport() {
   return {
     metadata: {
@@ -102,7 +111,7 @@ function performanceReport() {
           || (name === 'same-layer-regions' && ['region_allocations', 'region_target_visits', 'buffer_segmentations', 'accessibility_hooks'].includes(workKind))
           || (name === 'input-to-commit' && workKind === 'encoded_bytes')
           ? 1 : 0)
-      ])) }),
+      ]).concat(name === 'large-search-picker-filter' ? [['query_candidates', workSummary(100)]] : [])) }),
       stages: Object.fromEntries(stages.map((stage) => [stage, timingSummary(2)]))
     }))
   };

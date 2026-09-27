@@ -1,3 +1,4 @@
+import { retainPaint } from '../../component/retained-paint.ts';
 import {
   componentScrollbarHitTargets,
   defineComponent,
@@ -162,7 +163,7 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
     };
   },
   measure: measureTextArea,
-  render: paintTextArea,
+  render: retainPaint(paintTextArea),
   keys: (input) => ({
     triggers: [
       ...textEditingTriggers(input.readOnly, true).filter((binding) =>

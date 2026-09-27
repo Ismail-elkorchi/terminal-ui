@@ -1,3 +1,4 @@
+import { isRetainedPainter, registerPaintStyle } from './retained-paint.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { ElementState } from '../element/metadata.ts';
 import { findUnsupportedField, isNonArrayObject } from '../foundation/validation.ts';
@@ -60,6 +61,7 @@ export function adaptDefinition<
 >): RenderNodeRenderer<unknown, 'component'> {
   const { contract, definition } = compiled;
   const renderer: RenderNodeRenderer<unknown, 'component'> = {
+    ...(definition.structure === 'leaf' && isRetainedPainter(definition.render) ? { retainPaint: true } : {}),
     ...(definition.semantics !== 'semantic' || definition.keys === undefined
       ? {}
       : {
@@ -363,6 +365,7 @@ function componentHelpers<TPart extends string>(
       return source;
     }
   };
+  registerPaintStyle(helpers.style, { styles: renderNode.styles, state: renderNode.state });
   cachedByContract.set(contract, helpers);
   return helpers;
 }

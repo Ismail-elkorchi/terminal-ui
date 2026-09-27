@@ -1,6 +1,7 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import {
-  findTextMatches,
+  textMatchStarts,
+  textSearchOffset,
   createTextSearchIndex,
   compileTextSearchQuery
 } from '../text/search-index.ts';
@@ -11,7 +12,7 @@ import {
   compileCollectionQuery,
   indexQueryCandidate,
 } from '../text/query.ts';
-import type { CollectionQuery, CompiledCollectionQuery } from '../text/query.ts';
+import type { CollectionQuery, CompiledCollectionQuery, IndexedQueryCandidate } from '../text/query.ts';
 
 export type LogLevel = 'info' | 'warning' | 'error';
 
@@ -86,8 +87,10 @@ export function appendLogHistory(
   const data = historyData(history);
   if (entries.length === 0) return history;
   const records = createLogRecords(history, data, entries);
-  const segment = logHistorySegment(records);
-  const segments = appendSegment(data.segments, segment);
+  let segments = data.segments;
+  for (let start = 0; start < records.length; start += 256) {
+    segments = appendSegment(segments, logHistorySegment(Object.freeze(records.slice(start, start + 256))));
+  }
   const last = records.at(-1);
   const next = Object.freeze({
     kind: 'log-history',
@@ -133,42 +136,38 @@ export function compileLogSearchQuery(query: CollectionQuery): CompiledLogSearch
 
 export function logHistoryRecordMatchesCompiled(
   record: LogHistoryRecord,
-  query: CompiledLogSearchQuery
+  query: CompiledLogSearchQuery,
+  fields: readonly LogSearchField[] = record.searchFields,
 ): readonly LogSearchMatch[] {
   const textQuery = compiledLogQueries.get(query);
   if (textQuery === undefined) throw new TypeError('log query must be created by compileLogSearchQuery().');
   const matches: LogSearchMatch[] = [];
-  for (const field of record.searchFields) {
-    const ranges = query.query.mode === 'contains'
-      ? findTextMatches(searchIndexFor(field, query.query.caseSensitive), textQuery).map((match) => {
-          const index = searchIndexFor(field, query.query.caseSensitive);
-          return {
-            start: index.textIndex.graphemeIndexToCodeUnitOffset(match.startGraphemeIndex),
-            end: index.textIndex.graphemeIndexToCodeUnitOffset(match.endGraphemeIndexExclusive),
-          };
-        })
-      : matchCompiledCollectionQuery(
-          indexQueryCandidate({ id: record.entry.id, primary: field.text }),
-          query.query,
-        )?.ranges.map((range) => ({ start: range.start, end: range.end })) ?? [];
-    for (const match of ranges) {
-      const occurrenceIndex = matches.length;
-      const fieldKey = 'key' in field ? field.key : undefined;
-      const startOffset = match.start;
-      const endOffsetExclusive = match.end;
-      matches.push(Object.freeze({
-        id: `${record.entry.id}:${String(occurrenceIndex)}:${field.kind}:${fieldKey ?? ''}:${String(startOffset)}:${String(endOffsetExclusive)}`,
-        entryId: record.entry.id,
-        entryIndex: record.entryIndex,
-        occurrenceIndex,
-        field: field.kind,
-        ...(fieldKey === undefined ? {} : { fieldKey }),
-        startOffset,
-        endOffsetExclusive
-      }));
+  for (const field of fields) {
+    if (query.query.mode === 'contains') {
+      const index = searchIndexFor(field, query.query.caseSensitive);
+      for (const start of textMatchStarts(index, textQuery)) {
+        appendMatch(matches, record, field, textSearchOffset(index, start),
+          textSearchOffset(index, start + textQuery.graphemes.length));
+      }
+    } else {
+      const result = matchCompiledCollectionQuery(candidateFor(field), query.query);
+      for (const match of result?.ranges ?? []) appendMatch(matches, record, field, match.start, match.end);
     }
   }
-  return Object.freeze(matches);
+  return matches.length === 0 ? emptyMatches : Object.freeze(matches);
+}
+
+const emptyMatches: readonly LogSearchMatch[] = Object.freeze([]);
+
+function appendMatch(matches: LogSearchMatch[], record: LogHistoryRecord, field: LogSearchField,
+  startOffset: number, endOffsetExclusive: number): void {
+  const occurrenceIndex = matches.length;
+  const fieldKey = 'key' in field ? field.key : undefined;
+  matches.push(Object.freeze({
+    id: `${record.entry.id}:${String(occurrenceIndex)}:${field.kind}:${fieldKey ?? ''}:${String(startOffset)}:${String(endOffsetExclusive)}`,
+    entryId: record.entry.id, entryIndex: record.entryIndex, occurrenceIndex, field: field.kind,
+    ...(fieldKey === undefined ? {} : { fieldKey }), startOffset, endOffsetExclusive,
+  }));
 }
 
 export function logHistoryRecordById(
@@ -197,8 +196,8 @@ const dataByHistory = new WeakMap<LogHistory, LogHistoryData>();
 const segmentIds = new WeakMap<LogHistorySegment, ReadonlySet<string>>();
 const segmentRecordsById = new WeakMap<LogHistorySegment, ReadonlyMap<string, LogHistoryRecord>>();
 const searchIndexes = new WeakMap<LogSearchField, {
-  readonly sensitive: TextSearchIndex;
-  readonly insensitive: TextSearchIndex;
+  sensitive?: TextSearchIndex;
+  insensitive?: TextSearchIndex;
 }>();
 const compiledLogQueries = new WeakMap<CompiledLogSearchQuery, CompiledTextSearchQuery>();
 
@@ -239,15 +238,26 @@ function createLogRecords(
   }));
 }
 
+const queryCandidates = new WeakMap<LogSearchField, IndexedQueryCandidate>();
+
+function candidateFor(field: LogSearchField): IndexedQueryCandidate {
+  let candidate = queryCandidates.get(field);
+  if (candidate === undefined) {
+    candidate = indexQueryCandidate({ id: '', primary: field.text });
+    queryCandidates.set(field, candidate);
+  }
+  return candidate;
+}
+
 function searchIndexFor(field: LogSearchField, caseSensitive: boolean): TextSearchIndex {
-  const cached = searchIndexes.get(field);
-  if (cached !== undefined) return caseSensitive ? cached.sensitive : cached.insensitive;
-  const indexes = Object.freeze({
-    sensitive: createTextSearchIndex(field.text, { caseSensitive: true }),
-    insensitive: createTextSearchIndex(field.text),
-  });
-  searchIndexes.set(field, indexes);
-  return caseSensitive ? indexes.sensitive : indexes.insensitive;
+  let indexes = searchIndexes.get(field);
+  if (indexes === undefined) {
+    indexes = {};
+    searchIndexes.set(field, indexes);
+  }
+  return caseSensitive
+    ? indexes.sensitive ??= createTextSearchIndex(field.text, { caseSensitive: true })
+    : indexes.insensitive ??= createTextSearchIndex(field.text);
 }
 
 function normalizeEntry(
@@ -326,7 +336,8 @@ function appendSegment(
 ): readonly LogHistorySegment[] {
   const segments = [...previous];
   let carry = appended;
-  while ((segments.at(-1)?.records.length ?? Number.POSITIVE_INFINITY) <= carry.records.length) {
+  while ((segments.at(-1)?.records.length ?? Number.POSITIVE_INFINITY) <= carry.records.length
+    && (segments.at(-1)?.records.length ?? 0) + carry.records.length <= 256) {
     const left = segments.pop();
     if (left === undefined) break;
     carry = logHistorySegment(Object.freeze([...left.records, ...carry.records]));
@@ -358,6 +369,10 @@ function compareCodePoints(left: string, right: string): number {
 
 export function logHistorySegments(history: LogHistory): readonly LogHistorySegment[] {
   return historyData(history).segments;
+}
+
+export function logHistorySegmentHasId(segment: LogHistorySegment, id: string): boolean {
+  return segmentIds.get(segment)?.has(id) === true;
 }
 
 function historyData(history: LogHistory): LogHistoryData {

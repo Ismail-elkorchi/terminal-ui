@@ -1,3 +1,4 @@
+import { retainPaint } from '../../component/retained-paint.ts';
 import {
   clipRenderSpans,
   defineComponent,
@@ -140,7 +141,7 @@ const instantiateNumberInput = defineComponent<Omit<NumberInputOptions<Component
   }),
   createModel: createNumberInputModel,
   measure: measureNumberInput,
-  render: paintNumberInput,
+  render: retainPaint(paintNumberInput),
   keys: ({ readOnly }) => ({
     triggers: textEditingTriggers(readOnly, false),
     ...(readOnly ? {} : {
@@ -313,7 +314,7 @@ function textEntryDefinition<
         preferredHeight: 1 + (input.model.error === '' ? 0 : 1),
       };
     },
-    render: paintTextEntry,
+    render: retainPaint(paintTextEntry),
     keys: ({ model, readOnly }) => ({
       triggers: textEditingTriggers(readOnly, false),
       ...(readOnly ? {} : {

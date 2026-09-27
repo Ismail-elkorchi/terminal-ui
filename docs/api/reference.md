@@ -3892,6 +3892,13 @@ Import from: `@ismail-elkorchi/terminal-ui/behavior` (type only)
 export interface SearchPickerWindow<TValue = string> { … }
 ```
 
+<a id="behavior-searchpickerwindow-matches"></a>
+#### matches
+
+```ts
+readonly matches: readonly import('../text/query.ts').QueryMatch[];
+```
+
 <a id="behavior-searchpickerwindow-entries"></a>
 #### entries
 

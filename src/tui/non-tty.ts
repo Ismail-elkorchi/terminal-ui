@@ -67,7 +67,7 @@ export async function runTuiNonTty<TState, TMessage>(
 
   let frame: Frame;
   try {
-    frame = renderCurrentFrame(
+    frame = (await renderCurrentFrame(
       app,
       state,
       context,
@@ -75,7 +75,7 @@ export async function runTuiNonTty<TState, TMessage>(
       resolveTuiTheme(options.theme, state),
       0,
       `${app.id}:commit:1`
-    ).frame;
+    )).frame;
     recordTuiCommit(transcript, {
       id: `${app.id}:commit:1`,
       stateVersion: 0,

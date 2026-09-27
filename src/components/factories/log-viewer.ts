@@ -1,3 +1,5 @@
+import { registerRenderPreparation } from '../../foundation/render-preparation.ts';
+import { retainPaint } from '../../component/retained-paint.ts';
 /* eslint-disable @typescript-eslint/unified-signatures -- passive and scrollable overloads preserve contextual action inference */
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import {
@@ -64,8 +66,10 @@ import {
   createLogViewerRecordView,
   logViewerRowForEntry,
   searchLogViewerHistory,
+  prepareLogViewerSearch,
   visibleLogViewerRecords,
 } from '../internal/log-viewer-layout.ts';
+import type { LogViewerSearchResults } from '../internal/log-viewer-layout.ts';
 
 interface LogViewerModel {
   readonly history: LogHistory;
@@ -124,6 +128,8 @@ interface LogViewerWindow {
 }
 
 const logViewerWindows = new WeakMap<LogViewerModel, Map<string, LogViewerWindow>>();
+// A prepared result must survive other components yielding before this model is painted.
+const preparedSearches = new WeakMap<LogViewerModel, LogViewerSearchResults>();
 
 const parts = [
   'body',
@@ -147,7 +153,7 @@ const baseDefinition = {
   parts,
   visualStates: ['focused', 'hovered', 'active', 'selected', 'disabled'] as const,
   measure: measureLogViewer,
-  render: renderLogViewer,
+  render: retainPaint(renderLogViewer),
   accessibility: logViewerAccessibility,
 };
 
@@ -157,7 +163,7 @@ const activeLogViewer = defineComponent<LogViewerComponentOptions, LogViewerComp
   ...baseDefinition,
   createModel: createLogViewerModel,
   keys: ({ model }) => {
-    const search = searchLogViewerHistory(
+    const search = preparedSearches.get(model) ?? searchLogViewerHistory(
       model.history,
       model.query,
       new Set(model.foldedIds),
@@ -215,12 +221,6 @@ function createLogViewerModel(value: Readonly<LogViewerComponentOptions>): LogVi
     ? undefined
     : nonEmpty(value.activeMatchId, 'logViewer activeMatchId');
   const foldedIds = ownStringArray(value.foldedIds);
-  if (activeMatchId !== undefined) {
-    const search = searchLogViewerHistory(history, query, new Set(foldedIds));
-    if (!search.matches.some((match) => match.id === activeMatchId)) {
-      throw new RangeError('logViewer activeMatchId must identify a match for the current query.');
-    }
-  }
   const selection = ownLogViewerSelection(value.selection);
   const scroll = decodeComponentScrollState(value.scroll, 'logViewer scroll');
   const scrollbar = decodeComponentScrollbarOptions(value.scrollbar, 'logViewer scrollbar');
@@ -231,7 +231,7 @@ function createLogViewerModel(value: Readonly<LogViewerComponentOptions>): LogVi
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
     throw new TypeError('logViewer scrollbar and scrollPolicy require scroll state.');
   }
-  return {
+  const model: LogViewerModel = {
     history,
     wrap,
     query,
@@ -242,6 +242,9 @@ function createLogViewerModel(value: Readonly<LogViewerComponentOptions>): LogVi
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
   };
+  return registerRenderPreparation(model, async context => {
+    preparedSearches.set(model, await prepareLogViewerSearch(history, query, new Set(foldedIds), context));
+  });
 }
 
 function measureLogViewer(input: ComponentMeasureInput<LogViewerModel>) {
@@ -321,10 +324,13 @@ function logViewerWindow(
     input.widthProfile,
     foldedIds,
   );
-  const search = searchLogViewerHistory(input.model.history, input.model.query, foldedIds);
+  const search = preparedSearches.get(input.model) ?? searchLogViewerHistory(input.model.history, input.model.query, foldedIds);
   const activeMatch = input.model.activeMatchId === undefined
     ? search.matches[0]
     : search.matches.find((match) => match.id === input.model.activeMatchId);
+  if (input.model.activeMatchId !== undefined && activeMatch === undefined) {
+    throw new RangeError('logViewer activeMatchId must identify a match for the current query.');
+  }
   const firstMatchRow = activeMatch === undefined
     ? undefined
     : matchingLogViewerRow(input, initialLayout, activeMatch, foldedIds);

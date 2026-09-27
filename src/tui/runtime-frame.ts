@@ -1,3 +1,6 @@
+import { prepareRenderTree } from '../renderer/internal/prepare-render.ts';
+import { toRenderNode } from '../renderer/internal/render-tree/element.ts';
+import type { RenderPreparationContext } from '../foundation/render-preparation.ts';
 import type { RenderNode } from '../renderer/internal/render-tree/index.ts';
 import { defaultTheme } from '../theme/index.ts';
 import { resolveThemeInput } from '../theme/theme.ts';
@@ -47,7 +50,7 @@ export interface RenderCommitCandidate<TMessage> {
   readonly pointerVisuals?: PointerVisualSnapshot;
 }
 
-export function renderCurrentFrame<TState, TMessage>(
+export async function renderCurrentFrame<TState, TMessage>(
   app: TuiApp<TState, TMessage>,
   state: TState,
   context: TuiContext,
@@ -59,10 +62,15 @@ export function renderCurrentFrame<TState, TMessage>(
   pointerVisuals?: PointerVisualSnapshot,
   instrumentation?: RenderInstrumentation,
   focusPathForLayout?: (layout: LayoutNode) => FocusPath | undefined,
-): RenderCommitCandidate<TMessage> {
-  const renderResult = renderElementInternal(tuiDefinition(app).view(state, context), context.terminalSize, {
+  previous?: RenderCommitCandidate<TMessage>,
+  preparation?: RenderPreparationContext,
+): Promise<RenderCommitCandidate<TMessage>> {
+  const element = tuiDefinition(app).view(state, context);
+  if (preparation !== undefined) await prepareRenderTree(toRenderNode(element), preparation);
+  const renderResult = renderElementInternal(element, context.terminalSize, {
     ...(focusPath === undefined ? {} : { focusPath }),
     theme,
+    ...(previous === undefined ? {} : { previous }),
     widthProfile: context.capabilities.unicode.widthProfile,
     ...(graphicsBudget === undefined ? {} : { graphicsBudget }),
     ...(pointerVisuals === undefined ? {} : { pointerVisuals }),

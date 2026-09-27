@@ -4,6 +4,25 @@ import { defaultTextWidthProfile, textWidthProfileKey } from './width-profile.ts
 
 const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
+/** Segmentation without terminal geometry, for matching and bounded rendering. */
+export function graphemeSegments(text: string): Intl.Segments {
+  return graphemeSegmenter.segment(text);
+}
+
+export function* measuredGraphemes(
+  text: string,
+  options: TextMeasurementOptions,
+): IterableIterator<GraphemeSegment> {
+  for (const segment of graphemeSegments(text)) {
+    yield {
+      text: segment.segment,
+      startOffset: segment.index,
+      endOffsetExclusive: segment.index + segment.segment.length,
+      cells: measureGraphemeCells(segment.segment, options),
+    };
+  }
+}
+
 /** A boundary-only query. Intl.Segments.containing resolves the exact Unicode
  * grapheme at an offset without allocating or measuring the rest of the text. */
 export function graphemeAt(text: string, offset: number): { readonly startOffset: number; readonly endOffsetExclusive: number } | undefined {
@@ -35,7 +54,8 @@ export function segmentGraphemes(text: string): readonly GraphemeSegment[] {
 
 export function segmentGraphemesForMeasurement(
   text: string,
-  options: TextMeasurementOptions
+  options: TextMeasurementOptions,
+  onSegmentation?: (codeUnits: number) => void,
 ): readonly GraphemeSegment[] {
   const cacheKey = segmentCacheKey(text, options);
   if (cacheKey !== undefined) {
@@ -46,12 +66,8 @@ export function segmentGraphemesForMeasurement(
       return cached;
     }
   }
-  const segments = Object.freeze([...graphemeSegmenter.segment(text)].map((segment) => Object.freeze({
-    text: segment.segment,
-    startOffset: segment.index,
-    endOffsetExclusive: segment.index + segment.segment.length,
-    cells: measureGraphemeCells(segment.segment, options)
-  })));
+  const segments = Object.freeze(Array.from(measuredGraphemes(text, options), segment => Object.freeze(segment)));
+  onSegmentation?.(text.length);
   if (cacheKey !== undefined) {
     segmentCache.set(cacheKey, segments);
     segmentCacheWeight += cacheKey.length;
@@ -93,6 +109,7 @@ function wordSegmenter(locale = defaultWordLocale): Intl.Segmenter {
 
 function measureGraphemeCells(text: string, options: TextMeasurementOptions): number {
   if (text.length === 0) return 0;
+  if (text.length === 1 && text.charCodeAt(0) >= 0x20 && text.charCodeAt(0) <= 0x7e) return 1;
   const profile = options.widthProfile ?? defaultTextWidthProfile;
   const codePoints = Array.from(text, (value) => value.codePointAt(0) ?? 0);
   const visible = codePoints.filter((value) => !isZeroWidthCodePoint(value));

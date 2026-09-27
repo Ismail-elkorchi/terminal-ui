@@ -1,4 +1,4 @@
-import { createCompositingFrameBuffer } from '../frame-buffer.ts';
+import { createCompositingFrameBuffer, seedFrameBufferRows, registerSpanTarget, transferFrameCell, transferFrameBufferSpans, recordTargetSegmentation } from '../frame-buffer.ts';
 import { createDirtyRegionSet } from './dirty-regions.ts';
 import type { TerminalSize } from '../../geometry/types.ts';
 import { intersectRects } from '../../geometry/rect.ts';
@@ -102,6 +102,7 @@ export function createDraftRenderRegion(
     readonly backdropBounds?: Rect;
     readonly widthProfile: TextWidthProfile;
     readonly instrumentation?: Pick<RenderInstrumentation, 'recordWork'>;
+    readonly previous?: FrameSnapshotMetadata;
   }
 ): DraftRenderRegion {
   const { id, zIndex, order, terminalSize, bounds, underlay, backdropBounds, widthProfile, instrumentation } = input;
@@ -113,7 +114,7 @@ export function createDraftRenderRegion(
     bounds: regionBounds,
     underlay,
     ...(backdropBounds === undefined ? {} : { backdropBounds }),
-    buffer: createRegionFrameBuffer(terminalSize, regionBounds, widthProfile, instrumentation)
+    buffer: createRegionFrameBuffer(terminalSize, regionBounds, widthProfile, instrumentation, input.previous)
   };
 }
 
@@ -122,12 +123,17 @@ function createRegionFrameBuffer(
   bounds: Rect,
   widthProfile: TextWidthProfile,
   instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
+  previous?: FrameSnapshotMetadata,
 ): FrameBuffer {
   const local = createCompositingFrameBuffer(bounds.width, bounds.height, {
     widthProfile,
     ...(instrumentation === undefined ? {} : { instrumentation })
   });
-  return {
+  if (previous !== undefined) {
+    const localMetadata = translateSnapshotMetadata({ ...bounds, row: 2 - bounds.row, column: 2 - bounds.column }, previous, cell => toLocalCell(bounds, cell));
+    seedFrameBufferRows(local, localMetadata.rowIndexes);
+  }
+  return registerSpanTarget({
     coordinateSpace: 'frame',
     width: terminalSize.columns,
     height: terminalSize.rows,
@@ -172,20 +178,31 @@ function createRegionFrameBuffer(
       const frame = local.snapshot(options);
       const metadata = frameSnapshotMetadata(frame);
       if (metadata === undefined) throw new Error('Framework frame snapshot metadata is unavailable.');
+      const translations = new Map<FrameCell, FrameCell>();
+      const translate = (cell: FrameCell): FrameCell => {
+        if (bounds.row === 1 && bounds.column === 1) return cell;
+        let result = translations.get(cell);
+        if (result === undefined) { result = Object.freeze(toTerminalCell(bounds, cell)); translations.set(cell, result); }
+        return result;
+      };
       const translated = Object.freeze({
         ...frame,
         width: terminalSize.columns,
         height: terminalSize.rows,
-        cells: Object.freeze(frame.cells.map((cell) => toTerminalCell(bounds, cell))),
+        cells: bounds.row === 1 && bounds.column === 1 ? frame.cells : Object.freeze(frame.cells.map(translate)),
         graphics: Object.freeze(frame.graphics.map((placement) => Object.freeze({
           ...placement,
           bounds: toTerminalRect(bounds, placement.bounds),
           clip: toTerminalRect(bounds, placement.clip)
         }))),
       }) as FrameBufferSnapshot;
-      return registerFrameSnapshotMetadata(translated, translateSnapshotMetadata(bounds, metadata));
+      return registerFrameSnapshotMetadata(translated, translateSnapshotMetadata(bounds, metadata, translate));
     }
-  };
+  }, {
+    cell: cell => { if (cellInside(cell, bounds)) transferFrameCell(local, toLocalCell(bounds, cell)); },
+    transfer: (row, column, spans) => { transferFrameBufferSpans(local, toLocalRow(bounds, row), toLocalColumn(bounds, column), spans); },
+    segmented: codeUnits => { recordTargetSegmentation(local, codeUnits); },
+  });
 }
 
 function toTerminalRect(bounds: Rect, rect: Rect): Rect {
@@ -232,6 +249,7 @@ function toLocalRect(bounds: Rect, rect: Rect): Rect {
 }
 
 function toLocalCell(bounds: Rect, cell: FrameCell): FrameCell {
+  if (bounds.row === 1 && bounds.column === 1) return cell;
   return {
     ...cell,
     row: toLocalRow(bounds, cell.row),
@@ -247,7 +265,10 @@ function toTerminalCell(bounds: Rect, cell: FrameCell): FrameCell {
   };
 }
 
-function translateSnapshotMetadata(bounds: Rect, metadata: FrameSnapshotMetadata): FrameSnapshotMetadata {
+function translateSnapshotMetadata(
+  bounds: Rect, metadata: FrameSnapshotMetadata, translate: (cell: FrameCell) => FrameCell,
+): FrameSnapshotMetadata {
+  if (bounds.row === 1 && bounds.column === 1) return metadata;
   return Object.freeze({
     writtenBounds: translateDirtyRegionSet(bounds, metadata.writtenBounds),
     clearedBounds: translateDirtyRegionSet(bounds, metadata.clearedBounds),
@@ -259,13 +280,13 @@ function translateSnapshotMetadata(bounds: Rect, metadata: FrameSnapshotMetadata
     rowIndexes: Object.freeze(metadata.rowIndexes.map((entry) => {
       const cells = new Map<number, FrameCell>();
       for (const cell of entry.cells.values()) {
-        const translated = toTerminalCell(bounds, cell);
+        const translated = translate(cell);
         cells.set(translated.column, translated);
       }
       return Object.freeze({
         row: entry.row + bounds.row - 1,
         cells,
-        renderable: Object.freeze(entry.renderable.map((cell) => toTerminalCell(bounds, cell))),
+        renderable: Object.freeze(entry.renderable.map(translate)),
         fingerprint: entry.fingerprint,
         terminalFingerprint: entry.terminalFingerprint,
       });

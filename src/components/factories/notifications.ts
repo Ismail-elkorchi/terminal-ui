@@ -1,3 +1,4 @@
+import { retainPaint } from '../../component/retained-paint.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import {
   clipRenderSpans,
@@ -104,7 +105,7 @@ const passiveRegion = defineComponent<Omit<NotificationOwnOptions, 'selectedId'>
   visualStates: [],
   createModel: (value) => createNotificationsModel(value, false, false),
   measure: measureNotifications,
-  render: paintRegionNotifications,
+  render: retainPaint(paintRegionNotifications),
   accessibility: (input) => accessibleNotifications(input, 'region', false),
 });
 
@@ -119,7 +120,7 @@ const activeRegion = defineComponent<Omit<NotificationOwnOptions, 'selectedId'>,
   visualStates: ['hovered', 'pressed'],
   createModel: (value) => createNotificationsModel(value, false, true),
   measure: measureNotifications,
-  render: paintRegionNotifications,
+  render: retainPaint(paintRegionNotifications),
   focusTargets: (input) => focusTargets(input, 'region'),
   hitTargets: (input) => hitTargets<NotificationDismissEvent>(input, 'region'),
   accessibility: (input) => accessibleNotifications(input, 'region', true),
@@ -136,7 +137,7 @@ const history = defineComponent<NotificationOwnOptions, NotificationHistoryCompo
   visualStates: ['hovered', 'pressed', 'active', 'selected', 'disabled'],
   createModel: (value) => createNotificationsModel(value, true, true),
   measure: measureNotifications,
-  render: paintHistoryNotifications,
+  render: retainPaint(paintHistoryNotifications),
   keys: (input) => ({
     arrowUp: () => historySelection(input, -1),
     arrowDown: () => historySelection(input, 1),

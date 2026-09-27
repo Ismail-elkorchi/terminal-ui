@@ -5,7 +5,6 @@ export function abortableSleep(ms: number, signal?: AbortSignal): Promise<Termin
     throw new RangeError('ms must be a finite non-negative number.');
   }
   if (signal?.aborted === true) return Promise.resolve('aborted');
-  if (ms === 0) return Promise.resolve('elapsed');
 
   return new Promise((resolve) => {
     let settled = false;

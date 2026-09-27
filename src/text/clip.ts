@@ -1,4 +1,4 @@
-import { segmentGraphemesForMeasurement } from './graphemes.ts';
+import { measuredGraphemes } from './graphemes.ts';
 import { measureTextCells } from './measure.ts';
 import { sanitizeTerminalText } from './sanitize.ts';
 import type { TextClipOptions, TextClipResult, TextMeasurementOptions } from './types.ts';
@@ -18,7 +18,7 @@ export function clipTextCells(
   const budget = Math.max(0, maxCells - fittedEllipsisCells);
   let cells = 0;
   let output = '';
-  for (const segment of segmentGraphemesForMeasurement(sanitizeTerminalText(text).text, options)) {
+  for (const segment of measuredGraphemes(sanitizeTerminalText(text).text, options)) {
     if (cells + segment.cells > budget) {
       const clippedText = `${output}${fittedEllipsis}`;
       return { text: clippedText, cells: measureTextCells(clippedText, options).cells, clipped: true };
@@ -32,7 +32,7 @@ export function clipTextCells(
 function takeCells(text: string, maxCells: number, options: TextMeasurementOptions): TextClipResult {
   let output = '';
   let cells = 0;
-  for (const segment of segmentGraphemesForMeasurement(sanitizeTerminalText(text).text, options)) {
+  for (const segment of measuredGraphemes(sanitizeTerminalText(text).text, options)) {
     if (cells + segment.cells > maxCells) return { text: output, cells, clipped: true };
     output += segment.text;
     cells += segment.cells;

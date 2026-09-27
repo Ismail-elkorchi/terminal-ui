@@ -1,4 +1,4 @@
-import { measureTerminalCellText } from '../../text/index.ts';
+import { terminalCellGraphemes } from '../../text/measure.ts';
 import type { Rect } from '../../geometry/types.ts';
 import type { RenderBlock, RenderLine, RenderSpan } from '../../visual/render-content.ts';
 import {
@@ -10,7 +10,7 @@ import { decodeTerminalStyle } from '../../visual/terminal-style.ts';
 import { decodeTerminalLink } from '../../visual/render-content.ts';
 import type { ComponentRenderTarget, RenderTarget, RenderTargetCell } from '../contracts.ts';
 import { intersectRects } from './rect.ts';
-import { transferFrameBufferSpans } from '../frame-buffer.ts';
+import { transferFrameBufferSpans, recordTargetSegmentation } from '../frame-buffer.ts';
 
 /** Creates the bounded, write-only target exposed to component definitions. */
 export function createLocalComponentRenderTarget(
@@ -149,7 +149,9 @@ function writeClippedSpans(
   let nextColumn = Math.floor(column);
   const right = bounds.column + bounds.width;
   for (const span of spans) {
-    const measured = measureTerminalCellText(span.text, { widthProfile: target.widthProfile });
+    if (nextColumn > right) break;
+    const graphemes = terminalCellGraphemes(span.text, { widthProfile: target.widthProfile },
+      codeUnits => { recordTargetSegmentation(target, codeUnits); });
     const style = span.style === undefined
       ? undefined
       : decodeTerminalStyle(
@@ -172,7 +174,8 @@ function writeClippedSpans(
       transferFrameBufferSpans(target, row, runColumn, [{ graphemes: run, ...metadata }]);
       run = [];
     };
-    for (const grapheme of measured.graphemes) {
+    for (const grapheme of graphemes) {
+      if (nextColumn >= right && grapheme.cells > 0) { nextColumn += grapheme.cells; break; }
       const endColumn = nextColumn + grapheme.cells;
       const fullyInside = grapheme.cells === 0
         ? nextColumn > bounds.column && nextColumn <= right

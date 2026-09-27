@@ -1,3 +1,4 @@
+import { retainPaint } from '../../component/retained-paint.ts';
 import {
   clipRenderLine,
   componentScrollbarHitTargets,
@@ -76,7 +77,7 @@ const listboxDefinitionBase = {
   visualStates: ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy'] as const,
   states: ['disabled', 'busy', 'inert'] as const,
   measure: measureListbox,
-  render: renderListbox,
+  render: retainPaint(renderListbox),
   accessibility: accessibleListbox,
   inspection: ({ model }: { readonly model: Readonly<ListboxModel> }) => ({
     ...(model.activeId === undefined ? {} : { active: model.activeId }),

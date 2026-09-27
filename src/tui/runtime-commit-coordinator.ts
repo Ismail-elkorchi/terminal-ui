@@ -129,7 +129,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
       focus = pendingInitialFocus,
     ) {
       const theme = resolveTuiTheme(options.theme, state);
-      const resolution = resolveCandidate(
+      const resolution = await resolveCandidate(
         state,
         context,
         theme,
@@ -152,7 +152,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
     ) {
       const theme = resolveTuiTheme(options.theme, state);
       const previousFrame = frameDiffBase(theme);
-      const resolution = resolveCandidate(
+      const resolution = await resolveCandidate(
         state,
         context,
         theme,
@@ -259,7 +259,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
     return `${options.app.id}:commit:${String(nextCommitSequence)}`;
   }
 
-  function resolveCandidate(
+  async function resolveCandidate(
     state: TState,
     context: TuiContext,
     theme: RenderCommitCandidate<TMessage>['theme'],
@@ -268,7 +268,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
     initialFocus: TuiRuntimeOptions<TState, TMessage>['initialFocus'],
     stateVersion: number,
     commitId: string
-  ): RuntimeRenderResolution<TMessage> {
+  ): Promise<RuntimeRenderResolution<TMessage>> {
     const planned: { current?: PlannedFocusResolution } = {};
     const focusForLayout = (layout: LayoutNode): FocusPath | undefined => {
       const next = planCandidateFocus(layout, requestedFocusPath, previousReturnPaths, initialFocus);
@@ -286,7 +286,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
           options.pointerVisuals?.(),
           options.instrumentation,
         )
-      : renderCurrentFrame(
+      : await renderCurrentFrame(
           options.app,
           state,
           context,
@@ -298,6 +298,8 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
           options.pointerVisuals?.(),
           options.instrumentation,
           focusForLayout,
+          committed?.render,
+          { signal, yield: async () => { await options.host.clock.sleep(0, signal); signal.throwIfAborted(); } },
         );
     const focus = planned.current;
     if (focus === undefined) throw new Error('TUI frame was painted without resolving its focus.');

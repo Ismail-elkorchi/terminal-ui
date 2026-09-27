@@ -1,3 +1,5 @@
+import { retainPaint } from '../../component/retained-paint.ts';
+import { measureTextWidth } from '../../text/measure.ts';
 import {
   defineComponent,
   ignoreMessage,
@@ -14,7 +16,7 @@ import type {
 } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
 import type { DisclosureOptions, RichTextOptions, TextOptions } from '../options/content-and-collections.ts';
-import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
+import { sanitizeTerminalText } from '../../text/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type { ElementTextRole } from '../../element/metadata.ts';
 import type { TerminalStyle } from '../../visual/render-content.ts';
@@ -84,13 +86,13 @@ export const text: SemanticLeafComponentFactory<
       minWidth: 0,
       minHeight: 0,
       preferredWidth: lines.reduce(
-        (width, line) => Math.max(width, measureTextCells(line, { widthProfile }).cells),
+        (width, line) => Math.max(width, measureTextWidth(line, { widthProfile })),
         0,
       ),
       preferredHeight: lines.length,
     };
   },
-  render({ model, target, style, frameSource }: ComponentRenderInput<TextModel, TextStylePart>) {
+  render: retainPaint(({ model, target, style, frameSource }: ComponentRenderInput<TextModel, TextStylePart>) => {
     const contentStyle = style({
       part: 'content',
       base: textRoleStyle(model.textRole),
@@ -109,7 +111,7 @@ export const text: SemanticLeafComponentFactory<
         }],
       })),
     });
-  },
+  }),
   accessibility({ id, model }) {
     const heading = model.textRole === 'heading' || model.textRole === 'title';
     return {

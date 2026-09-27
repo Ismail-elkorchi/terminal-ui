@@ -1,3 +1,5 @@
+import { samePaintData } from '../../foundation/paint-data.ts';
+import { createPaintRetention } from './retained-paint.ts';
 import { decodeAccessibleSnapshotWithPolicy } from '../../accessibility/validate.ts';
 import type { Element } from '../../element/index.ts';
 import { toRenderNode } from './render-tree/element.ts';
@@ -21,6 +23,8 @@ import {
   blitFrameCell,
   captureFrameBufferDamage,
   transferFrameCell,
+  retainFrameBufferRows,
+  frameSnapshotWork,
 } from '../frame-buffer.ts';
 import { applyCursorStyle } from './cursor-style.ts';
 import { applyFramePasses, boxDrawingJoinPass } from '../frame-passes/index.ts';
@@ -87,6 +91,7 @@ import {
 import type { RenderElementOptions } from '../render-element.ts';
 
 interface InternalRenderElementOptions extends RenderElementOptions {
+  readonly previous?: Pick<InternalRenderResult, 'regions' | 'frame' | 'pointerVisuals' | 'node' | 'layout'>;
   readonly pointerVisuals?: PointerVisualSnapshot;
   readonly focusPathForLayout?: (layout: LayoutNode) => FocusPath | undefined;
 }
@@ -130,12 +135,12 @@ export function renderElementInternal<TMessage>(
   const paintOptions = options.focusPathForLayout === undefined
     ? options
     : { ...options, focusPath: options.focusPathForLayout(resolved.layout) };
-  return materializeRenderNode(resolved.node, environment.terminalSize, theme, widthProfile, resolved.layout, budget, paintOptions);
+  return materializeRenderNode(resolved.node, environment.terminalSize, theme, widthProfile, resolved.layout, budget, paintOptions, options.previous as Pick<InternalRenderResult<TMessage>, 'regions' | 'frame' | 'pointerVisuals' | 'node' | 'layout'> | undefined);
 }
 
 /** Repaints a previous render tree when only focus-dependent output changed. */
 export function rerenderElementInternal<TMessage>(
-  previous: Pick<InternalRenderResult<TMessage>, 'node' | 'terminalSize' | 'theme' | 'widthProfile' | 'layout' | 'limits' | 'graphicsBudget' | 'regions' | 'frame' | 'pointerVisuals'>,
+  previous: Pick<InternalRenderResult<TMessage>, 'node' | 'terminalSize' | 'theme' | 'widthProfile' | 'layout' | 'limits' | 'graphicsBudget' | 'regions' | 'frame' | 'pointerVisuals'    >,
   options: Pick<InternalRenderElementOptions, 'focusPath' | 'framePasses' | 'disableFramePasses' | 'instrumentation' | 'pointerVisuals'> = {},
 ): InternalRenderResult<TMessage> {
   return materializeRenderNode(
@@ -158,7 +163,7 @@ function materializeRenderNode<TMessage>(
   layout: LayoutNode,
   budget: RenderBudget,
   options: MaterializeOptions,
-  previous?: Pick<InternalRenderResult<TMessage>, 'regions' | 'frame' | 'pointerVisuals'>,
+  previous?: Pick<InternalRenderResult<TMessage>, 'regions' | 'frame' | 'pointerVisuals' | 'node' | 'layout'>,
 ): InternalRenderResult<TMessage> {
   const decorativeNodes = decorativeSubtreeNodes(renderNode, layout);
   const resolvedFocusPath = measureRenderStage(options.instrumentation, 'focus', () =>
@@ -186,7 +191,7 @@ function materializeRenderNode<TMessage>(
     });
   }
   const composition = measureRenderStage(options.instrumentation, 'composition', () => {
-    return compositeRegions(terminalSize, regions, widthProfile, budget, options.instrumentation);
+    return compositeRegions(terminalSize, regions, widthProfile, budget, options.instrumentation, previous?.frame);
   });
   const buffer = composition.buffer;
   if (options.instrumentation?.recordWork !== undefined) {
@@ -261,8 +266,9 @@ function materializeRenderNode<TMessage>(
       ...(resolvedFocusPath === undefined ? {} : { focusPath: resolvedFocusPath })
     }));
   if (options.instrumentation?.recordWork !== undefined) {
-    options.instrumentation.recordWork({ kind: 'snapshot_rows', count: frame.height });
-    options.instrumentation.recordWork({ kind: 'snapshot_cells', count: frame.cells.length });
+    const work = frameSnapshotWork(frame);
+    options.instrumentation.recordWork({ kind: 'snapshot_rows', count: work.rows });
+    options.instrumentation.recordWork({ kind: 'snapshot_cells', count: work.cells });
   }
   return {
     node: renderNode,
@@ -320,10 +326,10 @@ function renderLayoutRegions<TMessage>(
   budget: RenderBudget,
   pointerVisuals: PointerVisualSnapshot | undefined,
   instrumentation?: RenderInstrumentation,
-  previous?: Pick<InternalRenderResult<TMessage>, 'regions' | 'frame' | 'pointerVisuals'>,
+  previous?: Pick<InternalRenderResult<TMessage>, 'regions' | 'frame' | 'pointerVisuals' | 'node' | 'layout'>,
 ): readonly RenderRegion<TMessage>[] {
   const oldFocus = previous?.frame.focusPath;
-  const changedInteraction = previous !== undefined && (
+  const changedInteraction = previous?.node === renderNode && previous.layout === layout && (
     !sameOptionalFocusPath(oldFocus, focusPath)
     || !samePointerVisualSnapshot(previous.pointerVisuals, pointerVisuals)
   );
@@ -332,7 +338,7 @@ function renderLayoutRegions<TMessage>(
     : undefined;
   const composer = createRegionComposer<TMessage>(
     terminalSize, widthProfile, decorativeNodes, budget, instrumentation,
-    affected === undefined ? undefined : previous?.regions,
+    previous?.regions,
     affected,
   );
   const path = nodePath(layout, []);
@@ -350,7 +356,9 @@ function renderLayoutRegions<TMessage>(
       instrumentation,
     );
   }
-  return composer.snapshot(createRegionTargetIndex(renderNode, layout, instrumentation), theme, widthProfile);
+  const regions = composer.snapshot(createRegionTargetIndex(renderNode, layout, instrumentation), theme, widthProfile);
+  composer.painting.commit(regions);
+  return regions;
 }
 
 function sameOptionalFocusPath(left: FocusPath | undefined, right: FocusPath | undefined): boolean {
@@ -534,6 +542,14 @@ function renderRenderNodeToRegion<TMessage>(
     hitTargetOwnerIdentity(path, node.identity),
   );
   const focusedTargetId = focusedTargetIdForLayoutNode(node, path, focusPath);
+  if (composer.painting.paint({ renderNode, layoutNode: node, buffer: target, theme, widthProfile,
+    focus: renderFocusRelation(focusPath, path),
+    ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
+    ...(pointerState === undefined ? {} : { pointerState }),
+  }, path, buffer => {
+    renderRenderNodeToBuffer(renderNode, node, parentPath, buffer, theme, widthProfile,
+      focusPath, pointerVisuals, instrumentation);
+  })) return;
   const localTarget = targetForRenderNode(renderNode, node, target);
   const renderTarget = localTarget?.target ?? target;
   const childrenTarget = renderNodeClipsChildren(renderNode)
@@ -707,6 +723,7 @@ function orderedChildren(
 }
 
 interface RegionComposer<TMessage> {
+  readonly painting: ReturnType<typeof createPaintRetention>;
   reuseFor(renderNode: RenderNode, node: LayoutNode, parentPath: FocusPath): boolean;
   regionFor(renderNode: RenderNode, node: LayoutNode, path: FocusPath): DraftRenderRegion;
   snapshot(
@@ -725,11 +742,13 @@ function createRegionComposer<TMessage>(
   previous?: readonly RenderRegion<TMessage>[],
   affected?: ReadonlySet<string>,
 ): RegionComposer<TMessage> {
+  const painting = createPaintRetention(previous);
   const regions: DraftRenderRegion[] = [];
   const reused: RenderRegion<TMessage>[] = [];
   const prior = new Map(previous?.map((region) => [region.id, region]) ?? []);
   let regionOrder = 0;
   return {
+    painting,
     reuseFor(renderNode, node, parentPath) {
       const path = nodePath(node, parentPath);
       const id = regionIdForLayoutNode(node, path);
@@ -742,6 +761,7 @@ function createRegionComposer<TMessage>(
       ): void => {
         if (!currentLayout.visible) return;
         const currentPath = nodePath(currentLayout, parentPath);
+        painting.keep(current, currentLayout.identity, currentPath);
         if (parentLayer !== currentLayout.layer.zIndex) {
           const cached = prior.get(regionIdForLayoutNode(currentLayout, currentPath));
           if (cached !== undefined) {
@@ -765,6 +785,8 @@ function createRegionComposer<TMessage>(
       const backdropBounds = renderNode.layer?.backdrop === 'viewport'
         ? { row: 1, column: 1, width: terminalSize.columns, height: terminalSize.rows }
         : undefined;
+      const priorRegion = prior.get(regionIdForLayoutNode(node, path));
+      const bounds = intersectRects(node.layer.bounds, node.viewport) ?? { row: node.viewport.row, column: node.viewport.column, width: 0, height: 0 };
       const region = createDraftRenderRegion({
         id: regionIdForLayoutNode(node, path),
         zIndex: node.layer.zIndex,
@@ -777,6 +799,7 @@ function createRegionComposer<TMessage>(
           height: 0
         },
         underlay: node.layer.underlay,
+        ...(priorRegion !== undefined && samePaintData(priorRegion.bounds, bounds) ? { previous: priorRegion.metadata } : {}),
         ...(backdropBounds === undefined ? {} : { backdropBounds }),
         widthProfile,
         ...(instrumentation === undefined ? {} : { instrumentation })
@@ -823,11 +846,13 @@ function compositeRegions(
   widthProfile: TextWidthProfile,
   budget?: RenderBudget,
   instrumentation?: RenderInstrumentation,
+  previous?: Frame,
 ): { readonly buffer: FrameBuffer; readonly diagnostic?: TerminalDiagnostic } {
   const buffer = createFrameBuffer(terminalSize.columns, terminalSize.rows, {
     widthProfile,
     ...(instrumentation === undefined ? {} : { instrumentation })
   });
+  if (previous !== undefined) retainFrameBufferRows(buffer, previous);
   let graphicsAllowed = true;
   let graphicsDiagnostic: TerminalDiagnostic | undefined;
   if (budget !== undefined) {

@@ -1,3 +1,4 @@
+import { retainPaint } from '../../component/retained-paint.ts';
 import { defineComponent, ignoreMessage } from '../../component/index.ts';
 import type { ComponentMessage } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
@@ -35,7 +36,7 @@ const dividerDefinitionBase = {
   parts: ['line', 'label'] as const,
   createModel: createDividerModel,
   measure: measureDivider,
-  render: renderDivider,
+  render: retainPaint(renderDivider),
 };
 
 const labelledDivider = defineComponent<Omit<DividerOptions, 'id' | 'styles' | 'meta'>>()({

@@ -1,4 +1,4 @@
-import { segmentGraphemesForMeasurement } from './graphemes.ts';
+import { segmentGraphemesForMeasurement, measuredGraphemes } from './graphemes.ts';
 import { sanitizeTerminalCellText, sanitizeTerminalText } from './sanitize.ts';
 import type { TextCellMetrics, TextMeasurementOptions } from './types.ts';
 import { textWidthProfileKey } from './width-profile.ts';
@@ -7,6 +7,16 @@ const measurementCacheWeightLimit = 65_536;
 const measurementCacheMaxTextLength = 256;
 const measurementCache = new Map<string, TextCellMetrics>();
 let measurementCacheWeight = 0;
+
+/** Width-only callers do not need an allocated grapheme index. */
+export function measureTextWidth(text: string, options: TextMeasurementOptions = {}): number {
+  const sanitized = sanitizeTerminalText(text).text;
+  if (/^[\x20-\x7e]*$/u.test(sanitized)) return sanitized.length;
+  if (sanitized.length <= measurementCacheMaxTextLength) return measureText(sanitized, options, 'text').cells;
+  let cells = 0;
+  for (const part of measuredGraphemes(sanitized, options)) cells += part.cells;
+  return cells;
+}
 
 export function measureTextCells(
   text: string,
@@ -23,6 +33,28 @@ export function measureTerminalCellText(
   return measureText(text, options, 'cell');
 }
 
+/** Lazily measures long spans so clipping never materializes their off-screen tail. */
+export function* terminalCellGraphemes(
+  text: string,
+  options: TextMeasurementOptions,
+  onSegmentation?: (codeUnits: number) => void,
+): IterableIterator<import('./types.ts').GraphemeSegment> {
+  if (text.length <= measurementCacheMaxTextLength) {
+    yield* measureText(text, options, 'cell', onSegmentation).graphemes;
+    return;
+  }
+  const sanitized = sanitizeTerminalCellText(text).text;
+  let processed = 0;
+  try {
+    for (const part of measuredGraphemes(sanitized, options)) {
+      processed = part.endOffsetExclusive;
+      yield part;
+    }
+  } finally {
+    onSegmentation?.(processed);
+  }
+}
+
 function measureText(
   text: string,
   options: TextMeasurementOptions,
@@ -37,8 +69,7 @@ function measureText(
   const sanitized = mode === 'cell'
     ? sanitizeTerminalCellText(text)
     : sanitizeTerminalText(text);
-  const graphemes = segmentGraphemesForMeasurement(sanitized.text, options);
-  onSegmentation?.(sanitized.text.length);
+  const graphemes = segmentGraphemesForMeasurement(sanitized.text, options, onSegmentation);
   const measured = Object.freeze({
     text: sanitized.text,
     graphemes,

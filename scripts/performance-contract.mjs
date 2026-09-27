@@ -54,6 +54,7 @@ const exercisedWork = Object.freeze({
   'unchanged-focus-tree-128': ['measurement_calls'],
   'fragmented-damage': ['interval_operations', 'frame_index_builds', 'cell_comparisons', 'diff_output_cells'],
   'same-layer-regions': ['region_allocations', 'region_target_visits', 'buffer_segmentations', 'accessibility_hooks'],
+  'large-search-picker-filter': ['query_candidates'],
   'input-to-commit': ['encoded_bytes']
 });
 
@@ -123,7 +124,9 @@ export function evidenceViolations(report) {
       }
     }
     for (const kind of exercisedWork[name] ?? []) {
-      if (validWork(scenario.work?.[kind], metadata.sampleCount) && scenario.work[kind].max === 0) {
+      if (!validWork(scenario.work?.[kind], metadata.sampleCount)) {
+        violations.push(`${name}/${kind}: missing or invalid exercised work evidence`);
+      } else if (scenario.work[kind].max === 0) {
         violations.push(`${name}/${kind}: no exercised work observed`);
       }
     }

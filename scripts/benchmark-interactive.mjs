@@ -1,4 +1,5 @@
 import process from 'node:process';
+import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
 import { writeFile } from 'node:fs/promises';
 
@@ -345,11 +346,18 @@ function renderScenarios() {
       name: 'long-log-viewer-search',
       scale: history.entryCount,
       setupWork: { normalized_records: history.entryCount },
+      validateFrame(frame, index) {
+        const description = JSON.stringify(frame.accessibility);
+        assert.ok(description.includes(`Search query: searchable text ${String(index % 17)}.`));
+        assert.match(description, /Matching entries: [1-9]\d*\./u);
+        assert.ok(frame.cells.some(cell => cell.style?.underline === true && cell.source?.elementId === 'searched-log'),
+          'log search must paint a visible highlighted match');
+      },
       createElement(index) {
         return logViewer({
           id: 'searched-log',
           history,
-          searchQuery: `searchable text ${String(index % 17)}`
+          query: { text: `searchable text ${String(index % 17)}`, mode: 'contains' }
         });
       }
     },
@@ -430,12 +438,12 @@ function runRenderScenario(scenario) {
     const measured = index >= 0;
     const value = Math.max(0, index + 1);
     const totalStarted = performance.now();
+    const scenarioWorkBefore = scenario.workSnapshot?.() ?? {};
     const elementConstructionStarted = performance.now();
     const element = scenario.createElement(value);
     const elementConstructionDuration = performance.now() - elementConstructionStarted;
     const currentStages = new Map();
     const currentWork = new Map(REQUIRED_WORK.map((kind) => [kind, 0]));
-    const scenarioWorkBefore = scenario.workSnapshot?.() ?? {};
     const instrumentation = {
       recordWork(sample) {
         currentWork.set(sample.kind, (currentWork.get(sample.kind) ?? 0) + sample.count);
@@ -466,6 +474,7 @@ function runRenderScenario(scenario) {
     for (const [kind, count] of Object.entries(scenarioWorkAfter)) {
       currentWork.set(kind, count - (scenarioWorkBefore[kind] ?? 0));
     }
+    scenario.validateFrame?.(frame, value);
     previous = frame;
     if (!measured) continue;
     elementConstructionSamples.push(elementConstructionDuration);

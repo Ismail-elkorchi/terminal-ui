@@ -1,3 +1,4 @@
+import { retainPaint } from '../../component/retained-paint.ts';
 import { createScrollState } from '../../behavior/index.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import {
@@ -155,7 +156,7 @@ const instantiateMenu = defineComponent<MenuOwnOptions, MenuComponentAction>()({
   visualStates: ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy'],
   createModel: createMenuModel,
   measure: measureMenu,
-  render: paintMenu,
+  render: retainPaint(paintMenu),
   keys: ({ model, busy }) => busy ? {} : ({
     arrowUp: () => menuComponentTransition({ kind: 'move', delta: -1 }),
     arrowDown: () => menuComponentTransition({ kind: 'move', delta: 1 }),
