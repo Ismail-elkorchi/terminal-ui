@@ -1,27 +1,36 @@
 import assert from 'node:assert/strict';
-import { glob, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
+import { relative } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+import { globFiles } from '../../scripts/glob-files.mjs';
 import { formatTypeDiagnostic, typecheckSources } from './support/typecheck.mjs';
 
-const documentationPaths = ['README.md'];
-for await (const path of glob('docs/**/*.md')) {
-  if (path !== 'docs/api/reference.md') documentationPaths.push(path);
-}
-documentationPaths.sort((left, right) => left.localeCompare(right));
+const root = fileURLToPath(new URL('../..', import.meta.url));
+const documentationPaths = await globFiles(root, ['README.md', 'docs/**/*.md'], {
+  exclude: ['docs/api/reference.md']
+});
+
+test('documentation discovery includes runnable guides and excludes generated API signatures', () => {
+  for (const path of ['README.md', 'docs/guides/component-definitions.md', 'docs/guides/testing-harness.md']) {
+    assert.ok(documentationPaths.includes(fileURLToPath(new URL(`../../${path}`, import.meta.url))));
+  }
+  assert.ok(!documentationPaths.includes(fileURLToPath(new URL('../../docs/api/reference.md', import.meta.url))));
+});
 
 test('documentation TypeScript and JavaScript snippets typecheck against the built package', async () => {
   const snippets = [];
   for (const path of documentationPaths) {
-    const source = await readFile(new URL(`../../${path}`, import.meta.url), 'utf8');
+    const source = await readFile(path, 'utf8');
     let index = 0;
     for (const snippet of codeSnippets(source)) {
       index += 1;
       snippets.push({
         source: snippet.code,
         language: snippet.language,
-        name: `${path}-${String(index)}`
+        name: `${relative(root, path)}-${String(index)}`
       });
     }
   }
