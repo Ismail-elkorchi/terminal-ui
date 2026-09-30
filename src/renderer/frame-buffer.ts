@@ -436,7 +436,7 @@ class CellFrameBuffer implements FrameBuffer {
   [blitCell](cell: FrameCell): void {
     if (cell.continuation === true || !this.containsCell(cell.row, cell.column)) return;
     if (cell.width < 1 || cell.column + cell.width - 1 > this.width) return;
-    const text = sanitizeTerminalCellText(cell.text).text;
+    const text = sanitizeTerminalCellText(cell.text, { widthProfile: this.widthProfile }).text;
     if (text.length === 0) return;
     const measured = measureTextCells(text, { widthProfile: this.widthProfile }, this.onSegmentation);
     if (measured.graphemes.length !== 1 || measured.cells !== cell.width) return;

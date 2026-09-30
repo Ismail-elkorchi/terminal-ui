@@ -57,7 +57,11 @@ interaction value.
 
 A single-line text input uses the same `TextEditBuffer` in the component and
 reducer. Cursor and selection offsets are UTF-16 code-unit offsets aligned to
-grapheme boundaries:
+grapheme boundaries. `textInputReducer` retains literal tabs in source state,
+including pasted tabs, so `textInput` can expand them at the active terminal
+width profile and map display positions back to source offsets. Unsafe controls
+are removed and inserted newlines become spaces. The general `editTextBuffer`
+helper and popup-input reducers keep their canonical single-line text policy:
 
 ```ts
 import { textInput } from '@ismail-elkorchi/terminal-ui/components';
@@ -334,3 +338,67 @@ not become the public behavior model.
 
 For component roles, see [Components](./components.md). For runtime routing,
 see [TUI runtime](./tui.md).
+
+## Reusable control keymaps
+
+`listbox`, `tree`, `dataGrid`, `textInput`/`passwordInput`, `textArea`, and
+`searchPicker` accept a resolved, immutable `keymap`. Their typed constructors
+are exported from the root and their component-family entrypoints:
+`createListboxKeymap`, `createTreeKeymap`, `createDataGridKeymap`,
+`createTextInputKeymap`, `createTextAreaKeymap`, and `createSearchPickerKeymap`.
+Create maps outside `view()` and reuse them across instances.
+
+Overrides map semantic action names to arrays of `KeyboardBinding` values.
+Omitted actions retain their defaults; an array replaces all bindings for that
+action; `null` (or an empty array) disables it. Unknown actions and ambiguous
+bindings fail at construction. Chords include exact modifiers and may explicitly
+opt into key repeat. Release bindings are rejected. Potentially overlapping
+primary, shifted, and physical key identities are rejected rather than resolved
+by insertion order.
+
+```ts
+import {
+  createDataGridKeymap,
+  controlKeymapHelp,
+  helpBar
+} from '@ismail-elkorchi/terminal-ui';
+
+const gridKeys = createDataGridKeymap({
+  previousRow: [{ kind: 'key', key: 'k' }],
+  nextRow: [{ kind: 'key', key: 'j' }],
+  select: null
+});
+
+// Pass keymap: gridKeys with the grid's ordinary data, state, and callbacks.
+helpBar({
+  id: 'grid-help',
+  groups: [{
+    id: 'navigation',
+    bindings: controlKeymapHelp(gridKeys, ['previousRow', 'nextRow', 'activate'])
+  }]
+});
+```
+
+`controlKeymapHelp()` uses the same resolved bindings and action labels as the
+control. It omits repeat-only entries and accepts an action subset for concise
+or state-dependent help. Pass the actions meaningful in the current mode; for
+example, omit editing commands while a text area is read-only.
+
+Bindings run only inside the focused control. They produce the same existing
+transitions as its defaults and do not bypass disabled, inert, busy, read-only,
+or action-eligibility checks. A grid's column movement is still limited to cell
+mode, and sorting still requires a sortable column. Ordinary printable bindings
+also work in legacy terminals that report text rather than extended key events;
+those aliases do not apply to pasted text, modified chords, or another control.
+Unbound characters remain ordinary text input. App-level priority shortcuts
+continue to follow the `beforeFocus`/`afterFocus` routing policy.
+
+For Emacs-like text input, remap `moveHome` to Ctrl+A and disable `selectAll` in
+the same map to avoid a conflict. Selection actions (`selectLeft`, `selectHome`,
+`selectWordLeft`, and their counterparts) are explicit, so a remapped chord does
+not accidentally change selection behavior. Text-area line/page actions retain
+visual wrapped-line navigation even when their physical keys change.
+
+`createControlKeymap()` can resolve the same action-key data for a custom
+component. This is a binding table, not a command dispatcher: the component
+still owns its semantic actions and focused interaction handlers.

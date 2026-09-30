@@ -1,5 +1,5 @@
 import { measureTextCells } from '../text/measure.ts';
-import { sanitizeTerminalText } from '../text/sanitize.ts';
+import { sanitizeTerminalControlText, sanitizeTerminalText } from '../text/sanitize.ts';
 import type { TerminalLink, TerminalStyle } from './render-content.ts';
 import { decodeTerminalLink } from './render-content.ts';
 import { decodeTerminalStyle } from './terminal-style.ts';
@@ -86,7 +86,7 @@ function normalizeInlineSegment(
     }
     return Object.freeze({
       kind: 'text',
-      text: sanitizeTerminalText(text).text,
+      text: sanitizeTerminalControlText(text).text,
       ...decoration
     });
   }

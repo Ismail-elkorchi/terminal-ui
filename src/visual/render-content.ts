@@ -276,7 +276,7 @@ export function wrapRenderSpans(
 function renderGraphemes(text: string, options: TextMeasurementOptions) {
   return text.length <= 256
     ? measureTextCells(text, options).graphemes
-    : measuredGraphemes(sanitizeTerminalText(text).text, options);
+    : measuredGraphemes(sanitizeTerminalText(text, options).text, options);
 }
 
 function styledWordSplit<TSegment extends { readonly text: string }>(

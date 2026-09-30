@@ -1,3 +1,5 @@
+import type { ControlKeymap } from '../../interaction/control-keymap.ts';
+import type { TextAreaKeyAction } from '../keymaps.ts';
 import type {
   ScrollableTextAreaControlState,
   TextAreaControlTransition,
@@ -17,6 +19,7 @@ import type { TextAreaDecorations } from './decorations.ts';
 
 
 interface TextAreaBaseOptions {
+  readonly keymap?: ControlKeymap<TextAreaKeyAction>;
   readonly id: string;
   readonly decorations?: TextAreaDecorations;
   readonly placeholder?: string;

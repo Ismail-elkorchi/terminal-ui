@@ -219,7 +219,7 @@ function planOutputOperations(
       column: operation.column,
       spans: operation.spans,
       columns: operation.spans.reduce((total, current) => {
-        const text = sanitizeTerminalCellText(current.text).text;
+        const text = sanitizeTerminalCellText(current.text, { widthProfile: capabilities.unicode.widthProfile }).text;
         return total + measureTextCells(text, { widthProfile: capabilities.unicode.widthProfile }).cells;
       }, 0)
     });

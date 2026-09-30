@@ -1,3 +1,5 @@
+import type { ControlKeymap } from '../../interaction/control-keymap.ts';
+import type { DataGridKeyAction } from '../keymaps.ts';
 import type {
   CompleteTableCollection,
   DataGridActivateEvent,
@@ -83,6 +85,7 @@ interface DataGridCallbacks<
 }
 
 interface DataGridBaseOptions extends TableCommonOptions {
+  readonly keymap?: ControlKeymap<DataGridKeyAction>;
   readonly disabled?: boolean;
   readonly busy?: boolean;
   readonly inert?: boolean;

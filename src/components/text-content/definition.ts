@@ -12,7 +12,7 @@ import type { Rect } from '../../geometry/types.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
 import { measureTextWidth } from '../../text/measure.ts';
-import { sanitizeTerminalText } from '../../text/sanitize.ts';
+import { sanitizeTerminalControlText, sanitizeTerminalText } from '../../text/sanitize.ts';
 import type { TextWidthProfile } from '../../text/types.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
 import {
@@ -69,7 +69,7 @@ export const text: SemanticLeafComponentFactory<
       throw new TypeError('text headingLevel requires a heading or title textRole.');
     }
     return {
-      content: sanitizeTerminalText(content).text,
+      content: sanitizeTerminalControlText(content).text,
       textRole: textRole ?? 'body',
       ...(headingLevel === undefined ? {} : { headingLevel }),
     };
@@ -107,13 +107,14 @@ export const text: SemanticLeafComponentFactory<
       })),
     });
   },
-  accessibility({ id, model }) {
+  accessibility({ id, model, widthProfile }) {
+    const content = sanitizeTerminalText(model.content, { widthProfile }).text;
     const heading = model.textRole === 'heading' || model.textRole === 'title';
     return {
       id,
       role: heading ? 'heading' : 'text',
-      value: model.content,
-      ...(heading ? { label: model.content, position: { level: model.headingLevel ?? (model.textRole === 'title' ? 1 : 2) } } : {}),
+      value: content,
+      ...(heading ? { label: content, position: { level: model.headingLevel ?? (model.textRole === 'title' ? 1 : 2) } } : {}),
     };
   },
 });
@@ -281,7 +282,7 @@ const instantiateRichText = defineComponent<Pick<RichTextOptions, 'segments' | '
       }))
     );
   },
-  accessibility({ id, model, focusedTargetId }) {
+  accessibility({ id, model, focusedTargetId, widthProfile }) {
     const children = model.links.map((link, index) => ({
       id: `${id}:link:${String(index)}`,
       role: 'link' as const,
@@ -292,7 +293,7 @@ const instantiateRichText = defineComponent<Pick<RichTextOptions, 'segments' | '
     return {
       id,
       role: 'text',
-      value: inlineContentAccessibleText(model.segments),
+      value: sanitizeTerminalText(inlineContentAccessibleText(model.segments), { widthProfile }).text,
       ...(children.length === 0 ? {} : { children }),
     };
   },

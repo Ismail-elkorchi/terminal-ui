@@ -1,3 +1,5 @@
+import type { ControlKeymap } from '../../interaction/control-keymap.ts';
+import type { TextInputKeyAction } from '../keymaps.ts';
 import type { NumberInputControlTransition, NumberInputView } from '../../behavior/number-input.ts';
 import type { TextInputSubmitEvent, TextInputTransition } from '../../behavior/text-input.ts';
 import type { ComponentMetadataOptions } from '../../component/contracts.ts';
@@ -10,6 +12,7 @@ import type { NumberInputStylePart, TextEntryStylePart } from '../style-parts.ts
 
 
 interface TextInputOptionsBase {
+  readonly keymap?: ControlKeymap<TextInputKeyAction>;
   readonly id: string;
   readonly state: TextEditBuffer;
   readonly placeholder?: string;

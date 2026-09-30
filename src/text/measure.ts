@@ -10,7 +10,7 @@ let measurementCacheWeight = 0;
 
 /** Width-only callers do not need an allocated grapheme index. */
 export function measureTextWidth(text: string, options: TextMeasurementOptions = {}): number {
-  const sanitized = sanitizeTerminalText(text).text;
+  const sanitized = sanitizeTerminalText(text, options).text;
   if (/^[\x20-\x7e]*$/u.test(sanitized)) return sanitized.length;
   if (sanitized.length <= measurementCacheMaxTextLength) return measureText(sanitized, options, 'text').cells;
   let cells = 0;
@@ -43,7 +43,7 @@ export function* terminalCellGraphemes(
     yield* measureText(text, options, 'cell', onSegmentation).graphemes;
     return;
   }
-  const sanitized = sanitizeTerminalCellText(text).text;
+  const sanitized = sanitizeTerminalCellText(text, options).text;
   let processed = 0;
   try {
     for (const part of measuredGraphemes(sanitized, options)) {
@@ -67,8 +67,8 @@ function measureText(
     if (cached !== undefined) return cached;
   }
   const sanitized = mode === 'cell'
-    ? sanitizeTerminalCellText(text)
-    : sanitizeTerminalText(text);
+    ? sanitizeTerminalCellText(text, options)
+    : sanitizeTerminalText(text, options);
   const graphemes = segmentGraphemesForMeasurement(sanitized.text, options, onSegmentation);
   const measured = Object.freeze({
     text: sanitized.text,

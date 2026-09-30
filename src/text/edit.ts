@@ -1,4 +1,4 @@
-import { sanitizeTerminalSingleLineText } from './sanitize.ts';
+import { sanitizeTerminalControlText, sanitizeTerminalSingleLineText } from './sanitize.ts';
 import {
   nextGraphemeBoundary,
   normalizeTextCursor,
@@ -25,6 +25,23 @@ export function editTextBuffer(
   operation: TextEditOperation,
   options: TextBoundaryOptions = {}
 ): TextEditBuffer {
+  return editBuffer(buffer, operation, options, (text) => sanitizeTerminalSingleLineText(text).text);
+}
+
+/** Source-backed text inputs defer tab expansion until the active display profile is known. */
+export function editSourceTextBuffer(
+  buffer: TextEditBuffer,
+  operation: TextEditOperation,
+): TextEditBuffer {
+  return editBuffer(buffer, operation, {}, sanitizeInsertedText);
+}
+
+function editBuffer(
+  buffer: TextEditBuffer,
+  operation: TextEditOperation,
+  options: TextBoundaryOptions,
+  sanitizeInsertion: (text: string) => string,
+): TextEditBuffer {
   const words = isWordOperation(operation) ? standaloneWordBoundaryIndex(buffer.text, options) : undefined;
   const cursor = normalizeTextCursor(buffer.text, buffer.cursor);
   const selection = normalizeTextSelection(buffer.text, buffer.selection);
@@ -33,14 +50,14 @@ export function editTextBuffer(
       return replaceTextRange(
         buffer.text,
         selectedRange(selection, cursor),
-        sanitizeTerminalSingleLineText(operation.text).text
+        sanitizeInsertion(operation.text)
       );
     }
     case 'replaceRange':
       return replaceTextRange(
         buffer.text,
         operation.range,
-        sanitizeTerminalSingleLineText(operation.text).text
+        sanitizeInsertion(operation.text)
       );
     case 'deleteBackward':
       if (selection !== undefined) return replaceTextRange(buffer.text, selection, '');
@@ -124,7 +141,7 @@ export function editTextBuffer(
       return replaceTextRange(
         buffer.text,
         selectedRange(selection, cursor),
-        sanitizeTerminalSingleLineText(operation.text).text
+        sanitizeInsertion(operation.text)
       );
   }
 }
@@ -208,4 +225,9 @@ function isWordOperation(operation: TextEditOperation): boolean {
 function requiredWordIndex(index: WordBoundaryIndex | undefined): WordBoundaryIndex {
   if (index === undefined) throw new Error('Word editing requires a word boundary index.');
   return index;
+}
+
+function sanitizeInsertedText(text: string): string {
+  // Keep tabs as source text; their geometry belongs to the active display profile.
+  return sanitizeTerminalControlText(text).text.replace(/\n/gu, ' ');
 }

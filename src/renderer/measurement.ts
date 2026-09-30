@@ -54,7 +54,7 @@ export function measureSize(preferredWidth: number, preferredHeight: number, min
 }
 
 export function measureText(text: string, options: TextMeasurementOptions = {}): Measurement {
-  const lines = sanitizeTerminalText(text).text.split('\n');
+  const lines = sanitizeTerminalText(text, options).text.split('\n');
   return measureLines(lines, options);
 }
 

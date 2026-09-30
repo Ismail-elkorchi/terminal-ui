@@ -1,3 +1,5 @@
+import { controlKeyBindings } from '../shared/control-key-bindings.ts';
+import type { DataGridKeyAction } from '../keymaps.ts';
 import type { DataGridTransition } from '../../behavior/table.ts';
 import { defineComponent } from '../../component/definition.ts';
 import type { ComponentMessage } from '../../component/message.ts';
@@ -96,55 +98,34 @@ const activeDataGrid = defineComponent<TableModel, DataGridComponentAction>()({
       kind: 'transition',
       transition: value,
     });
-    return {
-      arrowUp: () => transition({ kind: 'moveRow', delta: -1 }),
-      arrowDown: () => transition({ kind: 'moveRow', delta: 1 }),
+    return controlKeyBindings<DataGridKeyAction, DataGridComponentAction>(model.keymap, {
+      previousRow: () => transition({ kind: 'moveRow', delta: -1 }),
+      nextRow: () => transition({ kind: 'moveRow', delta: 1 }),
       ...(model.interactionKind === 'cell'
         ? {
-          arrowLeft: () => transition({ kind: 'moveColumn', delta: -1 }),
-          arrowRight: () => transition({ kind: 'moveColumn', delta: 1 }),
+          previousColumn: () => transition({ kind: 'moveColumn', delta: -1 }),
+          nextColumn: () => transition({ kind: 'moveColumn', delta: 1 }),
         }
         : {}),
-      pageUp: () => transition({ kind: 'page', delta: -1 }),
-      pageDown: () => transition({ kind: 'page', delta: 1 }),
-      home: () => transition({ kind: 'firstRow' }),
-      end: () => transition({ kind: 'lastRow' }),
-      space: () => transition({ kind: 'commit' }),
-      ...(column?.sortable !== true && column?.resizable !== true
-        ? {}
-        : { triggers: [
-          ...(column.sortable ? [{
-            trigger: { kind: 'key' as const, key: 's' as const, modifiers: { alt: true } },
-            onKey: () => transition({ kind: 'sortBy', columnId: column.id }),
-          }] : []),
-          ...(column.resizable ? [
-            {
-              trigger: {
-                kind: 'key' as const,
-                key: 'arrowLeft' as const,
-                modifiers: { alt: true },
-              },
-              onKey: () => transition({ kind: 'resizeColumnBy', columnId: column.id, delta: -1 }),
-            },
-            {
-              trigger: {
-                kind: 'key' as const,
-                key: 'arrowRight' as const,
-                modifiers: { alt: true },
-              },
-              onKey: () => transition({ kind: 'resizeColumnBy', columnId: column.id, delta: 1 }),
-            },
-          ] : []),
-        ] }),
+      previousPage: () => transition({ kind: 'page', delta: -1 }),
+      nextPage: () => transition({ kind: 'page', delta: 1 }),
+      firstRow: () => transition({ kind: 'firstRow' }),
+      lastRow: () => transition({ kind: 'lastRow' }),
+      select: () => transition({ kind: 'commit' }),
+      ...(column?.sortable ? { sort: () => transition({ kind: 'sortBy', columnId: column.id }) } : {}),
+      ...(column?.resizable ? {
+        shrinkColumn: () => transition({ kind: 'resizeColumnBy', columnId: column.id, delta: -1 }),
+        growColumn: () => transition({ kind: 'resizeColumnBy', columnId: column.id, delta: 1 }),
+      } : {}),
       ...(active === undefined ? {} : {
-        enter: () => ({
+        activate: () => ({
           kind: 'activate' as const,
           event: model.interactionKind === 'cell' && model.activeColumnId !== undefined
             ? { kind: 'activate', target: { kind: 'cell', cell: { rowId: active.id, columnId: model.activeColumnId } } }
             : { kind: 'activate', target: { kind: 'row', rowId: active.id } },
         }),
       }),
-    };
+    });
   },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets: (input) => input.busy ? [] : tableHitTargets(input),

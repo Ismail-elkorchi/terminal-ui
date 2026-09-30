@@ -191,10 +191,58 @@ export function queryIndexedCandidates(
   candidates: readonly IndexedQueryCandidate[],
   query: CompiledCollectionQuery,
 ): readonly QueryMatch[] {
-  return Object.freeze(candidates.flatMap((candidate) => {
-    const match = matchCompiledCollectionQuery(candidate, query);
-    return match === undefined ? [] : [match];
-  }).sort((left, right) => right.score - left.score));
+  const work = queryIndexedCandidatesWork(candidates, query);
+  let step = work.next();
+  while (!step.done) step = work.next();
+  return step.value;
+}
+
+/** Cooperative scan and stable merge sort; no full-result native sort. */
+export function* queryIndexedCandidatesWork(
+  candidates: readonly IndexedQueryCandidate[],
+  query: CompiledCollectionQuery,
+): Generator<void, readonly QueryMatch[]> {
+  let matches: QueryMatch[] = [];
+  let ordered = true;
+  let previousScore = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index];
+    if (candidate !== undefined) {
+      const match = matchCompiledCollectionQuery(candidate, query);
+      if (match !== undefined) {
+        if (match.score > previousScore) ordered = false;
+        previousScore = match.score;
+        matches.push(match);
+      }
+    }
+    if ((index + 1) % 256 === 0) yield;
+  }
+  if (ordered) return Object.freeze(matches);
+  let operations = 0;
+  for (let width = 1; width < matches.length; width *= 2) {
+    const merged: QueryMatch[] = [];
+    for (let start = 0; start < matches.length; start += width * 2) {
+      let left = start;
+      let right = Math.min(start + width, matches.length);
+      const middle = right;
+      const end = Math.min(start + width * 2, matches.length);
+      while (left < middle || right < end) {
+        const a = matches[left];
+        const b = matches[right];
+        if (left < middle && (right >= end || (a !== undefined && b !== undefined && a.score >= b.score))) {
+          if (a !== undefined) merged.push(a);
+          left += 1;
+        } else {
+          if (b !== undefined) merged.push(b);
+          right += 1;
+        }
+        operations += 1;
+        if (operations % 256 === 0) yield;
+      }
+    }
+    matches = merged;
+  }
+  return Object.freeze(matches);
 }
 
 /** Locale-independent ordering for built-in collection behavior. */

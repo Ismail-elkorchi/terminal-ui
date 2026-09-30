@@ -1,0 +1,453 @@
+{
+  "node": "v24.19.0",
+  "rows": 50001,
+  "trials": 24,
+  "current": {
+    "medianTotalMs": 189.4942100000003,
+    "medianFirstScheduledTurnMs": 1.1606400000000576,
+    "p95FirstScheduledTurnMs": 13.141395999999986,
+    "medianNavigation1000Ms": 53.31754600000022,
+    "trials": [
+      {
+        "totalMs": 243.42877799999997,
+        "firstScheduledTurnMs": 5.083410000000015,
+        "navigation1000Ms": 55.14088400000003,
+        "batches": 975,
+        "chunkP95Ms": 0.8879439999999477,
+        "maxChunkMs": 6.1508819999999105,
+        "cancelEventToReturnMs": 0.1610200000000077,
+        "cancelStartToReturnMs": 1.2744900000000143,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 204.68923699999993,
+        "firstScheduledTurnMs": 1.1145520000000033,
+        "navigation1000Ms": 56.13545699999986,
+        "batches": 975,
+        "chunkP95Ms": 0.697198999999955,
+        "maxChunkMs": 1.8313610000000153,
+        "cancelEventToReturnMs": 0.058326999999962936,
+        "cancelStartToReturnMs": 1.6221889999999348,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 196.39673100000005,
+        "firstScheduledTurnMs": 13.141395999999986,
+        "navigation1000Ms": 55.709421999999904,
+        "batches": 975,
+        "chunkP95Ms": 0.6912109999998393,
+        "maxChunkMs": 1.7808560000000853,
+        "cancelEventToReturnMs": 0.052607999999963795,
+        "cancelStartToReturnMs": 2.276204000000007,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 233.20585600000004,
+        "firstScheduledTurnMs": 1.1606400000000576,
+        "navigation1000Ms": 48.947038999999904,
+        "batches": 975,
+        "chunkP95Ms": 0.9746529999999893,
+        "maxChunkMs": 2.289354000000003,
+        "cancelEventToReturnMs": 0.061401999999816326,
+        "cancelStartToReturnMs": 1.9388919999996688,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 181.19555500000024,
+        "firstScheduledTurnMs": 0.7573200000001634,
+        "navigation1000Ms": 53.749489999999696,
+        "batches": 975,
+        "chunkP95Ms": 0.6481069999999818,
+        "maxChunkMs": 2.7688090000001466,
+        "cancelEventToReturnMs": 0.08180200000015247,
+        "cancelStartToReturnMs": 0.9357860000000073,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 172.4603589999997,
+        "firstScheduledTurnMs": 0.7460829999999987,
+        "navigation1000Ms": 52.02910500000007,
+        "batches": 975,
+        "chunkP95Ms": 0.6348169999996571,
+        "maxChunkMs": 1.784349999999904,
+        "cancelEventToReturnMs": 0.07628399999975954,
+        "cancelStartToReturnMs": 8.40335099999993,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 183.97880600000008,
+        "firstScheduledTurnMs": 2.293419999999969,
+        "navigation1000Ms": 50.511471000000256,
+        "batches": 975,
+        "chunkP95Ms": 0.6725429999996777,
+        "maxChunkMs": 2.356112999999823,
+        "cancelEventToReturnMs": 0.06365500000038082,
+        "cancelStartToReturnMs": 0.9456300000001647,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 184.1202269999999,
+        "firstScheduledTurnMs": 1.9261219999998502,
+        "navigation1000Ms": 51.66730499999994,
+        "batches": 975,
+        "chunkP95Ms": 0.6603949999998804,
+        "maxChunkMs": 2.257796999999755,
+        "cancelEventToReturnMs": 0.047850999999809574,
+        "cancelStartToReturnMs": 2.1498160000001008,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 189.4942100000003,
+        "firstScheduledTurnMs": 0.7873939999999493,
+        "navigation1000Ms": 48.99992699999984,
+        "batches": 975,
+        "chunkP95Ms": 0.6737739999998666,
+        "maxChunkMs": 2.2963039999999637,
+        "cancelEventToReturnMs": 0.09623400000054971,
+        "cancelStartToReturnMs": 2.273349999999482,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 179.3990359999998,
+        "firstScheduledTurnMs": 0.7525819999991654,
+        "navigation1000Ms": 54.70973200000026,
+        "batches": 975,
+        "chunkP95Ms": 0.674275000000307,
+        "maxChunkMs": 2.493789000000106,
+        "cancelEventToReturnMs": 0.15282699999988836,
+        "cancelStartToReturnMs": 1.0092050000002928,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 191.64517800000067,
+        "firstScheduledTurnMs": 0.7662030000001323,
+        "navigation1000Ms": 52.888034999999945,
+        "batches": 975,
+        "chunkP95Ms": 0.6859930000000531,
+        "maxChunkMs": 2.26647899999989,
+        "cancelEventToReturnMs": 0.09729500000048574,
+        "cancelStartToReturnMs": 0.9314789999998538,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 182.78279199999997,
+        "firstScheduledTurnMs": 1.8511900000003152,
+        "navigation1000Ms": 53.69439800000055,
+        "batches": 975,
+        "chunkP95Ms": 0.640915999999379,
+        "maxChunkMs": 2.120130999999674,
+        "cancelEventToReturnMs": 0.04029999999966094,
+        "cancelStartToReturnMs": 2.0568169999996826,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 216.18276500000047,
+        "firstScheduledTurnMs": 0.7690259999999398,
+        "navigation1000Ms": 54.79062299999987,
+        "batches": 975,
+        "chunkP95Ms": 1.0719890000000305,
+        "maxChunkMs": 2.744423000000097,
+        "cancelEventToReturnMs": 0.09213799999997718,
+        "cancelStartToReturnMs": 0.9344529999998485,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 186.5747739999997,
+        "firstScheduledTurnMs": 1.3781049999997776,
+        "navigation1000Ms": 56.7661279999993,
+        "batches": 975,
+        "chunkP95Ms": 0.6425689999996393,
+        "maxChunkMs": 1.6104119999999966,
+        "cancelEventToReturnMs": 0.04230300000017451,
+        "cancelStartToReturnMs": 1.561768999999913,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 214.22071899999992,
+        "firstScheduledTurnMs": 13.02148699999998,
+        "navigation1000Ms": 50.10710800000015,
+        "batches": 975,
+        "chunkP95Ms": 0.7270239999998012,
+        "maxChunkMs": 2.3221229999999196,
+        "cancelEventToReturnMs": 0.08737999999993917,
+        "cancelStartToReturnMs": 2.1544629999998506,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 192.68383499999982,
+        "firstScheduledTurnMs": 19.208333999999923,
+        "navigation1000Ms": 57.504477999999835,
+        "batches": 975,
+        "chunkP95Ms": 0.6457730000001902,
+        "maxChunkMs": 2.0643490000002203,
+        "cancelEventToReturnMs": 0.04571899999973539,
+        "cancelStartToReturnMs": 2.253660999999738,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 198.71536899999955,
+        "firstScheduledTurnMs": 0.762126999999964,
+        "navigation1000Ms": 48.22491100000025,
+        "batches": 975,
+        "chunkP95Ms": 0.6909899999991467,
+        "maxChunkMs": 2.370065000000068,
+        "cancelEventToReturnMs": 0.07370000000082655,
+        "cancelStartToReturnMs": 2.2566050000004907,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 173.7500710000004,
+        "firstScheduledTurnMs": 0.781434999999874,
+        "navigation1000Ms": 53.31754600000022,
+        "batches": 975,
+        "chunkP95Ms": 0.6417270000001736,
+        "maxChunkMs": 2.188564000000042,
+        "cancelEventToReturnMs": 0.04228300000067975,
+        "cancelStartToReturnMs": 0.8765870000006544,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 204.23376699999972,
+        "firstScheduledTurnMs": 1.6930449999999837,
+        "navigation1000Ms": 52.589789999999994,
+        "batches": 975,
+        "chunkP95Ms": 0.7434289999982866,
+        "maxChunkMs": 2.2305359999991197,
+        "cancelEventToReturnMs": 0.08317400000123598,
+        "cancelStartToReturnMs": 1.2275300000001153,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 182.06286699999873,
+        "firstScheduledTurnMs": 0.7765479999998206,
+        "navigation1000Ms": 55.96223900000041,
+        "batches": 975,
+        "chunkP95Ms": 0.6484070000005886,
+        "maxChunkMs": 3.0413950000001932,
+        "cancelEventToReturnMs": 0.06379500000002736,
+        "cancelStartToReturnMs": 8.093157999999676,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 210.07842199999868,
+        "firstScheduledTurnMs": 12.23578599999928,
+        "navigation1000Ms": 53.987685000000056,
+        "batches": 975,
+        "chunkP95Ms": 0.6670240000003105,
+        "maxChunkMs": 2.567298000001756,
+        "cancelEventToReturnMs": 0.0899939999999333,
+        "cancelStartToReturnMs": 1.430093000000852,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 187.15863999999965,
+        "firstScheduledTurnMs": 16.147272999998677,
+        "navigation1000Ms": 54.78334200000063,
+        "batches": 975,
+        "chunkP95Ms": 0.6494590000002063,
+        "maxChunkMs": 1.2386769999993703,
+        "cancelEventToReturnMs": 0.04188199999953213,
+        "cancelStartToReturnMs": 1.1557830000001559,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 176.50138400000105,
+        "firstScheduledTurnMs": 0.9657700000007026,
+        "navigation1000Ms": 50.09309700000085,
+        "batches": 975,
+        "chunkP95Ms": 0.6689270000006218,
+        "maxChunkMs": 1.3228729999991629,
+        "cancelEventToReturnMs": 0.04598900000019057,
+        "cancelStartToReturnMs": 1.1919470000011643,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 202.73787300000004,
+        "firstScheduledTurnMs": 1.4513139999999112,
+        "navigation1000Ms": 50.5509009999987,
+        "batches": 975,
+        "chunkP95Ms": 0.7520210000002407,
+        "maxChunkMs": 3.8842920000006416,
+        "cancelEventToReturnMs": 0.07933799999955227,
+        "cancelStartToReturnMs": 1.2763539999996283,
+        "returnedRows": 50001
+      }
+    ]
+  },
+  "baseline": {
+    "medianTotalMs": 187.62158700000145,
+    "medianFirstScheduledTurnMs": 195.0683420000023,
+    "p95FirstScheduledTurnMs": 226.64803199999733,
+    "medianNavigation1000Ms": 62.96011500000168,
+    "trials": [
+      {
+        "totalMs": 235.68647599999895,
+        "firstScheduledTurnMs": 241.70094499999868,
+        "navigation1000Ms": 81.00104700000156,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 206.81842200000028,
+        "firstScheduledTurnMs": 213.24691800000073,
+        "navigation1000Ms": 61.41371900000013,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 237.13119499999993,
+        "firstScheduledTurnMs": 244.97572199999922,
+        "navigation1000Ms": 61.9199639999988,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 210.60462800000096,
+        "firstScheduledTurnMs": 217.44717200000014,
+        "navigation1000Ms": 56.453332000000955,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 187.29024300000128,
+        "firstScheduledTurnMs": 196.3707030000005,
+        "navigation1000Ms": 81.22874100000081,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 195.84766399999899,
+        "firstScheduledTurnMs": 195.89239999999882,
+        "navigation1000Ms": 62.96011500000168,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 180.52535499999976,
+        "firstScheduledTurnMs": 180.57165499999974,
+        "navigation1000Ms": 53.39850699999988,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 182.84995099999833,
+        "firstScheduledTurnMs": 182.89358599999832,
+        "navigation1000Ms": 53.3068400000011,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 183.7685709999987,
+        "firstScheduledTurnMs": 184.52829399999973,
+        "navigation1000Ms": 70.28328500000134,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 197.95298399999956,
+        "firstScheduledTurnMs": 204.60681599999953,
+        "navigation1000Ms": 73.50126300000011,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 187.62158700000145,
+        "firstScheduledTurnMs": 193.33300400000007,
+        "navigation1000Ms": 59.87297099999705,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 226.58514899999864,
+        "firstScheduledTurnMs": 226.64803199999733,
+        "navigation1000Ms": 53.34703999999692,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 196.96797399999923,
+        "firstScheduledTurnMs": 197.01466399999845,
+        "navigation1000Ms": 56.924934999999095,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 184.67302500000005,
+        "firstScheduledTurnMs": 184.71689999999944,
+        "navigation1000Ms": 57.21463700000095,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 182.61027399999875,
+        "firstScheduledTurnMs": 183.242546999998,
+        "navigation1000Ms": 71.32287499999802,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 186.92361600000004,
+        "firstScheduledTurnMs": 192.6272710000012,
+        "navigation1000Ms": 61.696109999997134,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 178.01074599999993,
+        "firstScheduledTurnMs": 183.7369749999998,
+        "navigation1000Ms": 65.25980400000117,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 189.94486200000028,
+        "firstScheduledTurnMs": 195.0683420000023,
+        "navigation1000Ms": 68.44969000000128,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 183.69516300000032,
+        "firstScheduledTurnMs": 188.8695689999986,
+        "navigation1000Ms": 68.53426699999909,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 197.49327900000208,
+        "firstScheduledTurnMs": 202.87939000000188,
+        "navigation1000Ms": 63.59511199999906,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 185.0084910000005,
+        "firstScheduledTurnMs": 191.04401099999814,
+        "navigation1000Ms": 67.41271500000221,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 194.13409799999863,
+        "firstScheduledTurnMs": 200.30069399999775,
+        "navigation1000Ms": 61.43554199999926,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 186.05190200000288,
+        "firstScheduledTurnMs": 192.43141500000274,
+        "navigation1000Ms": 64.5352129999992,
+        "batches": 0,
+        "returnedRows": 50001
+      },
+      {
+        "totalMs": 208.08867800000007,
+        "firstScheduledTurnMs": 212.76696500000253,
+        "navigation1000Ms": 62.98821699999826,
+        "batches": 0,
+        "returnedRows": 50001
+      }
+    ]
+  }
+}

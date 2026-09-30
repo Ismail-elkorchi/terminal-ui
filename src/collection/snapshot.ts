@@ -73,6 +73,42 @@ export function createCompleteCollection<TItem extends CollectionItem>(
   }));
 }
 
+/** Cooperative counterpart used by prepared collection projections. */
+export function* createCompleteCollectionWork<TItem extends CollectionItem>(
+  items: readonly TItem[],
+): Generator<void, CompleteCollectionSnapshot<TItem>, unknown> {
+  const owned: TItem[] = [];
+  const ids: string[] = [];
+  const byId = new Map<string, CollectionItem>();
+  for (let offset = 0; offset < items.length; offset += 1) {
+    const item = items[offset];
+    if (item === undefined || typeof item.id !== 'string' || item.id.length === 0) {
+      throw new TypeError('collection item ids must not be empty.');
+    }
+    if (byId.has(item.id)) throw new TypeError(`collection item ids must be unique; duplicate id: ${item.id}`);
+    if (!Number.isSafeInteger(item.itemIndex) || item.itemIndex !== offset) {
+      throw new RangeError(`collection itemIndex must equal its stable position: ${String(offset)}.`);
+    }
+    if (item.sectionId !== undefined && (typeof item.sectionId !== 'string' || item.sectionId.length === 0)) {
+      throw new TypeError('collection item sectionId must be a non-empty string.');
+    }
+    const value: TItem = Object.freeze({ ...item });
+    owned.push(value);
+    ids.push(value.id);
+    byId.set(value.id, value);
+    if ((offset + 1) % 256 === 0) yield;
+  }
+  const snapshot = registerCollectionSnapshot(Object.freeze<CompleteCollectionSnapshot<TItem>>({
+    [collectionSnapshotBrand]: true,
+    kind: 'complete',
+    items: Object.freeze(owned),
+    startIndex: 0,
+    totalCount: owned.length,
+  }));
+  collectionIdentityIndexes.set(snapshot, Object.freeze({ ids: Object.freeze(ids), byId }));
+  return snapshot;
+}
+
 export function createWindowedCollection<TItem extends CollectionItem>(input: {
   readonly items: readonly TItem[];
   readonly window: CollectionWindow;

@@ -1,3 +1,7 @@
+export { createDataGridKeymap } from './keymaps.ts';
+export type { DataGridKeyAction } from './keymaps.ts';
+export { createListboxKeymap, createTreeKeymap } from './keymaps.ts';
+export type { ListboxKeyAction, TreeKeyAction } from './keymaps.ts';
 /** Passive collections and interaction-managed collection controls. */
 export type {
   ListViewActivateEvent,

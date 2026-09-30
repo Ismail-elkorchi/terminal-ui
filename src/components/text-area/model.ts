@@ -1,3 +1,6 @@
+import { resolveControlKeymap, type ControlKeymap } from '../../interaction/control-keymap.ts';
+import { createTextAreaKeymap, type TextAreaKeyAction } from '../keymaps.ts';
+const defaultTextAreaKeymap = createTextAreaKeymap();
 import type { ComponentMessage } from '../../component/message.ts';
 import {
   decodeComponentScrollbarOptions,
@@ -25,6 +28,7 @@ import type { TextAreaOptions } from './options.ts';
 
 
 export interface TextAreaModel {
+  readonly keymap: ControlKeymap<TextAreaKeyAction>;
   readonly document: TextDocument;
   readonly caret: TextCaret;
   readonly placeholder: string;
@@ -106,6 +110,7 @@ export function createTextAreaModel(
   const required = booleanOption(value.required, 'textArea required');
   const revealCaret = booleanOption(state.revealCaret, 'textArea revealCaret');
   return {
+    keymap: resolveControlKeymap(value.keymap, defaultTextAreaKeymap),
     document,
     caret: normalizedCaret,
     ...(selection === undefined ? {} : { selection }),

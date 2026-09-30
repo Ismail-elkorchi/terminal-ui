@@ -1,3 +1,5 @@
+export { createControlKeymap, controlKeymapHelp } from './control-keymap.ts';
+export type { ControlKeymap, ControlKeyBinding, ControlKeymapDefaults, ControlKeymapOverrides } from './control-keymap.ts';
 export { placeAnchoredSurface } from './anchored-surface.ts';
 export type {
   AnchoredSurfaceAnchor,

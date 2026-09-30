@@ -268,7 +268,7 @@ const instantiateCommandInput = defineComponent<CommandInputComponentOptions, Co
         ).text;
     return {
       triggers: [
-        ...textEditingTriggers(!canEdit, false).map((binding) => ({
+        ...textEditingTriggers(!canEdit).map((binding) => ({
           trigger: binding.trigger,
           onKey: (event: Parameters<typeof binding.onKey>[0]) => {
             const action = binding.onKey(event);

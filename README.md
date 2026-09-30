@@ -170,7 +170,9 @@ harnesses.
 - [API overview and entrypoints](./docs/api/index.md)
 - [Generated API reference](./docs/api/reference.md)
 
-Runnable applications include the [interactive workspace](./examples/tui/interactive-workspace.ts)
+Runnable applications include the [100,000-record incident workbench](./examples/tui/incident-workbench.ts)
+with [measured interaction latency](./docs/performance/incident-workbench.md),
+the [interactive workspace](./examples/tui/interactive-workspace.ts)
 and [test harness](./examples/testing/harness.mjs). Reusable component
 authors can continue with
 [Component definitions](./docs/guides/component-definitions.md).

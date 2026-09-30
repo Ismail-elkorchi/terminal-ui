@@ -1,3 +1,6 @@
+import { resolveControlKeymap, type ControlKeymap } from '../../interaction/control-keymap.ts';
+import { createDataGridKeymap, type DataGridKeyAction } from '../keymaps.ts';
+const defaultDataGridKeymap = createDataGridKeymap();
 import type {
   DataGridActivateEvent,
   DataGridCell,
@@ -72,6 +75,7 @@ interface TableCellModel {
 }
 
 export interface TableModel {
+  readonly keymap: ControlKeymap<DataGridKeyAction>;
   readonly semanticRole: 'table' | 'grid';
   readonly columns: readonly TableColumnModel[];
   readonly hasHeader: boolean;
@@ -137,6 +141,7 @@ export function createTableModel<TRow, TMessage extends ComponentMessage>(
   const density = value.density;
   assertOptionalEnum(density, ['compact', 'regular'], 'table density');
   return {
+    keymap: resolveControlKeymap('keymap' in value ? value.keymap : undefined, defaultDataGridKeymap),
     semanticRole,
     columns,
     hasHeader: columns.some((column) => column.header.length > 0),

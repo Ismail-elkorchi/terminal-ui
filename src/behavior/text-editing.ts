@@ -28,7 +28,7 @@ import {
   textDocumentRevision,
   textDocumentSlice,
 } from '../text/document.ts';
-import { editTextBuffer } from '../text/edit.ts';
+import { editSourceTextBuffer } from '../text/edit.ts';
 import { normalizeTextCursor, normalizeTextSelection } from '../text/text-range.ts';
 import type {
   TextCaret,
@@ -104,7 +104,7 @@ export function createTextAreaState(input: CreateTextAreaStateInput): TextAreaSt
 
 export function textInputReducer(state: TextEditBuffer, transition: TextInputTransition): TextEditBuffer {
   return transition.kind === 'edit'
-    ? editTextBuffer(state, transition.operation)
+    ? editSourceTextBuffer(state, transition.operation)
     : applyTextPointerTransition(state, transition.transition);
 }
 

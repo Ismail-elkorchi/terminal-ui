@@ -92,12 +92,17 @@ deno add jsr:@ismail-elkorchi/terminal-ui
   diffs, serialization, and renderer budgets.
 - [Performance evidence](./guides/performance.md) defines reproducible
   benchmarks and regression thresholds.
+- [Incident workbench latency](./performance/incident-workbench.md) records
+  end-to-end interaction measurements on 100,000 records.
+- [Preparing large tree queries](./guides/tree-query-preparation.md) explains
+  cancellable projection and records a 50,000-node comparison.
 
 ## Executable Examples
 
 - [Non-TTY prompt](../examples/prompts/non-tty-input.mjs)
 - [Testing harness](../examples/testing/harness.mjs)
 - [Interactive workspace](../examples/tui/interactive-workspace.ts)
+- [Incident workbench](../examples/tui/incident-workbench.ts)
 - [IDE-style editor](../examples/tui/ide-editor.ts)
 - [System monitor](../examples/tui/btop-monitor.ts)
 - [Terminal graphics](../examples/tui/graphics.ts)

@@ -75,7 +75,7 @@ const instantiateNumberInput = defineComponent<Omit<NumberInputOptions<Component
   retainPaint: true as const,
   render: paintNumberInput,
   keys: ({ readOnly }) => ({
-    triggers: textEditingTriggers(readOnly, false),
+    triggers: textEditingTriggers(readOnly),
     ...(readOnly ? {} : {
       arrowUp: () => ({ kind: 'step' as const, direction: 'increment' as const }),
       arrowDown: () => ({ kind: 'step' as const, direction: 'decrement' as const }),

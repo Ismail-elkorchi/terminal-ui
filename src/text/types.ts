@@ -132,7 +132,7 @@ export interface TextClipResult {
   readonly clipped: boolean;
 }
 
-export interface SanitizeTerminalTextOptions {
+export interface SanitizeTerminalTextOptions extends TextMeasurementOptions {
   readonly replacement?: string;
 }
 

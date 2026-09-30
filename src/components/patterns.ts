@@ -1,3 +1,5 @@
+export { createSearchPickerKeymap } from './keymaps.ts';
+export type { SearchPickerKeyAction } from './keymaps.ts';
 /** First-party application patterns built from the foundational controls. */
 export { createCommandSuggestions } from '../behavior/command-input-operations.ts';
 export type {

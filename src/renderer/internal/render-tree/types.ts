@@ -23,7 +23,8 @@ interface RenderNodeBase<TMessage, TKind extends RenderNodeKind> {
   /** Children visible to public element inspection. */
   readonly inspectionChildren?: readonly RenderNode<TMessage>[];
   /** Definition-owned semantic description adopted for public inspection. */
-  readonly semanticInspection?: import("../../../element/inspection-contracts.ts").ComponentSemanticInspection;
+  readonly semanticInspection?: import("../../../element/inspection-contracts.ts").ComponentSemanticInspection
+    | (() => import("../../../element/inspection-contracts.ts").ComponentSemanticInspection | undefined);
   readonly keyMap?: ElementKeyBindings<TMessage>;
   readonly inputMap?: RenderNodeInputMap<TMessage>;
   readonly focusLifecycle?: (

@@ -1,4 +1,8 @@
-import { assertSearchPickerIndex } from '../../behavior/search-picker-index.ts';
+import { resolveControlKeymap, type ControlKeymap } from '../../interaction/control-keymap.ts';
+import { createSearchPickerKeymap, type SearchPickerKeyAction } from '../keymaps.ts';
+import { controlKeyBindings, mapControlKeyHandlers } from '../shared/control-key-bindings.ts';
+const defaultSearchPickerKeymap = createSearchPickerKeymap();
+import { assertSearchPickerIndex, prepareSearchPickerQuery } from '../../behavior/search-picker-index.ts';
 import { searchPickerWindow } from '../../behavior/search-picker-operations.ts';
 import type {
   SearchPickerAcceptEvent,
@@ -23,7 +27,7 @@ import {
   isNonArrayObject,
   nonNegativeSafeInteger as nonNegativeInteger,
 } from '../../foundation/validation.ts';
-import { ignoreMessage, isIgnoredMessage } from '../../interaction/message.ts';
+import { ignoreMessage } from '../../interaction/message.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
@@ -40,7 +44,7 @@ import { clean, nonEmpty, positiveInteger } from '../shared/picker-validation.ts
 import { queryLabelSpans } from '../shared/query-label-spans.ts';
 import { layoutSingleLineTextWindow } from '../shared/single-line-text-window.ts';
 import { decodeTextSelection } from '../shared/text-input-validation.ts';
-import { textEditingTriggers } from '../shared/text-key-bindings.ts';
+import { textEditingHandlers } from '../shared/text-key-bindings.ts';
 import { textPointerTarget } from '../shared/text-pointer-target.ts';
 import type { SearchPickerStylePart } from '../style-parts.ts';
 import type {
@@ -66,12 +70,13 @@ type SearchPickerComponentAction =
   | { readonly kind: 'contextMenu'; readonly event: TextContextMenuEvent };
 
 interface SearchPickerModel {
+  readonly keymap: ControlKeymap<SearchPickerKeyAction>;
   readonly title: string;
   readonly input: import('../../text/index.ts').TextEditBuffer;
   readonly query: CompiledCollectionQuery;
   readonly rows: readonly SearchEntryModel[];
-  readonly activeIndex?: number;
-  readonly activeId?: string;
+  readonly activeIndex?: number | undefined;
+  readonly activeId?: string | undefined;
   readonly activeDisabled: boolean;
   readonly totalCount: number;
   readonly sourceCount: number;
@@ -193,6 +198,9 @@ const instantiateSearchPicker = defineComponent<SearchPickerComponentOptions, Se
   ],
   visualStates: ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy', 'readOnly'],
   createModel: createSearchPickerModel,
+  prepare: async ({ model, signal, yield: yieldWork }) => {
+    await searchPickerPreparations.get(model)?.({ signal, yield: yieldWork });
+  },
   inspection: ({ model }) => {
     return {
       value: inspectTextValue(model.input.text),
@@ -285,29 +293,18 @@ const instantiateSearchPicker = defineComponent<SearchPickerComponentOptions, Se
     const canEdit = allowsComponentAction(availability, 'edit');
     const canActivate = allowsComponentAction(availability, 'activate');
     const activeId = model.activeId;
-    return {
-      triggers: [
-        ...textEditingTriggers(!canEdit, false).map((binding) => ({
-          trigger: binding.trigger,
-          onKey: (event: Parameters<typeof binding.onKey>[0]) => {
-            const action = binding.onKey(event);
-            return isIgnoredMessage(action) ? action : searchPickerTransition(action);
-          },
-        })),
-        ...(canEdit ? [{
-          trigger: { kind: 'key' as const, key: 'z' as const, modifiers: { ctrl: true } },
-          onKey: () => searchPickerTransition({ kind: 'undo' as const }),
-        }, {
-          trigger: { kind: 'key' as const, key: 'y' as const, modifiers: { ctrl: true } },
-          onKey: () => searchPickerTransition({ kind: 'redo' as const }),
-        }] : []),
-      ],
-      arrowUp: () => searchPickerTransition({ kind: 'moveActive', delta: -1 }),
-      arrowDown: () => searchPickerTransition({ kind: 'moveActive', delta: 1 }),
-      ...(activeId === undefined || model.activeDisabled || !canActivate
-        ? {}
-        : { enter: () => ({ kind: 'accept' as const, event: { kind: 'accept' as const, id: activeId } }) }),
-    };
+    return controlKeyBindings<SearchPickerKeyAction, SearchPickerComponentAction>(model.keymap, {
+      ...mapControlKeyHandlers(textEditingHandlers(!canEdit), searchPickerTransition),
+      ...(canEdit ? {
+        undo: () => searchPickerTransition({ kind: 'undo' }),
+        redo: () => searchPickerTransition({ kind: 'redo' }),
+      } : {}),
+      previous: () => searchPickerTransition({ kind: 'moveActive', delta: -1 }),
+      next: () => searchPickerTransition({ kind: 'moveActive', delta: 1 }),
+      ...(activeId === undefined || model.activeDisabled || !canActivate ? {} : {
+        accept: () => ({ kind: 'accept', event: { kind: 'accept', id: activeId } }),
+      }),
+    });
   },
   onInput: ({ text, readOnly }) => allowsComponentAction({ readOnly }, 'edit')
     ? searchPickerTransition({ kind: 'edit', operation: { kind: 'insert', text } })
@@ -397,7 +394,32 @@ function isScrollableSearchPicker<
   return options.view.scroll !== undefined;
 }
 
+const searchPickerPreparations = new WeakMap<object, (context: import('../../foundation/cooperative-work.ts').CooperativeWorkContext) => Promise<void>>();
+
 function createSearchPickerModel(value: Readonly<SearchPickerComponentOptions>): SearchPickerModel {
+  if (value.queryResult !== undefined) return materializeSearchPickerModel(value);
+  const base = materializeSearchPickerModel({ ...value, queryResult: null });
+  let ready: SearchPickerModel | undefined;
+  const project = (): SearchPickerModel => ready ??= materializeSearchPickerModel(value);
+  const model: SearchPickerModel = {
+    ...base,
+    get rows() { return project().rows; },
+    get activeIndex() { return project().activeIndex; },
+    get activeId() { return project().activeId; },
+    get activeDisabled() { return project().activeDisabled; },
+    get totalCount() { return project().totalCount; },
+    get startIndex() { return project().startIndex; },
+  };
+  searchPickerPreparations.set(model, async (context) => {
+    if (ready !== undefined) return;
+    const queryResult = await prepareSearchPickerQuery(value.searchPickerIndex, base.query, context);
+    context.signal.throwIfAborted();
+    ready = materializeSearchPickerModel({ ...value, queryResult });
+  });
+  return model;
+}
+
+function materializeSearchPickerModel(value: Readonly<SearchPickerComponentOptions>): SearchPickerModel {
   const index = value.searchPickerIndex;
   assertSearchPickerIndex(index);
   const view = decodeSearchPickerView(value.view);
@@ -406,6 +428,7 @@ function createSearchPickerModel(value: Readonly<SearchPickerComponentOptions>):
   const limit = positiveInteger(value.maxVisible, 'searchPicker maxVisible') ?? 8;
   const window = searchPickerWindow({
     searchPickerIndex: index,
+    ...(value.queryResult === undefined ? {} : { queryResult: value.queryResult }),
     query,
     ...(view.activeId === undefined ? {} : { activeId: view.activeId }),
     ...(scroll === undefined ? {} : { scroll }),
@@ -435,6 +458,7 @@ function createSearchPickerModel(value: Readonly<SearchPickerComponentOptions>):
     throw new TypeError('searchPicker scrollbar and scrollPolicy require scroll state.');
   }
   return {
+    keymap: resolveControlKeymap(value.keymap, defaultSearchPickerKeymap),
     title: clean(value.title, 'searchPicker title') ?? '',
     input: view.input,
     query,
@@ -458,7 +482,7 @@ function decodeSearchPickerView(
 ): {
   readonly input: import('../../text/index.ts').TextEditBuffer;
   readonly query: CompiledCollectionQuery;
-  readonly activeId?: string;
+  readonly activeId?: string | undefined;
   readonly scroll?: ScrollState;
 } {
   if (!isNonArrayObject(value)) {

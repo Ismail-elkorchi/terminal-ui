@@ -16,7 +16,8 @@ import {
   textDocumentText,
 } from '../../text/document.ts';
 import { segmentGraphemesForMeasurement } from '../../text/graphemes.ts';
-import { sanitizeTerminalText } from '../../text/sanitize.ts';
+import { sanitizeTerminalControlText, sanitizeTerminalText } from '../../text/sanitize.ts';
+import { expandTerminalTabs, terminalTabCells } from '../../text/tabs.ts';
 import type { TextWidthProfile } from '../../text/types.ts';
 import { textWidthProfileKey } from '../../text/width-profile.ts';
 import type { TerminalStyle } from '../../visual/render-content.ts';
@@ -122,7 +123,6 @@ const recentDisplayProjections = new WeakMap<
 const lineProjectableProjections = new WeakSet<TextAreaProjection>();
 const retainedProjectionData = new WeakMap<TextAreaProjection, RetainedProjectionData>();
 const CACHE_LIMIT = 8;
-const TAB_SIZE = 4;
 const terminalStyleFields: readonly TerminalStyleField[] = Object.freeze([
   'fg', 'bg', 'bold', 'dim', 'italic', 'underline', 'strikethrough', 'inverse', 'hidden'
 ]);
@@ -224,7 +224,7 @@ function buildMaterializedProjection(
   decorations: readonly TextAreaDecorationModel[],
   widthProfile: TextWidthProfile,
 ): BuiltMaterializedProjection {
-  const sanitizedSource = sanitizeTerminalText(source);
+  const sanitizedSource = sanitizeTerminalText(source, { widthProfile });
   const builder: ProjectionBuilder = {
     widthProfile,
     textParts: [],
@@ -719,20 +719,7 @@ function projectLineRange(
 }
 
 function projectEditableLine(text: string, widthProfile: TextWidthProfile): string {
-  if (!text.includes('\t')) return text;
-  let column = 0;
-  let projected = '';
-  for (const grapheme of segmentGraphemesForMeasurement(text, { widthProfile })) {
-    if (grapheme.text === '\t') {
-      const spaces = TAB_SIZE - column % TAB_SIZE;
-      projected += ' '.repeat(spaces);
-      column += spaces;
-    } else {
-      projected += grapheme.text;
-      column += grapheme.cells;
-    }
-  }
-  return projected;
+  return expandTerminalTabs(text, { widthProfile });
 }
 
 function lineOffsetProjection(
@@ -754,7 +741,7 @@ function lineOffsetProjection(
   let column = 0;
   for (const grapheme of segmentGraphemesForMeasurement(source, { widthProfile })) {
     const targetLength = grapheme.text === '\t'
-      ? TAB_SIZE - column % TAB_SIZE
+      ? terminalTabCells(column)
       : grapheme.text.length;
     appendMapping(mappings, {
       sourceStart: grapheme.startOffset,
@@ -1105,7 +1092,7 @@ function appendReplacement(
     ? ''
     : decoration.accessibilityText === undefined
       ? displayText
-      : sanitizeTerminalText(decoration.accessibilityText).text;
+      : sanitizeTerminalText(decoration.accessibilityText, { widthProfile: builder.widthProfile }).text;
   appendProjection(
     builder,
     displayText,
@@ -1119,7 +1106,7 @@ function appendReplacement(
 }
 
 function projectReplacementText(rawText: string, builder: ProjectionBuilder): string {
-  const sanitized = sanitizeTerminalText(rawText).text;
+  const sanitized = sanitizeTerminalControlText(rawText).text;
   let text = '';
   for (const grapheme of segmentGraphemesForMeasurement(sanitized, {
     widthProfile: builder.widthProfile
@@ -1135,7 +1122,7 @@ function projectedGrapheme(builder: ProjectionBuilder, text: string, cells: numb
     return '\n';
   }
   if (text === '\t') {
-    const spaces = TAB_SIZE - (builder.column % TAB_SIZE);
+    const spaces = terminalTabCells(builder.column);
     builder.column += spaces;
     return ' '.repeat(spaces);
   }

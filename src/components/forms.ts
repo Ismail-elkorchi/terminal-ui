@@ -1,3 +1,5 @@
+export { createTextInputKeymap, createTextAreaKeymap } from './keymaps.ts';
+export type { TextInputKeyAction, TextAreaKeyAction, TextEditingKeyAction } from './keymaps.ts';
 /** Form containers, editable controls, and value controls. */
 export type {
   CalendarDate,

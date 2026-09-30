@@ -256,7 +256,7 @@ const instantiateCombobox = defineComponent<ComboboxModel, ComboboxComponentActi
     const triggers = model.state.kind !== 'autocomplete'
       ? undefined
       : [
-          ...textEditingTriggers(!canEdit, false).map((binding) => ({
+          ...textEditingTriggers(!canEdit).map((binding) => ({
             trigger: binding.trigger,
             onKey: (event: Parameters<typeof binding.onKey>[0]) => {
               if (event.focusPath.at(-1) !== id) return ignoreMessage();

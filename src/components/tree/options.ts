@@ -1,3 +1,5 @@
+import type { ControlKeymap } from '../../interaction/control-keymap.ts';
+import type { TreeKeyAction } from '../keymaps.ts';
 import type {
   ScrollableTreeState,
   TreeActivateEvent,
@@ -16,6 +18,7 @@ import type { TreeStylePart } from '../style-parts.ts';
 
 
 interface TreeCommonOptions {
+  readonly keymap?: ControlKeymap<TreeKeyAction>;
   readonly id: string;
   readonly emptyText?: string;
   readonly busy?: boolean;

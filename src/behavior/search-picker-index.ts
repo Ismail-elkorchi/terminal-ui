@@ -1,6 +1,7 @@
+import { finishWork, prepareWork, type CooperativeWorkContext } from '../foundation/cooperative-work.ts';
 import type { SearchEntry } from '../collection/item.ts';
 import type { CollectionInteractionIndex } from '../interaction/collection-interaction.ts';
-import { createCollectionInteractionIndex } from '../interaction/collection-interaction.ts';
+import { createCollectionInteractionIndexWork } from '../interaction/collection-interaction.ts';
 import type {
   CollectionQuery,
   CompiledCollectionQuery,
@@ -10,7 +11,7 @@ import type {
 import {
   compileCollectionQuery,
   indexQueryCandidate,
-  queryIndexedCandidates,
+  queryIndexedCandidatesWork,
 } from '../text/query.ts';
 import { sanitizeTerminalText } from '../text/sanitize.ts';
 
@@ -137,6 +138,42 @@ export function querySearchPickerIndex<TValue>(
   index: SearchPickerIndex<TValue>,
   query: CollectionQuery = { text: '', mode: 'fuzzy' },
 ): SearchPickerQueryResult<TValue> {
+  return finishWork(searchPickerQueryWork(index, query));
+}
+
+/** Prepare a query in cancellable chunks, including sorting and navigation indexing. */
+export function prepareSearchPickerQuery<TValue>(
+  index: SearchPickerIndex<TValue>,
+  query: CollectionQuery,
+  context: CooperativeWorkContext,
+): Promise<SearchPickerQueryResult<TValue>> {
+  return prepareWork(searchPickerQueryWork(index, query), context);
+}
+
+/** Validate caller-owned results without evaluating a missing query. */
+export function matchingSearchPickerQuery<TValue>(
+  index: SearchPickerIndex<TValue>,
+  query: CollectionQuery,
+  result: SearchPickerQueryResult<TValue> | null,
+): SearchPickerQueryResult<TValue> | undefined {
+  if (result === null) return undefined;
+  if (!queryResultIdentities.has(result)) throw new TypeError('Search picker query results must be prepared by terminal-ui.');
+  const compiled = compileCollectionQuery(query);
+  return result.searchPickerIndex === index
+    && result.query.text === compiled.text && result.query.mode === compiled.mode
+    && result.query.caseSensitive === compiled.caseSensitive ? result : undefined;
+}
+
+const queryResultIdentities = new WeakSet<object>();
+const queryPositions = new WeakMap<object, ReadonlyMap<string, number>>();
+
+export function searchPickerQueryPosition(result: SearchPickerQueryResult<unknown>, id: string): number | undefined {
+  return queryPositions.get(result)?.get(id);
+}
+
+function* searchPickerQueryWork<TValue>(
+  index: SearchPickerIndex<TValue>, query: CollectionQuery,
+): Generator<void, SearchPickerQueryResult<TValue>> {
   const data = dataFor(index);
   const normalizedQuery = compileCollectionQuery(query);
   const cacheKey = `${normalizedQuery.mode}:${normalizedQuery.caseSensitive ? '1' : '0'}:${normalizedQuery.text}`;
@@ -148,23 +185,31 @@ export function querySearchPickerIndex<TValue>(
   }
   data.queryEvaluations += 1;
   data.candidateEvaluations += normalizedQuery.text.length === 0 ? 0 : data.entries.length;
-  const matches = queryIndexedCandidates(data.candidates, normalizedQuery);
-  const entries = normalizedQuery.text.length === 0
-    ? data.entries
-    : Object.freeze(matches.flatMap((match) => {
-        const entry = data.entriesById.get(match.id);
-        return entry === undefined ? [] : [entry];
-      }));
+  const matches = yield* queryIndexedCandidatesWork(data.candidates, normalizedQuery);
+  const entries: SearchEntry<TValue>[] = [];
+  const enabledIds: string[] = [];
+  const positions = new Map<string, number>();
+  for (let position = 0; position < matches.length; position += 1) {
+    const match = matches[position];
+    const entry = match === undefined ? undefined : data.entriesById.get(match.id);
+    if (entry !== undefined) {
+      positions.set(entry.id, entries.length);
+      entries.push(entry);
+      if (entry.disabled !== true) enabledIds.push(entry.id);
+    }
+    if ((position + 1) % 256 === 0) yield;
+  }
+  const interactionIndex = yield* createCollectionInteractionIndexWork(enabledIds);
   const result = Object.freeze({
     kind: 'search-picker-query' as const,
     searchPickerIndex: index,
     query: normalizedQuery,
-    entries,
+    entries: normalizedQuery.text.length === 0 ? data.entries : Object.freeze(entries),
     matches,
-    interactionIndex: createCollectionInteractionIndex(entries
-      .filter((entry) => entry.disabled !== true)
-      .map((entry) => entry.id)),
+    interactionIndex,
   });
+  queryResultIdentities.add(result);
+  queryPositions.set(result, positions);
   data.queryResults.set(cacheKey, result);
   let retainedReferences = [...data.queryResults.values()]
     .reduce((total, entry) => total + entry.entries.length, 0);

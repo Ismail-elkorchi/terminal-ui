@@ -265,8 +265,8 @@ export {
   scrollReducer,
   visibleWindowFromScroll,
 } from './scroll.ts';
-export { createSearchPickerIndex, searchPickerEntryById } from './search-picker-index.ts';
-export type { SearchPickerIndex } from './search-picker-index.ts';
+export { createSearchPickerIndex, prepareSearchPickerQuery, searchPickerEntryById } from './search-picker-index.ts';
+export type { SearchPickerIndex, SearchPickerQueryResult } from './search-picker-index.ts';
 export {
   activeSearchPickerEntry,
   createSearchPickerState,
@@ -355,6 +355,7 @@ export {
   createTreeCollectionFromRows,
   createTreeSource,
   createTreeView,
+  prepareTreeView,
   isTreeView,
   selectableTreeRows,
   treeDisclosureTransition,
@@ -404,3 +405,5 @@ export type {
   VisualizationActivateEvent,
   VisualizationState,
 } from './visualization.ts';
+
+export type { CooperativeWorkContext } from '../foundation/cooperative-work.ts';

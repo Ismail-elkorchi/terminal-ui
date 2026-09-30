@@ -1,3 +1,4 @@
+import { finishWork } from '../foundation/cooperative-work.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
 import type { NavigationPolicy } from './navigation.ts';
 import { adjacentItemId } from './navigation.ts';
@@ -61,17 +62,23 @@ export function selectionContains(selection: SelectionState, id: string): boolea
 }
 
 export function createCollectionInteractionIndex(value: unknown): CollectionInteractionIndex {
+  return finishWork(createCollectionInteractionIndexWork(value));
+}
+
+/** Bounded construction shared by cooperative collection projections. */
+export function* createCollectionInteractionIndexWork(value: unknown): Generator<void, CollectionInteractionIndex> {
   if (!Array.isArray(value)) throw new TypeError('Collection interaction ids must be an array.');
-  const ids = Object.freeze(value.map((id, position) =>
-    selectionId(id, `Collection interaction ids[${String(position)}]`)
-  ));
+  const ids: string[] = [];
   const positions = new Map<string, number>();
-  for (const [position, id] of ids.entries()) {
+  for (let position = 0; position < value.length; position += 1) {
+    const id = selectionId(value[position], `Collection interaction ids[${String(position)}]`);
     if (positions.has(id)) throw new TypeError('Collection interaction ids must be unique.');
+    ids.push(id);
     positions.set(id, position);
+    if ((position + 1) % 256 === 0) yield;
   }
   const index = Object.freeze({}) as CollectionInteractionIndex;
-  collectionIndexes.set(index, { ids, positions });
+  collectionIndexes.set(index, { ids: Object.freeze(ids), positions });
   return index;
 }
 

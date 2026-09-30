@@ -1,4 +1,6 @@
-import type { SearchPickerIndex } from '../../behavior/search-picker-index.ts';
+import type { ControlKeymap } from '../../interaction/control-keymap.ts';
+import type { SearchPickerKeyAction } from '../keymaps.ts';
+import type { SearchPickerIndex, SearchPickerQueryResult } from '../../behavior/search-picker-index.ts';
 import type {
   ScrollableSearchPickerView,
   SearchPickerAcceptEvent,
@@ -17,9 +19,12 @@ import type { SearchPickerStylePart } from '../style-parts.ts';
 
 
 interface SearchPickerOptionsBase<TValue> {
+  readonly keymap?: ControlKeymap<SearchPickerKeyAction>;
   readonly id: string;
   readonly title?: string;
   readonly searchPickerIndex: SearchPickerIndex<TValue>;
+  /** Caller-prepared results; null keeps editing responsive while a query is pending. */
+  readonly queryResult?: SearchPickerQueryResult<TValue> | null;
   readonly maxVisible?: number;
   readonly helpText?: string;
   readonly emptyText?: string;

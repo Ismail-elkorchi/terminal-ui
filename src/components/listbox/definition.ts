@@ -1,3 +1,7 @@
+import { resolveControlKeymap, type ControlKeymap } from '../../interaction/control-keymap.ts';
+import { createListboxKeymap, type ListboxKeyAction } from '../keymaps.ts';
+import { controlKeyBindings } from '../shared/control-key-bindings.ts';
+const defaultListboxKeymap = createListboxKeymap();
 import { listboxViewForOptions } from '../../behavior/listbox-operations.ts';
 import type {
   ListboxActivateEvent,
@@ -47,6 +51,7 @@ import type {
 type ListEntryModel = ListboxViewEntry<unknown>;
 
 interface ListboxModel {
+  readonly keymap: ControlKeymap<ListboxKeyAction>;
   readonly entries: readonly ListEntryModel[];
   readonly startIndex: number;
   readonly totalCount: number;
@@ -93,18 +98,18 @@ const instantiateListbox = defineComponent<ListboxModel, ListboxComponentAction>
   keys({ model, busy }) {
     if (busy) return {};
     const active = activeEntry(model);
-    return {
-      arrowUp: () => transition({ kind: 'moveActive', delta: -1 }),
-      arrowDown: () => transition({ kind: 'moveActive', delta: 1 }),
-      pageUp: () => transition({ kind: 'pageActive', delta: -1 }),
-      pageDown: () => transition({ kind: 'pageActive', delta: 1 }),
-      home: () => transition({ kind: 'firstActive' }),
-      end: () => transition({ kind: 'lastActive' }),
-      space: () => transition({ kind: 'commitActive' }),
+    return controlKeyBindings<ListboxKeyAction, ListboxComponentAction>(model.keymap, {
+      previous: () => transition({ kind: 'moveActive', delta: -1 }),
+      next: () => transition({ kind: 'moveActive', delta: 1 }),
+      previousPage: () => transition({ kind: 'pageActive', delta: -1 }),
+      nextPage: () => transition({ kind: 'pageActive', delta: 1 }),
+      first: () => transition({ kind: 'firstActive' }),
+      last: () => transition({ kind: 'lastActive' }),
+      select: () => transition({ kind: 'commitActive' }),
       ...(active === undefined || active.option.disabled
         ? {}
-        : { enter: () => activate(active) }),
-    };
+        : { activate: () => activate(active) }),
+    });
   },
   focusTargets(input) {
     const plan = listPlan(input.model, input.bounds);
@@ -220,6 +225,7 @@ function createListboxModel<TValue, TMessage extends ComponentMessage>(
     throw new TypeError('listbox scrollbar and scrollPolicy require scroll state.');
   }
   return {
+    keymap: resolveControlKeymap(value.keymap, defaultListboxKeymap),
     entries: view.entries,
     startIndex: view.startIndex,
     totalCount: view.totalCount,

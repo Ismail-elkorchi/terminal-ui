@@ -3,12 +3,14 @@ import type { CollectionWindow } from '../collection/snapshot.ts';
 import {
   collectionItemById,
   createCompleteCollection,
+  createCompleteCollectionWork,
   createWindowedCollection,
 } from '../collection/snapshot.ts';
+import { finishWork, prepareWork, stableSortWork, type CooperativeWorkContext } from '../foundation/cooperative-work.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
 import {
   collectionInteractionReducer,
-  createCollectionInteractionIndex,
+  createCollectionInteractionIndexWork,
 } from '../interaction/collection-interaction.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
 import type { CollectionQuery, CompiledCollectionQuery } from '../text/query.ts';
@@ -40,18 +42,27 @@ export interface TreeReducerOptions<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
 > {
   readonly source: TreeSource<TMetadata>;
+  /** Prepared projection; null keeps navigation idle while a new projection is pending. */
+  readonly view?: TreeView<TMetadata> | null;
   readonly navigation?: NavigationPolicy;
   readonly pageSize?: number;
 }
 
+interface TreeEntry<TMetadata extends Readonly<Record<string, unknown>>> {
+  readonly node: TreeNode<TMetadata>;
+  readonly parent: number;
+  readonly depth: number;
+  end: number;
+}
+
 interface TreeSourceData<TMetadata extends Readonly<Record<string, unknown>>> {
-  readonly nodes: readonly TreeNode<TMetadata>[];
-  readonly nodesById: ReadonlyMap<string, TreeNode<TMetadata>>;
+  readonly entries: readonly TreeEntry<TMetadata>[];
   readonly expandableIds: ReadonlySet<string>;
 }
 
 const treeSources = new WeakMap<TreeSource, TreeSourceData<Readonly<Record<string, unknown>>>>();
 const treeViews = new WeakSet<TreeView>();
+const treeViewKeys = new WeakMap<TreeView, string>();
 const retainedTreeViews = new WeakMap<TreeSource, Map<string, TreeView>>();
 
 export function createTreeSource<
@@ -60,23 +71,31 @@ export function createTreeSource<
   if (!Array.isArray(nodes)) throw new TypeError('Tree source nodes must be an array.');
   const owned: readonly TreeNode<TMetadata>[] = ownTreeNodes<TMetadata>(nodes, 'tree nodes');
   assertUniqueRecursiveIds(owned, (node) => ({ id: node.id, children: treeNodeChildren(node) }), 'tree');
-  const nodesById = new Map<string, TreeNode<TMetadata>>();
+  const entries: TreeEntry<TMetadata>[] = [];
   const expandable = new Set<string>();
-  const pending: TreeNode<TMetadata>[] = [...owned].reverse();
-  while (pending.length > 0) {
-    const node = pending.pop();
-    if (node === undefined) continue;
-    nodesById.set(node.id, node);
+  const frames = [{ nodes: owned, offset: 0, parent: -1, depth: 0 }];
+  while (frames.length > 0) {
+    const frame = frames.at(-1);
+    if (frame === undefined) break;
+    const node = frame.nodes[frame.offset++];
+    if (node === undefined) {
+      frames.pop();
+      const parent = entries[frame.parent];
+      if (parent !== undefined) parent.end = entries.length;
+      continue;
+    }
+    const index = entries.length;
+    entries.push({ node, parent: frame.parent, depth: frame.depth, end: index + 1 });
     if (node.kind !== 'leaf') expandable.add(node.id);
-    pending.push(...treeNodeChildren(node).toReversed());
+    if (node.kind === 'branch') frames.push({ nodes: node.children, offset: 0, parent: index, depth: frame.depth + 1 });
   }
   const source = Object.freeze({
     kind: 'tree-source' as const,
-    nodeCount: nodesById.size,
+    nodeCount: entries.length,
   }) as TreeSource<TMetadata>;
   treeSources.set(
     source,
-    Object.freeze({ nodes: owned, nodesById, expandableIds: expandable }),
+    Object.freeze({ entries: Object.freeze(entries), expandableIds: expandable }),
   );
   return source;
 }
@@ -87,23 +106,50 @@ export function createTreeView<
   source: TreeSource<TMetadata>,
   state: TreeState,
 ): TreeView<TMetadata> {
+  return finishWork(createTreeViewWork(source, state));
+}
+
+/** Prepare all tree matching, projection, identity and navigation work cooperatively. */
+export async function prepareTreeView<TMetadata extends Readonly<Record<string, unknown>>>(
+  source: TreeSource<TMetadata>,
+  state: TreeState,
+  context: CooperativeWorkContext,
+): Promise<TreeView<TMetadata>> {
+  context.signal.throwIfAborted();
+  const snapshot: TreeState = {
+    ...state,
+    expandedIds: Object.freeze([...state.expandedIds]),
+    ...(state.loadStatusById === undefined ? {} : {
+      loadStatusById: Object.freeze(Object.fromEntries(Object.entries(state.loadStatusById)
+        .map(([id, status]) => [id, Object.freeze({ ...status })]))),
+    }),
+  };
+  return await prepareWork(createTreeViewWork(source, snapshot), context);
+}
+
+function* createTreeViewWork<TMetadata extends Readonly<Record<string, unknown>>>(
+  source: TreeSource<TMetadata>,
+  state: TreeState,
+): Generator<void, TreeView<TMetadata>, unknown> {
   const query = compileCollectionQuery(state.query ?? { text: '', mode: 'contains' });
-  const key = treeProjectionKey(state, query);
-  let byState = retainedTreeViews.get(source);
-  const cached = byState?.get(key) as TreeView<TMetadata> | undefined;
+  const key = yield* treeProjectionKeyWork(state, query);
+  const cached = retainedTreeViews.get(source)?.get(key) as TreeView<TMetadata> | undefined;
   if (cached !== undefined) return cached;
-  const rows = visibleTreeRows(source, { ...state, query });
-  const collection = createTreeCollectionFromRows(rows);
-  const interactionIndex = createCollectionInteractionIndex(collection.items
-    .filter((item) => item.row.node.disabled !== true && item.row.lazyPlaceholder !== true)
-    .map((item) => item.id));
-  const view = Object.freeze({
-    kind: 'tree-view' as const,
-    source,
-    collection,
-    interactionIndex,
-  });
+  const rows = yield* visibleTreeRowsWork(source, state, query);
+  const items: TreeCollectionRow<TMetadata>[] = [];
+  const selectableIds: string[] = [];
+  for (const row of rows) {
+    items.push({ id: row.node.id, itemIndex: items.length, row });
+    if (row.node.disabled !== true && row.lazyPlaceholder !== true) selectableIds.push(row.node.id);
+    if (items.length % 256 === 0) yield;
+  }
+  const collection = yield* createCompleteCollectionWork(items);
+  const interactionIndex = yield* createCollectionInteractionIndexWork(selectableIds);
+  const view = Object.freeze({ kind: 'tree-view' as const, source, collection, interactionIndex });
+  // Publication is atomic: aborted preparations never install partial projections.
   treeViews.add(view);
+  treeViewKeys.set(view, key);
+  let byState = retainedTreeViews.get(source);
   if (byState === undefined) {
     byState = new Map();
     retainedTreeViews.set(source, byState);
@@ -120,15 +166,32 @@ export function createTreeView<
 }
 
 function treeProjectionKey(state: TreeState, query: CompiledCollectionQuery): string {
-  return JSON.stringify([
-    [...state.expandedIds].sort(),
-    query.text,
-    query.mode,
-    query.caseSensitive,
-    Object.entries(state.loadStatusById ?? {})
-      .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
-      .map(([id, status]) => [id, status.kind, 'message' in status ? status.message : undefined]),
-  ]);
+  return finishWork(treeProjectionKeyWork(state, query));
+}
+
+function* treeProjectionKeyWork(
+  state: TreeState,
+  query: CompiledCollectionQuery,
+): Generator<void, string, unknown> {
+  const expanded = yield* stableSortWork(state.expandedIds, compareIds);
+  const statuses = yield* stableSortWork(Object.keys(state.loadStatusById ?? {}), compareIds);
+  const pieces = [JSON.stringify([query.text, query.mode, query.caseSensitive])];
+  let operations = 0;
+  for (const id of expanded) {
+    pieces.push(JSON.stringify(id));
+    if (++operations % 256 === 0) yield;
+  }
+  pieces.push('|');
+  for (const id of statuses) {
+    const status = state.loadStatusById?.[id];
+    if (status !== undefined) pieces.push(JSON.stringify([id, status.kind, 'message' in status ? status.message : undefined]));
+    if (++operations % 256 === 0) yield;
+  }
+  return pieces.join('\n');
+}
+
+function compareIds(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 export function isTreeView(value: unknown): value is TreeView {
@@ -160,8 +223,12 @@ export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>
     const query = compileCollectionQuery(transition.query);
     return query.text.length === 0 ? withoutQuery(state) : { ...state, query };
   }
-  const view = createTreeView(options.source, state);
   if (isDisclosure(transition)) return reduceDisclosure(state, transition, options.source);
+  if (options.view === null) return state;
+  const view = options.view ?? createTreeView(options.source, state);
+  if (view.source !== options.source || treeViewKeys.get(view) !== treeProjectionKey(
+    state, compileCollectionQuery(state.query ?? { text: '', mode: 'contains' }),
+  )) throw new TypeError('Prepared tree view must match its source and projection state.');
   const collection = view.collection;
   const interaction = collectionInteractionReducer(state, transition, {
     index: view.interactionIndex,
@@ -194,12 +261,68 @@ export function visibleTreeRows<TMetadata extends Readonly<Record<string, unknow
   source: TreeSource<TMetadata>,
   state: Pick<TreeState, 'expandedIds' | 'query' | 'loadStatusById'>,
 ): readonly TreeVisibleRow<TMetadata>[] {
-  const nodes = treeSourceData(source).nodes;
-  const expanded = new Set(state.expandedIds);
-  const query = compileCollectionQuery(state.query ?? { text: '', mode: 'contains' });
-  return query.text.length === 0
-    ? visibleExpandedRows(nodes, expanded, state.loadStatusById ?? {})
-    : visibleMatchedRows(nodes, query, state.loadStatusById ?? {});
+  return finishWork(visibleTreeRowsWork(source, state,
+    compileCollectionQuery(state.query ?? { text: '', mode: 'contains' })));
+}
+
+function* visibleTreeRowsWork<TMetadata extends Readonly<Record<string, unknown>>>(
+  source: TreeSource<TMetadata>,
+  state: Pick<TreeState, 'expandedIds' | 'query' | 'loadStatusById'>,
+  query: CompiledCollectionQuery,
+): Generator<void, readonly TreeVisibleRow<TMetadata>[], unknown> {
+  const entries = treeSourceData(source).entries;
+  const filtering = query.text.length > 0;
+  const matched = filtering ? yield* matchedTreeEntriesWork(entries, query) : undefined;
+  let operations = 0;
+  const expanded = new Set<string>();
+  for (const id of state.expandedIds) {
+    expanded.add(id);
+    if (++operations % 256 === 0) yield;
+  }
+  const rows: TreeVisibleRow<TMetadata>[] = [];
+  const paths: (readonly string[])[] = [];
+  for (let index = 0; index < entries.length;) {
+    const entry = entries[index];
+    if (entry === undefined) break;
+    if (matched !== undefined && !matched.has(index)) {
+      index = entry.end;
+      if (++operations % 256 === 0) yield;
+      continue;
+    }
+    const node = entry.node;
+    const path = Object.freeze([...(paths[entry.depth - 1] ?? []), node.id]);
+    paths[entry.depth] = path;
+    const isExpanded = node.kind !== 'leaf' && (filtering || expanded.has(node.id));
+    const loadStatus = node.kind === 'lazy'
+      ? Object.freeze({ ...(state.loadStatusById?.[node.id] ?? { kind: 'idle' as const }) })
+      : undefined;
+    rows.push(Object.freeze({ node, depth: entry.depth, path, expanded: isExpanded,
+      ...(loadStatus === undefined ? {} : { loadStatus }) }));
+    if (!filtering && isExpanded && node.kind === 'lazy') {
+      rows.push(snapshotRow(lazyStatusRow(node, entry.depth, path, loadStatus ?? { kind: 'idle' })));
+    }
+    index = isExpanded ? index + 1 : entry.end;
+    if (++operations % 256 === 0) yield;
+  }
+  return Object.freeze(rows);
+}
+
+function* matchedTreeEntriesWork<TMetadata extends Readonly<Record<string, unknown>>>(
+  entries: readonly TreeEntry<TMetadata>[],
+  query: CompiledCollectionQuery,
+): Generator<void, ReadonlySet<number>, unknown> {
+  const matched = new Set<number>();
+  let operations = 0;
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index];
+    if (entry === undefined) continue;
+    if (matched.has(index) || treeNodeMatchesNormalized(entry.node, query)) {
+      matched.add(index);
+      if (entry.parent >= 0) matched.add(entry.parent);
+    }
+    if (++operations % 256 === 0) yield;
+  }
+  return matched;
 }
 
 export function treeNodeMatches<TMetadata extends Readonly<Record<string, unknown>>>(
@@ -290,102 +413,6 @@ function reduceDisclosure<TMetadata extends Readonly<Record<string, unknown>>>(
   } else if (expanded) current.delete(transition.id);
   else current.add(transition.id);
   return { ...state, expandedIds: Object.freeze([...current]) };
-}
-
-function visibleExpandedRows<TMetadata extends Readonly<Record<string, unknown>>>(
-  nodes: readonly TreeNode<TMetadata>[],
-  expanded: ReadonlySet<string>,
-  loadStatusById: Readonly<Record<string, TreeLoadStatus>>,
-): readonly TreeVisibleRow<TMetadata>[] {
-  const rows: TreeVisibleRow<TMetadata>[] = [];
-  const pending = nodes.toReversed().map((node) => ({ node, depth: 0, path: Object.freeze([node.id]) }));
-  while (pending.length > 0) {
-    const current = pending.pop();
-    if (current === undefined) continue;
-    const isExpanded = current.node.kind !== 'leaf' && expanded.has(current.node.id);
-    const loadStatus = current.node.kind === 'lazy'
-      ? loadStatusById[current.node.id] ?? { kind: 'idle' as const }
-      : undefined;
-    rows.push({
-      node: current.node,
-      depth: current.depth,
-      path: current.path,
-      expanded: isExpanded,
-      ...(loadStatus === undefined ? {} : { loadStatus }),
-    });
-    if (isExpanded && current.node.kind === 'lazy') {
-      rows.push(lazyStatusRow(
-        current.node,
-        current.depth,
-        current.path,
-        loadStatus ?? { kind: 'idle' },
-      ));
-    }
-    if (isExpanded && current.node.kind === 'branch') {
-      for (let index = current.node.children.length - 1; index >= 0; index -= 1) {
-        const child = current.node.children[index];
-        if (child !== undefined) pending.push({
-          node: child,
-          depth: current.depth + 1,
-          path: Object.freeze([...current.path, child.id]),
-        });
-      }
-    }
-  }
-  return Object.freeze(rows);
-}
-
-function visibleMatchedRows<TMetadata extends Readonly<Record<string, unknown>>>(
-  nodes: readonly TreeNode<TMetadata>[],
-  query: CompiledCollectionQuery,
-  loadStatusById: Readonly<Record<string, TreeLoadStatus>>,
-): readonly TreeVisibleRow<TMetadata>[] {
-  const matched = new WeakSet<object>();
-  const traversal: { readonly node: TreeNode<TMetadata>; readonly visited: boolean }[] = nodes
-    .toReversed()
-    .map((node) => ({ node, visited: false }));
-  while (traversal.length > 0) {
-    const current = traversal.pop();
-    if (current === undefined) continue;
-    if (!current.visited) {
-      traversal.push({ node: current.node, visited: true });
-      for (let index = treeNodeChildren(current.node).length - 1; index >= 0; index -= 1) {
-        const child = treeNodeChildren(current.node)[index];
-        if (child !== undefined) traversal.push({ node: child, visited: false });
-      }
-      continue;
-    }
-    if (treeNodeMatchesNormalized(current.node, query)
-      || treeNodeChildren(current.node).some((child) => matched.has(child))) {
-      matched.add(current.node);
-    }
-  }
-  const rows: TreeVisibleRow<TMetadata>[] = [];
-  const pending = nodes.toReversed().map((node) => ({ node, depth: 0, path: Object.freeze([node.id]) }));
-  while (pending.length > 0) {
-    const current = pending.pop();
-    if (current === undefined || !matched.has(current.node)) continue;
-    const loadStatus = current.node.kind === 'lazy'
-      ? loadStatusById[current.node.id] ?? { kind: 'idle' as const }
-      : undefined;
-    rows.push({
-      node: current.node,
-      depth: current.depth,
-      path: current.path,
-      expanded: current.node.kind !== 'leaf',
-      ...(loadStatus === undefined ? {} : { loadStatus }),
-    });
-    const children = treeNodeChildren(current.node);
-    for (let index = children.length - 1; index >= 0; index -= 1) {
-      const child = children[index];
-      if (child !== undefined) pending.push({
-        node: child,
-        depth: current.depth + 1,
-        path: Object.freeze([...current.path, child.id]),
-      });
-    }
-  }
-  return Object.freeze(rows);
 }
 
 function lazyStatusRow<TMetadata extends Readonly<Record<string, unknown>>>(

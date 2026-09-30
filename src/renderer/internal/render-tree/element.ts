@@ -179,7 +179,7 @@ function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
     ...(node.kind === 'component' && node.definition !== undefined
       ? { component: componentInspection(node as RenderNodeOfKind<unknown, 'component'>) }
       : {}),
-    ...(node.kind !== 'component' || node.semanticInspection === undefined
+    ...(node.kind !== 'component' || node.semanticInspection === undefined || typeof node.semanticInspection === 'function'
       ? {}
       : { semantic: node.semanticInspection }),
     ...(node.id === undefined ? {} : { id: node.id }),
@@ -201,6 +201,10 @@ function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
       return childInspection === undefined ? [] : [childInspection];
     }))
   };
+  if (node.kind === 'component' && typeof node.semanticInspection === 'function') {
+    const resolve = node.semanticInspection;
+    Object.defineProperty(inspection, 'semantic', { enumerable: true, get: resolve });
+  }
   return Object.freeze(inspection);
 }
 

@@ -1,3 +1,7 @@
+import { resolveControlKeymap, type ControlKeymap } from '../../interaction/control-keymap.ts';
+import { createTextInputKeymap, type TextInputKeyAction } from '../keymaps.ts';
+import { controlKeyBindings } from '../shared/control-key-bindings.ts';
+const defaultTextInputKeymap = createTextInputKeymap();
 import type { TextInputSubmitEvent, TextInputTransition } from '../../behavior/text-input.ts';
 import type {
   ComponentRenderInput,
@@ -32,14 +36,16 @@ import { inspectTextSelection, inspectTextValue, inspectValidation } from '../sh
 import type { SingleLineTextWindow } from '../shared/single-line-text-window.ts';
 import { layoutSingleLineTextWindow } from '../shared/single-line-text-window.ts';
 import { textEntryMarkerSpan } from '../shared/text-entry-marker.ts';
-import { textEditingTriggers } from '../shared/text-key-bindings.ts';
+import { textEditingHandlers } from '../shared/text-key-bindings.ts';
 import { textPointerTarget } from '../shared/text-pointer-target.ts';
 import type { TextEntryStylePart } from '../style-parts.ts';
 import type { PasswordInputOptions, TextInputOptions } from './options.ts';
 
 
 interface TextEntryModel {
+  readonly keymap: ControlKeymap<TextInputKeyAction>;
   readonly state: TextEditBuffer;
+  readonly mask: string | undefined;
   readonly displayedValue: string;
   readonly displayedCursor: number;
   readonly placeholder: string;
@@ -159,6 +165,7 @@ function textEntryDefinition<
       password,
     ),
     measure(input) {
+      input = { ...input, model: profiledTextEntryModel(input.model, input.widthProfile) };
       const shown = input.model.displayedValue === ''
         ? input.model.placeholder
         : input.model.displayedValue;
@@ -171,11 +178,9 @@ function textEntryDefinition<
     },
     retainPaint: true as const,
   render: paintTextEntry,
-    keys: ({ model, readOnly }) => ({
-      triggers: textEditingTriggers(readOnly, false),
-      ...(readOnly ? {} : {
-        enter: () => ({ kind: 'submit', value: model.state.text }),
-      }),
+    keys: ({ model, readOnly }) => controlKeyBindings<TextInputKeyAction, TextEntryComponentAction>(model.keymap, {
+      ...textEditingHandlers(readOnly),
+      ...(readOnly ? {} : { submit: () => ({ kind: 'submit', value: model.state.text }) }),
     }),
     onInput: ({ text, readOnly }) =>
       readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
@@ -251,37 +256,40 @@ function textEntryDefinition<
         onContextMenu: (event) => ({ kind: 'contextMenu', event }),
       })];
     },
-    accessibility: ({ id, model, focused }) => ({
-      id,
-      role: 'textbox',
-      required: model.required,
-      invalid: model.error !== '',
-      ...(model.error === '' ? {} : {
-        errorMessage: `${id}:error`,
-        children: [{ id: `${id}:error`, role: 'text' as const, value: model.error }],
-      }),
-      ...(password ? {} : {
-        value: model.displayedValue,
-        textPosition: {
-          caretOffset: model.displayedCursor,
-          ...(model.displayedSelection === undefined
-            ? {}
-            : { selection: model.displayedSelection }),
-        },
-      }),
-      ...(
-        password || model.required || model.error !== ''
-          ? {
-            description: [
-              password ? 'Password input.' : '',
-              model.required ? 'Required.' : '',
-              model.error,
-            ].filter(Boolean).join(' '),
-          }
-          : {}
-      ),
-      ...(focused ? { focused: true } : {}),
-    }),
+    accessibility: ({ id, model, focused, widthProfile }) => {
+      model = profiledTextEntryModel(model, widthProfile);
+      return {
+        id,
+        role: 'textbox',
+        required: model.required,
+        invalid: model.error !== '',
+        ...(model.error === '' ? {} : {
+          errorMessage: `${id}:error`,
+          children: [{ id: `${id}:error`, role: 'text' as const, value: model.error }],
+        }),
+        ...(password ? {} : {
+          value: model.displayedValue,
+          textPosition: {
+            caretOffset: model.displayedCursor,
+            ...(model.displayedSelection === undefined
+              ? {}
+              : { selection: model.displayedSelection }),
+          },
+        }),
+        ...(
+          password || model.required || model.error !== ''
+            ? {
+              description: [
+                password ? 'Password input.' : '',
+                model.required ? 'Required.' : '',
+                model.error,
+              ].filter(Boolean).join(' '),
+            }
+            : {}
+        ),
+        ...(focused ? { focused: true } : {}),
+      };
+    },
   });
 }
 
@@ -302,6 +310,8 @@ function createTextEntryModel(
   ) throw new RangeError('passwordInput mask must be one printable one-cell grapheme.');
   return {
     state,
+    mask,
+    keymap: resolveControlKeymap(value.keymap, defaultTextInputKeymap),
     ...textEntryDisplay(state, mask),
     placeholder: optionalString(value.placeholder, `${owner} placeholder`) ?? '',
     required: optionalBoolean(value.required, `${owner} required`) ?? false,
@@ -312,9 +322,10 @@ function createTextEntryModel(
 function textEntryDisplay(
   state: TextEditBuffer,
   mask: string | undefined,
+  widthProfile?: TextWidthProfile,
 ): Pick<TextEntryModel, 'displayedValue' | 'displayedCursor' | 'displayedSelection' | 'sourceOffsetForDisplay'> {
   if (mask === undefined) {
-    const projection = projectTerminalSingleLineText(state.text);
+    const projection = projectTerminalSingleLineText(state.text, widthProfile === undefined ? {} : { widthProfile });
     const selection = state.selection;
     return {
       displayedValue: projection.text,
@@ -396,6 +407,7 @@ interface TextEntryRenderStyles {
 function textEntryRenderPlan(
   input: ComponentRenderInput<TextEntryModel, TextEntryStylePart>,
 ): TextEntryRenderPlan {
+  input = { ...input, model: profiledTextEntryModel(input.model, input.widthProfile) };
   const usesPlaceholder = input.model.displayedValue === '' && input.model.placeholder !== '';
   const shown = usesPlaceholder ? input.model.placeholder : input.model.displayedValue;
   const visual = textEntryVisual(input.model, input.bounds.width, input.widthProfile);
@@ -583,6 +595,7 @@ function textEntryVisual(
   width: number,
   widthProfile: TextWidthProfile,
 ): SingleLineTextWindow {
+  model = profiledTextEntryModel(model, widthProfile);
   return layoutSingleLineTextWindow(
     model.displayedValue,
     model.displayedCursor,
@@ -596,6 +609,7 @@ function sourceOffsetAtColumn(
   column: number,
   widthProfile: import('../../text/index.ts').TextWidthProfile,
 ): number {
+  model = profiledTextEntryModel(model, widthProfile);
   const displayed = segmentGraphemes(model.displayedValue);
   let cells = 0;
   let index = 0;
@@ -606,4 +620,21 @@ function sourceOffsetAtColumn(
     index += 1;
   }
   return model.sourceOffsetForDisplay(displayed[index]?.startOffset ?? model.displayedValue.length);
+}
+
+const profiledTextEntryModels = new WeakMap<TextEntryModel, Map<string, TextEntryModel>>();
+
+function profiledTextEntryModel(model: TextEntryModel, widthProfile: TextWidthProfile): TextEntryModel {
+  let profiles = profiledTextEntryModels.get(model);
+  if (profiles === undefined) {
+    profiles = new Map();
+    profiledTextEntryModels.set(model, profiles);
+  }
+  const key = `${widthProfile.emoji}:${widthProfile.ambiguous}`;
+  const existing = profiles.get(key);
+  if (existing !== undefined) return existing;
+  const projected = { ...model, ...textEntryDisplay(model.state, model.mask, widthProfile) };
+  profiles.set(key, projected);
+  profiledTextEntryModels.set(projected, profiles);
+  return projected;
 }

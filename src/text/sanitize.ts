@@ -1,8 +1,11 @@
+import { expandTerminalTabs, terminalTabCells } from './tabs.ts';
+import { textWidthProfileKey } from './width-profile.ts';
 import { graphemeBoundaryOffsets, segmentGraphemesForMeasurement } from './graphemes.ts';
 import type {
   RemovedControlSequence,
   SanitizedTerminalText,
   SanitizeTerminalTextOptions,
+  TextMeasurementOptions,
 } from './types.ts';
 
 const escape = '\u001B';
@@ -16,7 +19,6 @@ const unsafeTerminalSequenceParts = [
   String.raw`[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]`
 ];
 const unsafeTerminalSequence = new RegExp(unsafeTerminalSequenceParts.join('|'), 'gu');
-const terminalTabSize = 4;
 const sanitizeCacheWeightLimit = 65_536;
 const sanitizeCacheMaxTextLength = 256;
 const sanitizeCache = new Map<string, SanitizedTerminalText>();
@@ -37,13 +39,18 @@ export function sanitizeTerminalSingleLineText(
   return sanitize(text, options, 'single-line');
 }
 
+/** Strip unsafe controls while retaining tabs until a layout profile is known. */
+export function sanitizeTerminalControlText(text: string): SanitizedTerminalText {
+  return sanitize(text, {}, 'control');
+}
+
 /** Source offsets for an editable one-line value whose terminal text may be sanitized. */
-export function projectTerminalSingleLineText(source: string): {
+export function projectTerminalSingleLineText(source: string, options: TextMeasurementOptions = {}): {
   readonly text: string;
   sourceOffsetToDisplay(offset: number): number;
   displayOffsetToSource(offset: number): number;
 } {
-  const sanitized = sanitizeTerminalSingleLineText(source);
+  const sanitized = sanitizeTerminalSingleLineText(source, options);
   if (!sanitized.changed) {
     return {
       text: sanitized.text,
@@ -97,7 +104,7 @@ export function projectTerminalSingleLineText(source: string): {
   const normalizedToDisplay = new Uint32Array(normalized.length + 1);
   let displayOffset = 0;
   let column = 0;
-  for (const segment of segmentGraphemesForMeasurement(normalized, {})) {
+  for (const segment of segmentGraphemesForMeasurement(normalized, options)) {
     for (let index = segment.startOffset; index < segment.endOffsetExclusive; index += 1) {
       normalizedToDisplay[index] = displayOffset;
     }
@@ -105,7 +112,7 @@ export function projectTerminalSingleLineText(source: string): {
       displayOffset += 1;
       column = 0;
     } else if (segment.text === '\t') {
-      const spaces = terminalTabSize - column % terminalTabSize;
+      const spaces = terminalTabCells(column);
       displayOffset += spaces;
       column += spaces;
     } else {
@@ -161,13 +168,13 @@ export function sanitizeTerminalCellText(
 function sanitize(
   text: string,
   options: SanitizeTerminalTextOptions,
-  mode: 'multiline' | 'single-line' | 'cell'
+  mode: 'multiline' | 'single-line' | 'cell' | 'control'
 ): SanitizedTerminalText {
   const replacement = options.replacement ?? '';
   if (hasUnsafeTerminalText(replacement) || /[\t\r\n]/u.test(replacement)) {
     throw new TypeError('Terminal text replacement must not contain control characters or terminal sequences.');
   }
-  const cacheKey = sanitizeCacheKey(text, replacement, mode);
+  const cacheKey = sanitizeCacheKey(text, replacement, mode, options);
   if (cacheKey !== undefined) {
     const cached = sanitizeCache.get(cacheKey);
     if (cached !== undefined) return cached;
@@ -194,8 +201,9 @@ function sanitize(
     });
     return replacement;
   });
-  const multiline = expandTerminalTabs(stripped.replace(/\r\n?/gu, '\n'));
-  const sanitized = mode === 'multiline' ? multiline : multiline.replace(/\n/gu, mode === 'single-line' ? ' ' : '');
+  const normalized = stripped.replace(/\r\n?/gu, '\n');
+  const multiline = mode === 'control' ? normalized : expandTerminalTabs(normalized, options);
+  const sanitized = mode === 'multiline' || mode === 'control' ? multiline : multiline.replace(/\n/gu, mode === 'single-line' ? ' ' : '');
   const result = Object.freeze({
     text: sanitized,
     changed: removedControlSequences.length > 0 || sanitized !== text,
@@ -247,32 +255,11 @@ function isTerminalEscape(sequence: string): boolean {
 function sanitizeCacheKey(
   text: string,
   replacement: string,
-  mode: 'multiline' | 'single-line' | 'cell'
+  mode: 'multiline' | 'single-line' | 'cell' | 'control',
+  options: TextMeasurementOptions,
 ): string | undefined {
   if (text.length > sanitizeCacheMaxTextLength || replacement.length > 16) return undefined;
-  return `${mode}:${String(replacement.length)}:${replacement}${String(text.length)}:${text}`;
-}
-
-function expandTerminalTabs(text: string): string {
-  if (!text.includes('\t')) return text;
-  let column = 0;
-  let result = '';
-  for (const segment of segmentGraphemesForMeasurement(text, {})) {
-    if (segment.text === '\n') {
-      result += '\n';
-      column = 0;
-      continue;
-    }
-    if (segment.text === '\t') {
-      const spaces = terminalTabSize - column % terminalTabSize;
-      result += ' '.repeat(spaces);
-      column += spaces;
-      continue;
-    }
-    result += segment.text;
-    column += segment.cells;
-  }
-  return result;
+  return `${mode}:${textWidthProfileKey(options.widthProfile)}:${String(replacement.length)}:${replacement}${String(text.length)}:${text}`;
 }
 
 function trimSanitizeCache(): void {

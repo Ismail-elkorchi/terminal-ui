@@ -1,3 +1,5 @@
+import type { ControlKeymap } from '../../interaction/control-keymap.ts';
+import type { ListboxKeyAction } from '../keymaps.ts';
 import type {
   CompleteListboxCollection,
   ListboxActivateEvent,
@@ -17,6 +19,7 @@ import type { DataListStylePart } from '../style-parts.ts';
 
 
 type ListboxCommonOptions<TValue> = ListboxDataOptions<TValue> & {
+  readonly keymap?: ControlKeymap<ListboxKeyAction>;
   readonly id: string;
   readonly busy?: boolean;
   readonly inert?: boolean;

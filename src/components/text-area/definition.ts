@@ -1,3 +1,5 @@
+import { controlKeyBindings } from '../shared/control-key-bindings.ts';
+import type { TextAreaKeyAction } from '../keymaps.ts';
 import { defineComponent } from '../../component/definition.ts';
 import type { ComponentMessage } from '../../component/message.ts';
 import { componentScrollbarHitTargets } from '../../component/scrollbar.ts';
@@ -15,15 +17,14 @@ import {
   inspectTextSelection,
   inspectValidation,
 } from '../shared/inspection.ts';
-import { textEditingTriggers } from '../shared/text-key-bindings.ts';
+import { textEditingHandlers } from '../shared/text-key-bindings.ts';
 import { textPointerTarget } from '../shared/text-pointer-target.ts';
 import { measureTextArea, projectedCaret, textAreaGeometry } from './geometry.ts';
 import type { TextAreaComponentAction } from './interaction.ts';
 import {
   pointerOffset,
   textAreaDragScrollRequest,
-  textAreaHistoryTriggers,
-  textAreaVisualTriggers,
+  textAreaVisualHandlers,
   textAreaWordSelectionAt,
 } from './interaction.ts';
 import { createTextAreaModel } from './model.ts';
@@ -70,20 +71,13 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
   measure: measureTextArea,
   retainPaint: true as const,
   render: paintTextArea,
-  keys: (input) => ({
-    triggers: [
-      ...textEditingTriggers(input.readOnly, true).filter((binding) =>
-        binding.trigger.kind !== 'key' || !(
-          binding.trigger.key === 'arrowUp'
-          || binding.trigger.key === 'arrowDown'
-          || binding.trigger.key === 'home'
-          || binding.trigger.key === 'end'
-        )),
-      ...textAreaVisualTriggers(input),
-      ...(input.readOnly ? [] : textAreaHistoryTriggers())
-    ],
+  keys: (input) => controlKeyBindings<TextAreaKeyAction, TextAreaComponentAction>(input.model.keymap, {
+    ...textEditingHandlers(input.readOnly),
+    ...textAreaVisualHandlers(input),
     ...(input.readOnly ? {} : {
-      enter: () => ({ kind: 'edit' as const, operation: { kind: 'insert' as const, text: '\n' } }),
+      undo: () => ({ kind: 'undo' }),
+      redo: () => ({ kind: 'redo' }),
+      newline: () => ({ kind: 'edit', operation: { kind: 'insert', text: '\n' } }),
     }),
   }),
   onInput: ({ text, readOnly }) =>

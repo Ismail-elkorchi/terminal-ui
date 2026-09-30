@@ -7,7 +7,7 @@ import type { TextLine, TextMeasurementOptions, TextWrapOptions } from './types.
 export function countWrappedTextRows(text: string, width: number, options: TextMeasurementOptions): number {
   if (width <= 0) throw new RangeError('width must be positive.');
   let rows = 0;
-  for (const line of sanitizeTerminalText(text).text.split('\n')) {
+  for (const line of sanitizeTerminalText(text, options).text.split('\n')) {
     if (/^[\x20-\x7e]*$/u.test(line)) {
       rows += Math.max(1, Math.ceil(line.length / Math.max(1, Math.floor(width))));
       continue;
@@ -32,7 +32,7 @@ export function wrapTextCells(
 ): readonly TextLine[] {
   if (width <= 0) throw new RangeError('width must be positive.');
   const lines: TextLine[] = [];
-  for (const rawLine of sanitizeTerminalText(text).text.split('\n')) {
+  for (const rawLine of sanitizeTerminalText(text, options).text.split('\n')) {
     lines.push(...wrapLineCells(rawLine, width, options));
   }
   return lines;

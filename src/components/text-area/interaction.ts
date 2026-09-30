@@ -1,3 +1,5 @@
+import type { ElementKeyHandler } from '../../element/metadata.ts';
+import type { TextAreaKeyAction } from '../keymaps.ts';
 import { scrollReducer } from '../../behavior/scroll.ts';
 import type { TextAreaTransition } from '../../behavior/text-area.ts';
 import type { ComponentInput } from '../../component/contracts.ts';
@@ -21,62 +23,54 @@ export type TextAreaComponentAction = TextAreaTransition | {
   readonly event: TextContextMenuEvent;
 };
 
-export function textAreaVisualTriggers(input: ComponentInput<TextAreaModel>) {
-  const visualKeys = ['arrowUp', 'arrowDown', 'pageUp', 'pageDown', 'home', 'end'] as const;
-  const movement = visualKeys.flatMap((key) =>
-    ([false, true] as const).flatMap((shift) =>
-      (['press', 'repeat'] as const).map((eventType) => ({
-        trigger: { kind: 'key' as const, key, modifiers: { shift }, eventType },
-        onKey: () => {
-          const geometry = textAreaGeometry(input);
-          const caret = projectedCaret(geometry.projection, input.model.caret);
-          const current = geometry.layout.cursorAt(caret.position.offset, caret.position.affinity);
-          const vertical = key === 'arrowUp' || key === 'arrowDown'
-            || key === 'pageUp' || key === 'pageDown';
-          const preferredColumnCells = vertical
-            ? caret.preferredColumnCells ?? current.columnCells
-            : undefined;
-          const delta = key === 'arrowUp' ? -1
-            : key === 'arrowDown' ? 1
-            : key === 'pageUp' ? -Math.max(1, geometry.scrollbar.contentBounds.height)
-            : key === 'pageDown' ? Math.max(1, geometry.scrollbar.contentBounds.height)
-            : 0;
-          const row = Math.max(0, Math.min(geometry.layout.contentRows - 1, current.rowIndex + delta));
-          const line = geometry.layout.lineAtRow(row);
-          if (line === undefined) return ignoreMessage();
-          const destinationColumn = key === 'home' ? 0
-            : key === 'end' ? line.index.cells
-            : preferredColumnCells ?? 0;
-          const destination = visualCaretAt(geometry, row, destinationColumn);
-          return {
-            kind: 'edit' as const,
-            operation: {
-              kind: 'moveTo' as const,
-              caret: {
-                position: destination.position,
-                ...(preferredColumnCells === undefined ? {} : { preferredColumnCells }),
-              },
-              extendSelection: shift,
-            },
-          };
+export function textAreaVisualHandlers(input: ComponentInput<TextAreaModel>): Readonly<
+  Partial<Record<TextAreaKeyAction, ElementKeyHandler<TextAreaComponentAction>>>
+> {
+  const move = (key: 'arrowUp' | 'arrowDown' | 'pageUp' | 'pageDown' | 'home' | 'end', shift = false) => () => {
+    const geometry = textAreaGeometry(input);
+    const caret = projectedCaret(geometry.projection, input.model.caret);
+    const current = geometry.layout.cursorAt(caret.position.offset, caret.position.affinity);
+    const vertical = key === 'arrowUp' || key === 'arrowDown'
+      || key === 'pageUp' || key === 'pageDown';
+    const preferredColumnCells = vertical
+      ? caret.preferredColumnCells ?? current.columnCells
+      : undefined;
+    const delta = key === 'arrowUp' ? -1
+      : key === 'arrowDown' ? 1
+      : key === 'pageUp' ? -Math.max(1, geometry.scrollbar.contentBounds.height)
+      : key === 'pageDown' ? Math.max(1, geometry.scrollbar.contentBounds.height)
+      : 0;
+    const row = Math.max(0, Math.min(geometry.layout.contentRows - 1, current.rowIndex + delta));
+    const line = geometry.layout.lineAtRow(row);
+    if (line === undefined) return ignoreMessage();
+    const destinationColumn = key === 'home' ? 0
+      : key === 'end' ? line.index.cells
+      : preferredColumnCells ?? 0;
+    const destination = visualCaretAt(geometry, row, destinationColumn);
+    return {
+      kind: 'edit' as const,
+      operation: {
+        kind: 'moveTo' as const,
+        caret: {
+          position: destination.position,
+          ...(preferredColumnCells === undefined ? {} : { preferredColumnCells }),
         },
-      })),
-    ),
-  );
-  return [
-    ...movement,
-    ...(['home', 'end'] as const).flatMap((key) =>
-      ([false, true] as const).map((shift) => ({
-        trigger: { kind: 'key' as const, key, modifiers: { ctrl: true, shift } },
-        onKey: () => ({
-          kind: 'edit' as const,
-          operation: {
-            kind: key === 'home' ? 'moveDocumentStart' as const : 'moveDocumentEnd' as const,
-            extendSelection: shift,
-          },
-        }),
-      }))),
-  ];
+        extendSelection: shift,
+      },
+    };
+  };
+  return {
+    moveLineUp: move('arrowUp'), moveLineDown: move('arrowDown'),
+    selectLineUp: move('arrowUp', true), selectLineDown: move('arrowDown', true),
+    previousPage: move('pageUp'), nextPage: move('pageDown'),
+    selectPreviousPage: move('pageUp', true), selectNextPage: move('pageDown', true),
+    moveHome: move('home'), moveEnd: move('end'),
+    selectHome: move('home', true), selectEnd: move('end', true),
+    moveDocumentStart: () => ({ kind: 'edit', operation: { kind: 'moveDocumentStart' } }),
+    moveDocumentEnd: () => ({ kind: 'edit', operation: { kind: 'moveDocumentEnd' } }),
+    selectDocumentStart: () => ({ kind: 'edit', operation: { kind: 'moveDocumentStart', extendSelection: true } }),
+    selectDocumentEnd: () => ({ kind: 'edit', operation: { kind: 'moveDocumentEnd', extendSelection: true } }),
+  };
 }
 
 function visualCaretAt(
@@ -161,25 +155,4 @@ export function textAreaWordSelectionAt(
     startOffset: line.startOffset + local.startOffset,
     endOffsetExclusive: line.startOffset + local.endOffsetExclusive,
   };
-}
-
-export function textAreaHistoryTriggers() {
-  return [
-    {
-      trigger: { kind: 'key' as const, key: 'z' as const, modifiers: { ctrl: true } },
-      onKey: () => ({ kind: 'undo' as const })
-    },
-    {
-      trigger: { kind: 'key' as const, key: 'y' as const, modifiers: { ctrl: true } },
-      onKey: () => ({ kind: 'redo' as const })
-    },
-    {
-      trigger: {
-        kind: 'key' as const,
-        key: 'z' as const,
-        modifiers: { ctrl: true, shift: true }
-      },
-      onKey: () => ({ kind: 'redo' as const })
-    }
-  ];
 }

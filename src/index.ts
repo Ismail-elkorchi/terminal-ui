@@ -1,3 +1,9 @@
+export { createDataGridKeymap } from './components/keymaps.ts';
+export type { DataGridKeyAction } from './components/keymaps.ts';
+export { createListboxKeymap, createTreeKeymap, createSearchPickerKeymap, createTextInputKeymap, createTextAreaKeymap } from './components/keymaps.ts';
+export type { ListboxKeyAction, TreeKeyAction, SearchPickerKeyAction, TextInputKeyAction, TextAreaKeyAction, TextEditingKeyAction } from './components/keymaps.ts';
+export { createControlKeymap, controlKeymapHelp } from './interaction/control-keymap.ts';
+export type { ControlKeymap, ControlKeyBinding, ControlKeymapDefaults, ControlKeymapOverrides } from './interaction/control-keymap.ts';
 
 export {
   createDiagnosticOccurrenceReporter,
