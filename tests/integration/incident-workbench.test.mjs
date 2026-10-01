@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
+import { diagnostic } from '../../dist/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime } from '../../dist/tui/index.js';
 import { keyInput, pointerInput } from '../../dist/testing/index.js';
@@ -69,4 +70,30 @@ test('incident workbench searches 100k records, navigates, edits, and cancels st
   } finally {
     await runtime.dispose();
   }
+});
+
+
+test('incident query ignores success and failure from an earlier close/reopen lifetime', async () => {
+  const runtime = createTuiRuntime({ app: incidentWorkbenchApp, host: createMemoryTerminalHost({ terminalSize: { columns: 120, rows: 40 } }) });
+  try {
+    await runtime.start();
+    await runtime.dispatch({ kind: 'openSearchPicker' });
+    await settled(runtime);
+    const previous = runtime.state().searchPicker;
+    await runtime.dispatch({ kind: 'closeSearchPicker' });
+    await runtime.dispatch({ kind: 'openSearchPicker' });
+    await runtime.handleInput({ kind: 'text', text: 'trace-99997', paste: false });
+    await runtime.dispatchMany([
+      { kind: 'searchResult', message: { kind: 'ready', revision: previous.revision, result: previous.result } },
+      { kind: 'searchResult', message: { kind: 'failed', revision: previous.revision, diagnostic: diagnostic('TUI_EFFECT_FAILED', 'obsolete query failure') } },
+    ]);
+    await settled(runtime);
+    assert.equal(runtime.state().searchPicker.result.entries[0].id, 'INC-099997');
+    assert.equal(runtime.state().searchPicker.error, null);
+    assert.equal(runtime.state().activity.includes('obsolete query failure'), false);
+    await runtime.dispatch({ kind: 'openSearchPicker' });
+    await settled(runtime);
+    assert.equal(runtime.state().searchPicker.result.entries[0].id, 'INC-099997');
+    assert.deepEqual(runtime.diagnostics(), []);
+  } finally { await runtime.dispose(); }
 });

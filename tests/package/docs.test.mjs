@@ -43,7 +43,16 @@ test('documentation TypeScript and JavaScript snippets typecheck against the bui
 
 test('documented component, canvas, and harness recipes execute through public imports', async () => {
   const recipes = [
-    { path: 'docs/guides/component-definitions.md', index: 0 },
+    {
+      path: 'docs/guides/component-definitions.md', index: 0,
+      verify: `
+        const { renderElementSnapshot } = await import('@ismail-elkorchi/terminal-ui/testing');
+        const snapshot = renderElementSnapshot({ element: ready, terminalSize: { columns: 12, rows: 1 } });
+        if (!snapshot.plainTextFrame.includes('Ready') || snapshot.frame.cells[0]?.style?.bold !== true) {
+          throw new Error('The documented badge must render its declared value style.');
+        }
+      `,
+    },
     { path: 'docs/guides/component-definitions.md', index: 1, output: ['one', 'two', 'three', 'four'] },
     { path: 'docs/guides/graphics.md', index: 0, output: ['Build preview'] },
     { path: 'docs/guides/graphics.md', index: 1, output: ['.Ready'] },
@@ -54,7 +63,7 @@ test('documented component, canvas, and harness recipes execute through public i
     const source = await readFile(new URL(`../../${recipe.path}`, import.meta.url), 'utf8');
     const snippet = codeSnippets(source)[recipe.index];
     assert.ok(snippet, `Missing recipe ${recipe.path}#${String(recipe.index)}`);
-    const compiled = ts.transpileModule(snippet.code, {
+    const compiled = ts.transpileModule(`${snippet.code}\n${recipe.verify ?? ''}`, {
       compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ESNext },
     }).outputText;
     const run = spawnSync(process.execPath, ['--input-type=module', '-e', compiled], {

@@ -17,3 +17,12 @@ stays runtime-agnostic.
 The PTY-style host adapter is explicit: callers provide already-managed
 pseudo-terminal streams and resize hooks. The package wraps those streams as a
 terminal host without adding process supervision.
+
+[Native terminal qualification](./native-terminal-qualification.md) exercises
+the same graphics-independent task application under Node, Deno and Bun,
+including real Unix PTY input/session regressions and an interactive procedure
+for native terminal combinations. Automated Unix PTY results do not qualify
+macOS Terminal, Windows ConPTY, hardware input methods or screen-reader speech.
+Bun 1.3.14 and 1.4.2 currently fail that lane's Unicode caret assertion on Linux
+because of an `Intl.Segments.containing()` boundary result; see the guide's
+[verified limitation](./native-terminal-qualification.md#verified-bun-qualification-limitation).

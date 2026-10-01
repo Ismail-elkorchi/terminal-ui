@@ -112,15 +112,16 @@ See [API stability](../guides/api-stability.md) for stability labels.
 
 - [`AnimationFrame`](#tui-animationframe), [`AnimationTimeline`](#tui-animationtimeline), [`CopySelectedTextInput`](#tui-copyselectedtextinput), [`CopySelectedTextResult`](#tui-copyselectedtextresult), [`CursorVisibilityPolicy`](#tui-cursorvisibilitypolicy), [`ProtocolRequirement`](#tui-protocolrequirement), [`SelectedText`](#tui-selectedtext), [`SessionProtocolOperation`](#tui-sessionprotocoloperation)
 - [`SessionProtocolOperationKind`](#tui-sessionprotocoloperationkind), [`SessionProtocolPolicy`](#tui-sessionprotocolpolicy), [`SessionProtocolSetupResult`](#tui-sessionprotocolsetupresult), [`TuiApp`](#tui-tuiapp), [`TuiBindingHelpItem`](#tui-tuibindinghelpitem), [`TuiChild`](#tui-tuichild), [`TuiChildDefinition`](#tui-tuichilddefinition), [`TuiChildIdentity`](#tui-tuichildidentity)
-- [`TuiChildMessage`](#tui-tuichildmessage), [`TuiChildResult`](#tui-tuichildresult), [`TuiChildState`](#tui-tuichildstate), [`TuiContext`](#tui-tuicontext), [`TuiDefinition`](#tui-tuidefinition), [`TuiEffect`](#tui-tuieffect), [`TuiEffectConcurrency`](#tui-tuieffectconcurrency), [`TuiEffectContext`](#tui-tuieffectcontext)
-- [`TuiEffectFailure`](#tui-tuieffectfailure), [`TuiEffectOutput`](#tui-tuieffectoutput), [`TuiEffectPolicy`](#tui-tuieffectpolicy), [`TuiEventSource`](#tui-tuieventsource), [`TuiExit`](#tui-tuiexit), [`TuiExitHandler`](#tui-tuiexithandler), [`TuiExitRequest`](#tui-tuiexitrequest), [`TuiInit`](#tui-tuiinit)
-- [`TuiInitialResult`](#tui-tuiinitialresult), [`TuiInputBatchResult`](#tui-tuiinputbatchresult), [`TuiInputBinding`](#tui-tuiinputbinding), [`TuiInputBindingContext`](#tui-tuiinputbindingcontext), [`TuiInputBindingPhase`](#tui-tuiinputbindingphase), [`TuiInputResult`](#tui-tuiinputresult), [`TuiLifecyclePolicy`](#tui-tuilifecyclepolicy), [`TuiMessageSource`](#tui-tuimessagesource)
-- [`TuiNonTtyMode`](#tui-tuinonttymode), [`TuiNonTtyPolicy`](#tui-tuinonttypolicy), [`TuiResizeContext`](#tui-tuiresizecontext), [`TuiResizeMessage`](#tui-tuiresizemessage), [`TuiRunError`](#tui-tuirunerror), [`TuiRunInputPolicy`](#tui-tuiruninputpolicy), [`TuiRunOptions`](#tui-tuirunoptions), [`TuiRunResult`](#tui-tuirunresult)
-- [`TuiRuntime`](#tui-tuiruntime), [`TuiRuntimeChange`](#tui-tuiruntimechange), [`TuiRuntimeDisposeOptions`](#tui-tuiruntimedisposeoptions), [`TuiRuntimeMetrics`](#tui-tuiruntimemetrics), [`TuiRuntimeOptions`](#tui-tuiruntimeoptions), [`TuiSourceChannelMetrics`](#tui-tuisourcechannelmetrics), [`TuiSourceChannelPolicy`](#tui-tuisourcechannelpolicy), [`TuiSourceEmission`](#tui-tuisourceemission)
-- [`TuiSourceLifecycle`](#tui-tuisourcelifecycle), [`TuiSourceSink`](#tui-tuisourcesink), [`TuiSubscriptionContext`](#tui-tuisubscriptioncontext), [`TuiSubscriptions`](#tui-tuisubscriptions), [`TuiTheme`](#tui-tuitheme), [`TuiUpdate`](#tui-tuiupdate), [`TuiUpdateResult`](#tui-tuiupdateresult), [`TuiView`](#tui-tuiview)
-- [`advanceAnimationTimeline`](#tui-advanceanimationtimeline), [`animationSource`](#tui-animationsource), [`applySessionProtocolPolicy`](#tui-applysessionprotocolpolicy), [`createAnimationTimeline`](#tui-createanimationtimeline), [`createSessionProtocolPlan`](#tui-createsessionprotocolplan), [`createTuiChild`](#tui-createtuichild), [`createTuiRuntime`](#tui-createtuiruntime), [`defaultSessionProtocolPolicy`](#tui-defaultsessionprotocolpolicy)
-- [`defaultTuiEffectPolicy`](#tui-defaulttuieffectpolicy), [`defaultTuiLifecyclePolicy`](#tui-defaulttuilifecyclepolicy), [`defaultTuiSourceChannelCapacity`](#tui-defaulttuisourcechannelcapacity), [`defineTui`](#tui-definetui), [`intervalSource`](#tui-intervalsource), [`nextAnimationDeadline`](#tui-nextanimationdeadline), [`reliableSourceMessage`](#tui-reliablesourcemessage), [`replaceableSourceMessage`](#tui-replaceablesourcemessage)
-- [`runTui`](#tui-runtui), [`timeoutSource`](#tui-timeoutsource), [`tuiBindingHelp`](#tui-tuibindinghelp)
+- [`TuiChildMessage`](#tui-tuichildmessage), [`TuiChildResult`](#tui-tuichildresult), [`TuiChildState`](#tui-tuichildstate), [`TuiContext`](#tui-tuicontext), [`TuiControlMessage`](#tui-tuicontrolmessage), [`TuiControlReducers`](#tui-tuicontrolreducers), [`TuiControlTransitionMessage`](#tui-tuicontroltransitionmessage), [`TuiControls`](#tui-tuicontrols)
+- [`TuiDefinition`](#tui-tuidefinition), [`TuiEffect`](#tui-tuieffect), [`TuiEffectConcurrency`](#tui-tuieffectconcurrency), [`TuiEffectContext`](#tui-tuieffectcontext), [`TuiEffectFailure`](#tui-tuieffectfailure), [`TuiEffectOutput`](#tui-tuieffectoutput), [`TuiEffectPolicy`](#tui-tuieffectpolicy), [`TuiEventSource`](#tui-tuieventsource)
+- [`TuiExit`](#tui-tuiexit), [`TuiExitHandler`](#tui-tuiexithandler), [`TuiExitRequest`](#tui-tuiexitrequest), [`TuiInit`](#tui-tuiinit), [`TuiInitialResult`](#tui-tuiinitialresult), [`TuiInputBatchResult`](#tui-tuiinputbatchresult), [`TuiInputBinding`](#tui-tuiinputbinding), [`TuiInputBindingContext`](#tui-tuiinputbindingcontext)
+- [`TuiInputBindingPhase`](#tui-tuiinputbindingphase), [`TuiInputResult`](#tui-tuiinputresult), [`TuiLifecyclePolicy`](#tui-tuilifecyclepolicy), [`TuiMessageSource`](#tui-tuimessagesource), [`TuiNonTtyMode`](#tui-tuinonttymode), [`TuiNonTtyPolicy`](#tui-tuinonttypolicy), [`TuiPreparedQuery`](#tui-tuipreparedquery), [`TuiPreparedQueryMessage`](#tui-tuipreparedquerymessage)
+- [`TuiPreparedQueryState`](#tui-tuipreparedquerystate), [`TuiResizeContext`](#tui-tuiresizecontext), [`TuiResizeMessage`](#tui-tuiresizemessage), [`TuiRunError`](#tui-tuirunerror), [`TuiRunInputPolicy`](#tui-tuiruninputpolicy), [`TuiRunOptions`](#tui-tuirunoptions), [`TuiRunResult`](#tui-tuirunresult), [`TuiRuntime`](#tui-tuiruntime)
+- [`TuiRuntimeChange`](#tui-tuiruntimechange), [`TuiRuntimeDisposeOptions`](#tui-tuiruntimedisposeoptions), [`TuiRuntimeMetrics`](#tui-tuiruntimemetrics), [`TuiRuntimeOptions`](#tui-tuiruntimeoptions), [`TuiSourceChannelMetrics`](#tui-tuisourcechannelmetrics), [`TuiSourceChannelPolicy`](#tui-tuisourcechannelpolicy), [`TuiSourceEmission`](#tui-tuisourceemission), [`TuiSourceLifecycle`](#tui-tuisourcelifecycle)
+- [`TuiSourceSink`](#tui-tuisourcesink), [`TuiSubscriptionContext`](#tui-tuisubscriptioncontext), [`TuiSubscriptions`](#tui-tuisubscriptions), [`TuiTheme`](#tui-tuitheme), [`TuiUpdate`](#tui-tuiupdate), [`TuiUpdateResult`](#tui-tuiupdateresult), [`TuiView`](#tui-tuiview), [`advanceAnimationTimeline`](#tui-advanceanimationtimeline)
+- [`animationSource`](#tui-animationsource), [`applySessionProtocolPolicy`](#tui-applysessionprotocolpolicy), [`createAnimationTimeline`](#tui-createanimationtimeline), [`createSessionProtocolPlan`](#tui-createsessionprotocolplan), [`createTuiChild`](#tui-createtuichild), [`createTuiControls`](#tui-createtuicontrols), [`createTuiPreparedQuery`](#tui-createtuipreparedquery), [`createTuiRuntime`](#tui-createtuiruntime)
+- [`defaultSessionProtocolPolicy`](#tui-defaultsessionprotocolpolicy), [`defaultTuiEffectPolicy`](#tui-defaulttuieffectpolicy), [`defaultTuiLifecyclePolicy`](#tui-defaulttuilifecyclepolicy), [`defaultTuiSourceChannelCapacity`](#tui-defaulttuisourcechannelcapacity), [`defineTui`](#tui-definetui), [`intervalSource`](#tui-intervalsource), [`nextAnimationDeadline`](#tui-nextanimationdeadline), [`reliableSourceMessage`](#tui-reliablesourcemessage)
+- [`replaceableSourceMessage`](#tui-replaceablesourcemessage), [`runTui`](#tui-runtui), [`timeoutSource`](#tui-timeoutsource), [`tuiBindingHelp`](#tui-tuibindinghelp)
 
 ### @ismail-elkorchi/terminal-ui/components
 
@@ -38760,6 +38761,96 @@ readonly diagnostics: readonly DiagnosticOccurrence[];
 readonly clock: TerminalClock;
 ```
 
+<a id="tui-tuicontrolmessage"></a>
+### TuiControlMessage
+
+type · beta · [source](../../src/tui/controls.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+The plain component-transition branch of an application's message union.
+
+```ts
+export type TuiControlMessage<TControls> = TControls extends {
+    update(state: never, message: infer TMessage): unknown;
+} ? TMessage : never;
+```
+
+<a id="tui-tuicontrolreducers"></a>
+### TuiControlReducers
+
+type · beta · [source](../../src/tui/controls.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+Ordinary component reducers, keyed by the string state field they control.
+
+```ts
+export type TuiControlReducers<TState> = {
+    readonly [TKey in keyof TState & string]?: (state: TState[TKey], transition: never, parent: TState) => TState[TKey];
+};
+```
+
+<a id="tui-tuicontroltransitionmessage"></a>
+### TuiControlTransitionMessage
+
+type · beta · [source](../../src/tui/controls.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+A discriminated field/transition pair accepted by a configured control handle.
+
+```ts
+export type TuiControlTransitionMessage<TState, TReducers extends TuiControlReducers<TState>> = {
+    [TKey in keyof TReducers & keyof TState & string]: {
+        readonly kind: 'control';
+        readonly control: TKey;
+        readonly transition: Parameters<NonNullable<TReducers[TKey]>>[1];
+    };
+}[keyof TReducers & keyof TState & string];
+```
+
+<a id="tui-tuicontrols"></a>
+### TuiControls
+
+interface · beta · [source](../../src/tui/controls.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+Stateless bindings for an application's existing controlled fields.
+
+```ts
+export interface TuiControls<TState, TReducers extends TuiControlReducers<TState>> { … }
+```
+
+<a id="tui-tuicontrols-update"></a>
+#### update
+
+Reduce against current parent state, never the state captured by a rendered callback.
+
+```ts
+readonly update: (state: TState, message: TuiControlTransitionMessage<TState, TReducers>) => {
+        readonly state: TState;
+    };
+```
+
+<a id="tui-tuicontrols-ontransition"></a>
+#### onTransition
+
+```ts
+readonly onTransition: <TKey extends keyof TReducers & keyof TState & string>(key: TKey) => (transition: Parameters<NonNullable<TReducers[TKey]>>[1]) => TuiControlTransitionMessage<TState, TReducers>;
+```
+
+<a id="tui-tuicontrols-bind"></a>
+#### bind
+
+```ts
+readonly bind: <TKey extends keyof TReducers & keyof TState & string>(key: TKey, state: TState) => {
+        readonly state: TState[TKey];
+        readonly onTransition: (transition: Parameters<NonNullable<TReducers[TKey]>>[1]) => TuiControlTransitionMessage<TState, TReducers>;
+    };
+```
+
 <a id="tui-tuidefinition"></a>
 ### TuiDefinition
 
@@ -39433,6 +39524,111 @@ readonly mode: TuiNonTtyMode;
 readonly diagnosticHint?: string;
 ```
 
+<a id="tui-tuipreparedquery"></a>
+### TuiPreparedQuery
+
+interface · beta · [source](../../src/tui/prepared-query.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+Prepared work managed through the parent's existing reducer and effect lifecycle.
+
+```ts
+export interface TuiPreparedQuery<TInput, TResult, TMessage> { … }
+```
+
+<a id="tui-tuipreparedquery-init"></a>
+#### init
+
+```ts
+readonly init: () => TuiPreparedQueryState<TResult>;
+```
+
+<a id="tui-tuipreparedquery-request"></a>
+#### request
+
+Every request replaces earlier work, including requests with equal input.
+
+```ts
+readonly request: <TState extends TuiPreparedQueryState<TResult>>(state: TState, input: TInput) => TuiChildResult<Omit<TState, keyof TuiPreparedQueryState<TResult>> & TuiPreparedQueryState<TResult>, TMessage>;
+```
+
+<a id="tui-tuipreparedquery-update"></a>
+#### update
+
+```ts
+readonly update: <TState extends TuiPreparedQueryState<TResult>>(state: TState, message: TuiPreparedQueryMessage<TResult>) => TuiChildResult<Omit<TState, keyof TuiPreparedQueryState<TResult>> & TuiPreparedQueryState<TResult>, TMessage>;
+```
+
+<a id="tui-tuipreparedquery-cancel"></a>
+#### cancel
+
+```ts
+readonly cancel: <TState extends TuiPreparedQueryState<TResult>>(state: TState) => TuiChildResult<Omit<TState, keyof TuiPreparedQueryState<TResult>> & TuiPreparedQueryState<TResult>, TMessage>;
+```
+
+<a id="tui-tuipreparedquerymessage"></a>
+### TuiPreparedQueryMessage
+
+type · beta · [source](../../src/tui/prepared-query.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+```ts
+export type TuiPreparedQueryMessage<TResult> = {
+    readonly kind: 'ready';
+    readonly revision: number;
+    readonly result: TResult;
+} | {
+    readonly kind: 'failed';
+    readonly revision: number;
+    readonly diagnostic: TerminalDiagnostic;
+};
+```
+
+Related types: [`TerminalDiagnostic`](#root-terminaldiagnostic), [`diagnostic`](#root-diagnostic)
+
+<a id="tui-tuipreparedquerystate"></a>
+### TuiPreparedQueryState
+
+interface · beta · [source](../../src/tui/prepared-query.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+Keep this state through cancellation/reopening; child generations fence removed instances.
+
+```ts
+export interface TuiPreparedQueryState<TResult> { … }
+```
+
+<a id="tui-tuipreparedquerystate-revision"></a>
+#### revision
+
+```ts
+readonly revision: number;
+```
+
+<a id="tui-tuipreparedquerystate-pending"></a>
+#### pending
+
+```ts
+readonly pending: boolean;
+```
+
+<a id="tui-tuipreparedquerystate-result"></a>
+#### result
+
+```ts
+readonly result: TResult | null;
+```
+
+<a id="tui-tuipreparedquerystate-error"></a>
+#### error
+
+```ts
+readonly error: TerminalDiagnostic | null;
+```
+
 <a id="tui-tuiresizecontext"></a>
 ### TuiResizeContext
 
@@ -39527,6 +39723,15 @@ Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/termi
 
 ```ts
 export interface TuiRunOptions<TState = unknown> { … }
+```
+
+<a id="tui-tuirunoptions-outputmode"></a>
+#### outputMode
+
+Accessible output keeps the main screen and requires no graphics.
+
+```ts
+readonly outputMode?: 'visual' | 'accessible';
 ```
 
 <a id="tui-tuirunoptions-host"></a>
@@ -39686,6 +39891,15 @@ Rebuilds the view and frame even when state identity is unchanged.
 
 ```ts
 redraw(): Promise<Frame>;
+```
+
+<a id="tui-tuiruntime-repeataccessiblecontext"></a>
+#### repeatAccessibleContext
+
+Repeats the last committed semantic context in accessible mode; never rebuilds the view.
+
+```ts
+repeatAccessibleContext(): Promise<void>;
 ```
 
 <a id="tui-tuiruntime-nextchange"></a>
@@ -39870,6 +40084,15 @@ Import from: `@ismail-elkorchi/terminal-ui/tui` (type only)
 
 ```ts
 export interface TuiRuntimeOptions<TState, TMessage> { … }
+```
+
+<a id="tui-tuiruntimeoptions-outputmode"></a>
+#### outputMode
+
+Select one terminal output owner; accessible appends semantic changes to scrollback.
+
+```ts
+readonly outputMode?: 'visual' | 'accessible';
 ```
 
 <a id="tui-tuiruntimeoptions-app"></a>
@@ -40318,6 +40541,48 @@ export declare function createTuiChild<
 ```
 
 Related types: [`TuiChild`](#tui-tuichild), [`TuiChildDefinition`](#tui-tuichilddefinition), [`TuiChildMessage`](#tui-tuichildmessage)
+
+<a id="tui-createtuicontrols"></a>
+### createTuiControls
+
+function · beta · [source](../../src/tui/controls.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/tui`
+
+Wire ordinary state fields once. Domain transitions remain in the application reducer.
+
+```ts
+export declare function createTuiControls<
+  TState
+>(): <TReducers extends TuiControlReducers<TState> & Record<Exclude<keyof TReducers, keyof TState & string>, never>>(reducers: TReducers) => TuiControls<TState, TReducers>;
+```
+
+Related types: [`TuiControlReducers`](#tui-tuicontrolreducers), [`TuiControls`](#tui-tuicontrols)
+
+<a id="tui-createtuipreparedquery"></a>
+### createTuiPreparedQuery
+
+function · beta · [source](../../src/tui/prepared-query.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/tui`
+
+Prepared work in the existing effect lifecycle. Display and selection policy belong to the app.
+
+```ts
+export declare function createTuiPreparedQuery<
+  TInput,
+  TResult,
+  TMessage
+>(
+  options: {
+    readonly id: string;
+    readonly prepare: (input: TInput, context: TuiEffectContext) => Promise<TResult>;
+    readonly toMessage: (message: TuiPreparedQueryMessage<TResult>) => TMessage;
+}
+): TuiPreparedQuery<TInput, TResult, TMessage>;
+```
+
+Related types: [`input`](#prompts-input), [`TuiEffectContext`](#tui-tuieffectcontext), [`TuiPreparedQuery`](#tui-tuipreparedquery), [`TuiPreparedQueryMessage`](#tui-tuipreparedquerymessage)
 
 <a id="tui-createtuiruntime"></a>
 ### createTuiRuntime

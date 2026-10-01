@@ -11,6 +11,8 @@ import {
   column,
   commandInput,
   defineTui,
+  createTuiPreparedQuery,
+  createTuiControls,
   dialog,
   dataGrid,
   helpBar,
@@ -26,7 +28,7 @@ import {
   textArea,
   tree
 } from '@ismail-elkorchi/terminal-ui';
-import type { TuiContext, TuiUpdateResult } from '@ismail-elkorchi/terminal-ui';
+import type { TuiContext, TuiUpdateResult, TuiPreparedQueryState, TuiPreparedQueryMessage, TuiControlMessage } from '@ismail-elkorchi/terminal-ui';
 import {
   commandInputView,
   commandInputReducer,
@@ -45,7 +47,8 @@ import {
   createTreeSource,
   treeReducer
 } from '@ismail-elkorchi/terminal-ui/behavior';
-import type { SearchPickerQueryResult, CommandInputState, UnscrolledSearchPickerState } from '@ismail-elkorchi/terminal-ui/behavior';
+import type { CollectionQuery } from '@ismail-elkorchi/terminal-ui/text';
+import type { SearchPickerIndex, SearchPickerQueryResult, CommandInputState, UnscrolledSearchPickerState } from '@ismail-elkorchi/terminal-ui/behavior';
 import type {
   CompleteTableCollection,
   TextAreaTransition,
@@ -79,11 +82,8 @@ export interface WorkspaceState {
   readonly tree: ScrollableTreeState;
   readonly table: ScrollableDataGridState;
   readonly command: CommandInputState;
-  readonly searchPicker: {
+  readonly searchPicker: TuiPreparedQueryState<SearchPickerQueryResult> & {
     readonly open: boolean;
-    readonly pending: boolean;
-    readonly revision: number;
-    readonly result: SearchPickerQueryResult | null;
     readonly state: UnscrolledSearchPickerState;
   };
   readonly resolved: ReadonlySet<string>;
@@ -91,14 +91,10 @@ export interface WorkspaceState {
 }
 
 export type WorkspaceMessage =
-  | { readonly kind: 'notes'; readonly transition: TextAreaTransition }
+  | TuiControlMessage<typeof workspaceControls>
   | { readonly kind: 'tree'; readonly transition: TreeTransition }
-  | { readonly kind: 'table'; readonly transition: DataGridTransition }
-  | { readonly kind: 'tabs'; readonly transition: TabsTransition<WorkspaceTab> }
-  | { readonly kind: 'command'; readonly transition: CommandInputTransition }
   | { readonly kind: 'submit'; readonly value: string }
-  | { readonly kind: 'searchReady'; readonly revision: number; readonly result: SearchPickerQueryResult }
-  | { readonly kind: 'searchFailed'; readonly revision: number; readonly message: string }
+  | { readonly kind: 'searchResult'; readonly message: TuiPreparedQueryMessage<SearchPickerQueryResult> }
   | { readonly kind: 'openSearchPicker' }
   | { readonly kind: 'closeSearchPicker' }
   | { readonly kind: 'searchPicker'; readonly transition: SearchPickerControlTransition }
@@ -155,6 +151,32 @@ const navigationTreeSource = createTreeSource(navigationNodes());
 const pickerKeymap = createSearchPickerKeymap({ next: [{ kind: 'key', key: 'n', modifiers: { ctrl: true } }], previous: [{ kind: 'key', key: 'p', modifiers: { ctrl: true } }] });
 const navigationKeymap = createTreeKeymap({ next: [{ kind: 'key', key: 'j' }], previous: [{ kind: 'key', key: 'k' }] });
 
+const workspaceControls = createTuiControls<WorkspaceState>()({
+  notes: (notes, transition: TextAreaTransition) => textAreaReducer(notes, transition).state,
+  table: (table, transition: DataGridTransition, state) => dataGridReducer(table, transition, {
+    collection: incidentCollection(visibleTickets(state)),
+    columnIds: tableColumns.map((column) => column.id), pageSize: 12,
+  }),
+  tab: (tab, transition: TabsTransition<WorkspaceTab>) => tabsReducer(
+    { activeId: tab, selectedId: tab }, transition,
+    { tabs: [{ id: 'issues' }, { id: 'activity' }, { id: 'notes' }], activation: 'automatic' },
+  ).selectedId ?? tab,
+  command: (command, transition: CommandInputTransition) => {
+    const next = commandInputReducer(command, transition);
+    return transitionChangesCommandText(transition) ? withCommandSuggestions(next) : next;
+  },
+});
+
+const incidentQuery = createTuiPreparedQuery({
+  id: 'incident-search',
+  prepare: ({ index, query }: { readonly index: SearchPickerIndex; readonly query: CollectionQuery }, context) =>
+    prepareSearchPickerQuery(index, query, {
+      signal: context.signal,
+      yield: async () => { await yieldToInput(undefined, { signal: context.signal }); },
+    }),
+  toMessage: (message): WorkspaceMessage => ({ kind: 'searchResult', message }),
+});
+
 const emptyCommandSuggestions = createCommandSuggestions([]);
 
 function navigationNodes(): readonly TreeNode<NavigationMetadata>[] {
@@ -190,7 +212,7 @@ function initialState(): WorkspaceState {
     },
     command: createCommandInputState({ suggestions: emptyCommandSuggestions }),
     searchPicker: {
-      open: false, pending: false, revision: 0, result: null,
+      ...incidentQuery.init(), open: false,
       state: createSearchPickerState({ query: { text: '', mode: 'contains' }, queryResult: null }, workspaceSearchPickerIndex),
     },
     resolved: new Set<string>(),
@@ -225,7 +247,7 @@ function updateWorkspace(
   message: WorkspaceMessage
 ): TuiUpdateResult<WorkspaceState, WorkspaceMessage> {
   switch (message.kind) {
-    case 'notes': return updateResult({ ...state, notes: textAreaReducer(state.notes, message.transition).state });
+    case 'control': return workspaceControls.update(state, message);
     case 'tree': {
       const nextTree = treeReducer(state.tree, message.transition, {
         source: navigationTreeSource,
@@ -250,38 +272,14 @@ function updateWorkspace(
         }
       });
     }
-    case 'table':
-      return updateResult({
-        ...state,
-        table: dataGridReducer(state.table, message.transition, {
-          collection: incidentCollection(visibleTickets(state)),
-          columnIds: tableColumns.map((column) => column.id),
-          pageSize: 12,
-        })
-      });
-    case 'tabs': {
-      const selected = tabsReducer(
-        { activeId: state.tab, selectedId: state.tab },
-        message.transition,
-        { tabs: [{ id: 'issues' }, { id: 'activity' }, { id: 'notes' }], activation: 'automatic' },
-      ).selectedId;
-      return updateResult(selected === undefined ? state : { ...state, tab: selected });
-    }
-    case 'command': {
-      const command = commandInputReducer(state.command, message.transition);
-      return updateResult({
-        ...state,
-        command: transitionChangesCommandText(message.transition)
-          ? withCommandSuggestions(command)
-          : command,
-      });
-    }
     case 'submit':
       return message.value.trim() === '/palette' ? startSearch({ ...state, searchPicker: { ...state.searchPicker, open: true } }) : updateResult(applyCommand(state, message.value));
     case 'openSearchPicker':
       return startSearch({ ...state, searchPicker: { ...state.searchPicker, open: true } });
-    case 'closeSearchPicker':
-      return { state: { ...state, searchPicker: { ...state.searchPicker, open: false, pending: false, revision: state.searchPicker.revision + 1 } }, effects: [{ id: 'incident-search', concurrency: 'replace', run: () => Promise.resolve({ kind: 'none' }) }] };
+    case 'closeSearchPicker': {
+      const cancelled = incidentQuery.cancel({ ...state.searchPicker, open: false });
+      return { ...cancelled, state: { ...state, searchPicker: cancelled.state } };
+    }
     case 'searchPicker': {
       const next = searchPickerReducer(state.searchPicker.state, message.transition, {
         searchPickerIndex: workspaceSearchPickerIndex,
@@ -292,16 +290,16 @@ function updateWorkspace(
         ? startSearch(updated)
         : updateResult(updated);
     }
-    case 'searchReady': {
-      if (message.revision !== state.searchPicker.revision || !state.searchPicker.open) return updateResult(state);
-      const id = message.result.entries.find(entry => !entry.disabled)?.id;
-      const next = searchPickerReducer(state.searchPicker.state, { kind: 'setActive', ...(id === undefined ? {} : { id }) }, {
-        searchPickerIndex: workspaceSearchPickerIndex, queryResult: message.result,
+    case 'searchResult': {
+      const settled = incidentQuery.update(state.searchPicker, message.message).state;
+      if (settled === state.searchPicker) return updateResult(state);
+      if (settled.error !== null) return updateResult({ ...state, searchPicker: settled, activity: [...state.activity, settled.error.message] });
+      const id = settled.result?.entries.find(entry => !entry.disabled)?.id;
+      const next = searchPickerReducer(settled.state, { kind: 'setActive', ...(id === undefined ? {} : { id }) }, {
+        searchPickerIndex: workspaceSearchPickerIndex, queryResult: settled.result,
       });
-      return updateResult({ ...state, searchPicker: { ...state.searchPicker, state: next, result: message.result, pending: false } });
+      return updateResult({ ...state, searchPicker: { ...settled, state: next } });
     }
-    case 'searchFailed':
-      return message.revision !== state.searchPicker.revision ? updateResult(state) : updateResult({ ...state, searchPicker: { ...state.searchPicker, pending: false }, activity: [...state.activity, message.message] });
     case 'acceptSearchPicker': {
       if (state.searchPicker.pending) return updateResult(state);
       const entry = searchPickerEntries.find((candidate) => candidate.id === message.id);
@@ -330,24 +328,12 @@ function updateWorkspace(
 }
 
 function startSearch(state: WorkspaceState): TuiUpdateResult<WorkspaceState, WorkspaceMessage> {
-  const revision = state.searchPicker.revision + 1;
   const view = searchPickerView(state.searchPicker.state);
-  const query = { text: view.input.text, ...view.query };
-  return {
-    state: { ...state, searchPicker: { ...state.searchPicker, pending: true, revision, result: null } },
-    effects: [{
-      id: 'incident-search', concurrency: 'replace',
-      async run(context) {
-        const result = await prepareSearchPickerQuery(workspaceSearchPickerIndex, query, {
-          signal: context.signal,
-          yield: async () => { await yieldToInput(undefined, { signal: context.signal }); },
-        });
-        context.signal.throwIfAborted();
-        return { kind: 'message', message: { kind: 'searchReady', revision, result } };
-      },
-      onError: ({ diagnostic }) => ({ kind: 'message', message: { kind: 'searchFailed', revision, message: diagnostic.message } }),
-    }],
-  };
+  // This app hides old results while typing; other apps may keep the last prepared result.
+  const requested = incidentQuery.request({ ...state.searchPicker, result: null }, {
+    index: workspaceSearchPickerIndex, query: { text: view.input.text, ...view.query },
+  });
+  return { ...requested, state: { ...state, searchPicker: requested.state } };
 }
 
 function applyCommand(state: WorkspaceState, raw: string): WorkspaceState {
@@ -459,7 +445,7 @@ function mainPane(state: WorkspaceState) {
       { id: 'activity', label: 'Activity', panel: activityPanel(state) },
       { id: 'notes', label: 'Notes', panel: notesPanel(state) }
     ],
-    onTransition: (transition): WorkspaceMessage => ({ kind: 'tabs', transition })
+    onTransition: workspaceControls.onTransition('tab')
   });
 }
 
@@ -470,10 +456,9 @@ function issuesPanel(state: WorkspaceState) {
     meta: { accessibleName: 'Issues' },
     collection: incidentCollection(rows),
     columns: tableColumns,
-    state: state.table,
+    ...workspaceControls.bind('table', state),
     scrollbar: { visible: 'auto' },
     stickyHeader: true,
-    onTransition: (transition): WorkspaceMessage => ({ kind: 'table', transition })
   }), { id: 'issues-panel', appearance: 'neutral', padding: 1 });
 }
 
@@ -485,10 +470,9 @@ function notesPanel(state: WorkspaceState) {
   return surface(textArea({
     id: 'incident-notes',
     meta: { accessibleName: 'Incident response notes' },
-    state: state.notes,
+    ...workspaceControls.bind('notes', state),
     lineNumbers: true,
     scrollbar: { visible: 'auto' },
-    onTransition: (transition: TextAreaTransition): WorkspaceMessage => ({ kind: 'notes', transition }),
   }), { id: 'notes-panel', appearance: 'neutral', padding: 1 });
 }
 
@@ -534,7 +518,7 @@ function commandPane(state: WorkspaceState) {
     placement: 'above',
     maxVisibleSuggestions: 6,
     meta: { accessibleName: 'Command input' },
-    onTransition: (transition): WorkspaceMessage => ({ kind: 'command', transition }),
+    onTransition: workspaceControls.onTransition('command'),
     onSubmit: (event): WorkspaceMessage => ({ kind: 'submit', value: event.value })
   }), {
     id: 'workspace-command-surface',

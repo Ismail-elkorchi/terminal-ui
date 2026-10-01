@@ -133,7 +133,7 @@ test('Bun built-in host uses the Node-compatible process stream when Bun stdout 
   const previousProcess = Reflect.get(globalThis, 'process');
   const writes = [];
   Reflect.set(globalThis, 'Bun', {
-    stdin: { stream: () => emptyAsyncIterable(), isTTY: true },
+    stdin: { stream: () => emptyReadableStream(), isTTY: true },
     stdout: { name: 'stdout' },
     stderr: { name: 'stderr' }
   });
@@ -156,7 +156,7 @@ test('Bun raw-mode mutation preserves the owning stdin receiver', async () => {
   const previousBun = Reflect.get(globalThis, 'Bun');
   const previousProcess = Reflect.get(globalThis, 'process');
   const input = {
-    stream: () => emptyAsyncIterable(),
+    stream: () => emptyReadableStream(),
     isTTY: true,
     raw: false,
     setRawMode(enabled) {
@@ -173,6 +173,44 @@ test('Bun raw-mode mutation preserves the owning stdin receiver', async () => {
     assert.equal(host.stdin.isRawModeEnabled(), true);
     await host.dispose();
   } finally {
+    restoreGlobal('Bun', previousBun);
+    restoreGlobal('process', previousProcess);
+  }
+});
+
+test('Bun native stdin cancels a pending stream reader and awaits cancellation settlement', async () => {
+  const previousBun = Reflect.get(globalThis, 'Bun');
+  const previousProcess = Reflect.get(globalThis, 'process');
+  const cancellation = Promise.withResolvers();
+  let controller;
+  let cancelled = 0;
+  const stream = new globalThis.ReadableStream({
+    start(value) { controller = value; },
+    cancel() { cancelled += 1; return cancellation.promise; },
+  });
+  Reflect.set(globalThis, 'Bun', { stdin: { stream: () => stream, isTTY: true } });
+  Reflect.set(globalThis, 'process', processLike([]));
+  const host = createBunTerminalHost();
+  const pending = host.stdin.read()[Symbol.asyncIterator]().next();
+  let disposal;
+  try {
+    assert.equal(stream.locked, true);
+    let disposed = false;
+    disposal = host.dispose().then(() => { disposed = true; });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(cancelled, 1, 'native reader cancellation must not queue behind its pending read');
+    assert.equal(disposed, false, 'disposal must await the native cancellation result');
+    assert.equal(stream.locked, true);
+    cancellation.resolve();
+    await disposal;
+    assert.equal(stream.locked, false);
+    assert.deepEqual(await pending, { done: true, value: undefined });
+    await host.dispose();
+    assert.equal(cancelled, 1);
+  } finally {
+    cancellation.resolve();
+    if (cancelled === 0) controller.close();
+    await disposal;
     restoreGlobal('Bun', previousBun);
     restoreGlobal('process', previousProcess);
   }
@@ -292,7 +330,7 @@ test('Bun host derives native signals from its process adapter', async () => {
   runtimeProcess.off = (signal, listener) => {
     if (listeners.get(signal) === listener) listeners.delete(signal);
   };
-  Reflect.set(globalThis, 'Bun', { stdin: { stream: () => emptyAsyncIterable(), isTTY: true } });
+  Reflect.set(globalThis, 'Bun', { stdin: { stream: () => emptyReadableStream(), isTTY: true } });
   Reflect.set(globalThis, 'process', runtimeProcess);
   try {
     const host = createBunTerminalHost();
@@ -541,6 +579,10 @@ function denoLike({ terminal, consoleSize }) {
     consoleSize,
     env: { toObject: () => ({}) }
   };
+}
+
+function emptyReadableStream() {
+  return new globalThis.ReadableStream({ start(controller) { controller.close(); } });
 }
 
 function emptyAsyncIterable() {

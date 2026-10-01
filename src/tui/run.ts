@@ -130,6 +130,7 @@ export async function runTui<TState, TMessage>(
         const runtime = createTuiRuntimeWithCapabilitySnapshot({
           app,
           host: terminalHost,
+          outputMode: normalized.outputMode,
           graphics: normalized.graphics,
           graphicsBudget: normalized.graphicsBudget,
           ...(normalized.initialFocus === undefined ? {} : { initialFocus: normalized.initialFocus }),

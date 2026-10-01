@@ -1,4 +1,5 @@
 import type { GraphicsBudgetLimits } from '../../graphics/budget.ts';
+import { decodeTuiOutputMode } from '../commit/accessible-output.ts';
 import { resolveGraphicsBudgetLimits } from '../../graphics/budget.ts';
 import { decodeTerminalGraphicsMode } from '../../graphics/mode.ts';
 import type { TerminalGraphicsMode } from '../../graphics/types.ts';
@@ -20,6 +21,7 @@ import type { TuiLifecyclePolicy, TuiRunInputPolicy, TuiTheme } from '../types.t
 export type NormalizedTuiLifecyclePolicy = Readonly<Required<Omit<TuiLifecyclePolicy, 'defaultTimeoutMs'>>>;
 
 export interface NormalizedTuiRunOptions<TState> {
+  readonly outputMode: 'visual' | 'accessible';
   readonly host?: TerminalHost;
   readonly initialFocus?: InitialFocusSelector;
   readonly theme?: TuiTheme<TState>;
@@ -47,14 +49,26 @@ export function resolveTuiRunOptions<TState>(
   const host = decodeTerminalHost(supplied['host']);
   const initialFocus = decodeInitialFocus(supplied['initialFocus']);
   const theme = resolveTuiTheme<TState>(supplied['theme']);
+  const outputMode = decodeTuiOutputMode(supplied['outputMode']);
+  const graphics = decodeTerminalGraphicsMode(supplied['graphics']);
+  if (outputMode === 'accessible' && graphics !== 'none') {
+    throw new TypeError('Accessible TUI output requires graphics: none.');
+  }
+  const sessionPolicy = resolveTuiSessionPolicy(supplied['sessionPolicy']);
   return Object.freeze({
     ...(host === undefined ? {} : { host }),
     ...(initialFocus === undefined ? {} : { initialFocus }),
     ...(theme === undefined ? {} : { theme }),
-    sessionPolicy: resolveTuiSessionPolicy(supplied['sessionPolicy']),
+    outputMode,
+    sessionPolicy: outputMode === 'visual' ? sessionPolicy : Object.freeze({
+      ...sessionPolicy,
+      alternateScreen: 'disabled',
+      mouseReporting: Object.freeze({ mode: 'none', requirement: 'disabled' }),
+      cursorVisibility: Object.freeze({ visibility: 'unchanged', requirement: 'disabled' }),
+    }),
     lifecycle: resolveTuiLifecyclePolicy(supplied['lifecycle']),
     input: resolveTuiInputPolicy(supplied['input']),
-    graphics: decodeTerminalGraphicsMode(supplied['graphics']),
+    graphics,
     graphicsBudget: resolveGraphicsBudgetLimits(supplied['graphicsBudget']),
   });
 }

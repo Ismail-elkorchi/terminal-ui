@@ -119,6 +119,42 @@ Use this pattern:
 4. Use reducers from `@ismail-elkorchi/terminal-ui/behavior` when a component
    has non-trivial navigation or editing behavior.
 
+For ordinary fields, `createTuiControls<State>()(reducers)` removes the repeated
+transition-message wrapper, reducer routing and parent-state graft. Each key is
+an existing state field and each value is its ordinary reducer; an optional third
+argument supplies the current parent state. There is no control registry or
+additional store.
+
+```ts
+import { createTuiControls, type TuiControlMessage } from '@ismail-elkorchi/terminal-ui';
+import { commandInputReducer, type CommandInputState } from '@ismail-elkorchi/terminal-ui/behavior';
+
+interface State { readonly command: CommandInputState; }
+const controls = createTuiControls<State>()({ command: commandInputReducer });
+type Message = TuiControlMessage<typeof controls> | { readonly kind: 'submit'; readonly value: string };
+
+// In update(state, message):
+// if (message.kind === 'control') return controls.update(state, message);
+// In commandInput({...}):
+// onTransition: controls.onTransition('command')
+```
+
+For components accepting `state`, spread `controls.bind('field', state)` to pass
+both state and `onTransition`. For view-based controls, keep the view conversion
+explicit and use `controls.onTransition('field')`. Messages contain the field and
+transition, not a captured state or update closure. Transition payloads remain
+caller-owned; the helper does not serialize or sanitize them. The reducer always reads the
+current parent state, including across a queued input batch. Returning the same
+field value preserves parent identity. The helper snapshots the reducer map when
+created; it does not make state or domain values immutable for you.
+
+Keep policies in the application: the IDE's buffer byte limit, dirty-close guard,
+saved-document identity and file operations remain explicit. A tree transition
+that also switches another panel stays in the app reducer. The complete
+[IDE example](../../examples/tui/ide-editor.ts) uses one control branch for five
+ordinary fields, with no extra child lifetime. Use [child composition](./tui.md#composing-child-applications)
+when a feature actually needs mount identity and owned effects/subscriptions.
+
 See [Components](./components.md) for component roles and
 [Behavior helpers](./behavior.md) for reducer state boundaries.
 

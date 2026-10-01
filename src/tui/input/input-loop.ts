@@ -162,10 +162,18 @@ export async function runTuiInputLoop<TState, TMessage>(
     const batch = normalizeInputWork(outcome.work);
     const exit = batch.results.find((result) => result.exit !== undefined)?.exit;
     if (exit !== undefined) return { kind: 'exit', exit };
-    inputBatchNext = batch.pending;
-    if (inputBatchNext !== undefined) {
-      endAfterInputBatch = outcome.endAfter;
+    if (batch.pending !== undefined) {
+      const earlier = inputBatchNext;
+      events.cancel('inputBatch');
+      inputBatchNext = earlier === undefined
+        ? batch.pending
+        : Promise.all([earlier, batch.pending]).then(([previous, next]) => [...previous, ...next]);
       events.watch('inputBatch', inputBatchNext, (results) => ({ kind: 'inputBatch', results }));
+    }
+    if (inputBatchNext !== undefined) {
+      endAfterInputBatch ||= outcome.endAfter;
+      startQueuedInputOrFlush();
+      watchInputIfAvailable();
       return continueInputLoop;
     }
     if (outcome.endAfter) return completeInputLoop;
@@ -239,10 +247,10 @@ export async function runTuiInputLoop<TState, TMessage>(
   }
 
   function startQueuedInputOrFlush(): void {
-    if (inputWorkNext !== undefined || inputBatchNext !== undefined) return;
+    if (inputWorkNext !== undefined) return;
     const chunk = takeQueuedInput();
     inputWorkNext = chunk === undefined
-      ? inputEnded
+      ? inputEnded && inputBatchNext === undefined
         ? runtime.flushInput().then((work) => ({ work, endAfter: true }))
         : undefined
       : runtime.handleInputChunk(chunk).then((work) => ({ work, endAfter: false }));
@@ -252,7 +260,10 @@ export async function runTuiInputLoop<TState, TMessage>(
   }
 
   function scheduleQueuedInputOrFlush(): void {
-    if (inputDispatchQueued || inputWorkNext !== undefined || inputBatchNext !== undefined) return;
+    if (inputDispatchQueued || inputWorkNext !== undefined) return;
+    // A pending ambiguity deadline needs the next bytes to cancel it. Waiting
+    // for that deadline before admitting the continuation splits valid input.
+    if (inputBatchNext !== undefined && queuedInput.length === 0) return;
     inputDispatchQueued = true;
     events.watch('inputReady', Promise.resolve(), () => ({ kind: 'inputReady' }));
   }

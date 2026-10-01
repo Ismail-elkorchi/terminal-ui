@@ -5,8 +5,10 @@ construction to runtime preparation. Work yields through the host scheduler and
 observes its abort signal. Synchronous snapshot rendering and `createTreeView()`
 remain synchronous APIs.
 
-For an application that must accept edits while a large query is running, prepare
-in a cancellable application effect:
+For an application that must accept edits while a large query is running, use
+[`createTuiPreparedQuery`](./tui.md#prepared-queries) to own replacement, pending,
+failure and cancellation through the existing effect lifecycle. Its `prepare`
+callback can call the same cooperative API used directly in a cancellable effect:
 
 ```ts
 import { prepareTreeView, type TreeState } from '@ismail-elkorchi/terminal-ui/behavior';
@@ -27,8 +29,9 @@ export async function prepareDesiredTree(
 
 `prepareTreeView` is exported from the behavior entrypoint. The application should
 keep its displayed state separate from its draft query, abort superseded effects,
-and publish the displayed state and prepared view together only if the effect's
-generation is still current. Pass that view to `treeReducer` through its `view`
+and publish the displayed state and prepared view together only after the current
+completion is accepted. `createTuiPreparedQuery.update` performs that stale-result
+check; the application keeps tree selection and displayed-state policy explicit. Pass that view to `treeReducer` through its `view`
 option. Passing `view: null` deliberately makes navigation idle while preparation
 is pending; query edits and disclosure transitions remain available. A view for
 a different source, query, expansion or lazy-load state is rejected.

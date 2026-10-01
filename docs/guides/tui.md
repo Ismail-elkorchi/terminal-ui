@@ -98,6 +98,42 @@ to an interactive child process. The runtime restores its session, runs the
 operation, then establishes a fresh session and repaints. Ordinary background
 work does not need suspension.
 
+## Prepared queries
+
+`createTuiPreparedQuery({ id, prepare, toMessage })` packages the whole one-shot
+query lifecycle in ordinary reducer/effect results. Store `query.init()` in app
+or child state. `query.request(state, input)` returns pending state and a
+replacement effect; `query.update(state, completion)` accepts only the current
+pending revision; `query.cancel(state)` returns `cancelEffects` and invalidates
+old completions. Forward the entire returned result, including effects and
+cancellation, through the parent update. No separate scheduler, registry or
+mutable query store is created. Use distinct IDs for independent queries in one
+parent, or let child composition scope their local IDs.
+
+The input should contain all preparation dependencies, including the source
+identity. Request again when either source or query changes. Equal inputs can be
+requested repeatedly; each request replaces the earlier one. The preparation
+callback receives the normal effect context and must use its abort signal and
+cooperative yielding for expensive work. Failure becomes a typed completion and
+is stored in `error`; a new request clears it. Duplicate or stale success/failure
+messages leave state unchanged.
+
+The helper owns `revision`, `pending`, `result` and `error`, and preserves other
+caller-owned fields. It retains the last complete result across request, failure
+and cancellation. The app explicitly chooses whether to display it: the
+[100,000-incident workbench](../../examples/tui/incident-workbench.ts) passes
+`{ ...state.searchPicker, result: null }` when starting a query, so old results
+are hidden while typing. The workbench also explicitly chooses the first enabled
+result and applies accepted commands. These are application policies, not query
+lifecycle behavior.
+
+Keep query state when closing and reopening a retained feature. For removal and
+remounting, put it inside an ordinary `createTuiChild` and use a fresh parent-owned
+child generation. Child removal cancels the scoped query effect and its envelope
+rejects old-lifetime messages, even if the newly mounted query starts at revision
+zero. Merely hiding the view does not cancel work. Disposing the parent runtime
+cancels preparation through the same existing effect lifecycle.
+
 ## Diagnostics, security, and testing
 
 `TuiContext.diagnostics` contains setup and runtime occurrences. Capability

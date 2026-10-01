@@ -537,7 +537,7 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
   assert.match(renderAccessibleSnapshot(createAccessibleSnapshot({
     source: 'renderer',
     root: validRoots[4]
-  })), /\[row:1\/1\]/u);
+  })), /\[row:1\/1, columns:3\]/u);
 
   const invalidRoots = [
     { id: 'unknown', role: 'text', invented: true },

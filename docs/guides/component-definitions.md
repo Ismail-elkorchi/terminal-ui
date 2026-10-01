@@ -40,8 +40,9 @@ const badge = defineComponent<BadgeOptions>()({
       preferredHeight: 1
     };
   },
-  render: ({ model, target }) => {
-    target.write(0, 0, [{ text: model.label }]);
+  render: ({ model, target, style }) => {
+    const valueStyle = style({ part: 'value' });
+    target.write(0, 0, [{ text: model.label, ...(valueStyle === undefined ? {} : { style: valueStyle }) }]);
   },
   accessibility: ({ id, model }) => ({
     id,

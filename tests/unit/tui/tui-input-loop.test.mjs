@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { listbox, text } from '../../../dist/components/index.js';
-import { listboxReducer } from '../../../dist/behavior/index.js';
+import { listbox, text, textInput } from '../../../dist/components/index.js';
+import { listboxReducer, textInputReducer } from '../../../dist/behavior/index.js';
 import { createMemoryTerminalHost } from '../../../dist/host/index.js';
 import { createTuiRuntime, defineTui } from '../../../dist/tui/index.js';
 import {
@@ -10,6 +10,50 @@ import {
   runTuiInputLoop
 } from '../../../dist/tui/input/input-loop.js';
 import { TuiInputSuspensionController } from '../../../dist/tui/input-suspension.js';
+import { waitUntil } from '../../support/async.ts';
+
+for (const sample of [
+  { name: 'navigation CSI', initial: 'word', chunks: ['\u001B', '[', 'D'], expected: { text: 'word', cursor: 3 } },
+  { name: 'bracketed paste opener', initial: '', chunks: ['\u001B[20', '0~café 世界\u001B[201~'], expected: { text: 'café 世界', cursor: 7 } },
+]) {
+  test(`input loop admits a split ${sample.name} continuation before ambiguity expires`, async () => {
+    const app = defineTui({
+      id: 'split-native-input',
+      init: () => ({ state: { text: sample.initial, cursor: sample.initial.length } }),
+      update: (state, transition) => ({ state: textInputReducer(state, transition) }),
+      view: (state) => textInput({ id: 'value', meta: { accessibleName: 'Input value' }, state, onTransition: (transition) => transition }),
+    });
+    const host = createMemoryTerminalHost({ terminalSize: { columns: 40, rows: 4 } });
+    let deadlines = 0;
+    const sleep = host.clock.sleep.bind(host.clock);
+    host.clock.sleep = (ms, signal) => {
+      if (ms === 25) deadlines += 1;
+      return sleep(ms, signal);
+    };
+    const runtime = createTuiRuntime({ app, host, input: { bracketedPaste: true } });
+    const signals = createTuiSignalQueue(host.signals.subscribe.bind(host.signals));
+    let retirement = Promise.resolve();
+    await runtime.start();
+    const loop = runTuiInputLoop(runtime, host, app.id, undefined,
+      (pending) => { retirement = pending; }, undefined, signals);
+    try {
+      for (let index = 0; index < sample.chunks.length; index += 1) {
+        host.input(sample.chunks[index]);
+        if (index < sample.chunks.length - 1) await waitUntil(() => deadlines === index + 1);
+      }
+      // The controlled clock is never advanced: continuation must cancel the ambiguity deadline.
+      await waitUntil(() => runtime.state().text === sample.expected.text
+        && runtime.state().cursor === sample.expected.cursor);
+      assert.deepEqual(runtime.state(), sample.expected);
+    } finally {
+      host.signals.emit('SIGTERM');
+      await loop;
+      await retirement;
+      signals.dispose();
+      await runtime.dispose();
+    }
+  });
+}
 
 test('the interactive input loop watches each pending event source exactly once', async () => {
   const app = defineTui({

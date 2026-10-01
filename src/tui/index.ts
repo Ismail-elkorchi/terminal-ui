@@ -1,3 +1,7 @@
+export { createTuiControls } from './controls.ts';
+export type { TuiControlMessage, TuiControlReducers, TuiControls, TuiControlTransitionMessage } from './controls.ts';
+export { createTuiPreparedQuery } from './prepared-query.ts';
+export type { TuiPreparedQuery, TuiPreparedQueryState, TuiPreparedQueryMessage } from './prepared-query.ts';
 export { createTuiChild } from './child.ts';
 export type { TuiChild, TuiChildDefinition, TuiChildIdentity, TuiChildMessage, TuiChildResult, TuiChildState } from './child.ts';
 export {

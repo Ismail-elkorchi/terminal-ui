@@ -40,7 +40,7 @@ test('IDE File menu opens with a valid named popup', async () => {
   const runtime = createTuiRuntime({ app: ideEditorApp, host });
   try {
     await runtime.start();
-    await runtime.dispatch({ kind: 'menu', transition: { kind: 'activateHeading', id: 'file' } });
+    await runtime.dispatch({ kind: 'control', control: 'menu', transition: { kind: 'activateHeading', id: 'file' } });
 
     assert.equal(runtime.state().menu.kind, 'open');
     const frame = runtime.frame();
@@ -74,7 +74,7 @@ test('IDE filesystem effects leave command input and resize responsive', async (
 
     const resized = await runtime.resize({ columns: 96, rows: 30 });
     await runtime.dispatch({
-      kind: 'command',
+      kind: 'control', control: 'command',
       transition: { kind: 'edit', operation: { kind: 'insert', text: '/save' } }
     });
 
@@ -201,14 +201,37 @@ test('IDE workspace selection continues to follow tree navigation', async () => 
     await runtime.start();
     await runtime.dispatch({ kind: 'requestOpen', mode: 'folder', path: '/virtual' });
     await waitUntil(() => runtime.state().operation.kind === 'idle');
-    await runtime.dispatch({ kind: 'tree', transition: { kind: 'setActive', id: '/virtual/a.txt' } });
+    await runtime.dispatch({ kind: 'control', control: 'tree', transition: { kind: 'setActive', id: '/virtual/a.txt' } });
     assert.equal(runtime.state().tree.selection.selectedId, '/virtual/a.txt');
-    await runtime.dispatch({ kind: 'tree', transition: { kind: 'moveActive', delta: 1 } });
+    await runtime.dispatch({ kind: 'control', control: 'tree', transition: { kind: 'moveActive', delta: 1 } });
     assert.equal(runtime.state().tree.activeId, '/virtual/b.txt');
     assert.equal(runtime.state().tree.selection.selectedId, '/virtual/b.txt');
   } finally {
     await runtime.dispose();
   }
+});
+
+test('IDE chooser controls tolerate dismissal, reopening and repeated queued edits', async () => {
+  const runtime = createTuiRuntime({ app: ideEditorApp, host: createMemoryTerminalHost({ terminalSize: { columns: 120, rows: 36 } }) });
+  try {
+    await runtime.start();
+    await runtime.dispatch({ kind: 'showChooser', mode: 'file' });
+    await runtime.dispatch({ kind: 'control', control: 'chooser', transition: { kind: 'setValue', value: '/first' } });
+    await runtime.dispatch({ kind: 'dismissChooser' });
+    const closed = runtime.state();
+    await runtime.dispatch({ kind: 'control', control: 'chooser', transition: { kind: 'setValue', value: '/late' } });
+    assert.equal(runtime.state(), closed);
+    await runtime.dispatch({ kind: 'showChooser', mode: 'folder' });
+    assert.equal(runtime.state().chooser.mode, 'folder');
+    assert.equal(runtime.state().chooser.command.editor.input.text, '');
+    await runtime.dispatchMany([
+      { kind: 'control', control: 'chooser', transition: { kind: 'edit', operation: { kind: 'insert', text: '/new' } } },
+      { kind: 'control', control: 'chooser', transition: { kind: 'edit', operation: { kind: 'insert', text: '/folder' } } },
+    ]);
+    assert.equal(runtime.state().chooser.command.editor.input.text, '/new/folder');
+    await runtime.dispatch({ kind: 'dismissChooser' });
+    assert.equal(runtime.state().chooser, undefined);
+  } finally { await runtime.dispose(); }
 });
 
 test('btop clock and uptime normalize minute and hour boundaries', async () => {

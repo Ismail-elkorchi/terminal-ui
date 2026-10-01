@@ -1,3 +1,7 @@
+export { createTuiControls } from './tui/controls.ts';
+export type { TuiControlMessage, TuiControlReducers, TuiControls, TuiControlTransitionMessage } from './tui/controls.ts';
+export { createTuiPreparedQuery } from './tui/prepared-query.ts';
+export type { TuiPreparedQuery, TuiPreparedQueryState, TuiPreparedQueryMessage } from './tui/prepared-query.ts';
 export type { ElementState } from './element/metadata.ts';
 export type { TextAreaLayoutSnapshot } from './components/text-area/contracts.ts';
 export { createTuiChild } from './tui/child.ts';

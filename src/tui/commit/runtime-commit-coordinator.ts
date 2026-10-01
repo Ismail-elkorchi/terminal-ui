@@ -1,3 +1,5 @@
+import { renderAccessibleSnapshot } from '../../renderer/output.ts';
+import { accessibleFrameOutput, decodeTuiOutputMode } from './accessible-output.ts';
 import type { TerminalDiagnostic } from '../../diagnostics.ts';
 import { diagnostic } from '../../diagnostics.ts';
 import type { TerminalSize } from '../../geometry/types.ts';
@@ -44,13 +46,17 @@ interface CommittedRuntimeRecord<TState, TMessage> {
 }
 
 export function createRuntimeCommitCoordinator<TState, TMessage>(
-  options: Pick<TuiRuntimeOptions<TState, TMessage>, 'app' | 'host' | 'theme' | 'initialFocus' | 'graphics' | 'graphicsBudget' | 'instrumentation'> & {
+  options: Pick<TuiRuntimeOptions<TState, TMessage>, 'app' | 'host' | 'theme' | 'initialFocus' | 'graphics' | 'graphicsBudget' | 'instrumentation' | 'outputMode'> & {
     readonly initialTerminalSize: TerminalSize;
     readonly reportDiagnostic?: (item: TerminalDiagnostic) => void;
     readonly pointerVisuals?: () => PointerVisualSnapshot;
   },
   signal: AbortSignal
 ) {
+  const outputMode = decodeTuiOutputMode(options.outputMode);
+  if (outputMode === 'accessible' && options.graphics !== undefined && options.graphics !== 'none') {
+    throw new TypeError('Accessible TUI output requires graphics: none.');
+  }
   const startingFocusPath: FocusPath | undefined = options.initialFocus?.kind === 'path'
     ? options.initialFocus.path
     : undefined;
@@ -95,6 +101,20 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
         input,
         writeSignal,
       );
+    },
+    async repeatAccessibleContext() {
+      if (outputMode !== 'accessible') throw new Error('repeatAccessibleContext requires accessible output mode.');
+      if (outputSuspended) throw new Error('Accessible output is suspended.');
+      const snapshot = committedRender().frame.accessibility;
+      signal.throwIfAborted();
+      try {
+        requireCommittedTerminalWrite(await options.host.write(
+          { text: `Context:\n${renderAccessibleSnapshot(snapshot)}\n`.replaceAll('\n', '\r\n') }, { signal },
+        ));
+      } catch (cause) {
+        if (terminalWriteMayHaveCommitted(cause)) outputBaselineKnown = false;
+        throw cause;
+      }
     },
     async suspendOutput() {
       outputSuspended = true;
@@ -201,6 +221,16 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
     signal.throwIfAborted();
     if (outputSuspended) return diffFrames(previousFrame, render.frame, options.instrumentation === undefined ? {} : { instrumentation: options.instrumentation });
     try {
+      if (outputMode === 'accessible') {
+        const diff = diffFrames(previousFrame, render.frame, options.instrumentation === undefined ? {} : { instrumentation: options.instrumentation });
+        const text = accessibleFrameOutput(outputBaselineKnown ? committed?.render.frame.accessibility : undefined, render.frame.accessibility).replaceAll('\n', '\r\n');
+        if (text.length > 0) {
+          options.instrumentation?.recordWork?.({ kind: 'encoded_bytes', count: new TextEncoder().encode(text).byteLength });
+          requireCommittedTerminalWrite(await options.host.write({ text }, { signal }));
+        }
+        outputBaselineKnown = true;
+        return diff;
+      }
       const dirtyRegions = previousFrame === undefined
         ? undefined
         : dirtyRegionsForRenderCommit(committed?.render, render);

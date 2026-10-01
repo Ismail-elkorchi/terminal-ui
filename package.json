@@ -164,6 +164,7 @@
     "check:emulator:sixel-tmux": "npm run build && node scripts/emulator/sixel.mjs --tmux",
     "check:emulator:wezterm": "npm run build && node scripts/emulator/wezterm.mjs",
     "check:emulators": "npm run build && node scripts/emulator/kitty.mjs && node scripts/emulator/kitty.mjs --tmux && node scripts/emulator/sixel.mjs && node scripts/emulator/sixel.mjs --tmux && node scripts/emulator/wezterm.mjs",
+    "check:terminal:native": "npm run build && node scripts/emulator/native.mjs",
     "check:emulator:physical": "npm run build && node scripts/emulator/physical.mjs",
     "check:security-smoke": "node scripts/run-test-lane.mjs security-smoke",
     "check:test-types": "tsc --project tsconfig.tests.json",

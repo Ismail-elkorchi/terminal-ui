@@ -1,3 +1,4 @@
+import { matchesInputTrigger } from '../input/triggers.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import { diagnostic } from '../diagnostics.ts';
 import { errorFromUnknown } from '../errors.ts';
@@ -333,6 +334,12 @@ function createRuntime<TState, TMessage>(
         return commits.frame();
       });
     },
+    repeatAccessibleContext() {
+      return enqueueTransition(async () => {
+        lifecycle.assertOperational();
+        await commits.repeatAccessibleContext();
+      });
+    },
     nextChange(signal) {
       lifecycle.assertWaitable();
       return changes.next(signal);
@@ -477,6 +484,12 @@ function createRuntime<TState, TMessage>(
     const state = commits.state();
     const frame = commits.frame();
     if (isIgnoredMessage(message)) {
+      if (options.outputMode === 'accessible' && matchesInputTrigger({
+        kind: 'key', key: 'l', modifiers: { ctrl: true },
+      }, event)) {
+        await commits.repeatAccessibleContext();
+        return { handled: true, state, frame };
+      }
       if (event.kind === 'key' && event.eventType === 'press') {
         const key = event.key;
         if (key === 'arrowLeft' || key === 'arrowRight' || key === 'arrowUp'

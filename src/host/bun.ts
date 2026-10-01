@@ -3,6 +3,7 @@ import { NodeTerminalOutput } from './node-output.ts';
 import {
   createStreamTerminalHost,
   runtimeInputSourceFromAsyncIterable,
+  runtimeInputSourceFromReadableStream,
 } from './runtime-streams.ts';
 import type {
   BunTerminalHostOptions,
@@ -12,7 +13,7 @@ import type {
 } from './types.ts';
 
 interface BunLike {
-  readonly stdin?: { readonly stream?: () => AsyncIterable<Uint8Array>; readonly isTTY?: boolean; setRawMode?: (enabled: boolean) => void };
+  readonly stdin?: { readonly stream?: () => ReadableStream<Uint8Array>; readonly isTTY?: boolean; setRawMode?: (enabled: boolean) => void };
 }
 
 export function createBunTerminalHost(options: BunTerminalHostOptions = {}): TerminalHost {
@@ -46,7 +47,10 @@ function bunInputOptions(
   bun: BunLike | undefined,
   processLike: ProcessLike | undefined
 ): RuntimeTerminalInputOptions {
-  const source = bun?.stdin?.stream?.() ?? processLike?.stdin;
+  const nativeStream = bun?.stdin?.stream?.();
+  const source = nativeStream === undefined
+    ? processLike?.stdin === undefined ? undefined : runtimeInputSourceFromAsyncIterable(processLike.stdin)
+    : runtimeInputSourceFromReadableStream(nativeStream);
   const bunInput = bun?.stdin;
   const processInput = processLike?.stdin;
   const setRawMode = bunInput?.setRawMode === undefined
@@ -56,7 +60,7 @@ function bunInputOptions(
     : (enabled: boolean): void => { bunInput.setRawMode?.(enabled); };
   return {
     isTty: bun?.stdin?.isTTY ?? processLike?.stdin?.isTTY ?? false,
-    ...(source === undefined ? {} : { source: runtimeInputSourceFromAsyncIterable(source) }),
+    ...(source === undefined ? {} : { source }),
     ...(setRawMode === undefined ? {} : { setRawMode })
   };
 }

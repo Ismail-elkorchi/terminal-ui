@@ -247,6 +247,8 @@ export type TuiRunResult<TState> = Exclude<
 >;
 
 export interface TuiRuntimeOptions<TState, TMessage> {
+  /** Select one terminal output owner; accessible appends semantic changes to scrollback. */
+  readonly outputMode?: 'visual' | 'accessible';
   readonly app: TuiApp<TState, TMessage>;
   readonly host: TerminalHost;
   readonly instrumentation?: import('../renderer/contracts.ts').RenderInstrumentation;
@@ -265,6 +267,8 @@ export interface TuiRuntimeOptions<TState, TMessage> {
 }
 
 export interface TuiRunOptions<TState = unknown> {
+  /** Accessible output keeps the main screen and requires no graphics. */
+  readonly outputMode?: 'visual' | 'accessible';
   readonly host?: TerminalHost;
   readonly initialFocus?: InitialFocusSelector;
   readonly theme?: TuiTheme<TState>;
@@ -309,6 +313,8 @@ export interface TuiRuntime<TState, TMessage> {
   flushInput(): Promise<readonly TuiInputResult<TState>[]>;
   /** Rebuilds the view and frame even when state identity is unchanged. */
   redraw(): Promise<Frame>;
+  /** Repeats the last committed semantic context in accessible mode; never rebuilds the view. */
+  repeatAccessibleContext(): Promise<void>;
   /** Waits for the next committed frame or exit; aborting cancels only this waiter. */
   nextChange(signal?: AbortSignal): Promise<TuiRuntimeChange<TState>>;
   /** Cancels owned work and releases the runtime. Subsequent input is rejected. */
