@@ -1,4 +1,5 @@
 import type { AccessibleNode, AccessibleSnapshot } from '../../accessibility/types.ts';
+import type { AccessibleTextBaseline } from '../../renderer/internal/accessible-text.ts';
 import { accessibleNodeIndex, accessibleNodeText, plain } from '../../renderer/internal/accessible-text.ts';
 import { renderAccessibleSnapshot } from '../../renderer/output.ts';
 
@@ -20,13 +21,13 @@ export function accessibleFrameOutput(
   const after = accessibleNodeIndex(next);
   const lines: string[] = [];
   const announced = new Set<string>();
-  const announce = (prefix: string, node: AccessibleNode): void => {
+  const announce = (prefix: string, node: AccessibleNode, previous?: AccessibleTextBaseline): void => {
     if (announced.has(node.id)) return;
     announced.add(node.id);
     for (const id of [node.labelledBy, node.errorMessage, ...(node.describedBy ?? [])]) {
       if (id !== undefined) announced.add(id);
     }
-    lines.push(`${prefix}: ${announcementText(node, after)}`);
+    lines.push(`${prefix}: ${announcementText(node, after, previous)}`);
   };
   const announceTree = (prefix: string, node: AccessibleNode, liveOnly = false): void => {
     announce(prefix, node);
@@ -72,15 +73,17 @@ function announceFocus(
   after: ReadonlyMap<string, AccessibleNode>,
   announced: Set<string>,
   lines: string[],
-  announce: (prefix: string, node: AccessibleNode) => void,
+  announce: (prefix: string, node: AccessibleNode, previous?: AccessibleTextBaseline) => void,
 ): void {
   const oldFocus = [...before.values()].find((node) => node.focused === true);
   const focus = [...after.values()].find((node) => node.focused === true);
   if (focus !== undefined && !announced.has(focus.id) && (oldFocus?.id !== focus.id
     || accessibleNodeText(oldFocus, before) !== accessibleNodeText(focus, after))) {
+    const sameControl = oldFocus?.id === focus.id && oldFocus.role === focus.role;
     const context = focusContext(next.root, focus.id);
-    if (oldFocus?.id !== focus.id && context.length > 0) lines.push(`Context: ${context.join(' > ')}`);
-    announce(oldFocus?.id !== focus.id ? 'Focus' : changePrefix(oldFocus, focus), focus);
+    if (!sameControl && context.length > 0) lines.push(`Context: ${context.join(' > ')}`);
+    announce(sameControl ? changePrefix(oldFocus, focus) : 'Focus', focus,
+      sameControl ? { node: oldFocus, nodes: before } : undefined);
     if (focus.activeDescendant !== undefined) announced.add(focus.activeDescendant);
   }
 }
@@ -132,8 +135,15 @@ function validationWasCleared(prior: AccessibleNode | undefined, next: Accessibl
 }
 
 /** Long edit values are excerpts; repeat context retains the complete snapshot. */
-function announcementText(node: AccessibleNode, nodes: ReadonlyMap<string, AccessibleNode>): string {
-  if (typeof node.value !== 'string' || node.value.length <= 240) return accessibleNodeText(node, nodes);
+function announcementText(
+  node: AccessibleNode,
+  nodes: ReadonlyMap<string, AccessibleNode>,
+  previous?: AccessibleTextBaseline,
+): string {
+  const options = previous === undefined ? {} : { previous };
+  if (typeof node.value !== 'string' || node.value.length <= 240 || node.value === previous?.node.value) {
+    return accessibleNodeText(node, nodes, options);
+  }
   const caret = Math.max(0, (node.textPosition?.caretOffset ?? 0) - (node.textWindow?.startOffset ?? 0));
   let start = Math.max(0, Math.min(caret - 120, node.value.length - 240));
   let end = Math.min(node.value.length, start + 240);
@@ -141,7 +151,7 @@ function announcementText(node: AccessibleNode, nodes: ReadonlyMap<string, Acces
   if (start > 0 && isLowSurrogate(node.value.charCodeAt(start))) start -= 1;
   if (end < node.value.length && isLowSurrogate(node.value.charCodeAt(end))) end += 1;
   const value = `${start > 0 ? '…' : ''}${node.value.slice(start, end)}${end < node.value.length ? '…' : ''}`;
-  return `${accessibleNodeText({ ...node, value }, nodes)} [value excerpt:${String(start)}-${String(end)}/${String(node.value.length)}]`;
+  return `${accessibleNodeText(node, nodes, { ...options, valueText: value })} [value excerpt:${String(start)}-${String(end)}/${String(node.value.length)}]`;
 }
 
 function isLowSurrogate(code: number): boolean {
@@ -154,12 +164,12 @@ function errorText(node: AccessibleNode, nodes: ReadonlyMap<string, AccessibleNo
 }
 
 function changePrefix(prior: AccessibleNode | undefined, next: AccessibleNode): string {
-  if (validationWasCleared(prior, next)) return 'Validation cleared';
+  const prefix = validationWasCleared(prior, next) ? 'Validation cleared' : 'Changed';
   const cleared = [
     ...(prior?.disabled === true && next.disabled !== true ? ['enabled'] : []),
     ...(prior?.readOnly === true && next.readOnly !== true ? ['editable'] : []),
     ...(prior?.busy === true && next.busy !== true ? ['ready'] : []),
     ...(prior?.required === true && next.required !== true ? ['optional'] : []),
   ];
-  return cleared.length === 0 ? 'Changed' : `Changed (${cleared.join(', ')})`;
+  return cleared.length === 0 ? prefix : `${prefix} (${cleared.join(', ')})`;
 }

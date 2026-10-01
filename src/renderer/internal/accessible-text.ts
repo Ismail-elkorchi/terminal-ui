@@ -12,14 +12,50 @@ export function accessibleNodeIndex(snapshot: AccessibleSnapshot): ReadonlyMap<s
   return nodes;
 }
 
-export function accessibleNodeText(node: AccessibleNode, nodes: ReadonlyMap<string, AccessibleNode>): string {
+export interface AccessibleTextBaseline {
+  readonly node: AccessibleNode;
+  readonly nodes: ReadonlyMap<string, AccessibleNode>;
+}
+
+export function accessibleNodeText(
+  node: AccessibleNode,
+  nodes: ReadonlyMap<string, AccessibleNode>,
+  options: { readonly previous?: AccessibleTextBaseline; readonly valueText?: string } = {},
+): string {
   const labelledBy = node.labelledBy === undefined ? undefined : nodes.get(node.labelledBy);
   const name = labelledBy?.label ?? labelledBy?.value ?? node.label;
   const label = name === undefined ? '' : `: ${plain(String(name))}`;
-  const value = node.value === undefined ? '' : ` = ${plain(String(node.value))}`;
+  const previous = options.previous;
+  const value = node.value === undefined || node.value === previous?.node.value
+    ? '' : ` = ${plain(options.valueText ?? String(node.value))}`;
   const state = [...interactionState(node), ...contextState(node, nodes)];
-  const description = node.description === undefined ? '' : ` - ${plain(node.description)}`;
-  return `${node.role}${label}${value}${state.length === 0 ? '' : ` [${state.join(', ')}]`}${description}`;
+  const changedState = previous === undefined ? state : stateChanges(node, state, previous);
+  const description = node.description === undefined || node.description === previous?.node.description
+    ? '' : ` - ${plain(node.description)}`;
+  return `${node.role}${label}${value}${changedState.length === 0 ? '' : ` [${changedState.join(', ')}]`}${description}`;
+}
+
+function stateChanges(
+  node: AccessibleNode,
+  state: readonly string[],
+  previous: AccessibleTextBaseline,
+): readonly string[] {
+  const prior = previous.node;
+  const before = new Set([...interactionState(prior), ...contextState(prior, previous.nodes)]);
+  const removedRelationships = ([
+    ['labelledBy', 'labelled-by'], ['controls', 'controls'],
+    ['activeDescendant', 'active-descendant'], ['errorMessage', 'error'],
+  ] as const).flatMap(([field, label]) => prior[field] !== undefined && node[field] === undefined
+    ? [`${label}:cleared`] : []);
+  return [
+    ...state.filter((part) => !before.has(part)),
+    ...removedRelationships,
+    ...(prior.describedBy ?? []).filter((id) => !node.describedBy?.includes(id))
+      .map((id) => `described-by:${plain(id)} removed`),
+    ...(prior.textPosition?.selection !== undefined && node.textPosition?.selection === undefined ? ['selection:cleared'] : []),
+    ...(prior.description !== undefined && node.description === undefined ? ['description:cleared'] : []),
+    ...(prior.value !== undefined && node.value === undefined ? ['value:unavailable'] : []),
+  ];
 }
 
 function interactionState(node: AccessibleNode): readonly string[] {

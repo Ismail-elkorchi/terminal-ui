@@ -36,6 +36,8 @@ const socket = path.join(temporary, 'remote-control');
 const tmuxSocket = path.join(temporary, 'tmux.sock');
 const tmuxConfig = path.join(temporary, 'tmux.conf');
 const reportPath = path.join(temporary, 'report.json');
+const bootstrapMarker = 'TERMINAL_UI_EMULATOR_BOOTSTRAP';
+const bootstrapScreenshot = path.join(artifacts, 'bootstrap-screen.png');
 const visibleScreenshot = path.join(artifacts, 'graphics-visible.png');
 const hiddenScreenshot = path.join(artifacts, 'graphics-hidden.png');
 const processLog = [];
@@ -43,6 +45,8 @@ let kittyProcess;
 
 await fs.mkdir(artifacts, { recursive: true });
 await clearArtifacts(artifacts, [
+    'bootstrap-screen.png',
+    'bootstrap-screen.txt',
     'failure-screen.txt',
     'evidence.json',
     'graphics-hidden.png',
@@ -75,6 +79,16 @@ try {
   }
   kittyProcess = launchKitty();
   await waitUntil(async () => await exists(socket), 'Kitty remote-control socket');
+  await waitForScreen(bootstrapMarker);
+  const windowId = await waitUntil(kittyXWindowId, 'Kitty X11 window');
+  // Remote-control availability precedes the first display frame. Do not begin
+  // bounded terminal capability queries until the bootstrap is actually painted.
+  await waitUntil(async () => {
+    const pixels = await colorPixelsAfterScreenshot(windowId, bootstrapScreenshot);
+    return pixels.green.count > 100;
+  }, 'painted Kitty bootstrap');
+  await saveScreen('bootstrap', await screenText());
+  await remote(['send-key', '--match', 'id:-1', 'enter']);
   await waitForScreen('TERMINAL_UI_EMULATOR_READY');
 
   const initialScreen = await screenText();
@@ -118,9 +132,10 @@ try {
   const resizedScreen = await screenText();
   assert.doesNotMatch(resizedScreen, /graphics fallback/u);
 
-  const windowId = await kittyXWindowId();
-  await screenshot(windowId, visibleScreenshot);
-  const visiblePixels = await colorPixels(visibleScreenshot);
+  const visiblePixels = await waitUntil(async () => {
+    const candidate = await colorPixelsAfterScreenshot(windowId, visibleScreenshot);
+    return candidate.red.count > 100 && candidate.green.count > 100 ? candidate : undefined;
+  }, 'painted Kitty image');
   assert.ok(visiblePixels.red.count > 100, 'Kitty did not render the red image region.');
   assert.ok(visiblePixels.green.count > 100, 'Kitty did not render the green image region.');
   assert.equal(visiblePixels.lightInsideGraphic, 0, 'Terminal cells were painted over the Kitty image.');
@@ -137,7 +152,10 @@ try {
     await waitForScreen('TMUX_AUXILIARY');
     await command(tmux, ['-S', tmuxSocket, 'select-window', '-t', ':0']);
     await waitForScreen('TERMINAL_UI_EMULATOR_READY');
-    refreshedPixels = await colorPixelsAfterScreenshot(windowId, path.join(artifacts, 'graphics-refreshed.png'));
+    refreshedPixels = await waitUntil(async () => {
+      const candidate = await colorPixelsAfterScreenshot(windowId, path.join(artifacts, 'graphics-refreshed.png'));
+      return candidate.red.count > 100 && candidate.green.count > 100 ? candidate : undefined;
+    }, 'tmux Kitty placeholder redraw');
     assert.ok(refreshedPixels.red.count > 100, 'tmux did not preserve the red Kitty placeholder region.');
     assert.ok(refreshedPixels.green.count > 100, 'tmux did not preserve the green Kitty placeholder region.');
   }
@@ -191,6 +209,7 @@ try {
 function launchKitty() {
   const probe = [
     process.execPath,
+    path.join(root, 'tests', 'emulator', 'graphics-bootstrap.mjs'),
     path.join(root, 'tests', 'emulator', 'graphics-probe.mjs'),
     reportPath,
     'kitty',

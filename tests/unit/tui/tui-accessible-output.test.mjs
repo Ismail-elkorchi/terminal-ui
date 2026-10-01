@@ -296,3 +296,94 @@ test('an OS interruption restores the accessible terminal session', async () => 
   assert.equal(host.restores().length, 1);
   assert.doesNotMatch(host.output(), /\u001b\[\?1049h|\u001b\[\?25l/u);
 });
+
+test('same-focused typing reports only changed fields while validation, focus entry and repeat keep their context', async () => {
+  const host = createMemoryTerminalHost();
+  const app = defineTui({
+    init: () => ({ state: { editor: { text: '', cursor: 0 }, error: '' } }),
+    update: (state, message) => ({ state: message === 'validate'
+      ? { ...state, error: 'Choose a longer title' }
+      : { editor: textInputReducer(state.editor, message), error: '' } }),
+    view: (state) => column([
+      field({ id: 'title-field', label: 'Task title', description: 'Shown in your task list', control: textInput({
+        id: 'title', state: state.editor, required: true,
+        ...(state.error === '' ? {} : { error: state.error }),
+        onTransition: (transition) => transition,
+      }) }),
+      button({ id: 'validate', label: 'Validate', onPress: () => 'validate' }),
+    ]),
+  });
+  const runtime = createTuiRuntime({ app, host, outputMode: 'accessible' });
+  const delta = async (operation) => {
+    const offset = host.output().length;
+    await operation();
+    return host.output().slice(offset);
+  };
+  try {
+    await runtime.start();
+    assert.match(host.output(), /required, labelled-by:title-field:label \(Task title\), described-by:title-field:description \(Shown in your task list\)/u);
+    assert.equal(await delta(() => runtime.dispatch(insert('t'))), 'Changed: textbox: Task title = t [caret:1]\r\n');
+    assert.equal(await delta(() => runtime.dispatch(insert('e'))), 'Changed: textbox: Task title = te [caret:2]\r\n');
+    assert.equal(await delta(() => runtime.handleInput(key('arrowLeft', { shift: true }))),
+      'Changed: textbox: Task title [caret:1, selection:1-2]\r\n');
+    assert.equal(await delta(() => runtime.handleInput(key('arrowRight'))),
+      'Changed: textbox: Task title [caret:2, selection:cleared]\r\n');
+    const invalid = await delta(() => runtime.dispatch('validate'));
+    assert.match(invalid, /invalid:true, error:title:error \(Choose a longer title\)/u);
+    assert.doesNotMatch(invalid, /labelled-by:|described-by:|focused|caret:| = te/u);
+    const valid = await delta(() => runtime.dispatch(insert('st')));
+    assert.match(valid, /Validation cleared: textbox: Task title = test \[caret:4, error:cleared\]/u);
+    assert.doesNotMatch(valid, /labelled-by:|described-by:|focused/u);
+    assert.equal(await delta(() => runtime.dispatch(insert('!'))), 'Changed: textbox: Task title = test! [caret:5]\r\n');
+    const repeated = await delta(() => runtime.repeatAccessibleContext());
+    assert.match(repeated, /required, labelled-by:title-field:label \(Task title\), described-by:title-field:description \(Shown in your task list\)/u);
+    assert.match(repeated, /Task title = test! \[focused/u);
+    await runtime.handleInput(key('tab'));
+    const returned = await delta(() => runtime.handleInput(key('tab', { shift: true })));
+    assert.match(returned, /Focus: textbox: Task title = test! \[focused, required, labelled-by:/u);
+    assert.match(returned, /described-by:title-field:description/u);
+  } finally { await runtime.dispose(); }
+});
+
+test('same-focus deltas resolve changed relationship targets and report removed relationships', () => {
+  const make = ({ label = 'Name', description = 'Old help', describedBy = ['help'], error = 'Old error' } = {}) => snapshot([
+    { id: 'label', role: 'text', value: label },
+    { id: 'help', role: 'text', value: description },
+    { id: 'error', role: 'text', value: error },
+    { id: 'entry', role: 'textbox', labelledBy: 'label', ...(describedBy.length === 0 ? {} : { describedBy }), errorMessage: 'error',
+      description: 'Static explanation', focused: true, required: true, invalid: true, value: 'a', textPosition: { caretOffset: 1 } },
+  ]);
+  const first = make();
+  const changedHelp = make({ description: 'New help\u001b[2J' });
+  assert.equal(accessibleFrameOutput(first, changedHelp),
+    'Changed: textbox: Name [described-by:help (New help)]\n');
+  assert.equal(accessibleFrameOutput(changedHelp, make({ description: 'New help', label: 'Display name' })),
+    'Changed: textbox: Display name [labelled-by:label (Display name)]\n');
+  assert.equal(accessibleFrameOutput(first, make({ error: 'New error' })),
+    'Changed: textbox: Name [error:error (New error)]\n');
+  assert.equal(accessibleFrameOutput(first, make({ describedBy: [] })),
+    'Changed: textbox: Name [described-by:help removed]\n');
+});
+
+test('caret-only changes in a long focused value do not repeat the value or excerpt', () => {
+  const make = (caretOffset) => snapshot([{ id: 'body', role: 'textbox', label: 'Body', focused: true,
+    value: 'a'.repeat(3000), required: true, description: 'Long document', textPosition: { caretOffset } }]);
+  assert.equal(accessibleFrameOutput(make(1400), make(1401)), 'Changed: textbox: Body [caret:1401]\n');
+});
+
+test('same-focus state clearing is explicit without repeating unchanged flags or edit context', () => {
+  const flags = { disabled: true, readOnly: true, busy: true, required: true };
+  const make = (state) => snapshot([{ id: 'field', role: 'textbox', label: 'Name', focused: true,
+    value: 'same', textPosition: { caretOffset: 4 }, description: 'Static explanation', ...state }]);
+  const before = make(flags);
+  for (const [field, opposite] of [['disabled', 'enabled'], ['readOnly', 'editable'], ['busy', 'ready'], ['required', 'optional']]) {
+    assert.equal(accessibleFrameOutput(before, make({ ...flags, [field]: false })),
+      `Changed (${opposite}): textbox: Name\n`);
+  }
+  const cleared = { disabled: false, readOnly: false, busy: false, required: false };
+  for (const next of [make(cleared), make({})]) {
+    assert.equal(accessibleFrameOutput(before, next), 'Changed (enabled, editable, ready, optional): textbox: Name\n');
+  }
+  assert.equal(accessibleFrameOutput(make({ ...flags, invalid: true }), make({ ...cleared, invalid: false })),
+    'Validation cleared (enabled, editable, ready, optional): textbox: Name\n');
+});
