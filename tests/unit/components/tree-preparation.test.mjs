@@ -5,7 +5,7 @@ import { collectionItemById } from '../../../dist/collection/index.js';
 import { collectionInteractionIds } from '../../../dist/interaction/collection-interaction.js';
 import { tree } from '../../../dist/components/index.js';
 import { createMemoryTerminalHost } from '../../../dist/host/index.js';
-import { createTuiRuntime, defineTui } from '../../../dist/tui/index.js';
+import { createTuiPreparedQuery, createTuiRuntime, defineTui } from '../../../dist/tui/index.js';
 
 const stateFor = text => ({ expandedIds: [], selection: { mode: 'single' }, query: { text } });
 const context = () => ({ signal: new globalThis.AbortController().signal, yield: async () => {} });
@@ -59,14 +59,16 @@ test('tree scan, row projection, collection ownership and navigation indexing al
   }
 });
 
-test('pending navigation avoids scanning and rejects stale prepared projections', async () => {
+test('pending navigation avoids scanning and treats stale prepared projections as pending', async () => {
   const source = largeSource();
   const state = stateFor('needle');
   assert.equal(treeReducer(state, { kind: 'moveActive', delta: 1 }, { source, view: null }), state);
   const changed = treeReducer(state, { kind: 'setQuery', query: { text: '4095' } }, { source, view: null });
   const view = await prepareTreeView(source, state, context());
-  assert.throws(() => treeReducer(changed, { kind: 'moveActive', delta: 1 }, { source, view }), /projection state/u);
-  assert.throws(() => treeReducer(state, { kind: 'moveActive', delta: 1 }, { source: largeSource(1), view }), /source/u);
+  assert.equal(treeReducer(changed, { kind: 'moveActive', delta: 1 }, { source, view }), changed);
+  assert.equal(treeReducer(state, { kind: 'moveActive', delta: 1 }, { source: largeSource(1), view }), state);
+  assert.throws(() => treeReducer(state, { kind: 'moveActive', delta: 1 }, { source, view: { ...view } }), /must be created by terminal-ui/u);
+  assert.throws(() => treeReducer(state, { kind: 'moveActive', delta: 1 }, { source }), /tree view/u);
   const expanded = treeReducer(state, { kind: 'expand', id: 'root' }, { source, view: null });
   assert.deepEqual(expanded.expandedIds, ['root']);
 });
@@ -90,45 +92,76 @@ test('a newer tree query can finish while an older query is paused and aborted',
   assert.equal(createTreeView(source, latestState), latest);
 });
 
-test('tree component construction leaves scan work for scheduler preparation', async () => {
+test('tree construction stays pending until application-owned cooperative preparation completes', async () => {
   const source = largeSource();
   const memory = createMemoryTerminalHost({ terminalSize: { columns: 30, rows: 4 } });
   let batches = 0;
-  const host = { ...memory, clock: { now: () => memory.clock.now(), sleep: (ms, signal) => {
+  const host = { ...memory, clock: { monotonicNow: () => memory.clock.monotonicNow(), sleep: (ms, signal) => {
     if (ms === 0) batches += 1;
     return memory.clock.sleep(ms, signal);
   } } };
-  const app = defineTui({ id: 'prepared-tree', init: () => ({ state: stateFor('needle') }),
-    update: state => ({ state }), view: state => tree({ id: 'tree', meta: { accessibleName: 'Tree' }, source, state, onTransition: value => value }),
+  const prepared = createTuiPreparedQuery({
+    id: 'tree-query',
+    prepare: (state, ctx) => prepareTreeView(source, state, {
+      signal: ctx.signal, yield: async () => { await ctx.clock.sleep(0, ctx.signal); },
+    }),
+    toMessage: message => ({ kind: 'ready', message }),
+  });
+  const app = defineTui({
+    id: 'prepared-tree',
+    init: () => ({ state: { ...prepared.init(), tree: stateFor('needle') } }),
+    update: (state, message) => message.kind === 'prepare'
+      ? prepared.request(state, state.tree)
+      : prepared.update(state, message.message),
+    view: state => tree({ id: 'tree', meta: { accessibleName: 'Tree' }, source, state: state.tree,
+      view: state.result, onTransition: value => value }),
   });
   const runtime = createTuiRuntime({ app, host });
   try {
     await runtime.start();
+    assert.equal(batches, 0, 'pending tree construction must not schedule a scan');
+    assert.equal(runtime.frame().accessibility.root.window.totalCount, 0);
+    await runtime.dispatch({ kind: 'prepare' });
+    while (runtime.state().pending) await runtime.nextChange();
     assert.ok(batches > 69, `expected cooperative tree work, got ${String(batches)} batches`);
     assert.match(JSON.stringify(runtime.frame().accessibility), /4097 tree rows/u);
   } finally { await runtime.dispose(); }
 });
 
-test('disposing runtime aborts pending tree preparation without painting partial rows', async () => {
+test('disposing runtime aborts application-owned tree preparation without painting partial rows', async () => {
   const source = largeSource();
   const memory = createMemoryTerminalHost();
   const began = Promise.withResolvers();
   let aborted = false;
-  const host = { ...memory, clock: { now: () => memory.clock.now(), sleep: (ms, signal) => {
+  const host = { ...memory, clock: { monotonicNow: () => memory.clock.monotonicNow(), sleep: (ms, signal) => {
     if (ms !== 0) return memory.clock.sleep(ms, signal);
     return new Promise(resolve => {
-      signal.addEventListener('abort', () => { aborted = true; resolve(); }, { once: true });
+      signal.addEventListener('abort', () => { aborted = true; resolve('aborted'); }, { once: true });
       began.resolve();
     });
   } } };
-  const runtime = createTuiRuntime({ host, app: defineTui({ id: 'cancelled-tree', init: () => ({ state: stateFor('needle') }),
-    update: state => ({ state }), view: state => tree({ id: 'tree', meta: { accessibleName: 'Tree' }, source, state, onTransition: value => value }),
+  const prepared = createTuiPreparedQuery({
+    id: 'tree-query',
+    prepare: (state, ctx) => prepareTreeView(source, state, {
+      signal: ctx.signal, yield: async () => { await ctx.clock.sleep(0, ctx.signal); },
+    }),
+    toMessage: message => message,
+  });
+  const initial = { ...prepared.init(), tree: stateFor('needle') };
+  const runtime = createTuiRuntime({ host, app: defineTui({
+    id: 'cancelled-tree',
+    init: () => prepared.request(initial, initial.tree),
+    update: (state, message) => prepared.update(state, message),
+    view: state => tree({ id: 'tree', meta: { accessibleName: 'Tree' }, source, state: state.tree,
+      view: state.result, onTransition: value => value }),
   }) });
-  const starting = assert.rejects(runtime.start(), error => error.phase === 'prepare');
-  await began.promise;
-  await runtime.dispose();
-  await starting;
-  assert.equal(aborted, true);
-  assert.equal(memory.output(), '');
-  assert.equal(runtime.frame(), undefined);
+  try {
+    await runtime.start();
+    await began.promise;
+    assert.equal(runtime.frame().accessibility.root.window.totalCount, 0);
+    await runtime.dispose();
+    assert.equal(aborted, true);
+    assert.equal(runtime.state().result, null);
+    assert.doesNotMatch(memory.output(), /needle/u);
+  } finally { await runtime.dispose(); }
 });

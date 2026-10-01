@@ -37,6 +37,8 @@ import {
   createSearchPickerIndex,
   tabsReducer,
   createTreeSource,
+  createTreeView,
+  querySearchPickerIndex,
   treeReducer
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { CommandInputState, UnscrolledSearchPickerState } from '@ismail-elkorchi/terminal-ui/behavior';
@@ -154,7 +156,7 @@ function initialState(): WorkspaceState {
     command: createCommandInputState({ suggestions: emptyCommandSuggestions }),
     searchPicker: {
       open: false,
-      state: createSearchPickerState({ query: { text: '', mode: 'fuzzy' } }, workspaceSearchPickerIndex),
+      state: createSearchPickerState({ query: { text: '', mode: 'fuzzy' }, queryResult: querySearchPickerIndex(workspaceSearchPickerIndex, { text: '', mode: 'fuzzy' }) }, workspaceSearchPickerIndex),
     },
     resolved: new Set<string>(),
     activity: ['Workspace started.', 'Loaded six controlled ticket records.']
@@ -191,6 +193,7 @@ function updateWorkspace(
     case 'tree': {
       const nextTree = treeReducer(state.tree, message.transition, {
         source: navigationTreeSource,
+        view: createTreeView(navigationTreeSource, state.tree),
       });
       const queue = queueFromSelection(selectedTreeId(nextTree));
       const rows = ticketsForQueue(queue);
@@ -253,7 +256,7 @@ function updateWorkspace(
         ...state,
         searchPicker: {
           open: false,
-          state: createSearchPickerState({ query: { text: '', mode: 'fuzzy' } }, workspaceSearchPickerIndex),
+          state: createSearchPickerState({ query: { text: '', mode: 'fuzzy' }, queryResult: querySearchPickerIndex(workspaceSearchPickerIndex, { text: '', mode: 'fuzzy' }) }, workspaceSearchPickerIndex),
         },
       });
     case 'searchPicker':
@@ -261,9 +264,7 @@ function updateWorkspace(
         ...state,
         searchPicker: {
           ...state.searchPicker,
-          state: searchPickerReducer(state.searchPicker.state, message.transition, {
-            searchPickerIndex: workspaceSearchPickerIndex,
-          }),
+          state: reduceCommandPicker(state.searchPicker.state, message.transition),
         }
       });
     case 'acceptSearchPicker': {
@@ -373,6 +374,7 @@ function navigationPane(state: WorkspaceState) {
       id: 'workspace-tree',
       meta: { accessibleName: 'Project navigation' },
       source: navigationTreeSource,
+        view: createTreeView(navigationTreeSource, state.tree),
       state: state.tree,
       scrollbar: { visible: 'auto' },
       onTransition: (transition): WorkspaceMessage => ({ kind: 'tree', transition }),
@@ -480,12 +482,24 @@ function commandPane(state: WorkspaceState) {
   });
 }
 
+// This demonstration has four fixed commands, so it deliberately prepares synchronously.
+// The 100,000-item incident workbench uses replaceable query effects instead.
+function reduceCommandPicker(state: UnscrolledSearchPickerState, transition: SearchPickerControlTransition): UnscrolledSearchPickerState {
+  const current = querySearchPickerIndex(workspaceSearchPickerIndex, { text: state.editor.input.text, mode: state.mode, caseSensitive: state.caseSensitive });
+  const next = searchPickerReducer(state, transition, { searchPickerIndex: workspaceSearchPickerIndex, queryResult: current });
+  if (next.editor.input.text === state.editor.input.text) return next;
+  const result = querySearchPickerIndex(workspaceSearchPickerIndex, { text: next.editor.input.text, mode: next.mode, caseSensitive: next.caseSensitive });
+  const id = result.entries.find(entry => !entry.disabled)?.id;
+  return searchPickerReducer(next, { kind: 'setActive', ...(id === undefined ? {} : { id }) }, { searchPickerIndex: workspaceSearchPickerIndex, queryResult: result });
+}
+
 function searchPickerLayer(state: WorkspaceState) {
   return dialog({
     slots: {
       content: searchPicker<string, WorkspaceMessage, WorkspaceMessage>({
         id: 'workspace-search-picker',
         searchPickerIndex: workspaceSearchPickerIndex,
+        queryResult: querySearchPickerIndex(workspaceSearchPickerIndex, { text: state.searchPicker.state.editor.input.text, mode: 'fuzzy' }),
         view: searchPickerView(state.searchPicker.state),
         meta: { accessibleName: 'Command search' },
         onTransition: (transition): WorkspaceMessage => ({ kind: 'searchPicker', transition }),

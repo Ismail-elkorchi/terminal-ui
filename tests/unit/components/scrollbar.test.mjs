@@ -7,6 +7,8 @@ import {
   createLogHistory,
   createSearchPickerIndex,
   createTreeSource,
+  createTreeView,
+  querySearchPickerIndex,
 } from '../../../dist/behavior/index.js';
 import {
   asciiSymbols,
@@ -176,7 +178,7 @@ test('scrollbars render ASCII and Unicode symbol sets through theme data', () =>
 
 test('log viewer scrollbar is opt-in and preserves scoped visible-window accessibility', () => {
   const items = Array.from({ length: 8 }, (_value, index) => ({ id: `row-${index}`, text: `Row ${index}` }));
-  const frame = renderElementFrame(logViewer({
+  const frame = renderElementFrame(logViewer({ view: null,
     id: 'log',
     history: createLogHistory(items),
     scroll: createScrollState({ offsetRow: 0, contentRows: 8, viewportRows: 3 }),
@@ -292,6 +294,7 @@ test('tree scrollbar follows explicit tree scroll state', () => {
     id: 'tree',
     source: source,
     state: treeState,
+    view: createTreeView(source, treeState),
     scrollbar: {},
     onTransition: () => ignoreMessage()
   }), { columns: 16, rows: 2 });
@@ -304,15 +307,18 @@ test('tree scrollbar follows explicit tree scroll state', () => {
 });
 
 test('searchPicker scrollbar renders beside the filtered result window', () => {
-  const frame = renderElementFrame(searchPicker({ meta: { accessibleName: "Search" },
-    id: 'searchPicker',
-    title: 'Actions',
-    searchPickerIndex: createSearchPickerIndex([
+  const searchPickerIndex = createSearchPickerIndex([
       { id: 'one', label: 'One', value: 'one' },
       { id: 'two', label: 'Two', value: 'two' },
       { id: 'three', label: 'Three', value: 'three' },
       { id: 'four', label: 'Four', value: 'four' }
-    ]),
+    ]);
+  const queryResult = querySearchPickerIndex(searchPickerIndex, { text: '', mode: 'fuzzy' });
+  const frame = renderElementFrame(searchPicker({ meta: { accessibleName: "Search" },
+    id: 'searchPicker',
+    title: 'Actions',
+    searchPickerIndex,
+    queryResult,
     view: {
       input: { text: '', cursor: 0 },
       query: { mode: 'fuzzy' },

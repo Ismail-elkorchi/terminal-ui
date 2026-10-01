@@ -146,8 +146,6 @@ export type {
 export {
   followTailScrollState,
   logViewerReducer,
-  logViewerSearchMatches,
-  nextLogViewerMatch,
 } from './log-viewer-operations.ts';
 export type {
   LogViewerReducerOptions,
@@ -265,7 +263,7 @@ export {
   scrollReducer,
   visibleWindowFromScroll,
 } from './scroll.ts';
-export { createSearchPickerIndex, prepareSearchPickerQuery, searchPickerEntryById } from './search-picker-index.ts';
+export { createSearchPickerIndex, querySearchPickerIndex, prepareSearchPickerQuery, matchingSearchPickerQuery, searchPickerEntryById, searchPickerQueryPosition } from './search-picker-index.ts';
 export type { SearchPickerIndex, SearchPickerQueryResult } from './search-picker-index.ts';
 export {
   activeSearchPickerEntry,
@@ -355,6 +353,7 @@ export {
   createTreeCollectionFromRows,
   createTreeSource,
   createTreeView,
+  matchingTreeView,
   prepareTreeView,
   isTreeView,
   selectableTreeRows,
@@ -407,3 +406,6 @@ export type {
 } from './visualization.ts';
 
 export type { CooperativeWorkContext } from '../foundation/cooperative-work.ts';
+
+export { matchingLogViewerView, prepareLogViewerView, createLogViewerView, nextLogViewerMatch } from './log-viewer-view.ts';
+export type { LogViewerViewInput, LogViewerView } from './log-viewer-view.ts';

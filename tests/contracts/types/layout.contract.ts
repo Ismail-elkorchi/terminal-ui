@@ -2,6 +2,7 @@ import { button, text } from '@ismail-elkorchi/terminal-ui/components';
 import type { Element } from '@ismail-elkorchi/terminal-ui';
 import {
   column,
+  defineBreakpoints,
   grid,
   measuredViewport,
   responsive,
@@ -24,6 +25,13 @@ const invalidSize: LayoutSize = { kind: 'fixed', cells: '1' };
 
 void selected;
 void invalidSize;
+
+const breakpointInput = { narrow: { maxColumns: 79 }, wide: { minColumns: 80 } };
+const breakpoints = defineBreakpoints(breakpointInput);
+// @ts-expect-error admitted breakpoint boundaries are immutable
+breakpoints.narrow.maxColumns = 100;
+// @ts-expect-error admitted breakpoint membership is immutable
+breakpoints.wide = { minColumns: 90 };
 
 const measured: Element<'press' | 'scroll'> = measuredViewport([
   button({ id: 'entry', label: 'Entry', onPress: () => 'press' as const }),

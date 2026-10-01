@@ -29,7 +29,8 @@ import type {
   PortalOptions,
   SurfaceOptions,
 } from '../options.ts';
-import { assertSurfaceChild, surfaceLayoutProps } from './surface-options.ts';
+import { decodeLayoutFlowOptions } from '../decode-options.ts';
+import { assertSurfaceChild } from './surface-options.ts';
 
 export function surface<const TChild extends Element<unknown>>(
   child: TChild,
@@ -50,7 +51,7 @@ export function surface<const TChild extends Element<unknown>>(
       ...(options.appearance === undefined ? {} : { appearance: options.appearance }),
       ...(options.border === undefined ? {} : { border: options.border }),
       ...(options.shadow === undefined ? {} : { shadow: options.shadow }),
-      ...surfaceLayoutProps(options)
+      ...decodeLayoutFlowOptions(options, 'surface')
     },
     children: [toRenderNode(child)] as readonly RenderNode<Message>[],
     ...componentMetaProps({

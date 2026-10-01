@@ -8,7 +8,7 @@ import { renderElementInternal } from '../../../dist/renderer/internal/render-el
 
 test('unchanged painters on the same layer are retained while changed rows remain fresh', () => {
   const history = createLogHistory([{ id: '1', text: 'retained' }]);
-  const view = count => row([logViewer({ id: 'log', history }), text({ content: `Count ${count}` })]);
+  const view = count => row([logViewer({ view: null, id: 'log', history }), text({ content: `Count ${count}` })]);
   const size = { columns: 40, rows: 3 };
   const first = renderElementInternal(view(1), size);
   let retainedHooks = 0;

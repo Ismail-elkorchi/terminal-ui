@@ -37,6 +37,7 @@ test('incident workbench searches 100k records, navigates, edits, and cancels st
     await runtime.handleInput(keyInput('enter'));
     assert.equal(runtime.state().searchPicker.open, false);
     assert.equal(runtime.state().table.interaction.activeRowId, 'INC-042123');
+    assert.equal(runtime.state().table.scroll.offsetRow, 14041, 'acceptance reveals the selected incident in its queue');
     await runtime.dispatch({ kind: 'resolve' });
     assert.ok(runtime.state().resolved.has('INC-042123'));
     await click(runtime, 'workspace-tabs:tab:notes');

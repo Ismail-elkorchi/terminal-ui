@@ -1,7 +1,8 @@
+import process from 'node:process';
 import { denoSignalSubscriber } from './native-signals.ts';
 import {
   createStreamTerminalHost,
-  runtimeInputSourceFromReadableStream,
+  runtimeInputSourceFromAsyncIterable,
 } from './runtime-streams.ts';
 import type {
   DenoTerminalHostOptions,
@@ -12,7 +13,7 @@ import type {
 
 interface DenoLike {
   readonly build?: { readonly os?: string };
-  readonly stdin?: { readonly readable?: ReadableStream<Uint8Array>; readonly isTerminal?: () => boolean; setRaw?: (mode: boolean) => void };
+  readonly stdin?: { readonly isTerminal?: () => boolean; setRaw?: (mode: boolean) => void };
   readonly stdout?: { readonly writable?: WritableStream<Uint8Array>; readonly isTerminal?: () => boolean };
   readonly stderr?: { readonly writable?: WritableStream<Uint8Array>; readonly isTerminal?: () => boolean };
   readonly env?: { toObject?: () => Record<string, string> };
@@ -44,8 +45,12 @@ export function createDenoTerminalHost(options: DenoTerminalHostOptions = {}): T
 function denoInputOptions(deno: DenoLike | undefined): RuntimeTerminalInputOptions {
   return {
     isTty: deno?.stdin?.isTerminal?.() ?? false,
-    ...(deno?.stdin?.readable === undefined ? {} : { source: runtimeInputSourceFromReadableStream(deno.stdin.readable) }),
-    ...(deno?.stdin?.setRaw === undefined ? {} : { setRawMode: (enabled: boolean) => deno.stdin?.setRaw?.(enabled) })
+    // The cached Web stream cannot be cancelled for a reusable handoff.
+    source: runtimeInputSourceFromAsyncIterable(process.stdin),
+    ...(typeof process.stdin.setRawMode === 'function'
+      ? { setRawMode: (enabled: boolean) => { process.stdin.setRawMode(enabled); },
+          isRawModeEnabled: () => process.stdin.isRaw }
+      : deno?.stdin?.setRaw === undefined ? {} : { setRawMode: (enabled: boolean) => deno.stdin?.setRaw?.(enabled) })
   };
 }
 

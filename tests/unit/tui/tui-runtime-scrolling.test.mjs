@@ -5,6 +5,7 @@ import {
   applyScrollRequest,
   createScrollState,
   createTreeSource,
+  createTreeView,
   treeReducer,
 } from '../../../dist/behavior/index.js';
 import { createTerminalHarness } from '../../../dist/testing/index.js';
@@ -799,7 +800,8 @@ test('TUI routed tree scroll requests carry normalized rendered viewport metrics
     update: (state, message) => ({
       state: {
         tree: treeReducer(state.tree, message.action, {
-          source: source
+          source,
+          view: createTreeView(source, state.tree),
         }),
         request: message.action.kind === 'scroll' ? message.action.request : state.request
       }
@@ -808,6 +810,7 @@ test('TUI routed tree scroll requests carry normalized rendered viewport metrics
       id: 'tree-scroll',
       source: source,
       state: state.tree,
+      view: createTreeView(source, state.tree),
       scrollbar: { visible: 'always' },
       onTransition: (action) => ({ action })
     })

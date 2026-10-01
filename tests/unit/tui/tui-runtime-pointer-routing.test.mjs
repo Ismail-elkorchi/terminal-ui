@@ -3,6 +3,7 @@ import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../../dist/tui/index.js';
 import {
   createTreeSource,
+  createTreeView,
 } from '../../../dist/behavior/index.js';
 import { createTerminalHarness } from '../../../dist/testing/index.js';
 import {
@@ -710,6 +711,7 @@ test('TUI runtime routes tree row hit targets to node messages', async () => {
       return tree({ meta: { accessibleName: "Tree" },
         id: 'tree',
         state: treeState,
+        view: createTreeView(source, treeState),
         source: source,
         onTransition: (action) => action.kind === 'setActive' ? { id: action.id } : undefined
       });
@@ -745,6 +747,7 @@ test('TUI runtime routes tree disclosure and body hit targets separately', async
     view: () => tree({ meta: { accessibleName: "Tree" },
       id: 'tree',
       state: treeState,
+      view: createTreeView(source, treeState),
       source: source,
       onTransition: (action) => ({ kind: 'tree', action })
     })

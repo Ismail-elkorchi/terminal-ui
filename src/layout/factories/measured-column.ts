@@ -13,7 +13,7 @@ import {
   renderNodeInteraction,
   renderNodeMeta,
 } from '../../renderer/internal/render-tree/metadata.ts';
-import { renderNodeLayoutProps } from '../../renderer/internal/render-tree/props/shared-layout.ts';
+import { decodeLayoutFlowOptions } from '../decode-options.ts';
 import type { MeasuredViewportOptions } from '../options.ts';
 
 /** @beta */
@@ -102,7 +102,7 @@ export function measuredViewport<
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
       ...(options.keyboardScroll === undefined ? {} : { keyboardScroll: options.keyboardScroll }),
       toScrollMessage: options.onScroll,
-      ...renderNodeLayoutProps(options),
+      ...decodeLayoutFlowOptions(options, 'measuredViewport'),
     },
     children: entries.map((entry: TElement) => toRenderNode<TElement>(entry)),
     ...renderNodeInteraction(options),

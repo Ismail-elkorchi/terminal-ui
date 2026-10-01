@@ -1,5 +1,5 @@
 import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/types.ts';
-import { assertOptionalFiniteNumber, isStringMember } from '../../foundation/validation.ts';
+import { isStringMember } from '../../foundation/validation.ts';
 import {
   layoutElementFromRenderNode,
   optionalRenderNodeId,
@@ -8,7 +8,7 @@ import {
 import {
   renderNodeMeta as componentMetaProps,
 } from '../../renderer/internal/render-tree/metadata.ts';
-import { renderNodeLayoutProps } from '../../renderer/internal/render-tree/props/shared-layout.ts';
+import { decodeLayoutCellCount, decodeLayoutFlowOptions, decodeLayoutTracks } from '../decode-options.ts';
 import type { ColumnOptions, FlowOptions, RowOptions } from '../options.ts';
 import { assertTrackCount } from './track-options.ts';
 
@@ -21,14 +21,15 @@ export function column<const TChildren extends ElementChildren>(
   options: ColumnOptions = {}
 ): Element<ElementChildrenMessage<TChildren>> {
   const childList = renderNodeChildren(children);
-  assertTrackCount('column', options.sizes, childList.length);
+  const sizes = options.sizes === undefined ? undefined : decodeLayoutTracks(options.sizes, 'column sizes');
+  assertTrackCount('column', sizes, childList.length);
   type Message = ElementChildrenMessage<TChildren>;
   return layoutElementFromRenderNode<'column', Message>({
     ...optionalRenderNodeId(options.id),
     kind: 'column',
     props: {
-      ...(options.sizes === undefined ? {} : { sizes: options.sizes }),
-      ...renderNodeLayoutProps(options)
+      ...(sizes === undefined ? {} : { sizes }),
+      ...decodeLayoutFlowOptions(options, 'column')
     },
     children: childList,
     ...componentMetaProps(options)
@@ -44,14 +45,15 @@ export function row<const TChildren extends ElementChildren>(
   options: RowOptions = {}
 ): Element<ElementChildrenMessage<TChildren>> {
   const childList = renderNodeChildren(children);
-  assertTrackCount('row', options.sizes, childList.length);
+  const sizes = options.sizes === undefined ? undefined : decodeLayoutTracks(options.sizes, 'row sizes');
+  assertTrackCount('row', sizes, childList.length);
   type Message = ElementChildrenMessage<TChildren>;
   return layoutElementFromRenderNode<'row', Message>({
     ...optionalRenderNodeId(options.id),
     kind: 'row',
     props: {
-      ...(options.sizes === undefined ? {} : { sizes: options.sizes }),
-      ...renderNodeLayoutProps(options)
+      ...(sizes === undefined ? {} : { sizes }),
+      ...decodeLayoutFlowOptions(options, 'row')
     },
     children: childList,
     ...componentMetaProps(options)
@@ -65,11 +67,8 @@ export function flow<const TChildren extends ElementChildren>(
   if (!isStringMember(options.direction, ['horizontal', 'vertical'])) {
     throw new TypeError('flow() direction must be horizontal or vertical.');
   }
-  assertOptionalFiniteNumber(options.gap, 'flow() gap');
-  assertOptionalFiniteNumber(options.lineGap, 'flow() lineGap');
-  if ((options.gap ?? 0) < 0 || (options.lineGap ?? 0) < 0) {
-    throw new RangeError('flow() gaps must be non-negative.');
-  }
+  const gap = options.gap === undefined ? undefined : decodeLayoutCellCount(options.gap, 'flow() gap');
+  const lineGap = options.lineGap === undefined ? undefined : decodeLayoutCellCount(options.lineGap, 'flow() lineGap');
   const childList = renderNodeChildren(children);
   type Message = ElementChildrenMessage<TChildren>;
   return layoutElementFromRenderNode<'flow', Message>({
@@ -77,8 +76,8 @@ export function flow<const TChildren extends ElementChildren>(
     kind: 'flow',
     props: {
       direction: options.direction,
-      ...(options.gap === undefined ? {} : { gap: options.gap }),
-      ...(options.lineGap === undefined ? {} : { lineGap: options.lineGap })
+      ...(gap === undefined ? {} : { gap }),
+      ...(lineGap === undefined ? {} : { lineGap })
     },
     children: childList,
     ...componentMetaProps(options)

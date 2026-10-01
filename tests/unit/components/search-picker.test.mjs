@@ -3,8 +3,10 @@ import test from 'node:test';
 
 import {
   createSearchPickerIndex,
+  querySearchPickerIndex,
   searchPickerWindow
 } from '../../../dist/behavior/index.js';
+import { searchPickerIndexStatistics } from '../../../dist/behavior/search-picker-index.js';
 import { renderElementFrame } from '../../../dist/renderer/index.js';
 import { renderElementRegions } from '../../../dist/renderer/internal/render-element.js';
 import { searchPicker } from '../../../dist/components/index.js';
@@ -17,14 +19,15 @@ const entries = [
   { id: 'run-tests', label: 'Run Tests', group: 'Workspace', value: { kind: 'action' }, description: 'Execute tests', keywords: ['verify'], disabled: true }
 ];
 const index = createSearchPickerIndex(entries);
+const emptyQueryResult = querySearchPickerIndex(index, { text: '', mode: 'fuzzy' });
 
 test('searchPicker filtering is fuzzy stable and value-agnostic', () => {
   assert.deepEqual(
-    searchPickerWindow({ searchPickerIndex: index, query: { text: 'term', mode: 'fuzzy' } }).entries.map((entry) => entry.id),
+    searchPickerWindow({ searchPickerIndex: index, queryResult: querySearchPickerIndex(index, { text: 'term', mode: 'fuzzy' }), query: { text: 'term', mode: 'fuzzy' } }).entries.map((entry) => entry.id),
     ['toggle-terminal']
   );
   assert.deepEqual(
-    searchPickerWindow({ searchPickerIndex: index, query: { text: 'rt', mode: 'fuzzy' } }).entries.map((entry) => entry.id),
+    searchPickerWindow({ searchPickerIndex: index, queryResult: querySearchPickerIndex(index, { text: 'rt', mode: 'fuzzy' }), query: { text: 'rt', mode: 'fuzzy' } }).entries.map((entry) => entry.id),
     ['run-tests']
   );
 });
@@ -42,8 +45,8 @@ test('searchPicker filtering reuses immutable entry search text across queries',
   };
 
   const measuredIndex = createSearchPickerIndex([measuredEntry]);
-  assert.deepEqual(searchPickerWindow({ searchPickerIndex: measuredIndex, query: { text: 'measured', mode: 'fuzzy' } }).entries.map((entry) => entry.id), ['measured']);
-  assert.deepEqual(searchPickerWindow({ searchPickerIndex: measuredIndex, query: { text: 'stable', mode: 'fuzzy' } }).entries.map((entry) => entry.id), ['measured']);
+  assert.deepEqual(searchPickerWindow({ searchPickerIndex: measuredIndex, queryResult: querySearchPickerIndex(measuredIndex, { text: 'measured', mode: 'fuzzy' }), query: { text: 'measured', mode: 'fuzzy' } }).entries.map((entry) => entry.id), ['measured']);
+  assert.deepEqual(searchPickerWindow({ searchPickerIndex: measuredIndex, queryResult: querySearchPickerIndex(measuredIndex, { text: 'stable', mode: 'fuzzy' }), query: { text: 'stable', mode: 'fuzzy' } }).entries.map((entry) => entry.id), ['measured']);
   assert.equal(labelReads, 1);
 });
 
@@ -52,7 +55,8 @@ test('searchPickerWindow bounds visible entries around stable id selection and s
     ...entry,
     disabled: false
   })));
-  const centered = searchPickerWindow({ searchPickerIndex: windowIndex, activeId: 'run-tests', limit: 2 });
+  const queryResult = querySearchPickerIndex(windowIndex, { text: '', mode: 'fuzzy' });
+  const centered = searchPickerWindow({ searchPickerIndex: windowIndex, queryResult, activeId: 'run-tests', limit: 2 });
   assert.equal(centered.totalCount, 3);
   assert.deepEqual(centered.entries.map((entry) => entry.id), ['toggle-terminal', 'run-tests']);
   assert.equal(centered.activeIndex, 1);
@@ -60,6 +64,7 @@ test('searchPickerWindow bounds visible entries around stable id selection and s
 
   const scrolled = searchPickerWindow({
     searchPickerIndex: windowIndex,
+    queryResult,
     activeId: 'run-tests',
     scroll: {
       offsetRow: 0,
@@ -76,6 +81,7 @@ test('searchPickerWindow bounds visible entries around stable id selection and s
 
   const scrolledWithoutSelection = searchPickerWindow({
     searchPickerIndex: windowIndex,
+    queryResult,
     scroll: {
       offsetRow: 1,
       offsetColumn: 0,
@@ -92,6 +98,7 @@ test('searchPickerWindow rejects disabled or stale active identity in favor of a
   for (const activeId of ['run-tests', 'missing']) {
     const window = searchPickerWindow({
       searchPickerIndex: index,
+      queryResult: emptyQueryResult,
       activeId,
       limit: 3
     });
@@ -107,6 +114,7 @@ test('searchPicker component renders query matches disabled entries preview help
       id: 'searchPicker',
       title: 'Things',
       searchPickerIndex: index,
+      queryResult: querySearchPickerIndex(index, { text: 'run', mode: 'fuzzy' }),
       view: { input: { text: 'run', cursor: 3 }, query: { mode: 'fuzzy' }, activeId: 'run-tests' },
       maxVisible: 2,
       helpText: 'enter accepts, escape closes',
@@ -161,6 +169,7 @@ test('searchPicker preserves explicit scroll while accepting an off-window activ
     value: entryIndex
   }));
   const manyIndex = createSearchPickerIndex(manyEntries);
+  const queryResult = querySearchPickerIndex(manyIndex, { text: '', mode: 'fuzzy' });
   const scroll = {
     offsetRow: 0,
     offsetColumn: 0,
@@ -173,6 +182,7 @@ test('searchPicker preserves explicit scroll while accepting an off-window activ
     view: () => searchPicker({ meta: { accessibleName: "Search" },
       id: 'windowed-picker',
       searchPickerIndex: manyIndex,
+      queryResult,
       view: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' }, activeId: '4', scroll },
       maxVisible: 3,
       onTransition: (action) => action,
@@ -215,15 +225,18 @@ test('searchPicker reuses normalized entries across repeated factory calls', () 
     value: index
   }));
   const measuredIndex = createSearchPickerIndex(measuredEntries);
-  const elementForQuery = (query) => searchPicker({ meta: { accessibleName: "Search" },
+  const elementForQuery = (query, queryResult) => searchPicker({ meta: { accessibleName: "Search" },
     id: 'measured-searchPicker',
-      searchPickerIndex: measuredIndex,
+    searchPickerIndex: measuredIndex,
+    queryResult,
     view: { input: { text: query, cursor: query.length }, query: { mode: 'fuzzy' } },
     onTransition: (action) => action
   });
 
-  renderElementFrame(elementForQuery('entry'), { columns: 60, rows: 12 });
-  renderElementFrame(elementForQuery('entry-9'), { columns: 60, rows: 12 });
+  const entryResult = querySearchPickerIndex(measuredIndex, { text: 'entry', mode: 'fuzzy' });
+  renderElementFrame(elementForQuery('entry', entryResult), { columns: 60, rows: 12 });
+  const entryNineResult = querySearchPickerIndex(measuredIndex, { text: 'entry-9', mode: 'fuzzy' });
+  renderElementFrame(elementForQuery('entry-9', entryNineResult), { columns: 60, rows: 12 });
 
   assert.equal(labelReads, measuredEntries.length);
 });
@@ -233,6 +246,7 @@ test('searchPicker component renders empty states for unrelated queries', () => 
     searchPicker({ meta: { accessibleName: "Search" },
       id: 'searchPicker',
       searchPickerIndex: index,
+      queryResult: querySearchPickerIndex(index, { text: 'zz', mode: 'fuzzy' }),
       view: { input: { text: 'zz', cursor: 2 }, query: { mode: 'fuzzy' } },
       emptyText: 'No available entries',
       onTransition: (action) => action
@@ -250,6 +264,7 @@ test('searchPicker exposes enabled visible entry hit targets when toMessage is p
     searchPicker({ meta: { accessibleName: "Search" },
       id: 'commands',
       searchPickerIndex: index,
+      queryResult: emptyQueryResult,
       view: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } },
       maxVisible: 3,
       onTransition: (action) => ({ kind: 'action', action })
@@ -270,6 +285,7 @@ test('busy searchPicker exposes no editable, option, or scrollbar hit targets', 
     id: 'busy-search',
     meta: { accessibleName: 'Search' },
     searchPickerIndex: index,
+    queryResult: querySearchPickerIndex(index, { text: 'open', mode: 'fuzzy' }),
     view: { input: { text: 'open', cursor: 4 }, query: { mode: 'fuzzy' } },
     busy: true,
     onTransition: (transition) => transition,
@@ -282,6 +298,7 @@ test('searchPicker query exposes shared word-selection and context-menu semantic
   const regions = renderElementRegions(searchPicker({ meta: { accessibleName: 'Search' },
     id: 'search-pointer-semantics',
     searchPickerIndex: index,
+    queryResult: querySearchPickerIndex(index, { text: 'alpha bravo', mode: 'fuzzy' }),
     view: {
       input: {
         text: 'alpha bravo',
@@ -344,6 +361,7 @@ test('searchPicker emits compact controlled transitions while acceptance remains
     view: () => searchPicker({ meta: { accessibleName: "Search" },
       id: 'commands',
       searchPickerIndex: index,
+      queryResult: emptyQueryResult,
       view: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' }, activeId: 'open-file' },
       onTransition: (action) => ({ kind: 'action', action }),
       onAccept: (event) => ({ kind: 'accept', event })
@@ -366,4 +384,58 @@ test('searchPicker emits compact controlled transitions while acceptance remains
     { kind: 'action', action: { kind: 'moveActive', delta: 1 } },
     { kind: 'accept', event: { kind: 'accept', id: 'open-file' } }
   ]);
+});
+
+test('searchPicker requires an explicit prepared query result', () => {
+  assert.throws(() => searchPicker({
+    id: 'unprepared-picker',
+    meta: { accessibleName: 'Search' },
+    searchPickerIndex: index,
+    view: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } },
+    onTransition: (transition) => transition,
+  }), /query results/u);
+});
+
+test('pending and stale picker results keep editing available without accepting stale entries', async () => {
+  const pendingIndex = createSearchPickerIndex([...entries]);
+  const staleResult = querySearchPickerIndex(pendingIndex, { text: '', mode: 'fuzzy' });
+  const before = searchPickerIndexStatistics(pendingIndex);
+  for (const queryResult of [null, staleResult]) {
+    const app = defineTui({
+      id: 'pending-picker-app',
+      init: () => ({ state: { messages: [] } }),
+      update: (state, message) => ({ state: { messages: [...state.messages, message] } }),
+      view: () => searchPicker({
+        id: 'pending-picker',
+        meta: { accessibleName: 'Search' },
+        searchPickerIndex: pendingIndex,
+        queryResult,
+        view: { input: { text: 'open', cursor: 4 }, query: { mode: 'fuzzy' }, activeId: 'open-file' },
+        onTransition: (transition) => ({ kind: 'transition', transition }),
+        onAccept: (event) => ({ kind: 'accept', event }),
+      }),
+    });
+    const runtime = createTuiRuntime({
+      app,
+      host: createMemoryTerminalHost({ terminalSize: { columns: 32, rows: 5 } }),
+    });
+    try {
+      await runtime.start();
+      assert.equal(runtime.frame().cells.some((cell) => cell.source?.itemId !== undefined), false);
+      assert.equal(runtime.frame().hitTargets?.some((target) => target.id === 'pending-picker:query'), true);
+      await runtime.handleInput({
+        kind: 'key', key: 'enter',
+        modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+        eventType: 'press', location: 'standard',
+      });
+      assert.deepEqual(runtime.state().messages, []);
+      await runtime.handleInput({ kind: 'text', text: 'x', paste: false });
+      assert.deepEqual(runtime.state().messages, [
+        { kind: 'transition', transition: { kind: 'edit', operation: { kind: 'insert', text: 'x' } } },
+      ]);
+    } finally {
+      await runtime.dispose();
+    }
+  }
+  assert.deepEqual(searchPickerIndexStatistics(pendingIndex), before);
 });

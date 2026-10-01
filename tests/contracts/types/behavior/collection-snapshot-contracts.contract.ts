@@ -5,6 +5,7 @@ import {
   createTreeCollectionFromRows,
   createTreeSource,
   createTreeView,
+  treeReducer,
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import { listbox, table, tree } from '@ismail-elkorchi/terminal-ui/components';
 import type { SelectionState } from '@ismail-elkorchi/terminal-ui/interaction';
@@ -64,6 +65,7 @@ table({ id: 'windowed-table-without-columns', collection: tableCollection });
 tree({
   id: 'tree',
   source: treeSource,
+  view: createTreeView(treeSource, { ...interaction, expandedIds: [] }),
   state: { ...interaction, expandedIds: [] },
   onTransition: (transition) => transition,
 });
@@ -76,6 +78,15 @@ listbox({ id: 'mixed-listbox', collection: listCollection, items: ['alpha'], toO
 // @ts-expect-error retained table collections replace raw row identity inputs
 table({ id: 'mixed-table', collection: tableCollection, rows: [{ id: 'two', value: 2 }], getRowId: (row: { id: string }) => row.id });
 // @ts-expect-error a tree source replaces parallel raw hierarchy data
-tree({ id: 'mixed-tree', source: treeSource, nodes: [{ id: 'other', label: 'Other', kind: 'leaf' }], state: { ...interaction, expandedIds: [] }, onTransition: (transition) => transition });
-// @ts-expect-error the tree derives its view from source and state
-tree({ id: 'stale-tree-view', view: createTreeView(treeSource, { ...interaction, expandedIds: [] }), state: { ...interaction, expandedIds: [] }, onTransition: (transition) => transition });
+tree({ id: 'mixed-tree', source: treeSource, view: null, nodes: [{ id: 'other', label: 'Other', kind: 'leaf' }], state: { ...interaction, expandedIds: [] }, onTransition: (transition) => transition });
+// @ts-expect-error a prepared tree view still requires its source
+tree({ id: 'missing-tree-source', view: createTreeView(treeSource, { ...interaction, expandedIds: [] }), state: { ...interaction, expandedIds: [] }, onTransition: (transition) => transition });
+
+// @ts-expect-error live tree controls require an explicit prepared view or pending null
+tree({ id: 'missing-tree-view', source: treeSource, state: { ...interaction, expandedIds: [] }, onTransition: (transition) => transition });
+
+// Pending projection is explicit for both rendering and interaction.
+tree({ id: 'pending-tree', source: treeSource, view: null, state: { ...interaction, expandedIds: [] }, onTransition: (transition) => transition });
+treeReducer({ ...interaction, expandedIds: [] }, { kind: 'moveActive', delta: 1 }, { source: treeSource, view: null });
+// @ts-expect-error live tree reducers require an explicit prepared view or pending null
+treeReducer({ ...interaction, expandedIds: [] }, { kind: 'moveActive', delta: 1 }, { source: treeSource });

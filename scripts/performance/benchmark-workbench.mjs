@@ -4,7 +4,7 @@ import { cpus, totalmem } from 'node:os';
 import process from 'node:process';
 import { writeFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
-import { createMemoryTerminalHost } from '../../dist/host/index.js';
+import { createMemoryTerminalHost, createNodeTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime } from '../../dist/tui/index.js';
 import { keyInput } from '../../dist/testing/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
@@ -16,8 +16,11 @@ const writeDelayMs = Number(process.env['WORKBENCH_WRITE_DELAY_MS'] ?? 0);
 assert.ok(Number.isFinite(writeDelayMs) && writeDelayMs >= 0);
 const memoryAfterDataset = process.memoryUsage();
 const memoryHost = createMemoryTerminalHost({ terminalSize: { columns: 120, rows: 40 } });
+// Memory time is manually controlled and sleep(0) resolves immediately. Use the
+// native clock so effect-owned preparation really yields to incoming input.
+const clockHost = createNodeTerminalHost();
 let writes = 0;
-const host = { ...memoryHost, async write(chunk, context) { writes++; if (writeDelayMs > 0) await delay(writeDelayMs); return memoryHost.write(chunk, context); } };
+const host = { ...memoryHost, clock: clockHost.clock, async write(chunk, context) { writes++; if (writeDelayMs > 0) await delay(writeDelayMs); return memoryHost.write(chunk, context); } };
 const runtime = createTuiRuntime({ app: incidentWorkbenchApp, host });
 const feedback = [], final = [], superseding = [], timerLag = [];
 const textInput = text => ({ kind: 'text', text, paste: false });
@@ -76,7 +79,7 @@ for (let i = 0; i < sampleCount; i++) {
 }
 assert.ok(writes > sampleCount, 'Host write instrumentation must observe actual commits');
 const report = {
-  metadata: { measuredAt: new Date().toISOString(), runtime: process.version, platform: process.platform, architecture: process.arch, cpu: cpus()[0]?.model, logicalCpus: cpus().length, totalMemoryBytes: totalmem(), dataset: { incidents: incidentCount, commands: 4, deterministic: true }, terminalSize: { columns: 120, rows: 40 }, writeDelayMs, observedHostWrites: writes, sampleCount, warmupCount: 2, host: 'memory terminal host; no PTY/terminal-emulator presentation latency', workload: 'full incident workbench, unique literal trace queries, input through handleInput and committed frame; setup/index construction excluded', limitations: 'Shared cloud CPU; polling adds up to ~1ms plus scheduling to final results. Two warmups precede unique, uncached measured queries. Cold process/startup is not included.' },
+  metadata: { measuredAt: new Date().toISOString(), runtime: process.version, platform: process.platform, architecture: process.arch, cpu: cpus()[0]?.model, logicalCpus: cpus().length, totalMemoryBytes: totalmem(), dataset: { incidents: incidentCount, commands: 4, deterministic: true }, terminalSize: { columns: 120, rows: 40 }, writeDelayMs, observedHostWrites: writes, sampleCount, warmupCount: 2, host: 'memory terminal output with native Node clock; no PTY/terminal-emulator presentation latency', workload: 'full incident workbench, unique literal trace queries, input through handleInput and committed frame; setup/index construction excluded', limitations: 'Shared cloud CPU; polling adds up to ~1ms plus scheduling to final results. Two warmups precede unique, uncached measured queries. Cold process/startup is not included.' },
   inputToFirstCommittedFeedbackMs: summary(feedback),
   inputToFinalResultFrameMs: summary(final),
   scheduledSupersedingInputToFinalFrameMs: summary(superseding),
@@ -85,6 +88,7 @@ const report = {
   diagnostics: runtime.diagnostics(),
 };
 await runtime.dispose();
+await clockHost.dispose();
 const out = process.argv[2];
 if (out) await writeFile(out, JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify(report, null, 2));

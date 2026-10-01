@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { defineSemanticLeafComponent, ComponentExecutionError, span } from '@ismail-elkorchi/terminal-ui/component';
+import { defineComponent, ComponentExecutionError, span } from '@ismail-elkorchi/terminal-ui/component';
 import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
 import { createTuiRuntime, defineTui } from '@ismail-elkorchi/terminal-ui/tui';
 import { renderElementFrame, renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 
 function component(overrides = {}) {
-  return defineSemanticLeafComponent({
+  return defineComponent({
+    structure: 'leaf', semantics: 'semantic',
     name: 'external/prepared-label', identity: 'required', accessibleRole: 'status',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 4, preferredHeight: 1 }),
     render: ({ model, target }) => target.write(0, 0, [span(model.label)]),

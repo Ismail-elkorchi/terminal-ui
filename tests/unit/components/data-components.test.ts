@@ -9,7 +9,7 @@ import {
   pagination,
   tree
 } from '../../../dist/components/index.js';
-import { createTreeSource } from '../../../dist/behavior/index.js';
+import { createTreeSource, createTreeView } from '../../../dist/behavior/index.js';
 
 void test('tree component renders expanded visible nodes and accessible selection state', () => {
   const state = {
@@ -31,7 +31,8 @@ void test('tree component renders expanded visible nodes and accessible selectio
   const frame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
     id: 'tree',
     state,
-    source: source,
+    source,
+    view: createTreeView(source, state),
     onTransition: (transition) => transition,
   }), { columns: 32, rows: 4 });
 

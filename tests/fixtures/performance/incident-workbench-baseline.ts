@@ -34,10 +34,12 @@ import {
   searchPickerReducer,
   searchPickerView,
   createSearchPickerIndex,
+  querySearchPickerIndex,
   tabsReducer,
   createTextAreaState,
   textAreaReducer,
   createTreeSource,
+  createTreeView,
   treeReducer
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { CommandInputState, UnscrolledSearchPickerState } from '@ismail-elkorchi/terminal-ui/behavior';
@@ -178,7 +180,8 @@ function initialState(): WorkspaceState {
     command: createCommandInputState({ suggestions: emptyCommandSuggestions }),
     searchPicker: {
       open: false,
-      state: createSearchPickerState({ query: { text: '', mode: 'contains' } }, workspaceSearchPickerIndex),
+      state: createSearchPickerState({ query: { text: '', mode: 'contains' },
+        queryResult: querySearchPickerIndex(workspaceSearchPickerIndex, { text: '', mode: 'contains' }) }, workspaceSearchPickerIndex),
     },
     resolved: new Set<string>(),
     activity: ['Workspace started.', 'Loaded 100,000 deterministic incident records. Notes and resolution edits stay in memory.']
@@ -216,6 +219,7 @@ function updateWorkspace(
     case 'tree': {
       const nextTree = treeReducer(state.tree, message.transition, {
         source: navigationTreeSource,
+        view: createTreeView(navigationTreeSource, state.tree),
       });
       const queue = queueFromSelection(selectedTreeId(nextTree));
       const rows = ticketsForQueue(queue);
@@ -278,19 +282,29 @@ function updateWorkspace(
         ...state,
         searchPicker: {
           open: false,
-          state: createSearchPickerState({ query: { text: '', mode: 'contains' } }, workspaceSearchPickerIndex),
+          state: createSearchPickerState({ query: { text: '', mode: 'contains' },
+        queryResult: querySearchPickerIndex(workspaceSearchPickerIndex, { text: '', mode: 'contains' }) }, workspaceSearchPickerIndex),
         },
       });
-    case 'searchPicker':
-      return updateResult({
-        ...state,
-        searchPicker: {
-          ...state.searchPicker,
-          state: searchPickerReducer(state.searchPicker.state, message.transition, {
-            searchPickerIndex: workspaceSearchPickerIndex,
-          }),
-        }
+    case 'searchPicker': {
+      // This retained baseline deliberately prepares synchronously for comparison.
+      const current = state.searchPicker.state;
+      const queryResult = querySearchPickerIndex(workspaceSearchPickerIndex, {
+        text: current.editor.input.text, mode: current.mode, caseSensitive: current.caseSensitive,
       });
+      let next = searchPickerReducer(current, message.transition, {
+        searchPickerIndex: workspaceSearchPickerIndex, queryResult,
+      });
+      if (next.editor.activeId === undefined) {
+        next = searchPickerReducer(next, { kind: 'firstActive' }, {
+          searchPickerIndex: workspaceSearchPickerIndex,
+          queryResult: querySearchPickerIndex(workspaceSearchPickerIndex, {
+            text: next.editor.input.text, mode: next.mode, caseSensitive: next.caseSensitive,
+          }),
+        });
+      }
+      return updateResult({ ...state, searchPicker: { ...state.searchPicker, state: next } });
+    }
     case 'acceptSearchPicker': {
       const entry = searchPickerEntries.find((candidate) => candidate.id === message.id);
       return updateResult(entry === undefined ? state : applyCommand({
@@ -403,6 +417,7 @@ function navigationPane(state: WorkspaceState) {
       meta: { accessibleName: 'Project navigation' },
       source: navigationTreeSource,
       state: state.tree,
+      view: createTreeView(navigationTreeSource, state.tree),
       scrollbar: { visible: 'auto' },
       onTransition: (transition): WorkspaceMessage => ({ kind: 'tree', transition }),
     }),
@@ -518,6 +533,11 @@ function searchPickerLayer(state: WorkspaceState) {
       content: column([searchPicker<string, WorkspaceMessage, WorkspaceMessage>({
         id: 'workspace-search-picker',
         searchPickerIndex: workspaceSearchPickerIndex,
+        queryResult: querySearchPickerIndex(workspaceSearchPickerIndex, {
+          text: state.searchPicker.state.editor.input.text,
+          mode: state.searchPicker.state.mode,
+          caseSensitive: state.searchPicker.state.caseSensitive,
+        }),
         view: searchPickerView(state.searchPicker.state),
         meta: { accessibleName: 'Command search' },
         onTransition: (transition): WorkspaceMessage => ({ kind: 'searchPicker', transition }),

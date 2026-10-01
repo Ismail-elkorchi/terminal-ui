@@ -4,7 +4,8 @@ import type { InlineContent, InlineContentSegment } from '../../visual/inline-co
 import { inlineSegmentText } from '../../visual/inline-content.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
 import { span } from '../../visual/render-content.ts';
-import { mergeStyles, themeStyle } from '../style-resolution.ts';
+import { mergeTerminalStyles } from '../../visual/terminal-style.ts';
+import { themeStyle } from '../style-resolution.ts';
 
 export interface InlineContentRenderOptions {
   readonly theme: TerminalTheme;
@@ -19,7 +20,7 @@ export function renderInlineContent(
   return content.map((segment, index) => span(
     inlineSegmentText(segment, options.theme.tokens.symbols.mode),
     {
-      ...styleOption(mergeStyles(
+      ...styleOption(mergeTerminalStyles(
         options.baseStyle,
         segment.link === undefined ? undefined : themeStyle('link.foreground', { underline: true }),
         segment.style

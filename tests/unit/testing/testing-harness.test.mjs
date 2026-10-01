@@ -27,7 +27,7 @@ import {
 import { column } from '../../../dist/layout/index.js';
 import { waitUntil } from '../../support/async.ts';
 import { ignoreMessage } from '../../../dist/component/index.js';
-import { createTreeSource, textInputReducer } from '../../../dist/behavior/index.js';
+import { createTreeSource, createTreeView, textInputReducer } from '../../../dist/behavior/index.js';
 import { encodeHarnessInputEvent } from '../../../dist/testing/input-events.js';
 
 test('testing harness records input and output deterministically', async () => {
@@ -431,6 +431,7 @@ test('interaction scripts assert styled text focus selection and hit targets aga
       id: 'tree',
       state: treeState,
       source: treeSource,
+      view: createTreeView(treeSource, treeState),
       onTransition: (action) => ({ kind: 'tree', action })
     }),
     button({

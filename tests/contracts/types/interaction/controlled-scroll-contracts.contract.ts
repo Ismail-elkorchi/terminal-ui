@@ -38,7 +38,7 @@ const controlledListbox = listbox({
   scrollbar: { visible: 'auto' },
   onTransition: (transition) => ({ kind: 'listbox' as const, transition }),
 });
-const controlledTree = tree({
+const controlledTree = tree({ view: null,
   id: 'tree',
   source: createTreeSource([{ id: 'one', label: 'One', kind: 'leaf' }]),
   state: { activeId: 'one', selection: { mode: 'none' }, expandedIds: [], scroll },
@@ -51,14 +51,14 @@ const controlledEditor = textArea({
   scrollbar: { visible: 'auto' },
   onTransition: (transition: TextAreaTransition) => ({ kind: 'editor' as const, transition }),
 });
-const controlledLog = logViewer({
+const controlledLog = logViewer({ view: null,
   id: 'log',
   history: createLogHistory([{ id: 'one', text: 'One' }]),
   scroll,
   scrollbar: { visible: 'auto' },
   onTransition: (transition) => ({ kind: 'log' as const, transition }),
 });
-const controlledSearchPicker = searchPicker({
+const controlledSearchPicker = searchPicker({ queryResult: null,
   id: 'searchPicker',
   view: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' }, scroll },
   searchPickerIndex: createSearchPickerIndex([{ id: 'one', label: 'One', value: 1 }]),
@@ -104,13 +104,13 @@ export type _Combobox = Assert<Equal<MessageOf<typeof controlledCombobox>, { rea
 // @ts-expect-error listbox scrollbar requires controlled scroll state
 listbox({ id: 'inert-listbox', items: [], toOption: () => ({ id: '', label: '' }), state: { selection: { mode: 'none' } }, scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
 // @ts-expect-error tree scrollbar requires controlled scroll state
-tree({ id: 'inert-tree', nodes: [], state: { selection: { mode: 'none' }, expandedIds: [] }, scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
+tree({ view: null, id: 'inert-tree', source: createTreeSource([]), state: { selection: { mode: 'none' }, expandedIds: [] }, scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
 // @ts-expect-error text-area scrollbar requires scroll state
 textArea({ id: 'inert-editor', state: { document: createTextDocument(''), caret: textCaretAt(0) }, scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
 // @ts-expect-error log viewer scrollbar requires scroll state
-logViewer({ id: 'inert-log', history: createLogHistory([]), scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
+logViewer({ view: null, id: 'inert-log', history: createLogHistory([]), scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
 // @ts-expect-error search picker scrollbar requires view scroll state
-searchPicker({ id: 'inert-searchPicker', view: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } }, searchPickerIndex: createSearchPickerIndex([]), scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
+searchPicker({ queryResult: null, id: 'inert-searchPicker', view: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } }, searchPickerIndex: createSearchPickerIndex([]), scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
 // @ts-expect-error viewport scrollbar requires event routing
 viewport(text({ content: 'content' }), { id: 'inert-viewport', scrollbar: { visible: 'auto' } });
 // @ts-expect-error list view scrollbar requires view scroll state

@@ -440,44 +440,6 @@ export type DecorativeLeafComponentDefinition<
     ) => undefined;
   };
 
-/** A semantic leaf definition with invariant structure fields supplied by the authoring helper. */
-export type SemanticLeafDefinition<
-  TOptions extends object = Readonly<Record<never, never>>,
-  TModel extends object = TOptions,
-  TAction = never,
-  TPart extends string = never,
-  TStates extends readonly ComponentStateCapability[] = readonly [],
-  TIdentity extends ComponentIdentity = 'required',
-  TMetadata extends readonly ComponentMetadataCapability[] = readonly [],
-  TVisualStates extends readonly ComponentVisualState[] = readonly []
-> = SemanticLeafComponentDefinition<
-    TOptions,
-    TModel,
-    TAction,
-    TPart,
-    TStates,
-    TIdentity,
-    TMetadata,
-    TVisualStates
-  > extends infer TDefinition
-    ? TDefinition extends unknown
-      ? Omit<TDefinition, 'structure' | 'semantics'>
-      : never
-    : never;
-
-/** A decorative leaf definition with invariant structure fields supplied by the authoring helper. */
-export type DecorativeLeafDefinition<
-  TOptions extends object = Readonly<Record<never, never>>,
-  TModel extends object = TOptions,
-  TPart extends string = never,
-  TIdentity extends ComponentIdentity = 'optional',
-  TMetadata extends readonly Extract<ComponentMetadataCapability, 'layer' | 'styles'>[] = readonly [],
-  TVisualStates extends readonly ComponentVisualState[] = readonly []
-> = Omit<
-  DecorativeLeafComponentDefinition<TOptions, TModel, TPart, TIdentity, TMetadata, TVisualStates>,
-  'structure' | 'semantics'
->;
-
 export type SemanticCompositeComponentDefinition<
   TOptions extends object = Readonly<Record<never, never>>,
   TModel extends object = TOptions,

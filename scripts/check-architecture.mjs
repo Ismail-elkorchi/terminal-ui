@@ -124,7 +124,7 @@ const architectureDependencies = new Map([
 ]);
 const externalRuntimeDependencies = new Map([
   ['diagnostic-identity.ts', new Set(['node:crypto'])],
-  ['host', new Set(['node:process'])],
+  ['host', new Set(['node:process', 'node:timers'])],
   ['protocol', new Set(['node:buffer'])]
 ]);
 

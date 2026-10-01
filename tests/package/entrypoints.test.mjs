@@ -464,19 +464,20 @@ test('component packages can use the narrow authoring entrypoint', () => {
   `);
 });
 
-test('leaf authoring helpers preserve inferred options and actions', () => {
+test('canonical component authoring preserves leaf options and actions', () => {
   assertNoTypeDiagnostics(`
     import {
-      defineDecorativeLeafComponent,
-      defineSemanticLeafComponent
+      defineComponent
     } from '@ismail-elkorchi/terminal-ui/component';
 
-    const status = defineSemanticLeafComponent<
+    const status = defineComponent<
       { readonly label: string },
       { readonly label: string },
       { readonly kind: 'activate' }
     >({
       name: 'terminal-ui-tests/components/status',
+      structure: 'leaf',
+      semantics: 'semantic',
       identity: 'required',
       accessibleRole: 'status',
       createModel: (value) => ({ label: value.label }),
@@ -485,7 +486,9 @@ test('leaf authoring helpers preserve inferred options and actions', () => {
       accessibility: ({ id, model }) => ({ id, role: 'status', label: model.label }),
       keys: () => ({ enter: () => ({ kind: 'activate' }) })
     });
-    const spacer = defineDecorativeLeafComponent({
+    const spacer = defineComponent({
+      structure: 'leaf',
+      semantics: 'decorative',
       name: 'terminal-ui-tests/components/spacer',
       identity: 'optional',
       measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),

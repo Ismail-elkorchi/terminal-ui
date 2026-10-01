@@ -201,7 +201,7 @@ test('default theme specimen composes surface control text command log and data 
       display: 'expanded',
       onTransition: (action) => action
     }),
-    logViewer({
+    logViewer({ view: null,
       id: 'specimen-log',
       history: createLogHistory([
         { id: 'info', level: 'info', text: 'Ready' },

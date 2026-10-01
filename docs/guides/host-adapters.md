@@ -84,7 +84,9 @@ before it. Node adapters wait for write callbacks and `drain`, Web Stream
 adapters retain one writer and await each write, and memory/PTY adapters expose
 the same completion semantics. Runtime scheduling uses the host's monotonic
 clock; wall-clock changes do not affect pointer timing, animation deadlines, or
-cleanup bounds.
+cleanup bounds. Native zero-delay sleeps yield through the shared
+Node-compatible immediate queue without a timer minimum; positive delays use
+timers. The deterministic memory clock keeps its manually controlled semantics.
 `TerminalClock.sleep()` resolves to `elapsed` when its deadline expires and
 `aborted` when its signal is cancelled. Ordinary cancellation must not reject;
 a rejection means the clock itself failed. Timer consumers use the tagged
@@ -119,3 +121,18 @@ rejects replacement readers; a non-cooperative iterator therefore leaves input
 unavailable instead of risking data loss. Reader-wrapper cleanup and source
 release are started independently so a wrapper with a hanging `return()` cannot
 prevent a cooperative input authority from releasing its source.
+
+Bun and Deno native stdin use their Node-compatible stream's pause/detach
+lifecycle. They do not cancel the cached `Bun.stdin.stream()` or
+`Deno.stdin.readable` to suspend terminal ownership: cancelling a Web Stream
+permanently closes it and cannot establish reusable release.
+
+For caller-supplied `RuntimeInputSource` implementations, iterator `return()`
+must retire its pending read. A source with separate native ownership can also
+provide `release()`, which starts independently of iterator closure. Both
+operations must settle only once the source can no longer consume input; a
+completed chunk must still be returned for exactly-once handoff replay. A
+failed or non-cooperative retirement leaves replacement input unavailable.
+`dispose()` is a separate permanent-resource hook invoked by host disposal,
+not by reusable release. Neither ordinary read errors nor retirement failures
+are converted into successful cancellation.

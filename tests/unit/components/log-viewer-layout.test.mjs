@@ -1,22 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createLogHistory } from '../../../dist/behavior/log-history.js';
-import { logViewerLayout } from '../../../dist/components/log-viewer/layout.js';
+import { createLogViewerView } from '../../../dist/behavior/index.js';
+import { unwrappedLogViewerLayout, visibleLogViewerRecords } from '../../../dist/behavior/log-viewer-layout.js';
 import { defaultTextWidthProfile } from '../../../dist/text/index.js';
 
-
-test('unwrapped log geometry is shared across widths and folding does not scan a cached history', () => {
+test('unwrapped geometry indexes visible source rows and prepared wrapping retains exact geometry', () => {
   const history = createLogHistory(Array.from({ length: 10_000 }, (_, index) => ({ id: String(index), text: 'first\nsecond' })));
-  let reads = 0;
-  const folds = new Set(['3', '7']);
-  const has = folds.has.bind(folds);
-  folds.has = id => { reads += 1; return has(id); };
-  const first = logViewerLayout(history, 40, false, defaultTextWidthProfile, folds);
+  const first = unwrappedLogViewerLayout(history);
   assert.equal(first.totalRows, 10_000);
-  assert.equal(reads, 0);
-  assert.strictEqual(logViewerLayout(history, 39, false, defaultTextWidthProfile, folds), first);
-  const wrapped = logViewerLayout(history, 40, true, defaultTextWidthProfile, folds);
-  reads = 0;
-  assert.strictEqual(logViewerLayout(history, 40, true, defaultTextWidthProfile, folds), wrapped);
-  assert.equal(reads, 0);
+  assert.equal(first.segments.length, 0, 'unwrapped geometry must not materialize whole-history segment layouts');
+  assert.strictEqual(unwrappedLogViewerLayout(history), first);
+  assert.deepEqual(visibleLogViewerRecords(first, 9998, 10_000).map(item => item.record.entry.id), ['9998', '9999']);
+  const input = { history, wrap: true, width: 40, widthProfile: defaultTextWidthProfile, foldedIds: ['3', '7'] };
+  const wrapped = createLogViewerView(input);
+  const reused = createLogViewerView(input);
+  assert.strictEqual(reused.layouts[0], wrapped.layouts[0]);
+  assert.strictEqual(reused.layouts[1], wrapped.layouts[1]);
 });

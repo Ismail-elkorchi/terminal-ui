@@ -22,9 +22,15 @@ import {
   grid,
   splitPane
 } from '../../dist/layout/index.js';
-import { createCommandSuggestions, createSearchPickerIndex, createLogHistory } from '../../dist/behavior/index.js';
+import { createCommandSuggestions, createSearchPickerIndex, querySearchPickerIndex, createLogHistory } from '../../dist/behavior/index.js';
+
+const actionIndex = createSearchPickerIndex([
+  { id: 'open', label: 'Open', value: 'open' },
+  { id: 'quit', label: 'Quit', value: 'quit' }
+]);
 
 function workspaceView(state) {
+  const actionQueryResult = querySearchPickerIndex(actionIndex, { text: state.query, mode: 'fuzzy' });
   const mainPanel = tabs({
     id: 'main-tabs',
     meta: { accessibleName: 'Workspace views' },
@@ -36,7 +42,7 @@ function workspaceView(state) {
       {
         id: 'log',
         label: 'Log',
-        panel: logViewer({
+        panel: logViewer({ view: null,
           id: 'log',
           history: createLogHistory(state.items.map((item, index) => ({ id: String(index), text: item })))
         })
@@ -52,10 +58,8 @@ function workspaceView(state) {
             query: { mode: 'fuzzy' },
             activeId: 'open'
           },
-          searchPickerIndex: createSearchPickerIndex([
-            { id: 'open', label: 'Open', value: 'open' },
-            { id: 'quit', label: 'Quit', value: 'quit' }
-          ]),
+          searchPickerIndex: actionIndex,
+          queryResult: actionQueryResult,
           onTransition: () => ({ type: 'component' })
         })
       }

@@ -1,3 +1,4 @@
+import type { LogViewerView, LogViewerViewInput } from '../../behavior/log-viewer-view.ts';
 import type { LogHistory } from '../../behavior/log-history.ts';
 import type {
   LogViewerContextMenuEvent,
@@ -13,9 +14,13 @@ import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type { LogViewerStylePart } from '../style-parts.ts';
 
 
-interface LogViewerBaseOptions {
+interface LogViewerBaseOptions<TMessage extends ComponentMessage> {
   readonly id: string;
   readonly history: LogHistory;
+  /** Complete query and wrapped geometry, or null while preparation is pending. */
+  readonly view: LogViewerView | null;
+  /** Requests preparation from committed allocation; return an ordinary effect-driving message. */
+  readonly onLayout?: (input: LogViewerViewInput) => MessageResolution<TMessage>;
   readonly wrap?: boolean;
   readonly query?: import('../../text/query.ts').CollectionQuery;
   readonly activeMatchId?: string;
@@ -29,7 +34,7 @@ export type LogViewerOptions<TMessage extends ComponentMessage = never> =
   | UnscrolledLogViewerOptions<TMessage>
   | ScrollableLogViewerOptions<TMessage>;
 
-export type UnscrolledLogViewerOptions<TMessage extends ComponentMessage = never> = LogViewerBaseOptions & {
+export type UnscrolledLogViewerOptions<TMessage extends ComponentMessage = never> = LogViewerBaseOptions<TMessage> & {
   readonly scroll?: never;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
@@ -44,7 +49,7 @@ export type UnscrolledLogViewerOptions<TMessage extends ComponentMessage = never
     }
 );
 
-export interface ScrollableLogViewerOptions<TMessage extends ComponentMessage = never> extends LogViewerBaseOptions {
+export interface ScrollableLogViewerOptions<TMessage extends ComponentMessage = never> extends LogViewerBaseOptions<TMessage> {
   readonly scroll: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;

@@ -1,5 +1,4 @@
 import path from 'node:path';
-import { setImmediate as yieldToInput } from 'node:timers/promises';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
@@ -41,10 +40,13 @@ import {
   searchPickerReducer,
   searchPickerView,
   createSearchPickerIndex,
+  searchPickerEntryById,
+  searchPickerQueryPosition,
   tabsReducer,
   createTextAreaState,
   textAreaReducer,
   createTreeSource,
+  createTreeView,
   treeReducer
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { CollectionQuery } from '@ismail-elkorchi/terminal-ui/text';
@@ -172,7 +174,7 @@ const incidentQuery = createTuiPreparedQuery({
   prepare: ({ index, query }: { readonly index: SearchPickerIndex; readonly query: CollectionQuery }, context) =>
     prepareSearchPickerQuery(index, query, {
       signal: context.signal,
-      yield: async () => { await yieldToInput(undefined, { signal: context.signal }); },
+      yield: async () => { await context.clock.sleep(0, context.signal); },
     }),
   toMessage: (message): WorkspaceMessage => ({ kind: 'searchResult', message }),
 });
@@ -251,6 +253,7 @@ function updateWorkspace(
     case 'tree': {
       const nextTree = treeReducer(state.tree, message.transition, {
         source: navigationTreeSource,
+        view: createTreeView(navigationTreeSource, state.tree),
       });
       const queue = queueFromSelection(selectedTreeId(nextTree));
       const rows = ticketsForQueue(queue);
@@ -287,6 +290,7 @@ function updateWorkspace(
       });
       const updated = { ...state, searchPicker: { ...state.searchPicker, state: next } };
       return next.editor.input.text !== state.searchPicker.state.editor.input.text
+        || next.mode !== state.searchPicker.state.mode || next.caseSensitive !== state.searchPicker.state.caseSensitive
         ? startSearch(updated)
         : updateResult(updated);
     }
@@ -301,8 +305,9 @@ function updateWorkspace(
       return updateResult({ ...state, searchPicker: { ...settled, state: next } });
     }
     case 'acceptSearchPicker': {
-      if (state.searchPicker.pending) return updateResult(state);
-      const entry = searchPickerEntries.find((candidate) => candidate.id === message.id);
+      if (!state.searchPicker.open || state.searchPicker.pending || state.searchPicker.result === null
+        || searchPickerQueryPosition(state.searchPicker.result, message.id) === undefined) return updateResult(state);
+      const entry = searchPickerEntryById(workspaceSearchPickerIndex, message.id);
       return updateResult(entry === undefined ? state : applyCommand({
         ...state,
         searchPicker: {
@@ -359,7 +364,17 @@ function applyCommand(state: WorkspaceState, raw: string): WorkspaceState {
     default: {
       const ticket = ticketById.get(command);
       if (ticket === undefined) return cleared;
-      return { ...cleared, tab: 'issues', tree: { ...state.tree, activeId: `queue:${ticket.queue}`, selection: { mode: 'single', selectedId: `queue:${ticket.queue}`, selectionFollowsActive: true } }, table: { ...state.table, interaction: { kind: 'row', activeRowId: ticket.id, selection: { mode: 'single', selectedRowId: ticket.id, selectionFollowsActive: true } } }, activity: [...state.activity, `Inspected ${ticket.id}.`] };
+      return {
+        ...cleared, tab: 'issues',
+        tree: { ...state.tree, activeId: `queue:${ticket.queue}`, selection: { mode: 'single', selectedId: `queue:${ticket.queue}`, selectionFollowsActive: true } },
+        table: dataGridReducer(state.table, { kind: 'setActiveRow', rowId: ticket.id }, {
+          collection: incidentCollection(ticketsForQueue(ticket.queue)),
+          columnIds: tableColumns.map(column => column.id),
+          // A search jump anchors the selected row visibly without guessing allocated height.
+          pageSize: 1,
+        }),
+        activity: [...state.activity, `Inspected ${ticket.id}.`],
+      };
     }
   }
 }
@@ -422,6 +437,7 @@ function navigationPane(state: WorkspaceState) {
       keymap: navigationKeymap,
       meta: { accessibleName: 'Project navigation' },
       source: navigationTreeSource,
+        view: createTreeView(navigationTreeSource, state.tree),
       state: state.tree,
       scrollbar: { visible: 'auto' },
       onTransition: (transition): WorkspaceMessage => ({ kind: 'tree', transition }),

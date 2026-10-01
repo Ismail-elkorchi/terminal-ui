@@ -8,7 +8,9 @@ export async function settleResourceDisposal(
     try {
       await operation();
     } catch (cause) {
-      failures.push(errorFromUnknown(cause));
+      const failure = errorFromUnknown(cause);
+      // Independent retirement paths may await the same failing operation.
+      if (!failures.includes(failure)) failures.push(failure);
     }
   }
   const firstFailure = failures[0];

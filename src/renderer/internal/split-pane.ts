@@ -8,8 +8,9 @@ import { oneCellGlyph } from '../../text/cell-geometry.ts';
 import type { TerminalTheme } from '../../theme/theme.ts';
 import { renderNodeFrameSource } from '../../visual/frame-source.ts';
 import type { TerminalStyle } from '../../visual/render-content.ts';
+import { mergeTerminalStyles } from '../../visual/terminal-style.ts';
 import type { HitTarget, LayoutNode, RenderTarget } from '../contracts.ts';
-import { mergeStyles, renderNodeStyle, themeStyle } from '../style-resolution.ts';
+import { renderNodeStyle, themeStyle } from '../style-resolution.ts';
 import type { RenderNodeOfKind } from './render-tree/types.ts';
 
 type SplitPaneNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'splitPane'>;
@@ -163,7 +164,7 @@ function splitPaneDividerStyle<TMessage>(
   active: boolean,
   focused: boolean
 ): TerminalStyle {
-  return mergeStyles(
+  return mergeTerminalStyles(
     themeStyle(active ? 'accent.primary' : 'surface.border'),
     renderNodeStyle(renderNode, active ? 'dividerActive' : 'divider', active && focused ? 'focused' : undefined)
   ) ?? {};

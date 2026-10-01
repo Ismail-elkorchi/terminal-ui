@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { Readable } from 'node:stream';
 import test from 'node:test';
 
 import {
@@ -178,39 +179,33 @@ test('Bun raw-mode mutation preserves the owning stdin receiver', async () => {
   }
 });
 
-test('Bun native stdin cancels a pending stream reader and awaits cancellation settlement', async () => {
+test('Bun native input release is reusable and never acquires the destructive cached Web stream', async () => {
   const previousBun = Reflect.get(globalThis, 'Bun');
   const previousProcess = Reflect.get(globalThis, 'process');
-  const cancellation = Promise.withResolvers();
-  let controller;
-  let cancelled = 0;
-  const stream = new globalThis.ReadableStream({
-    start(value) { controller = value; },
-    cancel() { cancelled += 1; return cancellation.promise; },
-  });
-  Reflect.set(globalThis, 'Bun', { stdin: { stream: () => stream, isTTY: true } });
-  Reflect.set(globalThis, 'process', processLike([]));
+  const input = new Readable({ read() {} });
+  Object.assign(input, { isTTY: true, setRawMode() {} });
+  Reflect.set(globalThis, 'Bun', { stdin: { stream() { throw new Error('cached Web stream must not be acquired'); }, isTTY: true } });
+  Reflect.set(globalThis, 'process', { ...processLike([]), stdin: input });
   const host = createBunTerminalHost();
-  const pending = host.stdin.read()[Symbol.asyncIterator]().next();
-  let disposal;
   try {
-    assert.equal(stream.locked, true);
-    let disposed = false;
-    disposal = host.dispose().then(() => { disposed = true; });
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(cancelled, 1, 'native reader cancellation must not queue behind its pending read');
-    assert.equal(disposed, false, 'disposal must await the native cancellation result');
-    assert.equal(stream.locked, true);
-    cancellation.resolve();
-    await disposal;
-    assert.equal(stream.locked, false);
-    assert.deepEqual(await pending, { done: true, value: undefined });
+    for (const value of ['first', 'second']) {
+      const pending = host.stdin.read()[Symbol.asyncIterator]().next();
+      await host.stdin.release();
+      assert.deepEqual(await pending, { done: true, value: undefined });
+      assert.equal(input.destroyed, false);
+      const replacement = host.stdin.read()[Symbol.asyncIterator]();
+      input.push(value);
+      const result = await replacement.next();
+      assert.equal(new TextDecoder().decode(result.value.data), value);
+      await replacement.return();
+      await host.stdin.release();
+    }
     await host.dispose();
-    assert.equal(cancelled, 1);
+    assert.equal(input.destroyed, false);
+    assert.deepEqual(await host.stdin.read()[Symbol.asyncIterator]().next(), { done: true, value: undefined });
   } finally {
-    cancellation.resolve();
-    if (cancelled === 0) controller.close();
-    await disposal;
+    await host.dispose();
+    input.push(null);
     restoreGlobal('Bun', previousBun);
     restoreGlobal('process', previousProcess);
   }
@@ -473,6 +468,7 @@ for (const createHost of [createNodeTerminalHost, createDenoTerminalHost]) {
       ? createHost({ stdin: emptyNodeInput(), stdout: immediateNodeOutput(), stderr: immediateNodeOutput() })
       : createHost({ stdout: { write: () => {}, isTty: false } });
 
+    await host.clock.sleep(0, signal);
     await host.clock.sleep(1, signal);
 
     assert.equal(signal.listenerCount(), 0);

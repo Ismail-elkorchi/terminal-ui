@@ -3,17 +3,17 @@ import { NodeTerminalOutput } from './node-output.ts';
 import {
   createStreamTerminalHost,
   runtimeInputSourceFromAsyncIterable,
-  runtimeInputSourceFromReadableStream,
 } from './runtime-streams.ts';
 import type {
   BunTerminalHostOptions,
+  NodeReadableTerminalStream,
   NodeWritableTerminalStream,
   RuntimeTerminalInputOptions,
   TerminalHost,
 } from './types.ts';
 
 interface BunLike {
-  readonly stdin?: { readonly stream?: () => ReadableStream<Uint8Array>; readonly isTTY?: boolean; setRawMode?: (enabled: boolean) => void };
+  readonly stdin?: { readonly isTTY?: boolean; setRawMode?: (enabled: boolean) => void };
 }
 
 export function createBunTerminalHost(options: BunTerminalHostOptions = {}): TerminalHost {
@@ -47,10 +47,11 @@ function bunInputOptions(
   bun: BunLike | undefined,
   processLike: ProcessLike | undefined
 ): RuntimeTerminalInputOptions {
-  const nativeStream = bun?.stdin?.stream?.();
-  const source = nativeStream === undefined
-    ? processLike?.stdin === undefined ? undefined : runtimeInputSourceFromAsyncIterable(processLike.stdin)
-    : runtimeInputSourceFromReadableStream(nativeStream);
+  // Bun.stdin.stream() is cached and cancel() closes it permanently. The
+  // Node-compatible stream has a non-destructive pause/detach lifecycle.
+  const source = processLike?.stdin === undefined
+    ? undefined
+    : runtimeInputSourceFromAsyncIterable(processLike.stdin);
   const bunInput = bun?.stdin;
   const processInput = processLike?.stdin;
   const setRawMode = bunInput?.setRawMode === undefined
@@ -61,12 +62,14 @@ function bunInputOptions(
   return {
     isTty: bun?.stdin?.isTTY ?? processLike?.stdin?.isTTY ?? false,
     ...(source === undefined ? {} : { source }),
-    ...(setRawMode === undefined ? {} : { setRawMode })
+    ...(setRawMode === undefined ? {} : { setRawMode }),
+    ...(bunInput?.setRawMode !== undefined || typeof processInput?.isRaw !== 'boolean'
+      ? {} : { isRawModeEnabled: () => processInput.isRaw === true })
   };
 }
 
 interface ProcessLike {
-  readonly stdin?: AsyncIterable<Uint8Array> & { readonly isTTY?: boolean; setRawMode?: (enabled: boolean) => void };
+  readonly stdin?: NodeReadableTerminalStream;
   readonly stdout?: NodeWritableTerminalStream;
   readonly stderr?: NodeWritableTerminalStream;
   readonly env?: Record<string, string>;

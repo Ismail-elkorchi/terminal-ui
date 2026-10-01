@@ -4,9 +4,9 @@ import type {
   ScrollRequest,
 } from '../../../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../../../interaction/scrollbar.ts';
-import type { RenderNodeLayoutProps } from './shared-layout.ts';
+import type { LayoutFlowOptions } from '../../../../geometry/types.ts';
 
-export interface ViewportRenderProps<TMessage> extends RenderNodeLayoutProps {
+export interface ViewportRenderProps<TMessage> extends LayoutFlowOptions {
   readonly measured?: boolean;
   readonly followTail?: boolean;
   readonly anchor?: import('../../../../interaction/scroll.ts').MeasuredViewportAnchor;

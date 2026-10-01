@@ -62,10 +62,12 @@ function view(state: State): Element<Message> {
     onTransition: (transition) => ({ kind: 'selectRow' as const, transition })
   });
   const treeState = { selection: { mode: 'single' as const }, expandedIds: [] };
+  const treeSource = behavior.createTreeSource([{ id: 'src', label: 'src', kind: 'leaf' }]);
   const files: Element<{ readonly kind: 'tree'; readonly transition: TreeTransition }> = tree({
     id: 'files',
     meta: { accessibleName: 'Files' },
-    source: behavior.createTreeSource([{ id: 'src', label: 'src', kind: 'leaf' }]),
+    source: treeSource,
+    view: behavior.createTreeView(treeSource, treeState),
     state: treeState,
     onTransition: (transition) => ({ kind: 'tree' as const, transition })
   });

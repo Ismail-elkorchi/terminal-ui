@@ -101,20 +101,14 @@ export type {
   ComponentVisualState,
   DecorativeLeafComponentDefinition,
   DecorativeLeafComponentFactory,
-  DecorativeLeafDefinition,
   SemanticComposedComponentDefinition,
   SemanticCompositeComponentDefinition,
   SemanticCompositeComponentFactory,
   SemanticLeafComponentDefinition,
   SemanticLeafComponentFactory,
-  SemanticLeafDefinition,
   StagedComponentFactory,
 } from './contracts.ts';
-export {
-  defineComponent,
-  defineDecorativeLeafComponent,
-  defineSemanticLeafComponent,
-} from './definition.ts';
+export { defineComponent } from './definition.ts';
 export { ComponentExecutionError } from './execution-error.ts';
 export type { ComponentDefinitionName, ComponentExecutionPhase } from './execution-error.ts';
 export { measureConstrainedBox } from './measurement.ts';

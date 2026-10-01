@@ -67,7 +67,7 @@ class PtyOutput implements TerminalOutput {
 export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): PtyTerminalHost {
   let terminalSize = initialPtyTerminalSize(options);
   const inputSource = new RuntimeInput({ ...options.stdin, isTty: options.stdin?.isTty ?? true });
-  const stdin = new TerminalInputAuthority(inputSource);
+  const stdin = new TerminalInputAuthority(inputSource, () => inputSource.dispose());
   const stdout = new PtyOutput({ ...options.stdout, isTty: options.stdout?.isTty ?? true }, () => terminalSize);
   const stderr = new PtyOutput({ ...options.stderr, isTty: options.stderr?.isTty ?? true }, () => terminalSize);
   const output = createTerminalHostOutputAuthority(stdout, stderr, options.id ?? 'pty');

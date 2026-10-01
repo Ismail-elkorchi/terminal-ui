@@ -1,10 +1,11 @@
-import { defineSemanticLeafComponent, span } from '@ismail-elkorchi/terminal-ui/component';
+import { defineComponent, span } from '@ismail-elkorchi/terminal-ui/component';
 
 let preparations = 0;
 let paints = 0;
 const preparedLabels = new WeakMap();
 
-const badge = defineSemanticLeafComponent({
+const badge = defineComponent({
+    structure: 'leaf', semantics: 'semantic',
   name: 'terminal-ui-peer-component-fixture/components/badge',
   identity: 'required',
   accessibleRole: 'status',

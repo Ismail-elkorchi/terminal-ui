@@ -27,7 +27,7 @@ opts into explicit pending/result ownership:
 2. Text editing commits immediately with `queryResult: null`. The dialog shows
    “Searching…” and has no actionable stale results
 3. A replaceable TUI effect calls `prepareSearchPickerQuery` with its abort signal
-   and a `setImmediate` yield, allowing new input between work batches
+   and the host clock's zero-delay yield, allowing new input between work batches
 4. Completion installs the result only if its revision is still current. Escape
    replaces the effect and invalidates its revision. Enter cannot accept a
    pending result
@@ -56,7 +56,11 @@ cost is excluded. The timer for the second input is registered before issuing
 the first input, so event-loop blocking is included. Every final result must
 select the exact expected incident ID. The benchmark reports raw samples,
 p50/p95/max, environment and whole-process memory (including retained host
-frames). A 5ms delay is applied to each host write in the slow-output case.
+frames). A 5ms delay is applied to each host write in the slow-output case. The benchmark
+uses the native Node clock for cooperative preparation with memory-backed output:
+the controlled memory clock resolves zero sleeps immediately and cannot measure
+real event-loop yielding. Native zero sleeps use the immediate queue; positive
+delays remain timer-backed.
 
 The baseline uses the actual `ec483837ceb2411fa6a5953d365aa5ee7b81cb92`
 runtime, with the same dataset, cached collections, application layout and

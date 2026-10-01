@@ -154,6 +154,15 @@ so its construction cost is `O(n)` even when only a small viewport is visible.
 with `appendLogHistory()` so sanitation, identity, offsets, wrapping,
 and search data remain reusable across frames.
 
+Pass its prepared `view` to both `logViewer()` and `logViewerReducer()`. Use
+`view: null` while preparation is pending. Plain, unwrapped output without a
+search can also use `null`; it reads only the visible source rows. For search or
+wrapping, use `prepareLogViewerView()` in an existing replaceable effect.
+`onLayout` supplies the exact committed allocation and data dependencies, so one
+`createTuiPreparedQuery` lifecycle handles search, source changes, folding and
+resize. The live component never computes missing query or wrapped geometry.
+See [prepared log views](./log-preparation.md) for the complete pattern.
+
 Component definitions own their accessibility contract. Callers supply domain
 labels and descriptions through declared component fields; they cannot replace
 required roles, relationships, or state through metadata. A decorative

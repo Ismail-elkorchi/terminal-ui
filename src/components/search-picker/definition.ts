@@ -2,7 +2,7 @@ import { resolveControlKeymap, type ControlKeymap } from '../../interaction/cont
 import { createSearchPickerKeymap, type SearchPickerKeyAction } from '../keymaps.ts';
 import { controlKeyBindings, mapControlKeyHandlers } from '../shared/control-key-bindings.ts';
 const defaultSearchPickerKeymap = createSearchPickerKeymap();
-import { assertSearchPickerIndex, prepareSearchPickerQuery } from '../../behavior/search-picker-index.ts';
+import { assertSearchPickerIndex } from '../../behavior/search-picker-index.ts';
 import { searchPickerWindow } from '../../behavior/search-picker-operations.ts';
 import type {
   SearchPickerAcceptEvent,
@@ -80,6 +80,7 @@ interface SearchPickerModel {
   readonly activeDisabled: boolean;
   readonly totalCount: number;
   readonly sourceCount: number;
+  readonly pending: boolean;
   readonly startIndex: number;
   readonly helpText: string;
   readonly emptyText: string;
@@ -197,10 +198,7 @@ const instantiateSearchPicker = defineComponent<SearchPickerComponentOptions, Se
     'scrollbarTrack', 'scrollbarThumb',
   ],
   visualStates: ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy', 'readOnly'],
-  createModel: createSearchPickerModel,
-  prepare: async ({ model, signal, yield: yieldWork }) => {
-    await searchPickerPreparations.get(model)?.({ signal, yield: yieldWork });
-  },
+  createModel: materializeSearchPickerModel,
   inspection: ({ model }) => {
     return {
       value: inspectTextValue(model.input.text),
@@ -248,6 +246,7 @@ const instantiateSearchPicker = defineComponent<SearchPickerComponentOptions, Se
           ? {}
           : { selection: input.model.input.selection }),
       },
+      ...(input.model.pending ? { description: 'Results unavailable. Editing remains available.' } : {}),
       disabled: input.disabled,
       expanded: true,
       ...(input.focused ? { focused: true } : {}),
@@ -394,31 +393,6 @@ function isScrollableSearchPicker<
   return options.view.scroll !== undefined;
 }
 
-const searchPickerPreparations = new WeakMap<object, (context: import('../../foundation/cooperative-work.ts').CooperativeWorkContext) => Promise<void>>();
-
-function createSearchPickerModel(value: Readonly<SearchPickerComponentOptions>): SearchPickerModel {
-  if (value.queryResult !== undefined) return materializeSearchPickerModel(value);
-  const base = materializeSearchPickerModel({ ...value, queryResult: null });
-  let ready: SearchPickerModel | undefined;
-  const project = (): SearchPickerModel => ready ??= materializeSearchPickerModel(value);
-  const model: SearchPickerModel = {
-    ...base,
-    get rows() { return project().rows; },
-    get activeIndex() { return project().activeIndex; },
-    get activeId() { return project().activeId; },
-    get activeDisabled() { return project().activeDisabled; },
-    get totalCount() { return project().totalCount; },
-    get startIndex() { return project().startIndex; },
-  };
-  searchPickerPreparations.set(model, async (context) => {
-    if (ready !== undefined) return;
-    const queryResult = await prepareSearchPickerQuery(value.searchPickerIndex, base.query, context);
-    context.signal.throwIfAborted();
-    ready = materializeSearchPickerModel({ ...value, queryResult });
-  });
-  return model;
-}
-
 function materializeSearchPickerModel(value: Readonly<SearchPickerComponentOptions>): SearchPickerModel {
   const index = value.searchPickerIndex;
   assertSearchPickerIndex(index);
@@ -428,7 +402,7 @@ function materializeSearchPickerModel(value: Readonly<SearchPickerComponentOptio
   const limit = positiveInteger(value.maxVisible, 'searchPicker maxVisible') ?? 8;
   const window = searchPickerWindow({
     searchPickerIndex: index,
-    ...(value.queryResult === undefined ? {} : { queryResult: value.queryResult }),
+    queryResult: value.queryResult,
     query,
     ...(view.activeId === undefined ? {} : { activeId: view.activeId }),
     ...(scroll === undefined ? {} : { scroll }),
@@ -468,9 +442,10 @@ function materializeSearchPickerModel(value: Readonly<SearchPickerComponentOptio
     activeDisabled: window.activeEntry?.disabled === true,
     totalCount: window.totalCount,
     sourceCount: index.size,
+    pending: window.pending,
     startIndex: window.startIndex,
     helpText: clean(value.helpText, 'searchPicker helpText') ?? '',
-    emptyText: clean(value.emptyText, 'searchPicker emptyText') ?? 'No matches',
+    emptyText: clean(value.emptyText, 'searchPicker emptyText') ?? (window.pending ? 'Results unavailable' : 'No matches'),
     ...(scroll === undefined ? {} : { scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
@@ -763,6 +738,7 @@ function searchPickerQuerySpans(
 }
 
 function searchPickerSummary(model: SearchPickerModel): string {
+  if (model.pending) return 'Results unavailable';
   return model.input.text.length === 0
     ? `${String(model.totalCount)} options`
     : `${String(model.totalCount)}/${String(model.sourceCount)} ${

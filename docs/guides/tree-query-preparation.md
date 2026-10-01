@@ -1,9 +1,10 @@
 # Preparing large tree queries
 
-`tree()` leaves matching, row projection, collection identity and navigation-index
-construction to runtime preparation. Work yields through the host scheduler and
-observes its abort signal. Synchronous snapshot rendering and `createTreeView()`
-remain synchronous APIs.
+`tree()` and `treeReducer()` require an explicit prepared `view`, or `null` while
+it is pending. Matching, row projection, collection identity and navigation-index
+construction belong to application-owned preparation. Cooperative work yields
+through the host scheduler and observes its abort signal. `createTreeView()` is
+the deliberate synchronous alternative for snapshots or small fixed data.
 
 For an application that must accept edits while a large query is running, use
 [`createTuiPreparedQuery`](./tui.md#prepared-queries) to own replacement, pending,
@@ -34,9 +35,11 @@ completion is accepted. `createTuiPreparedQuery.update` performs that stale-resu
 check; the application keeps tree selection and displayed-state policy explicit. Pass that view to `treeReducer` through its `view`
 option. Passing `view: null` deliberately makes navigation idle while preparation
 is pending; query edits and disclosure transitions remain available. A view for
-a different source, query, expansion or lazy-load state is rejected.
+a different source, query, expansion or lazy-load state is treated as pending; a
+forged result is rejected.
 
-The component reuses the resulting projection from the cache. Cancelling work
+Pass the accepted view to the component as well as its reducer. Neither completes
+missing or stale projections synchronously. Cancelling work
 never publishes partial rows. Source creation and defensive copies of caller-owned
 expansion/load-state arrays are synchronous setup; this API does not move source
 construction off-thread.

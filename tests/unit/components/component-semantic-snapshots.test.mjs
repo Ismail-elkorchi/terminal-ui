@@ -1,3 +1,4 @@
+import { createLogViewerView } from '../../../dist/behavior/index.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../../support/calendar.mjs';
@@ -7,6 +8,8 @@ import {
   createSearchPickerIndex,
   createLogHistory,
   createTreeSource,
+  createTreeView,
+  querySearchPickerIndex,
 } from '../../../dist/behavior/index.js';
 import {
   createMeasuredCollection,
@@ -246,6 +249,7 @@ const cases = [
         id: 'tree',
         source: source,
         state: treeState,
+        view: createTreeView(source, treeState),
         onTransition: (action) => ({ kind: 'tree', action })
       });
     },
@@ -706,14 +710,12 @@ const cases = [
   },
   {
     name: 'logViewer',
-    element: () => logViewer({
-      id: 'logViewer',
-      history: createLogHistory([
-        { id: 'one', text: unsafe },
-        { id: 'two', text: 'Second' }
-      ]),
-      query: { text: 'Second', mode: 'contains' }
-    }),
+    element: () => {
+      const queryResult = createLogViewerView({ history: createLogHistory([
+        { id: 'one', text: unsafe }, { id: 'two', text: 'Second' }
+      ]), query: { text: 'Second', mode: 'contains' } });
+      return logViewer({ id: 'logViewer', history: queryResult.history, query: queryResult.query, view: queryResult });
+    },
     expectText: /Second/u
   },
   {
@@ -729,16 +731,20 @@ const cases = [
   },
   {
     name: 'searchPicker',
-    element: () => searchPicker({ meta: { accessibleName: "Search" },
-      id: 'searchPicker',
-      title: unsafe,
-      searchPickerIndex: createSearchPickerIndex([
+    element: () => {
+      const searchPickerIndex = createSearchPickerIndex([
         { id: 'alpha', label: unsafe, value: 'alpha', preview: 'Preview' },
         { id: 'beta', label: 'Beta', value: 'beta', disabled: true }
-      ]),
+      ]);
+      return searchPicker({ meta: { accessibleName: "Search" },
+      id: 'searchPicker',
+      title: unsafe,
+      searchPickerIndex,
+      queryResult: querySearchPickerIndex(searchPickerIndex, { text: '', mode: 'fuzzy' }),
       view: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' }, activeId: 'alpha' },
       onTransition: (action) => action
-    }),
+    });
+    },
     expectText: /Preview/u,
     expectFocus: true
   },
@@ -749,8 +755,8 @@ const cases = [
       text({ content: 'Second', id: 'grid-two' })
     ], {
       id: 'grid',
-      rows: [{ kind: 'fr', value: 1 }],
-      columns: [{ kind: 'fr', value: 1 }, { kind: 'fr', value: 1 }]
+      rows: [{ kind: 'fill', weight: 1 }],
+      columns: [{ kind: 'fill', weight: 1 }, { kind: 'fill', weight: 1 }]
     }),
     expectText: /Unsafe red text/u
   },
@@ -773,7 +779,7 @@ const cases = [
     ], {
       id: 'split',
       direction: 'horizontal',
-      sizes: [{ kind: 'fr', value: 1 }, { kind: 'fr', value: 1 }]
+      sizes: [{ kind: 'fill', weight: 1 }, { kind: 'fill', weight: 1 }]
     }),
     expectText: /Second/u
   },

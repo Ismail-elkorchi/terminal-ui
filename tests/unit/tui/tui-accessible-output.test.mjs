@@ -387,3 +387,77 @@ test('same-focus state clearing is explicit without repeating unchanged flags or
   assert.equal(accessibleFrameOutput(make({ ...flags, invalid: true }), make({ ...cleared, invalid: false })),
     'Validation cleared (enabled, editable, ready, optional): textbox: Name\n');
 });
+
+for (const focused of [true, false]) {
+  test(`${focused ? 'focused' : 'background'} default false flags and absent flags remain semantically unchanged`, () => {
+    const make = (state) => snapshot([{ id: 'entry', role: 'textbox', label: 'Name', focused, ...state }]);
+    for (const field of ['disabled', 'busy', 'readOnly', 'required', 'invalid']) {
+      assert.equal(accessibleFrameOutput(make({ [field]: false }), make({})), '', `${field} becomes absent`);
+      assert.equal(accessibleFrameOutput(make({}), make({ [field]: false })), '', `${field} becomes false`);
+    }
+  });
+
+  test(`${focused ? 'focused' : 'background'} control deltas distinguish false states from unavailable states`, () => {
+    for (const [role, field, enabled, disabledText] of [
+      ['checkbox', 'checked', true, 'checked:false'],
+      ['button', 'pressed', 'mixed', 'pressed:false'],
+      ['option', 'selected', true, 'not selected'],
+      ['combobox', 'expanded', true, 'collapsed'],
+      ['link', 'current', 'page', 'current:false'],
+    ]) {
+      const make = (state) => snapshot([{ id: 'control', role, label: 'Control', focused, ...state }]);
+      assert.equal(accessibleFrameOutput(make({ [field]: enabled }), make({ [field]: false })),
+        `Changed: ${role}: Control [${disabledText}]\n`, `${field} becomes false`);
+      for (const value of [enabled, false]) {
+        assert.equal(accessibleFrameOutput(make({ [field]: value }), make({})),
+          `Changed: ${role}: Control [${field}:unavailable]\n`, `${field} becomes unavailable`);
+      }
+      assert.equal(accessibleFrameOutput(make({ [field]: false }), make({ [field]: false })), '');
+      assert.equal(accessibleFrameOutput(make({}), make({})), '');
+    }
+  });
+
+  test(`${focused ? 'focused' : 'background'} value removal is explicit, including false and null values`, () => {
+    const make = (state) => snapshot([{ id: 'entry', role: 'textbox', label: 'Name', focused, ...state }]);
+    for (const value of ['Alice', '', false, null, 0]) {
+      assert.equal(accessibleFrameOutput(make({ value }), make({})),
+        'Changed: textbox: Name [value:unavailable]\n', `removing ${String(value)}`);
+      assert.equal(accessibleFrameOutput(make({ value }), make({ value })), '');
+    }
+    assert.equal(accessibleFrameOutput(make({}), make({})), '');
+  });
+
+  test(`${focused ? 'focused' : 'background'} numeric deltas announce unavailable values and removed range bounds`, () => {
+    const make = (state) => snapshot([{ id: 'volume', role: 'slider', label: 'Volume', focused, ...state }]);
+    const numericValue = { current: 15, minimum: 10, maximum: 20 };
+    assert.equal(accessibleFrameOutput(make({ numericValue }), make({})),
+      'Changed: slider: Volume [value:unavailable]\n');
+    assert.equal(accessibleFrameOutput(make({ numericValue }), make({ numericValue: { minimum: 10, maximum: 20 } })),
+      'Changed: slider: Volume [value:unavailable, maximum:20]\n');
+    assert.equal(accessibleFrameOutput(make({ numericValue }), make({ numericValue: { current: 15, maximum: 20 } })),
+      'Changed: slider: Volume [minimum:unavailable]\n');
+    assert.equal(accessibleFrameOutput(make({ numericValue }), make({ numericValue: { current: 15, minimum: 10 } })),
+      'Changed: slider: Volume [value:15, maximum:unavailable]\n');
+    assert.equal(accessibleFrameOutput(make({ numericValue }), make({ numericValue })), '');
+    assert.equal(accessibleFrameOutput(make({ numericValue: { ...numericValue, indeterminate: false } }), make({ numericValue })), '');
+    assert.equal(accessibleFrameOutput(make({}), make({})), '');
+  });
+}
+
+test('removing an indeterminate numeric value from the focused node is explicit', () => {
+  const make = (state) => snapshot([{ id: 'progress', role: 'progressbar', label: 'Progress', focused: true, ...state }]);
+  assert.equal(accessibleFrameOutput(make({ numericValue: { indeterminate: true } }), make({})),
+    'Changed: progressbar: Progress [value:unavailable]\n');
+});
+
+test('losing the last focused control announces cleared focus once, without stale value or edit context', () => {
+  const control = { id: 'entry', role: 'textbox', label: 'Name', focused: true,
+    value: 'Alice', textPosition: { caretOffset: 5 } };
+  const before = snapshot([control]);
+  for (const after of [snapshot([]), snapshot([{ ...control, focused: false }])]) {
+    assert.equal(accessibleFrameOutput(before, after), 'Focus cleared: no focused control\n');
+    assert.equal(accessibleFrameOutput(after, after), '');
+  }
+  const replacement = snapshot([{ id: 'done', role: 'button', label: 'Done', focused: true }]);
+  assert.equal(accessibleFrameOutput(before, replacement), 'Focus: button: Done [focused]\n');
+});

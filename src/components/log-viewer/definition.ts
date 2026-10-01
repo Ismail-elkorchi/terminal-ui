@@ -22,6 +22,7 @@ import {
 import type {
   ComponentAccessibilityInput,
   ComponentInput,
+  ComponentLayoutCommitInput,
   ComponentInteractionInput,
   ComponentMeasureInput,
   ComponentRenderInput,
@@ -55,15 +56,13 @@ import type { FrameCellSource } from '../../visual/frame-source.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
 import { span, wrapRenderSpans } from '../../visual/render-content.ts';
 import type { LogViewerStylePart } from '../style-parts.ts';
-import type { LogViewerSearchResults } from './layout.ts';
+import { assertLogViewerView, logViewerMatchById, matchingLogViewerView, ownLogViewerFoldedIds, type LogViewerView, type LogViewerViewInput } from '../../behavior/log-viewer-view.ts';
+import { createLogViewerRecordView } from '../../behavior/log-viewer-record.ts';
 import {
-  createLogViewerRecordView,
-  logViewerLayout,
+  unwrappedLogViewerLayout,
   logViewerRowForEntry,
-  prepareLogViewerSearch,
-  searchLogViewerHistory,
   visibleLogViewerRecords,
-} from './layout.ts';
+} from '../../behavior/log-viewer-layout.ts';
 import type {
   LogViewerOptions,
   ScrollableLogViewerOptions,
@@ -72,6 +71,7 @@ import type {
 
 interface LogViewerModel {
   readonly history: LogHistory;
+  readonly view: LogViewerView | null;
   readonly wrap: boolean;
   readonly query: CompiledCollectionQuery;
   readonly activeMatchId?: string;
@@ -84,10 +84,10 @@ interface LogViewerModel {
 
 type LogViewerComponentOptions = Omit<
   LogViewerOptions<ComponentMessage>,
-  'id' | 'onTransition' | 'onContextMenu' | 'styles' | 'meta'
+  'id' | 'onTransition' | 'onContextMenu' | 'onLayout' | 'styles' | 'meta'
 >;
 
-type LogViewerComponentAction = LogViewerTransition | {
+type LogViewerComponentAction = LogViewerTransition | { readonly kind: 'layout'; readonly input: LogViewerViewInput } | {
   readonly kind: 'contextMenu';
   readonly event: LogViewerContextMenuEvent;
 };
@@ -114,6 +114,8 @@ interface LogViewerVisibleRow {
 }
 
 interface LogViewerWindow {
+  readonly pending?: boolean;
+  readonly queryPending?: boolean;
   readonly rows: readonly LogViewerVisibleRow[];
   readonly totalRows: number;
   readonly start: number;
@@ -126,9 +128,9 @@ interface LogViewerWindow {
   readonly scrollbar: ReturnType<typeof layoutComponentScrollbar>;
 }
 
+const emptyQuery: { readonly matchingEntries: number; readonly matches: readonly LogSearchMatch[] } = Object.freeze({ matchingEntries: 0, matches: Object.freeze([]) });
+
 const logViewerWindows = new WeakMap<LogViewerModel, Map<string, LogViewerWindow>>();
-// A prepared result must survive other components yielding before this model is painted.
-const preparedSearches = new WeakMap<LogViewerModel, LogViewerSearchResults>();
 
 const parts = [
   'body',
@@ -155,26 +157,24 @@ const baseDefinition = {
   retainPaint: true as const,
   render: renderLogViewer,
   accessibility: logViewerAccessibility,
-  prepare: async ({ model, signal, yield: yieldWork }: import("../../component/contracts.ts").ComponentPreparationInput<LogViewerModel>) => {
-    preparedSearches.set(model, await prepareLogViewerSearch(
-      model.history, model.query, new Set(model.foldedIds), { signal, yield: yieldWork },
-    ));
+  onLayout(input: ComponentLayoutCommitInput<LogViewerModel>) {
+    const wanted = preparationInput(input);
+    if (matchingLogViewerView(wanted, input.model.view) !== undefined) return ignoreMessage();
+    const previous = input.previous;
+    if (previous !== undefined && samePreparation(wanted, preparationInput(previous))) return ignoreMessage();
+    return { kind: 'layout' as const, input: wanted };
   },
 };
 
-const passiveLogViewer = defineComponent<LogViewerComponentOptions>()({ ...baseDefinition, createModel: createLogViewerModel });
+const passiveLogViewer = defineComponent<LogViewerComponentOptions, Extract<LogViewerComponentAction, { readonly kind: 'layout' }>>()({ ...baseDefinition, createModel: createLogViewerModel });
 
 const activeLogViewer = defineComponent<LogViewerComponentOptions, LogViewerComponentAction>()({
   ...baseDefinition,
   createModel: createLogViewerModel,
-  keys: ({ model }) => {
-    const search = preparedSearches.get(model) ?? searchLogViewerHistory(
-      model.history,
-      model.query,
-      new Set(model.foldedIds),
-    );
+  keys: (input) => {
+    const search = matchingLogViewerView(preparationInput(input), input.model.view);
     return {
-      ...(search.matches.length === 0 ? {} : {
+      ...((search?.matches.length ?? 0) === 0 ? {} : {
         arrowUp: () => ({ kind: 'jumpMatch' as const, direction: -1 as const }),
         arrowDown: () => ({ kind: 'jumpMatch' as const, direction: 1 as const }),
       }),
@@ -196,22 +196,23 @@ export function logViewer<const TMessage extends ComponentMessage = never>(
   options: LogViewerOptions<TMessage>,
 ): Element<TMessage> {
   if (options.onTransition === undefined) {
-    return passiveLogViewer(options);
+    const { onLayout, ...componentOptions } = options;
+    return passiveLogViewer({ ...componentOptions, onAction: action => onLayout?.(action.input) ?? ignoreMessage() });
   }
   assertRequiredCallback(options.onTransition, 'logViewer onTransition');
   if (options.scroll === undefined) {
-    const { onTransition, onContextMenu, ...componentOptions } = options;
+    const { onTransition, onContextMenu, onLayout, ...componentOptions } = options;
     return activeLogViewer({
       ...componentOptions,
-      onAction: (action) => action.kind === 'contextMenu'
+      onAction: (action) => action.kind === 'layout' ? onLayout?.(action.input) ?? ignoreMessage() : action.kind === 'contextMenu'
         ? onContextMenu?.(action.event) ?? ignoreMessage()
         : action.kind === 'scroll' ? ignoreMessage() : onTransition(action),
     });
   }
-  const { onTransition, onContextMenu, ...componentOptions } = options;
+  const { onTransition, onContextMenu, onLayout, ...componentOptions } = options;
   return activeLogViewer({
     ...componentOptions,
-    onAction: (action) => action.kind === 'contextMenu'
+    onAction: (action) => action.kind === 'layout' ? onLayout?.(action.input) ?? ignoreMessage() : action.kind === 'contextMenu'
       ? onContextMenu?.(action.event) ?? ignoreMessage()
       : onTransition(action),
   });
@@ -220,12 +221,13 @@ export function logViewer<const TMessage extends ComponentMessage = never>(
 function createLogViewerModel(value: Readonly<LogViewerComponentOptions>): LogViewerModel {
   const history = value.history;
   assertLogHistory(history);
+  if (value.view !== null) assertLogViewerView(value.view);
   const wrap = optionalBoolean(value.wrap, 'logViewer wrap') ?? false;
   const query = compileCollectionQuery(value.query ?? { text: '', mode: 'contains' });
   const activeMatchId = value.activeMatchId === undefined
     ? undefined
     : nonEmpty(value.activeMatchId, 'logViewer activeMatchId');
-  const foldedIds = ownStringArray(value.foldedIds);
+  const foldedIds = ownLogViewerFoldedIds(value.foldedIds);
   const selection = ownLogViewerSelection(value.selection);
   const scroll = decodeComponentScrollState(value.scroll, 'logViewer scroll');
   const scrollbar = decodeComponentScrollbarOptions(value.scrollbar, 'logViewer scrollbar');
@@ -238,6 +240,7 @@ function createLogViewerModel(value: Readonly<LogViewerComponentOptions>): LogVi
   }
   const model: LogViewerModel = {
     history,
+    view: value.view,
     wrap,
     query,
     foldedIds,
@@ -320,18 +323,14 @@ function logViewerWindow(
   const cached = logViewerWindows.get(input.model)?.get(key);
   if (cached !== undefined) return cached;
   const foldedIds = new Set(input.model.foldedIds);
-  const initialLayout = logViewerLayout(
-    input.model.history,
-    input.bounds.width,
-    input.model.wrap,
-    input.widthProfile,
-    foldedIds,
-  );
-  const search = preparedSearches.get(input.model) ?? searchLogViewerHistory(input.model.history, input.model.query, foldedIds);
+  const accepted = matchingLogViewerView(preparationInput(input), input.model.view);
+  if (input.model.wrap && accepted === undefined) return pendingLogWindow(input, styled);
+  const initialLayout = acceptedLogLayout(input, accepted, input.bounds.width);
+  const search = accepted ?? emptyQuery;
   const activeMatch = input.model.activeMatchId === undefined
     ? search.matches[0]
-    : search.matches.find((match) => match.id === input.model.activeMatchId);
-  if (input.model.activeMatchId !== undefined && activeMatch === undefined) {
+    : accepted === undefined ? undefined : logViewerMatchById(accepted, input.model.activeMatchId);
+  if (accepted !== undefined && input.model.activeMatchId !== undefined && activeMatch === undefined) {
     throw new RangeError('logViewer activeMatchId must identify a match for the current query.');
   }
   const firstMatchRow = activeMatch === undefined
@@ -355,13 +354,7 @@ function logViewerWindow(
   });
   const layout = scrollbar.contentBounds.width === input.bounds.width
     ? initialLayout
-    : logViewerLayout(
-      input.model.history,
-      scrollbar.contentBounds.width,
-      input.model.wrap,
-      input.widthProfile,
-      foldedIds,
-    );
+    : acceptedLogLayout(input, accepted, scrollbar.contentBounds.width);
   if (layout !== initialLayout) {
     const scroll = normalizeScrollState(scrollbar.scroll, {
       contentRows: layout.totalRows,
@@ -386,7 +379,7 @@ function logViewerWindow(
       recordRows(
         input,
         createLogViewerRecordView(record, foldedIds.has(record.entry.id)),
-        input.model.query,
+        accepted === undefined ? compileCollectionQuery({ text: '' }) : input.model.query,
         activeMatch,
         selectionForRecord(input.model.history, record, input.model.selection),
         scrollbar.contentBounds.width,
@@ -409,6 +402,7 @@ function logViewerWindow(
     ...(input.model.selection === undefined ? {} : { selection: input.model.selection }),
   });
   const result = {
+    queryPending: accepted === undefined && input.model.query.text.length > 0,
     rows: marked,
     totalRows: layout.totalRows,
     start: visible.startIndex,
@@ -430,7 +424,7 @@ function matchingLogViewerRow(
   input:
     | ComponentInput<LogViewerModel>
     | ComponentInteractionInput<LogViewerModel, LogViewerStylePart>,
-  layout: ReturnType<typeof logViewerLayout>,
+  layout: ReturnType<typeof unwrappedLogViewerLayout>,
   match: LogSearchMatch,
   foldedIds: ReadonlySet<string>,
 ): number | undefined {
@@ -840,8 +834,9 @@ function emptyRow(
     | ComponentInput<LogViewerModel>
     | ComponentInteractionInput<LogViewerModel, LogViewerStylePart>,
   styled: boolean,
+  label = 'No log entries',
 ): LogViewerVisibleRow {
-  const current = neutralSegment(input, 'No log entries', 'empty', 'empty', 'empty', styled);
+  const current = neutralSegment(input, label, 'empty', 'empty', 'empty', styled);
   return {
     id: `${input.id ?? 'log-viewer'}:empty`,
     text: current.text,
@@ -1174,8 +1169,10 @@ function defaultScrollState(
 }
 
 function logViewerDescription(model: LogViewerModel, window: LogViewerWindow): string {
+  if (window.pending) return 'Preparing log layout.';
   const query = model.query.text.length === 0
     ? ''
+    : window.queryPending ? ` Search query: ${model.query.text}. Search pending.`
     : ` Search query: ${model.query.text}. Matching entries: ${String(window.matchCount)}.`;
   const selection = window.selectedText === undefined
     ? ''
@@ -1204,11 +1201,6 @@ function decodeLogViewerAnchor(value: LogViewerBodyAnchor, subject: string): Log
   };
 }
 
-
-function ownStringArray(value: readonly string[] | undefined): readonly string[] {
-  if (value === undefined) return [];
-  return value.map((entry) => sanitizeTerminalText(entry).text);
-}
 
 function optionalBoolean(value: unknown, subject: string): boolean | undefined {
   if (value === undefined) return undefined;
@@ -1259,4 +1251,28 @@ function placeholderSource(
     itemIndex: record.entryIndex,
     ...(selected ? { interactionState: 'selected' } : {}),
   };
+}
+
+function preparationInput(input: ComponentInput<LogViewerModel>): LogViewerViewInput {
+  const { model } = input;
+  const base = { history: model.history, query: model.query, foldedIds: model.foldedIds };
+  return model.wrap ? { ...base, wrap: true, width: input.bounds.width, widthProfile: input.widthProfile } : base;
+}
+function samePreparation(left: LogViewerViewInput, right: LogViewerViewInput): boolean {
+  return left.history === right.history && left.query?.text === right.query?.text && left.query?.mode === right.query?.mode
+    && left.query?.caseSensitive === right.query?.caseSensitive && JSON.stringify(left.foldedIds) === JSON.stringify(right.foldedIds)
+    && left.wrap === right.wrap && left.width === right.width
+    && textWidthProfileKey(left.widthProfile) === textWidthProfileKey(right.widthProfile);
+}
+function pendingLogWindow(input: ComponentInput<LogViewerModel> | ComponentInteractionInput<LogViewerModel, LogViewerStylePart>, styled: boolean): LogViewerWindow {
+  const scrollbar = layoutComponentScrollbar({ bounds: input.bounds, scroll: createScrollState(), contentRows: 0, contentColumns: 0, defaultAxis: 'vertical' });
+  return { pending: true, rows: input.bounds.height > 0 ? [emptyRow(input, styled, 'Preparing log layout…')] : [],
+    totalRows: 0, start: 0, end: 0, omittedBefore: 0, omittedAfter: 0, matchCount: 0, followTail: input.model.scroll?.followTail ?? true, scrollbar };
+}
+
+function acceptedLogLayout(input: ComponentInput<LogViewerModel>, view: LogViewerView | undefined, width: number) {
+  if (!input.model.wrap) return unwrappedLogViewerLayout(input.model.history);
+  const layout = view?.layouts.find(candidate => candidate.width === width);
+  if (layout === undefined) throw new Error('Prepared log view is missing its allocated width.');
+  return layout;
 }

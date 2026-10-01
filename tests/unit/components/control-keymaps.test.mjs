@@ -8,7 +8,7 @@ import {
 import { createTuiRuntime, defineTui } from '../../../dist/tui/index.js';
 import { createMemoryTerminalHost } from '../../../dist/host/index.js';
 import { column } from '../../../dist/layout/index.js';
-import { createTreeSource, createSearchPickerIndex, createSearchPickerState, searchPickerView } from '../../../dist/behavior/index.js';
+import { createTreeView, querySearchPickerIndex, createTreeSource, createSearchPickerIndex, createSearchPickerState, searchPickerView } from '../../../dist/behavior/index.js';
 import { createTextDocument, textCaretAt } from '../../../dist/text/index.js';
 
 const key = (name, modifiers = {}) => ({ kind: 'key', key: name, modifiers });
@@ -114,16 +114,19 @@ test('text area remapping keeps visual wrapped navigation and editing/history se
 
 test('tree and search picker resolve reused keymaps into existing domain transitions', async () => {
   const source = createTreeSource([{ meta: { accessibleName: 'Test control' }, id: 'root', label: 'Root', kind: 'branch', children: [{ meta: { accessibleName: 'Test control' }, id: 'child', label: 'Child', kind: 'leaf' }] }]);
+  const treeState = { expandedIds: [], activeId: 'root', selection: { mode: 'none' } };
+  const treeView = createTreeView(source, treeState);
   const treeSession = await session(() => tree({ meta: { accessibleName: 'Test control' }, id: 'tree', source,
-    state: { expandedIds: [], activeId: 'root', selection: { mode: 'none' } },
+    state: treeState, view: treeView,
     keymap: createTreeKeymap({ expand: [key('l')] }), onTransition: (value) => value }));
   try {
     await treeSession.runtime.handleInputChunk({ data: 'l' });
     assert.deepEqual(treeSession.messages, [{ kind: 'expand', id: 'root' }]);
   } finally { await treeSession.runtime.dispose(); }
   const index = createSearchPickerIndex([{ meta: { accessibleName: 'Test control' }, id: 'one', label: 'One', value: 1 }, { meta: { accessibleName: 'Test control' }, id: 'two', label: 'Two', value: 2 }]);
-  const state = createSearchPickerState({ query: { text: '', mode: 'fuzzy' } }, index);
-  const picker = await session(() => searchPicker({ meta: { accessibleName: 'Test control' }, id: 'picker', searchPickerIndex: index,
+  const queryResult = querySearchPickerIndex(index, { text: '', mode: 'fuzzy' });
+  const state = createSearchPickerState({ query: { text: '', mode: 'fuzzy' }, queryResult }, index);
+  const picker = await session(() => searchPicker({ meta: { accessibleName: 'Test control' }, id: 'picker', searchPickerIndex: index, queryResult,
     view: searchPickerView(state), keymap: createSearchPickerKeymap({ next: [key('n', { ctrl: true })] }),
     onTransition: (value) => value }));
   try {

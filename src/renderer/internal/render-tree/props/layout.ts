@@ -1,8 +1,7 @@
 import type { SplitPaneTransition } from '../../../../behavior/split-pane.ts';
-import type { LayoutSize } from '../../../../geometry/types.ts';
-import type { RenderNodeLayoutProps } from './shared-layout.ts';
+import type { LayoutFlowOptions, LayoutSize } from '../../../../geometry/types.ts';
 
-export type ColumnRenderProps = RenderNodeLayoutProps & { readonly sizes?: readonly LayoutSize[] };
+export type ColumnRenderProps = LayoutFlowOptions & { readonly sizes?: readonly LayoutSize[] };
 
 export interface FlowRenderProps {
   readonly direction: 'horizontal' | 'vertical';
@@ -23,7 +22,7 @@ export interface MeasuredColumnRenderProps {
   readonly totalRows: number;
 }
 
-export interface GridRenderProps extends RenderNodeLayoutProps {
+export interface GridRenderProps extends LayoutFlowOptions {
   readonly rows: readonly LayoutSize[];
   readonly columns: readonly LayoutSize[];
   readonly areas?: readonly (readonly string[])[];
@@ -33,7 +32,7 @@ export interface GridRenderProps extends RenderNodeLayoutProps {
   readonly columnGap?: number;
 }
 
-export type SplitPaneRenderProps<TMessage = never> = RenderNodeLayoutProps & {
+export type SplitPaneRenderProps<TMessage = never> = LayoutFlowOptions & {
   readonly direction: 'horizontal' | 'vertical';
   readonly sizes?: readonly LayoutSize[];
   readonly activeDivider?: number;

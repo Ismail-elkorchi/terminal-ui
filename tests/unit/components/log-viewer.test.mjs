@@ -1,3 +1,4 @@
+import { defaultTextWidthProfile } from '../../../dist/text/index.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -14,9 +15,8 @@ import {
   extractLogViewerSelectionText,
   createLogHistory,
   logHistoryEntryAt,
-  logViewerSearchMatches
+  createLogViewerView
 } from '../../../dist/behavior/index.js';
-import { searchLogViewerHistory } from '../../../dist/components/log-viewer/layout.js';
 import {
   renderFramePlain,
   renderElementFrame
@@ -29,7 +29,7 @@ function entry(index, text = `Row ${index}`) {
 }
 
 test('log viewer rejects structural lookalikes for retained history', () => {
-  assert.throws(() => logViewer({
+  assert.throws(() => logViewer({ view: null,
     id: 'forged-log',
     history: {
       kind: 'log-history',
@@ -42,7 +42,7 @@ test('log viewer rejects structural lookalikes for retained history', () => {
 
 test('log viewer follows the tail by default and marks omitted earlier rows', () => {
   const entries = Array.from({ length: 20 }, (_value, index) => entry(index));
-  const frame = renderElementFrame(logViewer({ id: 'log', history: createLogHistory(entries) }), { columns: 36, rows: 4 });
+  const frame = renderElementFrame(logViewer({ view: null, id: 'log', history: createLogHistory(entries) }), { columns: 36, rows: 4 });
   const output = renderFramePlain(frame);
 
   assert.match(output, /\.\.\. 16 earlier rows omitted \.\.\./u);
@@ -58,7 +58,7 @@ test('log viewer follows the tail by default and marks omitted earlier rows', ()
 
 test('log viewer accepts explicit scroll state and marks omitted later rows', () => {
   const entries = Array.from({ length: 10 }, (_value, index) => entry(index));
-  const frame = renderElementFrame(logViewer({
+  const frame = renderElementFrame(logViewer({ view: null,
     id: 'log',
     history: createLogHistory(entries),
     scroll: createScrollState({ offsetRow: 0, contentRows: 10, viewportRows: 3 })
@@ -74,7 +74,7 @@ test('log viewer accepts explicit scroll state and marks omitted later rows', ()
 });
 
 test('log viewer sanitizes terminal control sequences before rendering and accessibility', () => {
-  const frame = renderElementFrame(logViewer({
+  const frame = renderElementFrame(logViewer({ view: null,
     id: 'safe-log',
     history: createLogHistory([entry(0, 'safe \u001B[31mred\u001B[0m text')])
   }), { columns: 40, rows: 2 });
@@ -90,8 +90,8 @@ test('log viewer search reuses retained segment results and invalidates only app
     (_value, index) => entry(index, `record ${index} searchable`)
   ));
   const query = compileCollectionQuery({ text: 'searchable', mode: 'contains' });
-  const first = searchLogViewerHistory(history, query, new Set());
-  const second = searchLogViewerHistory(history, query, new Set());
+  const first = createLogViewerView({ history, query });
+  const second = createLogViewerView({ history, query });
 
   assert.equal(second.matches.length, 100);
   second.matches.forEach((match, index) => {
@@ -99,7 +99,7 @@ test('log viewer search reuses retained segment results and invalidates only app
   });
 
   const appended = appendLogHistory(history, [{ id: 'new-record', text: 'searchable append' }]);
-  const afterAppend = searchLogViewerHistory(appended, query, new Set());
+  const afterAppend = createLogViewerView({ history: appended, query });
 
   assert.equal(afterAppend.matches.length, 101);
   first.matches.forEach((match, index) => {
@@ -109,7 +109,7 @@ test('log viewer search reuses retained segment results and invalidates only app
 });
 
 test('log viewer renders timestamp, metadata, and entry styles through visible rows', () => {
-  const element = logViewer({
+  const element = logViewer({ view: null,
     id: 'metadata-log',
     history: createLogHistory([{
       id: 'meta-1',
@@ -150,9 +150,10 @@ test('log viewer rendering uses the retained metadata order used for row layout'
     text: 'body'
   }]);
   const record = logHistoryEntryAt(history, 0);
-  const frame = renderElementFrame(logViewer({
+  const preparedLayout1 = createLogViewerView({ history: history, wrap: true, width: 10, widthProfile: defaultTextWidthProfile });
+  const frame = renderElementFrame(logViewer({ view: preparedLayout1,
     id: 'ordered-metadata',
-    history,
+    history: preparedLayout1.history,
     wrap: true
   }), { columns: 10, rows: 5 });
 
@@ -161,7 +162,7 @@ test('log viewer rendering uses the retained metadata order used for row layout'
 });
 
 test('log viewer renders log levels through log theme tokens and lets entry styles refine them', () => {
-  const frame = renderElementFrame(logViewer({
+  const frame = renderElementFrame(logViewer({ view: null,
     id: 'level-log',
     history: createLogHistory([
       { id: 'info', level: 'info', text: 'Server ready' },
@@ -183,7 +184,7 @@ test('log viewer renders folded history as visible document metadata', () => {
     { id: 'a', text: 'alpha\nmore alpha', metadata: { source: 'worker' } },
     { id: 'b', text: 'bravo' }
   ]);
-  const frame = renderElementFrame(logViewer({
+  const frame = renderElementFrame(logViewer({ view: null,
     id: 'folded-log',
     history,
     foldedIds: ['a']
@@ -204,7 +205,7 @@ test('log viewer folding preserves source-local selection anchors', () => {
     anchor: { entryId: 'a', offset: 2 },
     focus: { entryId: 'b', offset: 3 }
   };
-  const frame = renderElementFrame(logViewer({
+  const frame = renderElementFrame(logViewer({ view: null,
     id: 'folded-selection',
     history,
     foldedIds: ['a'],
@@ -217,9 +218,10 @@ test('log viewer folding preserves source-local selection anchors', () => {
 });
 
 test('log viewer wraps visible rows when requested', () => {
-  const frame = renderElementFrame(logViewer({
+  const preparedLayout2 = createLogViewerView({ history: createLogHistory([entry(0, 'abcdef')]), wrap: true, width: 3, widthProfile: defaultTextWidthProfile });
+  const frame = renderElementFrame(logViewer({ view: preparedLayout2,
     id: 'wrapped-log',
-    history: createLogHistory([entry(0, 'abcdef')]),
+    history: preparedLayout2.history,
     wrap: true
   }), { columns: 3, rows: 3 });
 
@@ -230,7 +232,8 @@ test('log viewer wraps visible rows when requested', () => {
 
 test('log viewer search navigates to the first match and exposes match segments', () => {
   const entries = Array.from({ length: 12 }, (_value, index) => entry(index, index === 8 ? 'needle row' : `plain ${index}`));
-  const element = logViewer({ id: 'search-log', history: createLogHistory(entries), query: { text: 'needle' } });
+  const preparedQuery1 = createLogViewerView({ history: createLogHistory(entries), query: { text: 'needle' } });
+  const element = logViewer({ view: preparedQuery1, id: 'search-log', history: preparedQuery1.history, query: { text: 'needle' } });
   const frame = renderElementFrame(element, { columns: 40, rows: 5 });
 
   const matchedCells = frame.cells.filter((cell) => cell.source?.description === 'body.match');
@@ -246,12 +249,14 @@ test('log viewer search navigates to the first match and exposes match segments'
 });
 
 test('wrapped log viewer search centers the row containing the first highlight', () => {
-  const frame = renderElementFrame(logViewer({
-    id: 'wrapped-search-log',
-    history: createLogHistory([{
+  const preparedQuery2 = createLogViewerView({ history: createLogHistory([{
       id: 'long-record',
       text: `${'prefix '.repeat(12)}needle suffix`
-    }]),
+    }]), query: { text: 'needle' } });
+  const preparedLayout3 = createLogViewerView({ history: preparedQuery2.history, query: { text: 'needle' }, wrap: true, width: 8, widthProfile: defaultTextWidthProfile });
+  const frame = renderElementFrame(logViewer({ view: preparedLayout3,
+    id: 'wrapped-search-log',
+    history: preparedLayout3.history,
     query: { text: 'needle' },
     wrap: true
   }), { columns: 8, rows: 5 });
@@ -265,10 +270,12 @@ test('wrapped log viewer search navigates by exact occurrence identity', () => {
     id: 'long-record',
     text: `needle ${'padding '.repeat(8)}needle suffix`
   }]);
-  const matches = logViewerSearchMatches(history, { text: 'needle', mode: 'contains' });
-  const frame = renderElementFrame(logViewer({
+  const matches = createLogViewerView({ history: history, query: { text: 'needle', mode: 'contains' } }).matches;
+  const preparedQuery3 = createLogViewerView({ history: history, query: { text: 'needle' } });
+  const preparedLayout4 = createLogViewerView({ history: preparedQuery3.history, query: { text: 'needle' }, wrap: true, width: 8, widthProfile: defaultTextWidthProfile });
+  const frame = renderElementFrame(logViewer({ view: preparedLayout4,
     id: 'selected-search-occurrence',
-    history,
+    history: preparedLayout4.history,
     query: { text: 'needle' },
     activeMatchId: matches[1]?.id,
     wrap: true
@@ -283,9 +290,10 @@ test('wrapped log viewer search navigates by exact occurrence identity', () => {
 });
 
 test('log viewer counts only queries represented by highlighted spans', () => {
-  const frame = renderElementFrame(logViewer({
+  const preparedQuery4 = createLogViewerView({ history: createLogHistory([{ id: 'split-boundary', timestamp: 'a', text: 'b' }]), query: { text: '] b' } });
+  const frame = renderElementFrame(logViewer({ view: preparedQuery4,
     id: 'span-scoped-search',
-    history: createLogHistory([{ id: 'split-boundary', timestamp: 'a', text: 'b' }]),
+    history: preparedQuery4.history,
     query: { text: '] b' }
   }), { columns: 40, rows: 2 });
 
@@ -299,9 +307,10 @@ test('log viewer counts only queries represented by highlighted spans', () => {
 });
 
 test('log viewer search rejects code-unit substrings inside one grapheme', () => {
-  const frame = renderElementFrame(logViewer({
+  const preparedQuery5 = createLogViewerView({ history: createLogHistory([{ id: 'family', text: 'team 👨‍👩‍👧‍👦' }]), query: { text: '👨' } });
+  const frame = renderElementFrame(logViewer({ view: preparedQuery5,
     id: 'grapheme-scoped-search',
-    history: createLogHistory([{ id: 'family', text: 'team 👨‍👩‍👧‍👦' }]),
+    history: preparedQuery5.history,
     query: { text: '👨' }
   }), { columns: 40, rows: 2 });
 
@@ -313,11 +322,11 @@ test('log viewer search rejects code-unit substrings inside one grapheme', () =>
 });
 
 test('log viewer renders empty and selected text states in high contrast and no color output', () => {
-  const emptyFrame = renderElementFrame(logViewer({
+  const emptyFrame = renderElementFrame(logViewer({ view: null,
     id: 'empty-log',
     history: createLogHistory([])
   }), { columns: 32, rows: 3 }, { theme: highContrastTheme });
-  const selectedFrame = renderElementFrame(logViewer({
+  const selectedFrame = renderElementFrame(logViewer({ view: null,
     id: 'selected-log',
     history: createLogHistory([
       { id: 'alpha', text: 'alpha' },
@@ -362,7 +371,7 @@ test('log viewer selection extraction is pure and sanitized', () => {
 });
 
 test('log viewer maps pointer selection through metadata to canonical body offsets', () => {
-  const regions = renderElementRegions(logViewer({
+  const regions = renderElementRegions(logViewer({ view: null,
     id: 'selectable-log',
     history: createLogHistory([
       { id: 'alpha', timestamp: '10:30', metadata: { source: 'worker' }, text: 'alpha' },
@@ -373,7 +382,7 @@ test('log viewer maps pointer selection through metadata to canonical body offse
     onContextMenu: (event) => ({ context: event }),
   }), { columns: 48, rows: 2 });
   const target = targetById(regions, 'selectable-log:text');
-  const frame = renderElementFrame(logViewer({
+  const frame = renderElementFrame(logViewer({ view: null,
     id: 'selectable-log',
     history: createLogHistory([
       { id: 'alpha', timestamp: '10:30', metadata: { source: 'worker' }, text: 'alpha' },
@@ -428,7 +437,7 @@ test('log viewer maps pointer selection through metadata to canonical body offse
 });
 
 test('scrollable log viewer couples captured drag selection with one controlled scroll step', () => {
-  const regions = renderElementRegions(logViewer({
+  const regions = renderElementRegions(logViewer({ view: null,
     id: 'drag-scroll-log',
     history: createLogHistory([
       { id: 'one', text: 'one' },
@@ -461,9 +470,10 @@ test('scrollable log viewer couples captured drag selection with one controlled 
 });
 
 test('wrapped log viewer preserves selected body source and visual style', () => {
-  const frame = renderElementFrame(logViewer({
+  const preparedLayout5 = createLogViewerView({ history: createLogHistory([{ id: 'alpha', text: 'alpha bravo' }]), wrap: true, width: 5, widthProfile: defaultTextWidthProfile });
+  const frame = renderElementFrame(logViewer({ view: preparedLayout5,
     id: 'wrapped-selection',
-    history: createLogHistory([{ id: 'alpha', text: 'alpha bravo' }]),
+    history: preparedLayout5.history,
     wrap: true,
     selection: {
       anchor: { entryId: 'alpha', offset: 2 },
@@ -478,9 +488,10 @@ test('wrapped log viewer preserves selected body source and visual style', () =>
 });
 
 test('wrapped log viewer selection does not alter cached row geometry', () => {
-  const frame = renderElementFrame(logViewer({
+  const preparedLayout6 = createLogViewerView({ history: createLogHistory([{ id: 'alpha', text: 'abcd' }]), wrap: true, width: 4, widthProfile: defaultTextWidthProfile });
+  const frame = renderElementFrame(logViewer({ view: preparedLayout6,
     id: 'wrapped-selection-markers',
-    history: createLogHistory([{ id: 'alpha', text: 'abcd' }]),
+    history: preparedLayout6.history,
     wrap: true,
     selection: {
       anchor: { entryId: 'alpha', offset: 1 },

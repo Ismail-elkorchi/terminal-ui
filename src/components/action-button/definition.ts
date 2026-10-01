@@ -15,6 +15,7 @@ import type { ElementVisualState } from '../../visual/frame-source.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
 import { inlineSegmentText, normalizeInlineContent } from '../../visual/inline-content.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
+import { mergeTerminalStyles } from '../../visual/terminal-style.ts';
 import type { ComponentDensity } from '../density.ts';
 import type { ButtonPressEvent, ButtonTone } from '../form-controls.ts';
 import { assertPressCallback, measureSpans } from '../shared/form-control-helpers.ts';
@@ -193,6 +194,12 @@ function buttonSpans(input: ButtonVisualInput, focused: boolean): readonly Rende
     buttonToneStyle(input.model.tone, true, input.busy),
     states,
   );
+  const markerStyle = resolveButtonStyle(
+    input,
+    'marker',
+    buttonToneStyle(input.model.tone, true, input.busy),
+    states,
+  );
   const labelStyle = resolveButtonStyle(
     input,
     'label',
@@ -219,12 +226,15 @@ function buttonSpans(input: ButtonVisualInput, focused: boolean): readonly Rende
   );
   const spans: RenderSpan[] = [componentSpan(
     input,
-    compact ? marker : `${marker} `,
-    'frame',
-    'padding.leading',
-    frameStyle,
+    marker,
+    'marker',
+    'marker',
+    markerStyle,
     state,
   )];
+  if (!compact) {
+    spans.push(componentSpan(input, ' ', 'frame', 'padding.leading', frameStyle, state));
+  }
   if (input.model.leading !== undefined) {
     spans.push(...buttonInlineSpans(input, input.model.leading, 'leading', labelStyle, states));
     spans.push(componentSpan(input, ' ', 'frame', 'separator.leading', frameStyle, state));
@@ -256,7 +266,7 @@ function buttonInlineSpans(
     const style = resolveButtonStyle(
       input,
       part,
-      mergeStyles(
+      mergeTerminalStyles(
         base,
         segment.link === undefined
           ? undefined
@@ -316,7 +326,7 @@ function resolveButtonStyle(
   states: readonly Exclude<ElementVisualState, 'default'>[],
 ): TerminalStyle | undefined {
   const state = states.at(-1);
-  const resolvedBase = mergeStyles(
+  const resolvedBase = mergeTerminalStyles(
     base,
     input.model.tone === 'ghost' &&
       (state === 'focused' || state === 'hovered' || state === 'pressed')
@@ -369,14 +379,6 @@ function buttonToneStyle(tone: ButtonTone, frame: boolean, busy: boolean): Termi
     fg: { kind: 'theme', token: frame ? 'control.border' : 'control.foreground' },
     bg: { kind: 'theme', token: 'control.background' },
   };
-}
-
-function mergeStyles(...values: readonly (TerminalStyle | undefined)[]): TerminalStyle | undefined {
-  let result: TerminalStyle = {};
-  for (const value of values) {
-    if (value !== undefined) result = { ...result, ...value };
-  }
-  return Object.keys(result).length === 0 ? undefined : result;
 }
 
 function isButtonTone(value: unknown): value is ButtonTone {

@@ -62,7 +62,10 @@ export function accessibleFrameOutput(
     // Background text, animation and window reorder are silent. The full context
     // remains available on demand; controls still expose consequential state changes.
     if (prior === undefined || controlState(prior, before) === controlState(node, after)) continue;
-    announce(changePrefix(prior, node), node);
+    // Default false flags and absent flags can describe the same semantic state.
+    if (accessibleNodeText(prior, before) === accessibleNodeText(node, after)) continue;
+    announce(changePrefix(prior, node), node,
+      prior.role === node.role ? { node: prior, nodes: before } : undefined);
   }
   return lines.length === 0 ? '' : `${lines.join('\n')}\n`;
 }
@@ -77,6 +80,7 @@ function announceFocus(
 ): void {
   const oldFocus = [...before.values()].find((node) => node.focused === true);
   const focus = [...after.values()].find((node) => node.focused === true);
+  if (oldFocus !== undefined && focus === undefined) lines.push('Focus cleared: no focused control');
   if (focus !== undefined && !announced.has(focus.id) && (oldFocus?.id !== focus.id
     || accessibleNodeText(oldFocus, before) !== accessibleNodeText(focus, after))) {
     const sameControl = oldFocus?.id === focus.id && oldFocus.role === focus.role;
@@ -110,8 +114,8 @@ function controlState(node: AccessibleNode, nodes: ReadonlyMap<string, Accessibl
     node.disabled, node.busy, node.readOnly, node.required, node.invalid, node.errorMessage,
     node.activeDescendant,
     errorText(node, nodes),
-    valueRoles.has(node.role) ? node.value : undefined,
-    valueRoles.has(node.role) ? node.numericValue : undefined,
+    // An absent value differs from an explicitly available null value.
+    valueRoles.has(node.role) ? { value: node.value, numericValue: node.numericValue } : undefined,
   ]);
 }
 

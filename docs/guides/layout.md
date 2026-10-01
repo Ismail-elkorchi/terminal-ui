@@ -46,7 +46,12 @@ min/max dimensions, alignment, justification, overflow, z-index, visibility,
 and focus scope. Tiny terminal sizes should produce clipped or empty regions,
 not crashes.
 
-`decodeLayoutFlowOptions()` validates shared flow semantics and copies retained insets without decoding the containing typed options object.
+Factories validate shared flow semantics and own retained inset and track data.
+Mutating those input insets or tracks after construction cannot change layout.
+Cell counts, gaps, insets, content bounds, and fill weights are safe integers;
+counts are non-negative and fill weights are positive. Percent tracks accept
+finite values from 0 through 100. `decodeLayoutFlowOptions()` provides the same
+shared validation for component authors without decoding unrelated options.
 
 For `surface()`, margin is outside the painted surface, min/max dimensions and
 alignment size the surface itself, and padding is inside its border. A shadow
@@ -54,6 +59,12 @@ uses the final row and column of the surface's visual bounds.
 
 Without explicit sizes, `column()` stacks children at their measured heights;
 use a fill track only for content that should consume remaining rows.
+
+`defineBreakpoints()` returns an owned, deeply frozen map of non-overlapping
+column/row ranges. Boundaries and viewport dimensions are non-negative safe
+integer cell counts. `viewportVariant()` selects the matching range, and
+`responsive()` evaluates its corresponding variant. Direct maps follow the
+same validation as defined maps; use a `default` variant for uncovered sizes.
 
 ## Large collections and scrolling
 

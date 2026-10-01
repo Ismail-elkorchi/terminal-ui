@@ -40,19 +40,19 @@ void test('pending picker edits and stale results do not evaluate queries or exp
   assert.equal(navigated.editor.activeId, undefined);
 });
 
-void test('default picker model defers cold query until cancellable render preparation', async () => {
+void test('pending picker never performs implicit query work during render preparation', async () => {
   const index = createSearchPickerIndex(Array.from({ length: 4096 }, (_, i) => ({
     id: String(i), label: `Incident ${String(i)}`, value: i,
   })));
   const state = createSearchPickerState({ query: { text: 'Incident' }, queryResult: null }, index);
-  const element = searchPicker({ id: 'picker', searchPickerIndex: index, view: searchPickerView(state), onTransition: () => ({ kind: 'change' }) });
+  const element = searchPicker({ id: 'picker', searchPickerIndex: index, queryResult: null, view: searchPickerView(state), onTransition: () => ({ kind: 'change' }) });
   assert.equal(searchPickerIndexStatistics(index).queryEvaluations, 0);
   const controller = new AbortController();
   let yields = 0;
-  await assert.rejects(prepareRenderTree(toRenderNode(element), {
+  await prepareRenderTree(toRenderNode(element), {
     signal: controller.signal,
     yield: () => { yields += 1; controller.abort(new Error('new input')); return Promise.resolve(); },
-  }), /new input/u);
-  assert.equal(yields, 1);
+  });
+  assert.equal(yields, 0);
   assert.equal(searchPickerIndexStatistics(index).cachedQueries, 0);
 });

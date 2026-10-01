@@ -214,15 +214,14 @@ See [API stability](../guides/api-stability.md) for stability labels.
 - [`ComponentMeasureConstraints`](#component-componentmeasureconstraints), [`ComponentMeasureInput`](#component-componentmeasureinput), [`ComponentMessage`](#component-componentmessage), [`ComponentMetadataCapability`](#component-componentmetadatacapability), [`ComponentMetadataOptions`](#component-componentmetadataoptions), [`ComponentModelContext`](#component-componentmodelcontext), [`ComponentPreparationInput`](#component-componentpreparationinput), [`ComponentRenderInput`](#component-componentrenderinput)
 - [`ComponentScrollbarLayout`](#component-componentscrollbarlayout), [`ComponentScrollbarPlan`](#component-componentscrollbarplan), [`ComponentScrollbarThumb`](#component-componentscrollbarthumb), [`ComponentScrollbarTrack`](#component-componentscrollbartrack), [`ComponentSemanticInspection`](#component-componentsemanticinspection), [`ComponentSlotCardinality`](#component-componentslotcardinality), [`ComponentSlotDefinition`](#component-componentslotdefinition), [`ComponentSlotLayout`](#component-componentslotlayout)
 - [`ComponentSlotMessagePolicy`](#component-componentslotmessagepolicy), [`ComponentSlotOwner`](#component-componentslotowner), [`ComponentSlotShape`](#component-componentslotshape), [`ComponentSlotsDefinition`](#component-componentslotsdefinition), [`ComponentStateCapability`](#component-componentstatecapability), [`ComponentStyleInput`](#component-componentstyleinput), [`ComponentStylePartMapping`](#component-componentstylepartmapping), [`ComponentTextInput`](#component-componenttextinput)
-- [`ComponentVisualState`](#component-componentvisualstate), [`DecorativeLeafComponentDefinition`](#component-decorativeleafcomponentdefinition), [`DecorativeLeafComponentFactory`](#component-decorativeleafcomponentfactory), [`DecorativeLeafDefinition`](#component-decorativeleafdefinition), [`Element`](#component-element), [`ElementChildren`](#component-elementchildren), [`ElementChildrenMessage`](#component-elementchildrenmessage), [`ElementMessage`](#component-elementmessage)
-- [`ElementState`](#component-elementstate), [`ElementStyles`](#component-elementstyles), [`ElementVisualState`](#component-elementvisualstate), [`FocusLifecycleEvent`](#component-focuslifecycleevent), [`FocusNavigation`](#component-focusnavigation), [`FocusTargetLifecycleEvent`](#component-focustargetlifecycleevent), [`HitTarget`](#component-hittarget), [`IgnoredMessage`](#component-ignoredmessage)
-- [`IndexedQueryCandidate`](#component-indexedquerycandidate), [`KeyboardBinding`](#component-keyboardbinding), [`MessageResolution`](#component-messageresolution), [`PopupState`](#component-popupstate), [`PopupTransition`](#component-popuptransition), [`QueryCandidate`](#component-querycandidate), [`QueryMatch`](#component-querymatch), [`QueryMatchRange`](#component-querymatchrange)
-- [`RenderBlock`](#component-renderblock), [`RenderLine`](#component-renderline), [`RenderSpan`](#component-renderspan), [`SelectionState`](#component-selectionstate), [`SemanticComposedComponentDefinition`](#component-semanticcomposedcomponentdefinition), [`SemanticCompositeComponentDefinition`](#component-semanticcompositecomponentdefinition), [`SemanticCompositeComponentFactory`](#component-semanticcompositecomponentfactory), [`SemanticLeafComponentDefinition`](#component-semanticleafcomponentdefinition)
-- [`SemanticLeafComponentFactory`](#component-semanticleafcomponentfactory), [`SemanticLeafDefinition`](#component-semanticleafdefinition), [`StagedComponentFactory`](#component-stagedcomponentfactory), [`TerminalStyle`](#component-terminalstyle), [`clipRenderLine`](#component-cliprenderline), [`clipRenderSpans`](#component-cliprenderspans), [`collectionInteractionReducer`](#component-collectioninteractionreducer), [`compareCollectionText`](#component-comparecollectiontext)
-- [`compileCollectionQuery`](#component-compilecollectionquery), [`componentScrollbarHitTargets`](#component-componentscrollbarhittargets), [`decodeComponentScrollPolicy`](#component-decodecomponentscrollpolicy), [`decodeComponentScrollState`](#component-decodecomponentscrollstate), [`decodeComponentScrollbarOptions`](#component-decodecomponentscrollbaroptions), [`decodeTerminalStyle`](#component-decodeterminalstyle), [`defineComponent`](#component-definecomponent), [`defineDecorativeLeafComponent`](#component-definedecorativeleafcomponent)
-- [`defineSemanticLeafComponent`](#component-definesemanticleafcomponent), [`formatKeyboardBinding`](#component-formatkeyboardbinding), [`ignoreMessage`](#component-ignoremessage), [`layoutComponentScrollbar`](#component-layoutcomponentscrollbar), [`line`](#component-line), [`mapComponentStyles`](#component-mapcomponentstyles), [`matchCollectionQuery`](#component-matchcollectionquery), [`measureConstrainedBox`](#component-measureconstrainedbox)
-- [`measureRenderSpans`](#component-measurerenderspans), [`mergeElementStyles`](#component-mergeelementstyles), [`mergeTerminalStyles`](#component-mergeterminalstyles), [`normalizeCollectionInteraction`](#component-normalizecollectioninteraction), [`padRenderLine`](#component-padrenderline), [`paintComponentScrollbar`](#component-paintcomponentscrollbar), [`popupReducer`](#component-popupreducer), [`queryCandidates`](#component-querycandidates)
-- [`span`](#component-span), [`wrapRenderSpans`](#component-wraprenderspans)
+- [`ComponentVisualState`](#component-componentvisualstate), [`DecorativeLeafComponentDefinition`](#component-decorativeleafcomponentdefinition), [`DecorativeLeafComponentFactory`](#component-decorativeleafcomponentfactory), [`Element`](#component-element), [`ElementChildren`](#component-elementchildren), [`ElementChildrenMessage`](#component-elementchildrenmessage), [`ElementMessage`](#component-elementmessage), [`ElementState`](#component-elementstate)
+- [`ElementStyles`](#component-elementstyles), [`ElementVisualState`](#component-elementvisualstate), [`FocusLifecycleEvent`](#component-focuslifecycleevent), [`FocusNavigation`](#component-focusnavigation), [`FocusTargetLifecycleEvent`](#component-focustargetlifecycleevent), [`HitTarget`](#component-hittarget), [`IgnoredMessage`](#component-ignoredmessage), [`IndexedQueryCandidate`](#component-indexedquerycandidate)
+- [`KeyboardBinding`](#component-keyboardbinding), [`MessageResolution`](#component-messageresolution), [`PopupState`](#component-popupstate), [`PopupTransition`](#component-popuptransition), [`QueryCandidate`](#component-querycandidate), [`QueryMatch`](#component-querymatch), [`QueryMatchRange`](#component-querymatchrange), [`RenderBlock`](#component-renderblock)
+- [`RenderLine`](#component-renderline), [`RenderSpan`](#component-renderspan), [`SelectionState`](#component-selectionstate), [`SemanticComposedComponentDefinition`](#component-semanticcomposedcomponentdefinition), [`SemanticCompositeComponentDefinition`](#component-semanticcompositecomponentdefinition), [`SemanticCompositeComponentFactory`](#component-semanticcompositecomponentfactory), [`SemanticLeafComponentDefinition`](#component-semanticleafcomponentdefinition), [`SemanticLeafComponentFactory`](#component-semanticleafcomponentfactory)
+- [`StagedComponentFactory`](#component-stagedcomponentfactory), [`TerminalStyle`](#component-terminalstyle), [`clipRenderLine`](#component-cliprenderline), [`clipRenderSpans`](#component-cliprenderspans), [`collectionInteractionReducer`](#component-collectioninteractionreducer), [`compareCollectionText`](#component-comparecollectiontext), [`compileCollectionQuery`](#component-compilecollectionquery), [`componentScrollbarHitTargets`](#component-componentscrollbarhittargets)
+- [`decodeComponentScrollPolicy`](#component-decodecomponentscrollpolicy), [`decodeComponentScrollState`](#component-decodecomponentscrollstate), [`decodeComponentScrollbarOptions`](#component-decodecomponentscrollbaroptions), [`decodeTerminalStyle`](#component-decodeterminalstyle), [`defineComponent`](#component-definecomponent), [`formatKeyboardBinding`](#component-formatkeyboardbinding), [`ignoreMessage`](#component-ignoremessage), [`layoutComponentScrollbar`](#component-layoutcomponentscrollbar)
+- [`line`](#component-line), [`mapComponentStyles`](#component-mapcomponentstyles), [`matchCollectionQuery`](#component-matchcollectionquery), [`measureConstrainedBox`](#component-measureconstrainedbox), [`measureRenderSpans`](#component-measurerenderspans), [`mergeElementStyles`](#component-mergeelementstyles), [`mergeTerminalStyles`](#component-mergeterminalstyles), [`normalizeCollectionInteraction`](#component-normalizecollectioninteraction)
+- [`padRenderLine`](#component-padrenderline), [`paintComponentScrollbar`](#component-paintcomponentscrollbar), [`popupReducer`](#component-popupreducer), [`queryCandidates`](#component-querycandidates), [`span`](#component-span), [`wrapRenderSpans`](#component-wraprenderspans)
 
 ### @ismail-elkorchi/terminal-ui/layout
 
@@ -242,27 +241,28 @@ See [API stability](../guides/api-stability.md) for stability labels.
 - [`CollectionWindowScopeInput`](#behavior-collectionwindowscopeinput), [`ColorSwatchPickerState`](#behavior-colorswatchpickerstate), [`ComboboxReducerOptions`](#behavior-comboboxreduceroptions), [`CommandCompletion`](#behavior-commandcompletion), [`CommandInputState`](#behavior-commandinputstate), [`CompleteListboxCollection`](#behavior-completelistboxcollection), [`CompleteTreeCollection`](#behavior-completetreecollection), [`ContextMenuState`](#behavior-contextmenustate)
 - [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`CreateAutocompleteComboboxStateInput`](#behavior-createautocompletecomboboxstateinput), [`CreateCommandInputStateInput`](#behavior-createcommandinputstateinput), [`CreateScrollStateInput`](#behavior-createscrollstateinput), [`CreateSearchPickerStateInput`](#behavior-createsearchpickerstateinput), [`CreateTextAreaStateInput`](#behavior-createtextareastateinput), [`DataGridReducerOptions`](#behavior-datagridreduceroptions), [`ExtractLogViewerSelectionTextInput`](#behavior-extractlogviewerselectiontextinput)
 - [`InitialNavigation`](#behavior-initialnavigation), [`ListViewReducerOptions`](#behavior-listviewreduceroptions), [`ListboxReducerOptions`](#behavior-listboxreduceroptions), [`ListboxViewEntry`](#behavior-listboxviewentry), [`LogHistoryRecord`](#behavior-loghistoryrecord), [`LogSearchField`](#behavior-logsearchfield), [`LogSearchMatch`](#behavior-logsearchmatch), [`LogViewerReducerOptions`](#behavior-logviewerreduceroptions)
-- [`LogViewerState`](#behavior-logviewerstate), [`MenuBarState`](#behavior-menubarstate), [`MenuState`](#behavior-menustate), [`MenuTriggerState`](#behavior-menutriggerstate), [`NavigationBoundary`](#behavior-navigationboundary), [`NavigationEntry`](#behavior-navigationentry), [`NavigationPolicy`](#behavior-navigationpolicy), [`NavigationStack`](#behavior-navigationstack)
-- [`NavigationStackTransition`](#behavior-navigationstacktransition), [`NotificationConflictPolicy`](#behavior-notificationconflictpolicy), [`NotificationHistoryEntry`](#behavior-notificationhistoryentry), [`NotificationHistoryReason`](#behavior-notificationhistoryreason), [`NotificationInput`](#behavior-notificationinput), [`NotificationPolicy`](#behavior-notificationpolicy), [`NotificationRecord`](#behavior-notificationrecord), [`NotificationState`](#behavior-notificationstate)
-- [`NotificationTransition`](#behavior-notificationtransition), [`NumberInputAnalysis`](#behavior-numberinputanalysis), [`NumberInputBehaviorOptions`](#behavior-numberinputbehavioroptions), [`NumberInputConfiguration`](#behavior-numberinputconfiguration), [`NumberInputGrammar`](#behavior-numberinputgrammar), [`NumberInputState`](#behavior-numberinputstate), [`NumberInputView`](#behavior-numberinputview), [`PaginationReducerOptions`](#behavior-paginationreduceroptions)
-- [`PaginationState`](#behavior-paginationstate), [`PaginationView`](#behavior-paginationview), [`PaginationWindow`](#behavior-paginationwindow), [`PaginationWindowInput`](#behavior-paginationwindowinput), [`ProgressFrame`](#behavior-progressframe), [`ProgressFrameCell`](#behavior-progressframecell), [`ProgressValueStatus`](#behavior-progressvaluestatus), [`RadioGroupState`](#behavior-radiogroupstate)
-- [`RangeSliderReducerOptions`](#behavior-rangesliderreduceroptions), [`ScrollPolicy`](#behavior-scrollpolicy), [`ScrollRequest`](#behavior-scrollrequest), [`ScrollRequestSource`](#behavior-scrollrequestsource), [`ScrollRequestTarget`](#behavior-scrollrequesttarget), [`ScrollState`](#behavior-scrollstate), [`ScrollTransition`](#behavior-scrolltransition), [`ScrollVisibleWindow`](#behavior-scrollvisiblewindow)
-- [`ScrollWheelPolicy`](#behavior-scrollwheelpolicy), [`ScrollWheelUnit`](#behavior-scrollwheelunit), [`ScrollableAutocompleteComboboxView`](#behavior-scrollableautocompletecomboboxview), [`ScrollableLogViewerState`](#behavior-scrollablelogviewerstate), [`ScrollableSearchPickerState`](#behavior-scrollablesearchpickerstate), [`SearchPickerActiveInput`](#behavior-searchpickeractiveinput), [`SearchPickerIndex`](#behavior-searchpickerindex), [`SearchPickerQueryResult`](#behavior-searchpickerqueryresult)
-- [`SearchPickerReducerOptions`](#behavior-searchpickerreduceroptions), [`SearchPickerState`](#behavior-searchpickerstate), [`SearchPickerWindow`](#behavior-searchpickerwindow), [`SearchPickerWindowInput`](#behavior-searchpickerwindowinput), [`SplitPaneConstraint`](#behavior-splitpaneconstraint), [`SplitPaneDragState`](#behavior-splitpanedragstate), [`SplitPaneLayout`](#behavior-splitpanelayout), [`SplitPaneReducerOptions`](#behavior-splitpanereduceroptions)
-- [`SplitPaneState`](#behavior-splitpanestate), [`SplitPaneTransition`](#behavior-splitpanetransition), [`TabBehaviorItem`](#behavior-tabbehavioritem), [`TableCellValueGetter`](#behavior-tablecellvaluegetter), [`TabsReducerOptions`](#behavior-tabsreduceroptions), [`TextAreaEditHistory`](#behavior-textareaedithistory), [`TextAreaEditPoint`](#behavior-textareaeditpoint), [`TextAreaEditRecord`](#behavior-textareaeditrecord)
-- [`TextAreaHistoryRejection`](#behavior-textareahistoryrejection), [`TextAreaReduction`](#behavior-textareareduction), [`TextAreaState`](#behavior-textareastate), [`TreeReducerOptions`](#behavior-treereduceroptions), [`UnscrolledAutocompleteComboboxView`](#behavior-unscrolledautocompletecomboboxview), [`UnscrolledLogViewerState`](#behavior-unscrolledlogviewerstate), [`UnscrolledSearchPickerState`](#behavior-unscrolledsearchpickerstate), [`VisibleRowSlice`](#behavior-visiblerowslice)
-- [`VisibleRowWindow`](#behavior-visiblerowwindow), [`VisibleRowWindowInput`](#behavior-visiblerowwindowinput), [`VisualizationReducerOptions`](#behavior-visualizationreduceroptions), [`WindowedListboxCollection`](#behavior-windowedlistboxcollection), [`WindowedTreeCollection`](#behavior-windowedtreecollection), [`activeNavigationEntry`](#behavior-activenavigationentry), [`activeNotificationItems`](#behavior-activenotificationitems), [`activeSearchPickerEntry`](#behavior-activesearchpickerentry)
-- [`addDays`](#behavior-adddays), [`addMonths`](#behavior-addmonths), [`adjacentItemId`](#behavior-adjacentitemid), [`appendLogHistory`](#behavior-appendloghistory), [`applyScrollRequest`](#behavior-applyscrollrequest), [`applyTextPointerTransition`](#behavior-applytextpointertransition), [`autocompleteComboboxReducer`](#behavior-autocompletecomboboxreducer), [`autocompleteComboboxView`](#behavior-autocompletecomboboxview)
-- [`barChartReducer`](#behavior-barchartreducer), [`calendarDateId`](#behavior-calendardateid), [`calendarReducer`](#behavior-calendarreducer), [`calendarView`](#behavior-calendarview), [`chartReducer`](#behavior-chartreducer), [`checkboxGroupReducer`](#behavior-checkboxgroupreducer), [`colorSwatchPickerReducer`](#behavior-colorswatchpickerreducer), [`comboboxReducer`](#behavior-comboboxreducer)
-- [`commandInputReducer`](#behavior-commandinputreducer), [`commandInputView`](#behavior-commandinputview), [`commitAutocompleteCombobox`](#behavior-commitautocompletecombobox), [`commitCombobox`](#behavior-commitcombobox), [`compareDates`](#behavior-comparedates), [`contextMenuReducer`](#behavior-contextmenureducer), [`contextMenuView`](#behavior-contextmenuview), [`createAutocompleteComboboxState`](#behavior-createautocompletecomboboxstate)
-- [`createCommandInputState`](#behavior-createcommandinputstate), [`createListboxCollection`](#behavior-createlistboxcollection), [`createLogHistory`](#behavior-createloghistory), [`createNotificationState`](#behavior-createnotificationstate), [`createNumberInputConfiguration`](#behavior-createnumberinputconfiguration), [`createNumberInputState`](#behavior-createnumberinputstate), [`createScrollState`](#behavior-createscrollstate), [`createSearchPickerIndex`](#behavior-createsearchpickerindex)
-- [`createSearchPickerState`](#behavior-createsearchpickerstate), [`createSplitPaneState`](#behavior-createsplitpanestate), [`createTableCollection`](#behavior-createtablecollection), [`createTextAreaState`](#behavior-createtextareastate), [`createTreeCollection`](#behavior-createtreecollection), [`createTreeCollectionFromRows`](#behavior-createtreecollectionfromrows), [`createTreeSource`](#behavior-createtreesource), [`createTreeView`](#behavior-createtreeview)
-- [`dataGridReducer`](#behavior-datagridreducer), [`defaultCalendarFocusSearchLimitDays`](#behavior-defaultcalendarfocussearchlimitdays), [`defaultNavigationPolicy`](#behavior-defaultnavigationpolicy), [`defaultNumberInputConfiguration`](#behavior-defaultnumberinputconfiguration), [`extractLogViewerSelectionText`](#behavior-extractlogviewerselectiontext), [`followTailScrollState`](#behavior-followtailscrollstate), [`heatmapReducer`](#behavior-heatmapreducer), [`indeterminateProgressFrame`](#behavior-indeterminateprogressframe)
-- [`isTreeView`](#behavior-istreeview), [`listViewReducer`](#behavior-listviewreducer), [`listboxReducer`](#behavior-listboxreducer), [`logHistoryEntries`](#behavior-loghistoryentries), [`logHistoryEntryAt`](#behavior-loghistoryentryat), [`logHistoryRecordById`](#behavior-loghistoryrecordbyid), [`logHistoryRecordMatches`](#behavior-loghistoryrecordmatches), [`logViewerReducer`](#behavior-logviewerreducer)
-- [`logViewerSearchMatches`](#behavior-logviewersearchmatches), [`menuBarReducer`](#behavior-menubarreducer), [`menuBarView`](#behavior-menubarview), [`menuReducer`](#behavior-menureducer), [`menuTriggerReducer`](#behavior-menutriggerreducer), [`menuTriggerView`](#behavior-menutriggerview), [`menuView`](#behavior-menuview), [`navigationStackReducer`](#behavior-navigationstackreducer)
-- [`nextLogViewerMatch`](#behavior-nextlogviewermatch), [`nextNotificationExpiry`](#behavior-nextnotificationexpiry), [`normalizeCheckboxGroupState`](#behavior-normalizecheckboxgroupstate), [`normalizeColorSwatchPickerState`](#behavior-normalizecolorswatchpickerstate), [`normalizeRadioGroupState`](#behavior-normalizeradiogroupstate), [`normalizeScrollState`](#behavior-normalizescrollstate), [`notificationHistoryItems`](#behavior-notificationhistoryitems), [`notificationReducer`](#behavior-notificationreducer)
-- [`notificationTransitionFromHistory`](#behavior-notificationtransitionfromhistory), [`numberInputAnalysis`](#behavior-numberinputanalysis), [`numberInputReducer`](#behavior-numberinputreducer), [`numberInputView`](#behavior-numberinputview), [`paginationReducer`](#behavior-paginationreducer), [`paginationView`](#behavior-paginationview), [`paginationWindow`](#behavior-paginationwindow), [`prepareSearchPickerQuery`](#behavior-preparesearchpickerquery)
-- [`prepareTreeView`](#behavior-preparetreeview), [`progressValueStatus`](#behavior-progressvaluestatus), [`radioGroupReducer`](#behavior-radiogroupreducer), [`rangeSliderReducer`](#behavior-rangesliderreducer), [`scrollReducer`](#behavior-scrollreducer), [`searchPickerEntryById`](#behavior-searchpickerentrybyid), [`searchPickerReducer`](#behavior-searchpickerreducer), [`searchPickerView`](#behavior-searchpickerview)
+- [`LogViewerState`](#behavior-logviewerstate), [`LogViewerView`](#behavior-logviewerview), [`LogViewerViewInput`](#behavior-logviewerviewinput), [`MenuBarState`](#behavior-menubarstate), [`MenuState`](#behavior-menustate), [`MenuTriggerState`](#behavior-menutriggerstate), [`NavigationBoundary`](#behavior-navigationboundary), [`NavigationEntry`](#behavior-navigationentry)
+- [`NavigationPolicy`](#behavior-navigationpolicy), [`NavigationStack`](#behavior-navigationstack), [`NavigationStackTransition`](#behavior-navigationstacktransition), [`NotificationConflictPolicy`](#behavior-notificationconflictpolicy), [`NotificationHistoryEntry`](#behavior-notificationhistoryentry), [`NotificationHistoryReason`](#behavior-notificationhistoryreason), [`NotificationInput`](#behavior-notificationinput), [`NotificationPolicy`](#behavior-notificationpolicy)
+- [`NotificationRecord`](#behavior-notificationrecord), [`NotificationState`](#behavior-notificationstate), [`NotificationTransition`](#behavior-notificationtransition), [`NumberInputAnalysis`](#behavior-numberinputanalysis), [`NumberInputBehaviorOptions`](#behavior-numberinputbehavioroptions), [`NumberInputConfiguration`](#behavior-numberinputconfiguration), [`NumberInputGrammar`](#behavior-numberinputgrammar), [`NumberInputState`](#behavior-numberinputstate)
+- [`NumberInputView`](#behavior-numberinputview), [`PaginationReducerOptions`](#behavior-paginationreduceroptions), [`PaginationState`](#behavior-paginationstate), [`PaginationView`](#behavior-paginationview), [`PaginationWindow`](#behavior-paginationwindow), [`PaginationWindowInput`](#behavior-paginationwindowinput), [`ProgressFrame`](#behavior-progressframe), [`ProgressFrameCell`](#behavior-progressframecell)
+- [`ProgressValueStatus`](#behavior-progressvaluestatus), [`RadioGroupState`](#behavior-radiogroupstate), [`RangeSliderReducerOptions`](#behavior-rangesliderreduceroptions), [`ScrollPolicy`](#behavior-scrollpolicy), [`ScrollRequest`](#behavior-scrollrequest), [`ScrollRequestSource`](#behavior-scrollrequestsource), [`ScrollRequestTarget`](#behavior-scrollrequesttarget), [`ScrollState`](#behavior-scrollstate)
+- [`ScrollTransition`](#behavior-scrolltransition), [`ScrollVisibleWindow`](#behavior-scrollvisiblewindow), [`ScrollWheelPolicy`](#behavior-scrollwheelpolicy), [`ScrollWheelUnit`](#behavior-scrollwheelunit), [`ScrollableAutocompleteComboboxView`](#behavior-scrollableautocompletecomboboxview), [`ScrollableLogViewerState`](#behavior-scrollablelogviewerstate), [`ScrollableSearchPickerState`](#behavior-scrollablesearchpickerstate), [`SearchPickerActiveInput`](#behavior-searchpickeractiveinput)
+- [`SearchPickerIndex`](#behavior-searchpickerindex), [`SearchPickerQueryResult`](#behavior-searchpickerqueryresult), [`SearchPickerReducerOptions`](#behavior-searchpickerreduceroptions), [`SearchPickerState`](#behavior-searchpickerstate), [`SearchPickerWindow`](#behavior-searchpickerwindow), [`SearchPickerWindowInput`](#behavior-searchpickerwindowinput), [`SplitPaneConstraint`](#behavior-splitpaneconstraint), [`SplitPaneDragState`](#behavior-splitpanedragstate)
+- [`SplitPaneLayout`](#behavior-splitpanelayout), [`SplitPaneReducerOptions`](#behavior-splitpanereduceroptions), [`SplitPaneState`](#behavior-splitpanestate), [`SplitPaneTransition`](#behavior-splitpanetransition), [`TabBehaviorItem`](#behavior-tabbehavioritem), [`TableCellValueGetter`](#behavior-tablecellvaluegetter), [`TabsReducerOptions`](#behavior-tabsreduceroptions), [`TextAreaEditHistory`](#behavior-textareaedithistory)
+- [`TextAreaEditPoint`](#behavior-textareaeditpoint), [`TextAreaEditRecord`](#behavior-textareaeditrecord), [`TextAreaHistoryRejection`](#behavior-textareahistoryrejection), [`TextAreaReduction`](#behavior-textareareduction), [`TextAreaState`](#behavior-textareastate), [`TreeReducerOptions`](#behavior-treereduceroptions), [`UnscrolledAutocompleteComboboxView`](#behavior-unscrolledautocompletecomboboxview), [`UnscrolledLogViewerState`](#behavior-unscrolledlogviewerstate)
+- [`UnscrolledSearchPickerState`](#behavior-unscrolledsearchpickerstate), [`VisibleRowSlice`](#behavior-visiblerowslice), [`VisibleRowWindow`](#behavior-visiblerowwindow), [`VisibleRowWindowInput`](#behavior-visiblerowwindowinput), [`VisualizationReducerOptions`](#behavior-visualizationreduceroptions), [`WindowedListboxCollection`](#behavior-windowedlistboxcollection), [`WindowedTreeCollection`](#behavior-windowedtreecollection), [`activeNavigationEntry`](#behavior-activenavigationentry)
+- [`activeNotificationItems`](#behavior-activenotificationitems), [`activeSearchPickerEntry`](#behavior-activesearchpickerentry), [`addDays`](#behavior-adddays), [`addMonths`](#behavior-addmonths), [`adjacentItemId`](#behavior-adjacentitemid), [`appendLogHistory`](#behavior-appendloghistory), [`applyScrollRequest`](#behavior-applyscrollrequest), [`applyTextPointerTransition`](#behavior-applytextpointertransition)
+- [`autocompleteComboboxReducer`](#behavior-autocompletecomboboxreducer), [`autocompleteComboboxView`](#behavior-autocompletecomboboxview), [`barChartReducer`](#behavior-barchartreducer), [`calendarDateId`](#behavior-calendardateid), [`calendarReducer`](#behavior-calendarreducer), [`calendarView`](#behavior-calendarview), [`chartReducer`](#behavior-chartreducer), [`checkboxGroupReducer`](#behavior-checkboxgroupreducer)
+- [`colorSwatchPickerReducer`](#behavior-colorswatchpickerreducer), [`comboboxReducer`](#behavior-comboboxreducer), [`commandInputReducer`](#behavior-commandinputreducer), [`commandInputView`](#behavior-commandinputview), [`commitAutocompleteCombobox`](#behavior-commitautocompletecombobox), [`commitCombobox`](#behavior-commitcombobox), [`compareDates`](#behavior-comparedates), [`contextMenuReducer`](#behavior-contextmenureducer)
+- [`contextMenuView`](#behavior-contextmenuview), [`createAutocompleteComboboxState`](#behavior-createautocompletecomboboxstate), [`createCommandInputState`](#behavior-createcommandinputstate), [`createListboxCollection`](#behavior-createlistboxcollection), [`createLogHistory`](#behavior-createloghistory), [`createLogViewerView`](#behavior-createlogviewerview), [`createNotificationState`](#behavior-createnotificationstate), [`createNumberInputConfiguration`](#behavior-createnumberinputconfiguration)
+- [`createNumberInputState`](#behavior-createnumberinputstate), [`createScrollState`](#behavior-createscrollstate), [`createSearchPickerIndex`](#behavior-createsearchpickerindex), [`createSearchPickerState`](#behavior-createsearchpickerstate), [`createSplitPaneState`](#behavior-createsplitpanestate), [`createTableCollection`](#behavior-createtablecollection), [`createTextAreaState`](#behavior-createtextareastate), [`createTreeCollection`](#behavior-createtreecollection)
+- [`createTreeCollectionFromRows`](#behavior-createtreecollectionfromrows), [`createTreeSource`](#behavior-createtreesource), [`createTreeView`](#behavior-createtreeview), [`dataGridReducer`](#behavior-datagridreducer), [`defaultCalendarFocusSearchLimitDays`](#behavior-defaultcalendarfocussearchlimitdays), [`defaultNavigationPolicy`](#behavior-defaultnavigationpolicy), [`defaultNumberInputConfiguration`](#behavior-defaultnumberinputconfiguration), [`extractLogViewerSelectionText`](#behavior-extractlogviewerselectiontext)
+- [`followTailScrollState`](#behavior-followtailscrollstate), [`heatmapReducer`](#behavior-heatmapreducer), [`indeterminateProgressFrame`](#behavior-indeterminateprogressframe), [`isTreeView`](#behavior-istreeview), [`listViewReducer`](#behavior-listviewreducer), [`listboxReducer`](#behavior-listboxreducer), [`logHistoryEntries`](#behavior-loghistoryentries), [`logHistoryEntryAt`](#behavior-loghistoryentryat)
+- [`logHistoryRecordById`](#behavior-loghistoryrecordbyid), [`logHistoryRecordMatches`](#behavior-loghistoryrecordmatches), [`logViewerReducer`](#behavior-logviewerreducer), [`matchingLogViewerView`](#behavior-matchinglogviewerview), [`matchingSearchPickerQuery`](#behavior-matchingsearchpickerquery), [`matchingTreeView`](#behavior-matchingtreeview), [`menuBarReducer`](#behavior-menubarreducer), [`menuBarView`](#behavior-menubarview)
+- [`menuReducer`](#behavior-menureducer), [`menuTriggerReducer`](#behavior-menutriggerreducer), [`menuTriggerView`](#behavior-menutriggerview), [`menuView`](#behavior-menuview), [`navigationStackReducer`](#behavior-navigationstackreducer), [`nextLogViewerMatch`](#behavior-nextlogviewermatch), [`nextNotificationExpiry`](#behavior-nextnotificationexpiry), [`normalizeCheckboxGroupState`](#behavior-normalizecheckboxgroupstate)
+- [`normalizeColorSwatchPickerState`](#behavior-normalizecolorswatchpickerstate), [`normalizeRadioGroupState`](#behavior-normalizeradiogroupstate), [`normalizeScrollState`](#behavior-normalizescrollstate), [`notificationHistoryItems`](#behavior-notificationhistoryitems), [`notificationReducer`](#behavior-notificationreducer), [`notificationTransitionFromHistory`](#behavior-notificationtransitionfromhistory), [`numberInputAnalysis`](#behavior-numberinputanalysis), [`numberInputReducer`](#behavior-numberinputreducer)
+- [`numberInputView`](#behavior-numberinputview), [`paginationReducer`](#behavior-paginationreducer), [`paginationView`](#behavior-paginationview), [`paginationWindow`](#behavior-paginationwindow), [`prepareLogViewerView`](#behavior-preparelogviewerview), [`prepareSearchPickerQuery`](#behavior-preparesearchpickerquery), [`prepareTreeView`](#behavior-preparetreeview), [`progressValueStatus`](#behavior-progressvaluestatus)
+- [`querySearchPickerIndex`](#behavior-querysearchpickerindex), [`radioGroupReducer`](#behavior-radiogroupreducer), [`rangeSliderReducer`](#behavior-rangesliderreducer), [`scrollReducer`](#behavior-scrollreducer), [`searchPickerEntryById`](#behavior-searchpickerentrybyid), [`searchPickerQueryPosition`](#behavior-searchpickerqueryposition), [`searchPickerReducer`](#behavior-searchpickerreducer), [`searchPickerView`](#behavior-searchpickerview)
 - [`searchPickerWindow`](#behavior-searchpickerwindow), [`selectableTreeRows`](#behavior-selectabletreerows), [`selectionFromTextPointerTransition`](#behavior-selectionfromtextpointertransition), [`sliceVisibleRows`](#behavior-slicevisiblerows), [`sortTableRows`](#behavior-sorttablerows), [`splitPaneLayout`](#behavior-splitpanelayout), [`splitPaneReducer`](#behavior-splitpanereducer), [`tabsReducer`](#behavior-tabsreducer)
 - [`textAreaReducer`](#behavior-textareareducer), [`textInputReducer`](#behavior-textinputreducer), [`treeDisclosureTransition`](#behavior-treedisclosuretransition), [`treeNodeMatches`](#behavior-treenodematches), [`treeReducer`](#behavior-treereducer), [`visibleListboxEntries`](#behavior-visiblelistboxentries), [`visibleRowWindow`](#behavior-visiblerowwindow), [`visibleTreeRows`](#behavior-visibletreerows)
 - [`visibleWindowFromScroll`](#behavior-visiblewindowfromscroll)
@@ -628,7 +628,7 @@ export type { ListboxReducerOptions } from './listbox-operations.ts';
 export type { CompleteListboxCollection, ListboxActivateEvent, ListboxCollection, ListboxCollectionItem, ListboxControlTransition, ListboxOption, ListboxOptionMapper, ListboxState, ListboxTransition, ListboxViewEntry, ScrollableListboxState, UnscrolledListboxState, WindowedListboxCollection, } from './listbox.ts';
 export { appendLogHistory, createLogHistory, logHistoryEntries, logHistoryEntryAt, logHistoryRecordById, logHistoryRecordMatches, } from './log-history.ts';
 export type { LogEntry, LogHistory, LogHistoryRecord, LogSearchField, LogSearchMatch, } from './log-history.ts';
-export { followTailScrollState, logViewerReducer, logViewerSearchMatches, nextLogViewerMatch, } from './log-viewer-operations.ts';
+export { followTailScrollState, logViewerReducer, } from './log-viewer-operations.ts';
 export type { LogViewerReducerOptions, LogViewerState, ScrollableLogViewerState, UnscrolledLogViewerState, } from './log-viewer-operations.ts';
 export { extractLogViewerSelectionText } from './log-viewer-selection.ts';
 export type { ExtractLogViewerSelectionTextInput } from './log-viewer-selection.ts';
@@ -652,7 +652,7 @@ export type { ProgressFrame, ProgressFrameCell, ProgressValueStatus } from './pr
 export { rangeSliderReducer } from './range-slider-operations.ts';
 export type { NumericRange, RangeSliderHandle, RangeSliderReducerOptions, RangeSliderState, RangeSliderStepDirection, RangeSliderTransition, RangeSliderValue, } from './range-slider.ts';
 export { applyScrollRequest, createScrollState, normalizeScrollState, scrollReducer, visibleWindowFromScroll, } from './scroll.ts';
-export { createSearchPickerIndex, prepareSearchPickerQuery, searchPickerEntryById } from './search-picker-index.ts';
+export { createSearchPickerIndex, querySearchPickerIndex, prepareSearchPickerQuery, matchingSearchPickerQuery, searchPickerEntryById, searchPickerQueryPosition } from './search-picker-index.ts';
 export type { SearchPickerIndex, SearchPickerQueryResult } from './search-picker-index.ts';
 export { activeSearchPickerEntry, createSearchPickerState, searchPickerReducer, searchPickerView, searchPickerWindow, } from './search-picker-operations.ts';
 export type { CreateSearchPickerStateInput, ScrollableSearchPickerState, SearchPickerActiveInput, SearchPickerReducerOptions, SearchPickerState, SearchPickerWindow, SearchPickerWindowInput, UnscrolledSearchPickerState, } from './search-picker-operations.ts';
@@ -670,7 +670,7 @@ export type { ScrollableTextAreaControlState, TextAreaControlState, TextAreaCont
 export { applyTextPointerTransition, createTextAreaState, selectionFromTextPointerTransition, textAreaReducer, textInputReducer, } from './text-editing.ts';
 export type { CreateTextAreaStateInput, TextAreaEditHistory, TextAreaEditPoint, TextAreaEditRecord, TextAreaHistoryRejection, TextAreaReduction, TextAreaState, } from './text-editing.ts';
 export type { TextInputTransition } from './text-input.ts';
-export { createTreeCollection, createTreeCollectionFromRows, createTreeSource, createTreeView, prepareTreeView, isTreeView, selectableTreeRows, treeDisclosureTransition, treeNodeMatches, treeReducer, visibleTreeRows, } from './tree-operations.ts';
+export { createTreeCollection, createTreeCollectionFromRows, createTreeSource, createTreeView, matchingTreeView, prepareTreeView, isTreeView, selectableTreeRows, treeDisclosureTransition, treeNodeMatches, treeReducer, visibleTreeRows, } from './tree-operations.ts';
 export type { TreeReducerOptions } from './tree-operations.ts';
 export type { CompleteTreeCollection, ScrollableTreeState, TreeCollection, TreeCollectionRow, TreeControlTransition, TreeDisclosureTransition, TreeLoadStatus, TreeState, TreeTransition, TreeVisibleRow, UnscrolledTreeState, WindowedTreeCollection, } from './tree.ts';
 export { sliceVisibleRows, visibleRowWindow } from './visible-row-window.ts';
@@ -680,6 +680,8 @@ export { barChartReducer, chartReducer, heatmapReducer } from './visualization-o
 export type { VisualizationReducerOptions } from './visualization-operations.ts';
 export type { BarChartTransition, ChartTransition, HeatmapTransition, VisualizationActivateEvent, VisualizationState, } from './visualization.ts';
 export type { CooperativeWorkContext } from '../foundation/cooperative-work.ts';
+export { matchingLogViewerView, prepareLogViewerView, createLogViewerView, nextLogViewerMatch } from './log-viewer-view.ts';
+export type { LogViewerViewInput, LogViewerView } from './log-viewer-view.ts';
 
 ```
 
@@ -2143,7 +2145,7 @@ readonly query?: CollectionQuery;
 #### queryResult
 
 ```ts
-readonly queryResult?: SearchPickerQueryResult<unknown> | null;
+readonly queryResult: SearchPickerQueryResult<unknown> | null;
 ```
 
 <a id="behavior-createsearchpickerstateinput-scroll"></a>
@@ -2590,6 +2592,13 @@ export interface LogViewerReducerOptions { … }
 readonly history: LogHistory;
 ```
 
+<a id="behavior-logviewerreduceroptions-view"></a>
+#### view
+
+```ts
+readonly view: LogViewerView | null;
+```
+
 <a id="behavior-logviewerstate"></a>
 ### LogViewerState
 
@@ -2602,6 +2611,68 @@ export type LogViewerState = UnscrolledLogViewerState | ScrollableLogViewerState
 ```
 
 Related types: [`ScrollableLogViewerState`](#behavior-scrollablelogviewerstate), [`UnscrolledLogViewerState`](#behavior-unscrolledlogviewerstate)
+
+<a id="behavior-logviewerview"></a>
+### LogViewerView
+
+interface · beta · [source](../../src/behavior/log-viewer-view.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior` (type only)
+
+Complete query and optional wrapped geometry, published together after preparation.
+
+```ts
+export interface LogViewerView extends LogViewerSearchResult { … }
+```
+
+<a id="behavior-logviewerview-wrap"></a>
+#### wrap
+
+```ts
+readonly wrap: boolean;
+```
+
+<a id="behavior-logviewerview-width"></a>
+#### width
+
+```ts
+readonly width?: number;
+```
+
+<a id="behavior-logviewerview-widthprofile"></a>
+#### widthProfile
+
+```ts
+readonly widthProfile?: TextWidthProfile;
+```
+
+<a id="behavior-logviewerview-layouts"></a>
+#### layouts
+
+```ts
+readonly layouts: readonly LogViewerLayout[];
+```
+
+<a id="behavior-logviewerviewinput"></a>
+### LogViewerViewInput
+
+type · beta · [source](../../src/behavior/log-viewer-view.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior` (type only)
+
+```ts
+export type LogViewerViewInput = LogViewerSearchInput & ({
+    readonly wrap?: false;
+    readonly width?: never;
+    readonly widthProfile?: never;
+} | {
+    readonly wrap: true;
+    readonly width: number;
+    readonly widthProfile: TextWidthProfile;
+});
+```
+
+Related types: [`TextWidthProfile`](#text-textwidthprofile)
 
 <a id="behavior-menubarstate"></a>
 ### MenuBarState
@@ -3834,10 +3905,10 @@ readonly searchPickerIndex: SearchPickerIndex<TValue>;
 <a id="behavior-searchpickeractiveinput-queryresult"></a>
 #### queryResult
 
-Omit for synchronous queries; null means pending, mismatched results remain pending.
+Explicit accepted result; null and mismatched results remain pending.
 
 ```ts
-readonly queryResult?: SearchPickerQueryResult<TValue> | null;
+readonly queryResult: SearchPickerQueryResult<TValue> | null;
 ```
 
 <a id="behavior-searchpickeractiveinput-view"></a>
@@ -3960,10 +4031,10 @@ readonly searchPickerIndex: SearchPickerIndex<TValue>;
 <a id="behavior-searchpickerreduceroptions-queryresult"></a>
 #### queryResult
 
-Omit for synchronous queries; null means pending, mismatched results remain pending.
+Explicit accepted result; null and mismatched results remain pending.
 
 ```ts
-readonly queryResult?: SearchPickerQueryResult<TValue> | null;
+readonly queryResult: SearchPickerQueryResult<TValue> | null;
 ```
 
 <a id="behavior-searchpickerreduceroptions-navigation"></a>
@@ -4002,6 +4073,15 @@ Import from: `@ismail-elkorchi/terminal-ui/behavior` (type only)
 
 ```ts
 export interface SearchPickerWindow<TValue = string> { … }
+```
+
+<a id="behavior-searchpickerwindow-pending"></a>
+#### pending
+
+No accepted result matches the current source and query yet.
+
+```ts
+readonly pending: boolean;
 ```
 
 <a id="behavior-searchpickerwindow-matches"></a>
@@ -4088,10 +4168,10 @@ readonly searchPickerIndex: SearchPickerIndex<TValue>;
 <a id="behavior-searchpickerwindowinput-queryresult"></a>
 #### queryResult
 
-Omit for synchronous queries; null means pending, mismatched results remain pending.
+Explicit accepted result; null and mismatched results remain pending.
 
 ```ts
-readonly queryResult?: SearchPickerQueryResult<TValue> | null;
+readonly queryResult: SearchPickerQueryResult<TValue> | null;
 ```
 
 <a id="behavior-searchpickerwindowinput-query"></a>
@@ -4572,7 +4652,7 @@ readonly source: TreeSource<TMetadata>;
 Prepared projection; null keeps navigation idle while a new projection is pending.
 
 ```ts
-readonly view?: TreeView<TMetadata> | null;
+readonly view: TreeView<TMetadata> | null;
 ```
 
 <a id="behavior-treereduceroptions-navigation"></a>
@@ -5300,6 +5380,21 @@ export declare function createLogHistory(entries: readonly LogEntry[]): LogHisto
 
 Related types: [`LogEntry`](#components-patterns-logentry), [`LogHistory`](#components-patterns-loghistory)
 
+<a id="behavior-createlogviewerview"></a>
+### createLogViewerView
+
+function · beta · [source](../../src/behavior/log-viewer-view.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+Deliberately synchronous preparation for snapshots or small fixed data.
+
+```ts
+export declare function createLogViewerView(input: LogViewerViewInput): LogViewerView;
+```
+
+Related types: [`LogViewerView`](#behavior-logviewerview), [`LogViewerViewInput`](#behavior-logviewerviewinput), [`input`](#prompts-input)
+
 <a id="behavior-createnotificationstate"></a>
 ### createNotificationState
 
@@ -5826,18 +5921,62 @@ export declare function logViewerReducer(
 
 Related types: [`LogViewerReducerOptions`](#behavior-logviewerreduceroptions), [`ScrollableLogViewerState`](#behavior-scrollablelogviewerstate), [`UnscrolledLogViewerState`](#behavior-unscrolledlogviewerstate), [`LogViewerControlTransition`](#components-patterns-logviewercontroltransition), [`LogViewerTransition`](#components-patterns-logviewertransition)
 
-<a id="behavior-logviewersearchmatches"></a>
-### logViewerSearchMatches
+<a id="behavior-matchinglogviewerview"></a>
+### matchingLogViewerView
 
-function · beta · [source](../../src/behavior/log-viewer-operations.ts)
+function · beta · [source](../../src/behavior/log-viewer-view.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/behavior`
 
+A pending/stale view is never completed synchronously by behavior or rendering.
+
 ```ts
-export declare function logViewerSearchMatches(history: LogHistory, query: CollectionQuery): readonly LogSearchMatch[];
+export declare function matchingLogViewerView(input: LogViewerViewInput, view: LogViewerView | null): LogViewerView | undefined;
 ```
 
-Related types: [`LogSearchMatch`](#behavior-logsearchmatch), [`CollectionQuery`](#component-collectionquery), [`LogHistory`](#components-patterns-loghistory)
+Related types: [`LogViewerView`](#behavior-logviewerview), [`LogViewerViewInput`](#behavior-logviewerviewinput), [`input`](#prompts-input)
+
+<a id="behavior-matchingsearchpickerquery"></a>
+### matchingSearchPickerQuery
+
+function · beta · [source](../../src/behavior/search-picker-index.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+Validate caller-owned results without evaluating a missing query.
+
+```ts
+export declare function matchingSearchPickerQuery<
+  TValue
+>(
+  index: SearchPickerIndex<TValue>,
+  query: CollectionQuery,
+  result: SearchPickerQueryResult<TValue> | null
+): SearchPickerQueryResult<TValue> | undefined;
+```
+
+Related types: [`SearchPickerIndex`](#behavior-searchpickerindex), [`SearchPickerQueryResult`](#behavior-searchpickerqueryresult), [`CollectionQuery`](#component-collectionquery)
+
+<a id="behavior-matchingtreeview"></a>
+### matchingTreeView
+
+function · beta · [source](../../src/behavior/tree-operations.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+Validate prepared data without rebuilding a missing projection.
+
+```ts
+export declare function matchingTreeView<
+  TMetadata extends Readonly<Record<string, unknown>>
+>(
+  source: TreeSource<TMetadata>,
+  state: TreeState,
+  view: TreeView<TMetadata> | null
+): TreeView<TMetadata> | undefined;
+```
+
+Related types: [`TreeSource`](#components-collections-treesource), [`TreeState`](#components-collections-treestate), [`TreeView`](#components-collections-treeview)
 
 <a id="behavior-menubarreducer"></a>
 ### menuBarReducer
@@ -5942,19 +6081,21 @@ Related types: [`NavigationStack`](#behavior-navigationstack), [`NavigationStack
 <a id="behavior-nextlogviewermatch"></a>
 ### nextLogViewerMatch
 
-function · beta · [source](../../src/behavior/log-viewer-operations.ts)
+function · beta · [source](../../src/behavior/log-viewer-view.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/behavior`
 
+Navigate the same prepared occurrence domain used by the component.
+
 ```ts
 export declare function nextLogViewerMatch(
-  matches: readonly LogSearchMatch[],
-  activeMatchId: string | undefined,
+  view: LogViewerView,
+  activeId: string | undefined,
   direction: 1 | -1
 ): LogSearchMatch | undefined;
 ```
 
-Related types: [`LogSearchMatch`](#behavior-logsearchmatch)
+Related types: [`LogSearchMatch`](#behavior-logsearchmatch), [`LogViewerView`](#behavior-logviewerview)
 
 <a id="behavior-nextnotificationexpiry"></a>
 ### nextNotificationExpiry
@@ -6156,6 +6297,21 @@ export declare function paginationWindow(input: PaginationWindowInput): Paginati
 
 Related types: [`PaginationWindow`](#behavior-paginationwindow), [`PaginationWindowInput`](#behavior-paginationwindowinput), [`input`](#prompts-input)
 
+<a id="behavior-preparelogviewerview"></a>
+### prepareLogViewerView
+
+function · beta · [source](../../src/behavior/log-viewer-view.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+Query and geometry share the existing effect lifetime; resize reuses retained search.
+
+```ts
+export declare function prepareLogViewerView(input: LogViewerViewInput, context: CooperativeWorkContext): Promise<LogViewerView>;
+```
+
+Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`LogViewerView`](#behavior-logviewerview), [`LogViewerViewInput`](#behavior-logviewerviewinput), [`input`](#prompts-input)
+
 <a id="behavior-preparesearchpickerquery"></a>
 ### prepareSearchPickerQuery
 
@@ -6210,6 +6366,24 @@ export declare function progressValueStatus(value: number, max: number): Progres
 ```
 
 Related types: [`ProgressValueStatus`](#behavior-progressvaluestatus)
+
+<a id="behavior-querysearchpickerindex"></a>
+### querySearchPickerIndex
+
+function · beta · [source](../../src/behavior/search-picker-index.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+```ts
+export declare function querySearchPickerIndex<
+  TValue
+>(
+  index: SearchPickerIndex<TValue>,
+  query?: CollectionQuery
+): SearchPickerQueryResult<TValue>;
+```
+
+Related types: [`SearchPickerIndex`](#behavior-searchpickerindex), [`SearchPickerQueryResult`](#behavior-searchpickerqueryresult), [`CollectionQuery`](#component-collectionquery)
 
 <a id="behavior-radiogroupreducer"></a>
 ### radioGroupReducer
@@ -6272,6 +6446,19 @@ export declare function searchPickerEntryById<TValue>(index: SearchPickerIndex<T
 ```
 
 Related types: [`SearchPickerIndex`](#behavior-searchpickerindex), [`SearchEntry`](#collection-searchentry)
+
+<a id="behavior-searchpickerqueryposition"></a>
+### searchPickerQueryPosition
+
+function · beta · [source](../../src/behavior/search-picker-index.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+```ts
+export declare function searchPickerQueryPosition(result: SearchPickerQueryResult<unknown>, id: string): number | undefined;
+```
+
+Related types: [`SearchPickerQueryResult`](#behavior-searchpickerqueryresult)
 
 <a id="behavior-searchpickerreducer"></a>
 ### searchPickerReducer
@@ -8510,21 +8697,6 @@ The exact factory type generated for a decorative painted component.
 export type DecorativeLeafComponentFactory<TOptions extends object, TPart extends string = never, TIdentity extends ComponentIdentity = 'optional', TMetadata extends readonly ComponentMetadataCapability[] = readonly [], TVisualStates extends readonly ComponentVisualState[] = readonly []> = DecorativeLeafComponent<TOptions, TPart, TIdentity, TMetadata, TVisualStates[number]>;
 ```
 
-<a id="component-decorativeleafdefinition"></a>
-### DecorativeLeafDefinition
-
-type · beta · [source](../../src/component/contracts.ts)
-
-Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
-
-A decorative leaf definition with invariant structure fields supplied by the authoring helper.
-
-```ts
-export type DecorativeLeafDefinition<TOptions extends object = Readonly<Record<never, never>>, TModel extends object = TOptions, TPart extends string = never, TIdentity extends ComponentIdentity = 'optional', TMetadata extends readonly Extract<ComponentMetadataCapability, 'layer' | 'styles'>[] = readonly [], TVisualStates extends readonly ComponentVisualState[] = readonly []> = Omit<DecorativeLeafComponentDefinition<TOptions, TModel, TPart, TIdentity, TMetadata, TVisualStates>, 'structure' | 'semantics'>;
-```
-
-Related types: [`DecorativeLeafComponentDefinition`](#component-decorativeleafcomponentdefinition)
-
 <a id="component-element"></a>
 ### Element
 
@@ -9194,21 +9366,6 @@ The exact factory type generated for a semantic painted component.
 export type SemanticLeafComponentFactory<TOptions extends object, TAction = never, TPart extends string = never, TStates extends readonly ComponentStateCapability[] = readonly [], TIdentity extends ComponentIdentity = 'required', TMetadata extends readonly ComponentMetadataCapability[] = readonly [], TVisualStates extends readonly ComponentVisualState[] = readonly []> = SemanticLeafComponent<TOptions, TAction, TPart, TStates, TIdentity, TMetadata, TVisualStates[number]>;
 ```
 
-<a id="component-semanticleafdefinition"></a>
-### SemanticLeafDefinition
-
-type · beta · [source](../../src/component/contracts.ts)
-
-Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
-
-A semantic leaf definition with invariant structure fields supplied by the authoring helper.
-
-```ts
-export type SemanticLeafDefinition<TOptions extends object = Readonly<Record<never, never>>, TModel extends object = TOptions, TAction = never, TPart extends string = never, TStates extends readonly ComponentStateCapability[] = readonly [], TIdentity extends ComponentIdentity = 'required', TMetadata extends readonly ComponentMetadataCapability[] = readonly [], TVisualStates extends readonly ComponentVisualState[] = readonly []> = SemanticLeafComponentDefinition<TOptions, TModel, TAction, TPart, TStates, TIdentity, TMetadata, TVisualStates> extends infer TDefinition ? TDefinition extends unknown ? Omit<TDefinition, 'structure' | 'semantics'> : never : never;
-```
-
-Related types: [`SemanticLeafComponentDefinition`](#component-semanticleafcomponentdefinition)
-
 <a id="component-stagedcomponentfactory"></a>
 ### StagedComponentFactory
 
@@ -9551,52 +9708,6 @@ export declare function defineComponent<
 ```
 
 Related types: [`ComponentIdentity`](#component-componentidentity), [`ComponentMetadataCapability`](#component-componentmetadatacapability), [`ComponentSlotsDefinition`](#component-componentslotsdefinition), [`ComponentStateCapability`](#component-componentstatecapability), [`ComponentVisualState`](#component-componentvisualstate), [`DecorativeLeafComponentDefinition`](#component-decorativeleafcomponentdefinition), [`DecorativeLeafComponentFactory`](#component-decorativeleafcomponentfactory), [`SemanticComposedComponentDefinition`](#component-semanticcomposedcomponentdefinition), [`SemanticCompositeComponentDefinition`](#component-semanticcompositecomponentdefinition), [`SemanticCompositeComponentFactory`](#component-semanticcompositecomponentfactory), [`SemanticLeafComponentDefinition`](#component-semanticleafcomponentdefinition), [`SemanticLeafComponentFactory`](#component-semanticleafcomponentfactory), [`StagedComponentFactory`](#component-stagedcomponentfactory)
-
-<a id="component-definedecorativeleafcomponent"></a>
-### defineDecorativeLeafComponent
-
-function · beta · [source](../../src/component/definition.ts)
-
-Import from: `@ismail-elkorchi/terminal-ui/component`
-
-```ts
-export declare function defineDecorativeLeafComponent<
-  TOptions extends object = Readonly<Record<never, never>>,
-  TModel extends object = TOptions,
-  const TPart extends string = never,
-  TIdentity extends ComponentIdentity = 'optional',
-  const TMetadata extends readonly Extract<ComponentMetadataCapability, 'layer' | 'styles'>[] = readonly [],
-  const TVisualStates extends readonly ComponentVisualState[] = readonly []
->(
-  definition: DecorativeLeafDefinition<TOptions, TModel, TPart, TIdentity, TMetadata, TVisualStates>
-): DecorativeLeafComponentFactory<TOptions, TPart, TIdentity, TMetadata, TVisualStates>;
-```
-
-Related types: [`ComponentIdentity`](#component-componentidentity), [`ComponentMetadataCapability`](#component-componentmetadatacapability), [`ComponentVisualState`](#component-componentvisualstate), [`DecorativeLeafComponentFactory`](#component-decorativeleafcomponentfactory), [`DecorativeLeafDefinition`](#component-decorativeleafdefinition)
-
-<a id="component-definesemanticleafcomponent"></a>
-### defineSemanticLeafComponent
-
-function · beta · [source](../../src/component/definition.ts)
-
-Import from: `@ismail-elkorchi/terminal-ui/component`
-
-```ts
-export declare function defineSemanticLeafComponent<
-  TOptions extends object = Readonly<Record<never, never>>,
-  TModel extends object = TOptions,
-  TAction = never,
-  const TPart extends string = never,
-  const TStates extends readonly ComponentStateCapability[] = readonly [],
-  TIdentity extends ComponentIdentity = 'required',
-  const TMetadata extends readonly ComponentMetadataCapability[] = readonly [],
-  const TVisualStates extends readonly ComponentVisualState[] = readonly []
->(
-  definition: SemanticLeafDefinition<TOptions, TModel, TAction, TPart, TStates, TIdentity, TMetadata, TVisualStates>
-): SemanticLeafComponentFactory<TOptions, TAction, TPart, TStates, TIdentity, TMetadata, TVisualStates>;
-```
-
-Related types: [`ComponentIdentity`](#component-componentidentity), [`ComponentMetadataCapability`](#component-componentmetadatacapability), [`ComponentStateCapability`](#component-componentstatecapability), [`ComponentVisualState`](#component-componentvisualstate), [`SemanticLeafComponentFactory`](#component-semanticleafcomponentfactory), [`SemanticLeafDefinition`](#component-semanticleafdefinition)
 
 <a id="component-formatkeyboardbinding"></a>
 ### formatKeyboardBinding
@@ -10851,7 +10962,7 @@ export type ValidationLevel = 'info' | 'warning' | 'error';
 
 function · beta · [source](../../src/element/registry.ts)
 
-Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components`
+Import from: `@ismail-elkorchi/terminal-ui/components`
 
 ```ts
 export declare function inspectRegisteredElement(element: ElementValue): ElementInspection;
@@ -13371,7 +13482,7 @@ Related types: [`Element`](#component-element), [`ActivityIndicatorOptions`](#co
 
 function · beta · [source](../../src/components/status.ts)
 
-Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/feedback`
+Import from: `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/feedback`
 
 ```ts
 export declare function isNotificationTone(value: unknown): value is NotificationTone;
@@ -13384,7 +13495,7 @@ Related types: [`NotificationTone`](#components-feedback-notificationtone)
 
 function · beta · [source](../../src/components/status.ts)
 
-Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/feedback`
+Import from: `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/feedback`
 
 ```ts
 export declare function isProcessStatus(value: unknown): value is ProcessStatus;
@@ -13397,7 +13508,7 @@ Related types: [`ProcessStatus`](#components-processstatus)
 
 function · beta · [source](../../src/components/status.ts)
 
-Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/feedback`
+Import from: `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/feedback`
 
 ```ts
 export declare function isStatusBarStatus(value: unknown): value is StatusBarStatus;
@@ -15806,7 +15917,7 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 
 function · beta · [source](../../src/components/status.ts)
 
-Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
+Import from: `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
 ```ts
 export declare function isValidationLevel(value: unknown): value is ValidationLevel;
@@ -18219,7 +18330,7 @@ interface · beta · [source](../../src/components/log-viewer/options.ts)
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/patterns` (type only)
 
 ```ts
-export interface ScrollableLogViewerOptions<TMessage extends ComponentMessage = never> extends LogViewerBaseOptions { … }
+export interface ScrollableLogViewerOptions<TMessage extends ComponentMessage = never> extends LogViewerBaseOptions<TMessage> { … }
 ```
 
 <a id="components-patterns-scrollablelogvieweroptions-scroll"></a>
@@ -18418,7 +18529,7 @@ type · beta · [source](../../src/components/log-viewer/options.ts)
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/patterns` (type only)
 
 ```ts
-export type UnscrolledLogViewerOptions<TMessage extends ComponentMessage = never> = LogViewerBaseOptions & {
+export type UnscrolledLogViewerOptions<TMessage extends ComponentMessage = never> = LogViewerBaseOptions<TMessage> & {
     readonly scroll?: never;
     readonly scrollbar?: never;
     readonly scrollPolicy?: never;
@@ -20830,6 +20941,24 @@ export interface RuntimeInputSource { … }
 read(options?: TerminalInputReadOptions): AsyncIterable<string | Uint8Array>;
 ```
 
+<a id="host-runtimeinputsource-release"></a>
+#### release
+
+Retires native reads without destroying the source; safe when idle and permits later read().
+
+```ts
+release?(): Promise<void>;
+```
+
+<a id="host-runtimeinputsource-dispose"></a>
+#### dispose
+
+Permanently releases owned resources when the host is disposed.
+
+```ts
+dispose?(): Promise<void>;
+```
+
 <a id="host-runtimetarget"></a>
 ### RuntimeTarget
 
@@ -21506,7 +21635,7 @@ read(options?: TerminalInputReadOptions): AsyncIterable<TerminalInputChunk>;
 <a id="host-terminalinput-release"></a>
 #### release
 
-Settles only when the previous reader can no longer consume input.
+Reusable handoff: settles only when the previous reader can no longer consume input.
 
 ```ts
 release?(): Promise<void>;
@@ -26873,10 +27002,14 @@ function · beta · [source](../../src/layout/responsive.ts)
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/layout`
 
 ```ts
-export declare function defineBreakpoints<TBreakpoints extends ResponsiveBreakpointMap>(breakpoints: TBreakpoints): TBreakpoints;
+export declare function defineBreakpoints<
+  TBreakpoints extends ResponsiveBreakpointMap
+>(
+  breakpoints: TBreakpoints
+): Readonly<Record<keyof TBreakpoints, BreakpointRange>>;
 ```
 
-Related types: [`ResponsiveBreakpointMap`](#layout-responsivebreakpointmap)
+Related types: [`BreakpointRange`](#layout-breakpointrange), [`ResponsiveBreakpointMap`](#layout-responsivebreakpointmap)
 
 <a id="layout-flow"></a>
 ### flow

@@ -49,6 +49,10 @@ function stateChanges(
     ? [`${label}:cleared`] : []);
   return [
     ...state.filter((part) => !before.has(part)),
+    ...(['selected', 'checked', 'pressed', 'current', 'expanded'] as const)
+      .filter((field) => prior[field] !== undefined && node[field] === undefined)
+      .map((field) => `${field}:unavailable`),
+    ...numericValueRemovals(prior.numericValue, node.numericValue),
     ...removedRelationships,
     ...(prior.describedBy ?? []).filter((id) => !node.describedBy?.includes(id))
       .map((id) => `described-by:${plain(id)} removed`),
@@ -69,7 +73,7 @@ function interactionState(node: AccessibleNode): readonly string[] {
     ...(node.invalid === undefined || node.invalid === false ? [] : [`invalid:${String(node.invalid)}`]),
     ...(node.checked === undefined ? [] : [`checked:${String(node.checked)}`]),
     ...(node.pressed === undefined ? [] : [`pressed:${String(node.pressed)}`]),
-    ...(node.current === undefined || node.current === false ? [] : [`current:${String(node.current)}`]),
+    ...(node.current === undefined ? [] : [`current:${String(node.current)}`]),
     ...(node.orientation === undefined ? [] : [node.orientation]),
     ...(node.multiSelectable === true ? ['multi-selectable'] : []),
     ...(node.expanded === undefined ? [] : [node.expanded ? 'expanded' : 'collapsed']),
@@ -132,10 +136,23 @@ function relationship(
 function numericValueState(value: NonNullable<AccessibleNode['numericValue']>): readonly string[] {
   if (value.indeterminate === true) return ['value:indeterminate'];
   return [
-    value.current === undefined ? 'value' : `value:${String(value.current)}${value.maximum === undefined ? '' : `/${String(value.maximum)}`}`,
+    value.current === undefined ? 'value:unavailable' : `value:${String(value.current)}${value.maximum === undefined ? '' : `/${String(value.maximum)}`}`,
     ...(value.minimum === undefined ? [] : [`minimum:${String(value.minimum)}`]),
     ...(value.current === undefined && value.maximum !== undefined ? [`maximum:${String(value.maximum)}`] : []),
   ];
+}
+
+function numericValueRemovals(
+  prior: AccessibleNode['numericValue'],
+  next: AccessibleNode['numericValue'],
+): readonly string[] {
+  if (prior === undefined) return [];
+  if (next === undefined) return ['value:unavailable'];
+  // Indeterminate values intentionally omit bounds rather than clearing them.
+  if (prior.indeterminate === true || next.indeterminate === true) return [];
+  return (['minimum', 'maximum'] as const)
+    .filter((field) => prior[field] !== undefined && next[field] === undefined)
+    .map((field) => `${field}:unavailable`);
 }
 
 function positionState(position: AccessibleNode['position']): readonly string[] {

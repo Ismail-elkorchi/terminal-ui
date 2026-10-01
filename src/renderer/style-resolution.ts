@@ -13,7 +13,7 @@ export interface RenderNodeStyleInput {
 
 export function resolveRenderNodeStyle(renderNode: RenderNode, input: RenderNodeStyleInput): TerminalStyle | undefined {
   const activeStates = input.states ?? [];
-  return mergeStyles(
+  return mergeTerminalStyles(
     input.base,
     renderNode.styles?.root,
     input.part === 'root' ? undefined : renderNode.styles?.parts?.[input.part],
@@ -68,8 +68,4 @@ export function themeStyle(token: ThemeColorToken, options: Omit<TerminalStyle, 
     fg: { kind: 'theme', token },
     ...options
   };
-}
-
-export function mergeStyles(...styles: readonly (TerminalStyle | undefined)[]): TerminalStyle | undefined {
-  return mergeTerminalStyles(...styles);
 }

@@ -375,10 +375,6 @@ export function logHistorySegments(history: LogHistory): readonly LogHistorySegm
   return historyData(history).segments;
 }
 
-export function logHistorySegmentHasId(segment: LogHistorySegment, id: string): boolean {
-  return segmentIds.get(segment)?.has(id) === true;
-}
-
 function historyData(history: LogHistory): LogHistoryData {
   const data = dataByHistory.get(history);
   if (data === undefined) throw new TypeError('log history must be created with createLogHistory().');

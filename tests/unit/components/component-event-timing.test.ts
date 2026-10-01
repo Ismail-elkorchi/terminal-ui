@@ -16,7 +16,7 @@ import {
 } from '../../../dist/components/index.js';
 import { defineComponent, ignoreMessage } from '../../../dist/component/index.js';
 import type { TabCloseEvent } from '../../../dist/components/index.js';
-import { createSearchPickerIndex } from '../../../dist/behavior/index.js';
+import { createSearchPickerIndex, querySearchPickerIndex } from '../../../dist/behavior/index.js';
 import { createMemoryTerminalHost } from '../../../dist/host/index.js';
 import type { InputEvent } from '../../../dist/input/index.js';
 import { row } from '../../../dist/layout/index.js';
@@ -30,6 +30,8 @@ void test('component construction and rendering do not execute event handlers', 
     calls += 1;
     return { kind: 'event' };
   };
+  const pickerIndex = createSearchPickerIndex([{ id: 'a', label: 'A', value: 'a' }]);
+  const pickerQueryResult = querySearchPickerIndex(pickerIndex, { text: '', mode: 'fuzzy' });
   const elements = [
     checkbox({ id: 'check', label: 'Check', checked: false, onTransition: message }),
     slider({ meta: { accessibleName: "Slider" }, id: 'slider', label: 'Value', value: 4, onTransition: message }),
@@ -43,7 +45,7 @@ void test('component construction and rendering do not execute event handlers', 
       view: { input: { text: 'a', cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
       onTransition: message
     }),
-    searchPicker({ meta: { accessibleName: "Search" }, id: 'searchPicker', view: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } }, searchPickerIndex: createSearchPickerIndex([{ id: 'a', label: 'A', value: 'a' }]), onTransition: message })
+    searchPicker({ meta: { accessibleName: "Search" }, id: 'searchPicker', view: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } }, searchPickerIndex: pickerIndex, queryResult: pickerQueryResult, onTransition: message })
   ];
 
   for (const element of elements) renderElementFrame(element, { columns: 40, rows: 6 });

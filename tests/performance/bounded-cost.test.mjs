@@ -60,6 +60,8 @@ import {
   createListboxCollection,
   createTableCollection,
   createTreeSource,
+  createTreeView,
+  querySearchPickerIndex,
   dataGridReducer,
   treeReducer
 } from '../../dist/behavior/index.js';
@@ -296,7 +298,7 @@ test('command suggestions retain only a supplied window while preserving global 
 test('large log viewer rendering is bounded by terminal size, not collection size', () => {
   const items = Array.from({ length: 100_000 }, (_value, index) => ({ id: `line-${index}`, text: `Line ${index}` }));
   const history = createLogHistory(items);
-  const frame = renderElementFrame(logViewer({ id: 'large-log-viewer', history }), { columns: 48, rows: 12 });
+  const frame = renderElementFrame(logViewer({ view: null, id: 'large-log-viewer', history }), { columns: 48, rows: 12 });
   const output = renderFramePlain(frame);
 
   assert.match(output, /Line 99999/u);
@@ -319,8 +321,8 @@ test('retained log history pays source normalization once and rendering does not
   const history = createLogHistory(items);
   assert.equal(textReads, items.length);
   textReads = 0;
-  renderElementFrame(logViewer({ id: 'bounded-history', history }), { columns: 48, rows: 12 });
-  renderElementFrame(logViewer({ id: 'bounded-history', history }), { columns: 64, rows: 16 });
+  renderElementFrame(logViewer({ view: null, id: 'bounded-history', history }), { columns: 48, rows: 12 });
+  renderElementFrame(logViewer({ view: null, id: 'bounded-history', history }), { columns: 64, rows: 16 });
 
   assert.equal(textReads, 0);
 });
@@ -396,7 +398,7 @@ test('full frame render stays bounded by terminal size for mixed element trees',
       ],
       rows: Array.from({ length: 1_000 }, (_value, index) => [`Item ${index}`, index])
     }),
-    logViewer({
+    logViewer({ view: null,
       id: 'events',
       history: createLogHistory(Array.from({ length: 1_000 }, (_value, index) => ({ id: `event-${index}`, text: `Event ${index}` })))
     })
@@ -427,8 +429,8 @@ test('append-heavy log viewer diffs stay bounded by visible rows', () => {
   const beforeItems = Array.from({ length: 100_000 }, (_value, index) => ({ id: `line-${index}`, text: `Line ${index}` }));
   const beforeHistory = createLogHistory(beforeItems);
   const afterHistory = appendLogHistory(beforeHistory, [{ id: 'line-100000', text: 'Line 100000' }]);
-  const previous = renderElementFrame(logViewer({ id: 'append-log', history: beforeHistory }), { columns: 48, rows: 8 });
-  const next = renderElementFrame(logViewer({ id: 'append-log', history: afterHistory }), { columns: 48, rows: 8 });
+  const previous = renderElementFrame(logViewer({ view: null, id: 'append-log', history: beforeHistory }), { columns: 48, rows: 8 });
+  const next = renderElementFrame(logViewer({ view: null, id: 'append-log', history: afterHistory }), { columns: 48, rows: 8 });
   const diff = diffFrames(previous, next);
 
   assert.match(renderFramePlain(next), /Line 100000/u);
@@ -743,6 +745,7 @@ test('large tree rendering is bounded by terminal size independently from node c
     meta: { accessibleName: 'Large tree' },
     source: source,
     state: treeState,
+    view: createTreeView(source, treeState),
     onTransition: () => ignoreMessage()
   }), { columns: 40, rows: 10 });
 
@@ -775,7 +778,9 @@ test('retained tree collections avoid recursive flattening on rerender and movem
 
   assert.ok(nodeIdReads >= children.length);
   nodeIdReads = 0;
+  const preparedTree = createTreeView(source, initial);
   renderElementFrame(tree({
+    view: preparedTree,
     id: 'retained-tree',
     meta: { accessibleName: 'Retained tree' },
     source,
@@ -783,6 +788,7 @@ test('retained tree collections avoid recursive flattening on rerender and movem
     onTransition: () => ignoreMessage()
   }), { columns: 40, rows: 10 });
   renderElementFrame(tree({
+    view: preparedTree,
     id: 'retained-tree',
     meta: { accessibleName: 'Retained tree' },
     source,
@@ -794,7 +800,7 @@ test('retained tree collections avoid recursive flattening on rerender and movem
     onTransition: () => ignoreMessage()
   }), { columns: 48, rows: 12 });
   const state = treeReducer(initial, { kind: 'moveActive', delta: 1 }, {
-    source,
+    source, view: preparedTree,
   });
 
   assert.equal(state.activeId, 'node-25001');
@@ -821,8 +827,11 @@ test('searchPicker filtering returns bounded windows for large entry sets', () =
     value: index,
     keywords: [`tag-${index % 25}`]
   }));
+  const searchPickerIndex = createSearchPickerIndex(entries);
+  const queryResult = querySearchPickerIndex(searchPickerIndex, { text: '19999', mode: 'fuzzy' });
   const frame = renderElementFrame(searchPicker({
     id: 'large-searchPicker',
+    queryResult,
     meta: { accessibleName: 'Large search' },
     view: {
       input: { text: '19999', cursor: 5 },
@@ -830,7 +839,7 @@ test('searchPicker filtering returns bounded windows for large entry sets', () =
       activeId: 'entry-19999'
     },
     maxVisible: 5,
-    searchPickerIndex: createSearchPickerIndex(entries),
+    searchPickerIndex,
     onTransition: (transition) => transition
   }), { columns: 48, rows: 8 });
 

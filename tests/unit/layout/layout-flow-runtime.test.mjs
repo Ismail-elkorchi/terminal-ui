@@ -20,7 +20,8 @@ import {
 import { createTextDocument, textCaretAt } from '../../../dist/text/index.js';
 import {
   createCommandSuggestions,
-  createSearchPickerIndex
+  createSearchPickerIndex,
+  querySearchPickerIndex
 } from '../../../dist/behavior/index.js';
 import { createMeasuredCollection, measuredWindow } from '../../../dist/collection/index.js';
 
@@ -218,7 +219,7 @@ test('flow and anchored layouts reject invalid runtime geometry options', () => 
   );
   assert.throws(
     () => flow([text({ content: 'value' })], { direction: 'horizontal', gap: Number.NaN }),
-    /flow\(\) gap must be finite/u
+    /flow\(\) gap must be a non-negative safe integer/u
   );
   assert.throws(
     () => anchored(text({ content: 'value' }), {
@@ -417,10 +418,13 @@ test('wrapped text-area content tracks retain intrinsic width', () => {
 });
 
 test('searchPicker content tracks use the active text-width profile', () => {
+  const pickerIndex = createSearchPickerIndex([{ id: 'emoji', label: '🙂'.repeat(10), value: 'emoji' }]);
+  const queryResult = querySearchPickerIndex(pickerIndex, { text: '', mode: 'fuzzy' });
   const element = row([
     searchPicker({ meta: { accessibleName: "Search" },
       id: 'profiled-searchPicker',
-      searchPickerIndex: createSearchPickerIndex([{ id: 'emoji', label: '🙂'.repeat(10), value: 'emoji' }]),
+      searchPickerIndex: pickerIndex,
+      queryResult,
       view: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } },
       onTransition: (action) => action
     }),

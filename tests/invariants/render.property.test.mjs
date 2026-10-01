@@ -1,3 +1,4 @@
+import { createLogViewerView } from '../../dist/behavior/index.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createLogHistory } from '../../dist/behavior/index.js';
@@ -107,12 +108,14 @@ test('log viewer cached retained data produces the same frames as fresh data acr
         id: 'history',
         history,
         wrap: current.wrap,
-        query: { text: current.searchQuery, mode: 'contains' }
+        query: { text: current.searchQuery, mode: 'contains' },
+        view: createLogViewerView({ history, query: { text: current.searchQuery, mode: 'contains' }, ...(current.wrap ? { wrap: true, width: current.columns, widthProfile } : {}) })
       };
       renderElementFrame(logViewer(options), current, { widthProfile });
       const cached = renderElementFrame(logViewer(options), current, { widthProfile });
       const freshItems = items.map((item) => ({ ...item, metadata: { ...item.metadata } }));
-      const fresh = renderElementFrame(logViewer({ ...options, history: createLogHistory(freshItems) }), current, { widthProfile });
+      const freshHistory = createLogHistory(freshItems);
+      const fresh = renderElementFrame(logViewer({ ...options, history: freshHistory, view: createLogViewerView({ history: freshHistory, query: options.query, ...(current.wrap ? { wrap: true, width: current.columns, widthProfile } : {}) }) }), current, { widthProfile });
       const detail = `columns=${String(current.columns)} rows=${String(current.rows)} wrap=${String(current.wrap)} query=${current.searchQuery}`;
 
       assert.deepEqual(cached, fresh, detail);

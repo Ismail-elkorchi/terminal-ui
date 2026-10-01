@@ -1,3 +1,4 @@
+import { settleResourceDisposal } from './dispose.ts';
 import type {
   NodeReadableTerminalStream,
   TerminalInput,
@@ -254,9 +255,7 @@ class IterableNodeInputIterator implements ClosableNodeInputIterator {
       }
       return { done: false, value: { data: result.value } };
     } catch (cause) {
-      if (this.isClosing()) return { done: true, value: undefined };
-      this.finish();
-      if (isPrematureClose(cause)) return { done: true, value: undefined };
+      if (!this.isClosing()) this.finish();
       throw inputError(cause);
     } finally {
       this.#readPending = false;
@@ -275,13 +274,13 @@ class IterableNodeInputIterator implements ClosableNodeInputIterator {
     const sourceClose = Promise.resolve()
       .then(async () => this.#source.return?.())
       .then(() => undefined);
-    this.#closePromise = Promise.allSettled([
-      sourceRead ?? Promise.resolve(),
-      sourceClose
-    ]).then((results) => {
+    // Observe early close rejection while pending-read retirement is still awaited.
+    void sourceClose.catch(() => undefined);
+    this.#closePromise = settleResourceDisposal([
+      async () => { await sourceRead; },
+      async () => sourceClose
+    ]).then(() => {
       this.#closed = true;
-      const closeResult = results[1];
-      if (closeResult.status === 'rejected') throw closeResult.reason;
       this.notifyClosed();
     });
     return this.#closePromise;
@@ -325,10 +324,4 @@ function inputError(cause: unknown): Error {
   if (cause instanceof Error) return cause;
   if (typeof cause === 'string') return new Error(cause);
   return new Error('Node terminal input failed.');
-}
-
-function isPrematureClose(cause: unknown): boolean {
-  return cause instanceof Error
-    && 'code' in cause
-    && cause.code === 'ERR_STREAM_PREMATURE_CLOSE';
 }

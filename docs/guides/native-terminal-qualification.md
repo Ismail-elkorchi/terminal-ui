@@ -146,3 +146,21 @@ python3 tests/emulator/native-session-pty.py --runtime=bun --executable=bun --ou
 Each run saves per-case reports, raw synthetic terminal output and a summary.
 It is a real Unix PTY transport regression, not a terminal emulator or physical
 accessibility test.
+
+### Native input handoff and suspension
+
+The independent `native-input-handoff-pty.test.mjs` integration regression uses
+ASCII sentinels, so it does not depend on the Bun Unicode caret path above. For
+each available runtime it repeats three pending-read/release cycles, checks that
+an inherited-stdin subprocess receives `C`, and verifies a replacement reader
+receives `R`. It also repeats three `runTui()` effect calls to
+`context.withTerminalSuspended()` in each of visual and accessible output modes,
+checking that the child receives `C` and the resumed UI receives `R`. The Unix
+PTY supervisor observes natural process exit without a forced `process.exit()`
+in the fixture and exact termios restoration; a timeout is a failure. Run it
+with `node --test tests/integration/native-input-handoff-pty.test.mjs` after
+building. Optional `TERMINAL_UI_NODE_EXECUTABLE`, `TERMINAL_UI_DENO_EXECUTABLE`
+and `TERMINAL_UI_BUN_EXECUTABLE` environment variables select exact runtime
+binaries instead of the current Node executable and `deno`/`bun` on `PATH`.
+Failed runs retain event journals, terminal output and supervisor exit evidence;
+passing this ASCII-only check does not qualify Bun's separate Unicode path.

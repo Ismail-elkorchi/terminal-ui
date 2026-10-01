@@ -5,11 +5,12 @@ import type { ThemeColorToken } from '../../visual/color.ts';
 import type { FrameCellSource } from '../../visual/frame-source.ts';
 import { renderNodeFrameSource } from '../../visual/frame-source.ts';
 import type { TerminalStyle } from '../../visual/render-content.ts';
+import { mergeTerminalStyles } from '../../visual/terminal-style.ts';
 import type { SurfaceAppearance } from '../../visual/surface-appearance.ts';
 import type { BorderStyle, BorderTitle } from '../border.ts';
 import { borderStyleFromValue, drawBorder } from '../border.ts';
 import type { RenderTarget } from '../contracts.ts';
-import { mergeStyles, resolveRenderNodeStyle } from '../style-resolution.ts';
+import { resolveRenderNodeStyle } from '../style-resolution.ts';
 import { renderBorderTitle } from './border-title.ts';
 import type { RenderNodeOfKind } from './render-tree/types.ts';
 
@@ -145,7 +146,7 @@ function surfaceBorderStyle(
 ): BorderStyle {
   if (border.kind === 'none') return border;
   const appearanceStyle = appearance === undefined ? undefined : surfaceBorderTokenStyle(appearance);
-  const style = mergeStyles(
+  const style = mergeTerminalStyles(
     resolveRenderNodeStyle(renderNode, {
       part: 'border',
       ...(appearanceStyle === undefined ? {} : { base: appearanceStyle })

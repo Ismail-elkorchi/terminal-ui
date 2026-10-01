@@ -18,6 +18,30 @@ assertEqual(host.runtime, 'memory', `${runtime}:memoryHostRuntime`);
 const defaultHost = root.createTerminalHost();
 assertEqual(defaultHost.runtime, runtime, `${runtime}:defaultHostRuntime`);
 
+const scheduledTimeout = globalThis.setTimeout;
+let zeroSleepTimers = 0;
+globalThis.setTimeout = (...args) => { zeroSleepTimers++; return scheduledTimeout(...args); };
+let yielded;
+try { yielded = defaultHost.clock.sleep(0); }
+finally { globalThis.setTimeout = scheduledTimeout; }
+let completedYield = false;
+void yielded.then(() => { completedYield = true; });
+await Promise.resolve();
+assertEqual(completedYield, false, `${runtime}:zeroSleepLeavesMicrotasks`);
+assertEqual(await yielded, 'elapsed', `${runtime}:zeroSleepOutcome`);
+assertEqual(zeroSleepTimers, 0, `${runtime}:zeroSleepWithoutClampedTimer`);
+assertEqual(await defaultHost.clock.sleep(1), 'elapsed', `${runtime}:positiveSleepOutcome`);
+for (const milliseconds of [0, 1000]) {
+  const controller = new globalThis.AbortController();
+  const sleeping = defaultHost.clock.sleep(milliseconds, controller.signal);
+  controller.abort();
+  assertEqual(await sleeping, 'aborted', `${runtime}:sleepCancellation`);
+  assertEqual(await defaultHost.clock.sleep(milliseconds, controller.signal), 'aborted', `${runtime}:preAbortedSleep`);
+}
+await defaultHost.dispose();
+await host.dispose();
+
+
 let deepCause = { leaf: true };
 for (let depth = 0; depth < 2_000; depth += 1) deepCause = { next: deepCause };
 assertEqual(

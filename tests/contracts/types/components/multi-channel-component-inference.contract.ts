@@ -19,7 +19,7 @@ import { createTextDocument, textCaretAt } from '@ismail-elkorchi/terminal-ui/te
 export type MessageOf<TElement> = TElement extends Element<infer TMessage> ? TMessage : never;
 export type Assert<TValue extends true> = TValue;
 
-const explorer = tree({
+const explorer = tree({ view: null,
   id: 'explorer',
   source: createTreeSource([{ id: 'src', label: 'src', kind: 'lazy' }]),
   state: { activeId: 'src', selection: { mode: 'none' }, expandedIds: [] },
@@ -40,7 +40,7 @@ const commands = commandInput({
   onSubmit: (event) => ({ kind: 'commandSubmit' as const, event }),
 });
 
-const search = searchPicker({
+const search = searchPicker({ queryResult: null,
   id: 'search',
   view: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } },
   searchPickerIndex: createSearchPickerIndex([{ id: 'open', label: 'Open', value: 1 }]),

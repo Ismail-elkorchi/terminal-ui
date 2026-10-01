@@ -6,6 +6,8 @@ import {
   createLogHistory,
   createSearchPickerIndex,
   createTreeSource,
+  createTreeView,
+  querySearchPickerIndex,
 } from '../../../dist/behavior/index.js';
 import { ignoreMessage } from '../../../dist/component/index.js';
 
@@ -30,7 +32,7 @@ import {
   menu as createMenu,
   menuBar as createMenuBar,
   notificationRegion,
-  searchPicker as createSearchPicker,
+  searchPicker,
   progressBar,
   logViewer,
   slider as createSlider,
@@ -41,7 +43,7 @@ import {
   textArea,
   textInput as createTextInput,
   switchControl as createToggleSwitch,
-  tree as createTree
+  tree
 } from '../../../dist/components/index.js';
 import { createTextDocument, terminalTextWidth, textCaretAt } from '../../../dist/text/index.js';
 import { defaultTheme, noColorTheme } from '../../../dist/theme/index.js';
@@ -119,14 +121,6 @@ function tabs(options) {
   });
 }
 
-function searchPicker(options) {
-  return createSearchPicker({ meta: { accessibleName: "Search" },
-    view: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } },
-    onTransition: noMessage,
-    ...options
-  });
-}
-
 function commandInput(options) {
   return createCommandInput({ meta: { accessibleName: "Command input" },
     onTransition: noMessage,
@@ -147,17 +141,6 @@ function dataGrid(options) {
     state: { interaction: { kind: 'row', selection: { mode: 'single' } } },
     onTransition: noMessage,
     ...options
-  });
-}
-
-function tree(options) {
-  const { nodes, state = { expandedIds: [], selection: { mode: 'none' } }, ...rest } = options;
-  const source = createTreeSource(nodes);
-  return createTree({ meta: { accessibleName: "Tree" },
-    state,
-    source: source,
-    onTransition: noMessage,
-    ...rest
   });
 }
 
@@ -232,10 +215,10 @@ test('button states use shared styles and structural markers', () => {
   assert.equal(styleFor(pendingFrame, 'S')?.fg?.token, 'status.pending');
   assert.equal(styleFor(destructiveFrame, 'D')?.fg?.token, 'status.error');
   assert.equal(styleFor(disabledFrame, 'D')?.fg?.token, 'text.disabled');
-  assert.equal(focusedFrame.cells.find((cell) => cell.text === '›')?.source?.description, 'padding.leading');
+  assert.equal(focusedFrame.cells.find((cell) => cell.text === '›')?.source?.description, 'marker');
   assert.equal(focusedFrame.cells.some((cell) => cell.source?.description === 'frame.open'), false);
-  assert.equal(pendingFrame.cells.find((cell) => cell.text === 'i')?.source?.description, 'padding.leading');
-  assert.equal(destructiveFrame.cells.find((cell) => cell.text === '×')?.source?.description, 'padding.leading');
+  assert.equal(pendingFrame.cells.find((cell) => cell.text === 'i')?.source?.description, 'marker');
+  assert.equal(destructiveFrame.cells.find((cell) => cell.text === '×')?.source?.description, 'marker');
   assert.equal(disabledFrame.cells.find((cell) => cell.source?.description === 'padding.leading')?.text, ' ');
   assert.equal(disabledFrame.cells.find((cell) => cell.text === 'D')?.source?.description, 'label.text');
   assert.equal(focusedFrame.cells.find((cell) => cell.row === 1 && cell.column === 16)?.style?.bg?.token, 'control.background');
@@ -302,10 +285,15 @@ test('menu searchPicker dataGrid and tree use selected placeholder and title slo
             states: { selected: { root: tokenStyle('status.success') } }
         }
 }), { columns: 20, rows: 1 });
-  const searchPickerFrame = renderElementFrame(searchPicker({ meta: { accessibleName: "Search" },
+  const pickerIndex1 = createSearchPickerIndex([]);
+  const pickerView1 = { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } };
+  const searchPickerFrame = renderElementFrame(searchPicker({
+    onTransition: noMessage,
+    view: pickerView1,
+    queryResult: querySearchPickerIndex(pickerIndex1, { text: pickerView1.input.text, ...pickerView1.query }), meta: { accessibleName: "Search" },
     id: 'styled-searchPicker',
     title: 'Commands',
-    searchPickerIndex: createSearchPickerIndex([]),
+    searchPickerIndex: pickerIndex1,
     styles: {
             parts: {
               title: tokenStyle('status.error'),
@@ -324,14 +312,18 @@ test('menu searchPicker dataGrid and tree use selected placeholder and title slo
             parts: { empty: tokenStyle('status.warning') }
         }
 }), { columns: 20, rows: 2 });
-  const treeFrame = renderElementFrame(tree({
-    id: 'selected-tree',
-    state: {
+  const treeSource2 = createTreeSource([{ id: 'api', label: 'API', kind: 'leaf' }]);
+  const treeState2 = {
       expandedIds: [],
       activeId: 'api',
       selection: { mode: 'single', selectedId: 'api' }
-    },
-    nodes: [{ id: 'api', label: 'API', kind: 'leaf' }],
+    };
+  const treeFrame = renderElementFrame(tree({
+    onTransition: noMessage,
+    view: createTreeView(treeSource2, treeState2),
+    id: 'selected-tree',
+    state: treeState2,
+    source: treeSource2,
     styles: {
             states: { selected: { root: tokenStyle('status.success') } }
         },
@@ -384,19 +376,23 @@ test('listbox dataGrid and tree share data navigation selection and match styles
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
     rows: [['Atlas'], ['Pulse']]
   }), { columns: 18, rows: 3 });
-  const treeFrame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
-    id: 'filtered-tree',
-    state: {
-      expandedIds: ['root'],
-      query: { text: 'api', mode: 'contains' },
-      selection: { mode: 'none' }
-    },
-    nodes: [{
+  const treeSource3 = createTreeSource([{
       id: 'root',
       label: 'Workspace',
       kind: 'branch',
       children: [{ id: 'api', label: 'API Layer', kind: 'leaf' }]
-    }]
+    }]);
+  const treeState3 = {
+      expandedIds: ['root'],
+      query: { text: 'api', mode: 'contains' },
+      selection: { mode: 'none' }
+    };
+  const treeFrame = renderElementFrame(tree({
+    onTransition: noMessage,
+    view: createTreeView(treeSource3, treeState3), meta: { accessibleName: "Tree" },
+    id: 'filtered-tree',
+    state: treeState3,
+    source: treeSource3
   }), { columns: 24, rows: 3 });
 
   assert.equal(styleForCell(listFrame, (cell) => cell.text === 'A')?.bg?.token, 'selection.background');
@@ -455,17 +451,21 @@ test('default interactive component anatomy uses theme tokens instead of termina
       { kind: 'action', id: 'us', label: 'United States' }
     ]
   }), { columns: 32, rows: 1 });
-  const searchPickerFrame = renderElementFrame(searchPicker({ meta: { accessibleName: "Search" },
-    id: 'searchPicker',
-    view: {
+  const pickerIndex4 = createSearchPickerIndex([
+      { id: 'open', label: 'Open file' },
+      { id: 'toggle', label: 'Toggle theme' }
+    ]);
+  const pickerView4 = {
       input: { text: 'o', cursor: 1 },
       query: { mode: 'fuzzy' },
       activeId: 'toggle'
-    },
-    searchPickerIndex: createSearchPickerIndex([
-      { id: 'open', label: 'Open file' },
-      { id: 'toggle', label: 'Toggle theme' }
-    ])
+    };
+  const searchPickerFrame = renderElementFrame(searchPicker({
+    onTransition: noMessage,
+    queryResult: querySearchPickerIndex(pickerIndex4, { text: pickerView4.input.text, ...pickerView4.query }), meta: { accessibleName: "Search" },
+    id: 'searchPicker',
+    view: pickerView4,
+    searchPickerIndex: pickerIndex4
   }), { columns: 36, rows: 5 });
   const tabsFrame = renderElementFrame(tabs({ meta: { accessibleName: "Tabs" },
     id: 'tabs',
@@ -482,19 +482,23 @@ test('default interactive component anatomy uses theme tokens instead of termina
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name' }],
     rows: [['Atlas'], ['Pulse']]
   }), { columns: 18, rows: 3 });
-  const treeFrame = renderElementFrame(tree({
-    id: 'tree',
-    state: {
-      expandedIds: ['root'],
-      activeId: 'api',
-      selection: { mode: 'single', selectedId: 'api' }
-    },
-    nodes: [{
+  const treeSource5 = createTreeSource([{
       id: 'root',
       label: 'Workspace',
       kind: 'branch',
       children: [{ id: 'api', label: 'API', kind: 'leaf' }]
-    }],
+    }]);
+  const treeState5 = {
+      expandedIds: ['root'],
+      activeId: 'api',
+      selection: { mode: 'single', selectedId: 'api' }
+    };
+  const treeFrame = renderElementFrame(tree({
+    onTransition: noMessage,
+    view: createTreeView(treeSource5, treeState5),
+    id: 'tree',
+    state: treeState5,
+    source: treeSource5,
     meta: { accessibleName: "Tree", focus: { disabled: true } }
   }), { columns: 24, rows: 2 });
   const noticeFrame = renderElementFrame(notificationRegion({
@@ -523,19 +527,23 @@ test('default interactive component anatomy uses theme tokens instead of termina
 });
 
 test('tree rows expose styled disclosure icon and label anatomy', () => {
-  const frame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
-    id: 'anatomy-tree',
-    nodes: [{
+  const treeSource6 = createTreeSource([{
             id: 'root',
             label: 'Root',
             icon: '◆',
             kind: 'branch',
             children: [{ id: 'child', label: 'Child', kind: 'leaf' }]
-        }],
-    state: {
+        }]);
+  const treeState6 = {
       expandedIds: ['root'],
       selection: { mode: 'none' }
-    },
+    };
+  const frame = renderElementFrame(tree({
+    onTransition: noMessage,
+    view: createTreeView(treeSource6, treeState6), meta: { accessibleName: "Tree" },
+    id: 'anatomy-tree',
+    source: treeSource6,
+    state: treeState6,
     styles: {
             parts: {
               disclosure: tokenStyle('status.warning'),
@@ -562,6 +570,12 @@ test('tree rows expose styled disclosure icon and label anatomy', () => {
 });
 
 test('data selections rely on graphical backgrounds and retain a monochrome marker', () => {
+  const treeSource7 = createTreeSource([{ id: 'atlas', label: 'Atlas', kind: 'leaf' }]);
+  const treeState7 = {
+        expandedIds: [],
+        activeId: 'atlas',
+        selection: { mode: 'single', selectedId: 'atlas' }
+      };
   const elements = [
     listbox({
       id: 'selection-listbox',
@@ -586,13 +600,11 @@ test('data selections rely on graphical backgrounds and retain a monochrome mark
       meta: { accessibleName: "Data grid", focus: { disabled: true } }
     }),
     tree({
+    onTransition: noMessage,
+    view: createTreeView(treeSource7, treeState7),
       id: 'selection-tree',
-      state: {
-        expandedIds: [],
-        activeId: 'atlas',
-        selection: { mode: 'single', selectedId: 'atlas' }
-      },
-      nodes: [{ id: 'atlas', label: 'Atlas', kind: 'leaf' }],
+      state: treeState7,
+      source: treeSource7,
       meta: { accessibleName: "Tree", focus: { disabled: true } }
     })
   ];
@@ -639,7 +651,7 @@ test('tabs use shared selected disabled and value styles', () => {
 });
 
 test('log viewer omissions and dialog borders use their direct style slots', () => {
-  const logViewerFrame = renderElementFrame(logViewer({
+  const logViewerFrame = renderElementFrame(logViewer({ view: null,
     id: 'styled-log-viewer',
     history: createLogHistory(Array.from({ length: 5 }, (_value, index) => ({ id: `row-${String(index)}`, text: `Row ${String(index)}` }))),
     styles: {

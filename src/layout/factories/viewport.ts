@@ -8,7 +8,7 @@ import {
 import {
   renderNodeInteraction as interactionProps,
 } from '../../renderer/internal/render-tree/metadata.ts';
-import { renderNodeLayoutProps } from '../../renderer/internal/render-tree/props/shared-layout.ts';
+import { decodeLayoutFlowOptions } from '../decode-options.ts';
 import type { RenderNode } from '../../renderer/internal/render-tree/types.ts';
 import type { ViewportOptions } from '../options.ts';
 
@@ -36,7 +36,7 @@ export function viewport<const TChild extends Element<unknown>, const TMessage =
         ? {}
         : { keyboardScroll }),
       ...(options.onScroll === undefined ? {} : { toScrollMessage: options.onScroll }),
-      ...renderNodeLayoutProps(options)
+      ...decodeLayoutFlowOptions(options, 'viewport')
     },
     children: [childNode] as readonly RenderNode<Message>[],
     ...interactionProps(options)

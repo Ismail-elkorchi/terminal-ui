@@ -10,6 +10,7 @@ import {
   commandInput,
   defineTui,
   createTuiControls,
+  createTuiPreparedQuery,
   dialog,
   grid,
   helpBar,
@@ -38,6 +39,9 @@ import type {
   TreeTransition,
   TuiContext,
   TuiControlMessage,
+  TuiPreparedQueryState,
+  TuiPreparedQueryMessage,
+  TreeView,
 } from '@ismail-elkorchi/terminal-ui';
 import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
 import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
@@ -53,6 +57,8 @@ import {
   textAreaReducer,
   treeReducer,
   createTreeSource,
+  prepareTreeView,
+  matchingTreeView,
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { CommandInputState, MenuBarState, TextAreaState } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { TreeSource } from '@ismail-elkorchi/terminal-ui';
@@ -111,6 +117,7 @@ interface EditorState {
   readonly nodes: readonly TreeNode<EntryMetadata>[];
   readonly treeSource: TreeSource<EntryMetadata>;
   readonly tree: ScrollableTreeState;
+  readonly treeProjection: TuiPreparedQueryState<TreeView<EntryMetadata>>;
   readonly buffers: readonly EditorBuffer[];
   readonly activePath?: string;
   readonly menu: MenuBarState;
@@ -124,6 +131,7 @@ interface EditorState {
 type EditorMessage =
   | TuiControlMessage<typeof editorControls>
   | { readonly kind: 'menuActivate'; readonly id: string }
+  | { readonly kind: 'treeProjection'; readonly message: TuiPreparedQueryMessage<TreeView<EntryMetadata>> }
   | { readonly kind: 'treeActivate'; readonly id: string }
   | { readonly kind: 'closeTab'; readonly event: TabCloseEvent }
   | { readonly kind: 'edit'; readonly path: string; readonly transition: TextAreaTransition }
@@ -155,7 +163,7 @@ const menuItems: readonly MenuItem[] = [{
 
 const editorControls = createTuiControls<EditorState>()({
   menu: (menu, transition: MenuBarTransition) => menuBarReducer(menu, transition, menuItems),
-  tree: (tree, transition: TreeTransition, state) => treeReducer(tree, transition, { source: state.treeSource }),
+  tree: (tree, transition: TreeTransition, state) => treeReducer(tree, transition, { source: state.treeSource, view: state.treeProjection.result }),
   command: commandInputReducer,
   chooser: (chooser, transition: CommandInputTransition) => chooser === undefined
     ? chooser : { ...chooser, command: commandInputReducer(chooser.command, transition) },
@@ -165,6 +173,18 @@ const editorControls = createTuiControls<EditorState>()({
   ).selectedId ?? activePath,
 });
 
+const explorerQuery = createTuiPreparedQuery({
+  id: 'explorer-projection',
+  prepare: ({ source, state }: { readonly source: TreeSource<EntryMetadata>; readonly state: ScrollableTreeState }, context) =>
+    prepareTreeView(source, state, { signal: context.signal, yield: async () => { await context.clock.sleep(0, context.signal); } }),
+  toMessage: (message): EditorMessage => ({ kind: 'treeProjection', message }),
+});
+
+function prepareExplorer(state: EditorState): TuiUpdateResult<EditorState, EditorMessage> {
+  const requested = explorerQuery.request(state.treeProjection, { source: state.treeSource, state: state.tree });
+  return { ...requested, state: { ...state, treeProjection: requested.state } };
+}
+
 const EDITOR_OPERATION_EFFECT_ID = 'editor-operation';
 const MAX_EDITOR_BUFFERS = 32;
 const MAX_EDITOR_FILE_BYTES = 4 * 1_024 * 1_024;
@@ -173,6 +193,7 @@ function initialState(): EditorState {
   return {
     nodes: [],
     treeSource: createTreeSource<EntryMetadata>([]),
+    treeProjection: explorerQuery.init(),
     tree: {
       expandedIds: [],
       selection: { mode: 'single', selectionFollowsActive: true },
@@ -194,7 +215,7 @@ function emptyCommand(): CommandInputState {
 export function createIdeEditorApp(operations: IdeEditorOperations = nodeEditorOperations) {
   return defineTui<EditorState, EditorMessage>({
     id: 'ide-editor',
-    init: () => ({ state: initialState() }),
+    init: () => prepareExplorer(initialState()),
     update: (state, message) => updateEditor(state, message, operations),
     view: editorView,
     inputBindings: [
@@ -227,7 +248,19 @@ function updateEditor(
   operations: IdeEditorOperations
 ): TuiUpdateResult<EditorState, EditorMessage> {
   switch (message.kind) {
-    case 'control': return editorControls.update(state, message);
+    case 'control': {
+      const updated = editorControls.update(state, message);
+      return message.control === 'tree' && updated.state.tree !== state.tree
+        && matchingTreeView(updated.state.treeSource, updated.state.tree, state.treeProjection.result) === undefined
+        ? prepareExplorer(updated.state) : updated;
+    }
+    case 'treeProjection': {
+      const projection = explorerQuery.update(state.treeProjection, message.message).state;
+      return result(projection === state.treeProjection ? state : {
+        ...state, treeProjection: projection,
+        ...(projection.error === null ? {} : { notice: projection.error.message }),
+      });
+    }
     case 'menuActivate':
       return commandResult(state, message.id, operations);
     case 'treeActivate': {
@@ -260,7 +293,7 @@ function updateEditor(
       return requestOpen(state, message.mode, message.path, operations);
     case 'workspaceLoaded':
       if (!isCurrentOperation(state, message.requestId, 'open')) return result(state);
-      return result({
+      return prepareExplorer({
         ...state,
         root: message.root,
         nodes: message.nodes,
@@ -570,6 +603,8 @@ function explorerPane(state: EditorState): Element<EditorMessage> {
       id: 'editor-tree',
       meta: { accessibleName: 'File explorer' },
       source: state.treeSource,
+      view: state.treeProjection.result,
+      busy: state.treeProjection.pending,
       ...editorControls.bind('tree', state),
       emptyText: 'Use /folder <path>',
       onActivate: (event): EditorMessage => ({ kind: 'treeActivate', id: event.id }),

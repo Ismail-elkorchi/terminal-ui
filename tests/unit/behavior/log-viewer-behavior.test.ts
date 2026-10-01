@@ -7,7 +7,7 @@ import {
   nextLogViewerMatch,
   createLogHistory,
   logViewerReducer,
-  logViewerSearchMatches,
+  createLogViewerView,
   logHistoryEntryAt
 } from '../../../dist/behavior/index.js';
 import { compileCollectionQuery } from '../../../dist/text/index.js';
@@ -21,8 +21,9 @@ const history = createLogHistory(entries);
 
 void test('logViewerReducer owns search match fold and follow-tail state', () => {
   const initial = { foldedIds: [], followTail: true };
-  const matches = logViewerSearchMatches(history, { text: 'needle', mode: 'contains' });
-  const options = { history };
+  const view = createLogViewerView({ history, query: { text: 'needle', mode: 'contains' } });
+  const matches = view.matches;
+  const options = { history, view: createLogViewerView({ history, query: { text: 'needle', mode: 'contains' } }) };
   const searching = logViewerReducer(initial, { kind: 'setQuery', query: { text: 'needle' } }, options);
   const jumped = logViewerReducer(searching, { kind: 'jumpMatch', direction: 1 }, options);
   const folded = logViewerReducer(jumped, { kind: 'toggleFold', id: 'a' }, options);
@@ -37,8 +38,9 @@ void test('logViewerReducer owns search match fold and follow-tail state', () =>
   assert.equal(cleared.activeMatchId, undefined);
 });
 
-void test('logViewerSearchMatches and nextLogViewerMatch expose one ordered occurrence domain', () => {
-  const matches = logViewerSearchMatches(history, { text: 'needle', mode: 'contains' });
+void test('createLogViewerView and nextLogViewerMatch expose one ordered occurrence domain', () => {
+  const view = createLogViewerView({ history, query: { text: 'needle', mode: 'contains' } });
+  const matches = view.matches;
 
   assert.equal(matches.length, 3);
   assert.deepEqual(matches.map(({
@@ -58,8 +60,8 @@ void test('logViewerSearchMatches and nextLogViewerMatch expose one ordered occu
     { entryId: 'c', occurrenceIndex: 0, field: 'body', startOffset: 8, endOffsetExclusive: 14 },
     { entryId: 'c', occurrenceIndex: 1, field: 'body', startOffset: 15, endOffsetExclusive: 21 }
   ]);
-  assert.equal(nextLogViewerMatch(matches, matches[0]?.id, 1)?.id, matches[1]?.id);
-  assert.equal(nextLogViewerMatch(matches, matches[2]?.id, 1)?.id, matches[0]?.id);
+  assert.equal(nextLogViewerMatch(view, matches[0]?.id, 1)?.id, matches[1]?.id);
+  assert.equal(nextLogViewerMatch(view, matches[2]?.id, 1)?.id, matches[0]?.id);
 });
 
 void test('log viewer search uses one grapheme-aware contract across every searchable field', () => {
@@ -70,10 +72,10 @@ void test('log viewer search uses one grapheme-aware contract across every searc
     text: 'body'
   }]);
 
-  assert.deepEqual(logViewerSearchMatches(searchableHistory, { text: 'owner' }).map((match) => match.field), [
+  assert.deepEqual(createLogViewerView({ history: searchableHistory, query: { text: 'owner' } }).matches.map((match) => match.field), [
     'metadataKey'
   ]);
-  assert.deepEqual(logViewerSearchMatches(searchableHistory, { text: '👨' }), []);
+  assert.deepEqual(createLogViewerView({ history: searchableHistory, query: { text: '👨' } }).matches, []);
 });
 
 void test('log viewer append reserves a separator after an empty record', () => {
@@ -104,11 +106,11 @@ void test('logViewerReducer owns pointer selection without retaining an empty ra
       anchor: { entryId: 'b', offset: 8 },
       position: { entryId: 'a', offset: 2 }
     }
-  }, { history });
+  }, { history, view: createLogViewerView({ history, query: { text: 'needle' }, foldedIds: ['a'] }) });
   const cleared = logViewerReducer(selected, {
     kind: 'pointer',
     transition: { kind: 'placeCaret', position: { entryId: 'a', offset: 4 } }
-  }, { history });
+  }, { history, view: createLogViewerView({ history, query: { text: 'needle' }, foldedIds: ['a'] }) });
 
   assert.deepEqual(selected.selection, {
     anchor: { entryId: 'b', offset: 8 },
@@ -127,12 +129,12 @@ void test('logViewerReducer preserves identity for no-op query, fold, scroll, an
   }, {
     kind: 'jumpMatch',
     direction: 1
-  }, { history });
+  }, { history, view: createLogViewerView({ history, query: { text: 'needle' }, foldedIds: ['a'] }) });
 
-  assert.equal(logViewerReducer(state, { kind: 'setQuery', query: { text: ' needle ' } }, { history }), state);
-  assert.equal(logViewerReducer(state, { kind: 'fold', id: 'a' }, { history }), state);
-  assert.equal(logViewerReducer(state, { kind: 'setFollowTail', followTail: true }, { history }), state);
+  assert.equal(logViewerReducer(state, { kind: 'setQuery', query: { text: ' needle ' } }, { history, view: null }), state);
+  assert.equal(logViewerReducer(state, { kind: 'fold', id: 'a' }, { history, view: null }), state);
+  assert.equal(logViewerReducer(state, { kind: 'setFollowTail', followTail: true }, { history, view: null }), state);
   assert.notEqual(state.activeMatchId, undefined);
-  const cleared = logViewerReducer(state, { kind: 'setQuery', query: { text: '' } }, { history });
+  const cleared = logViewerReducer(state, { kind: 'setQuery', query: { text: '' } }, { history, view: createLogViewerView({ history, query: { text: 'needle' }, foldedIds: ['a'] }) });
   assert.equal(cleared.activeMatchId, undefined);
 });

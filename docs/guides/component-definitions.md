@@ -57,8 +57,9 @@ const ready = badge({ label: 'Ready', styles: { parts: { value: { bold: true } }
 The first call declares the option type; the definition infers identity,
 parts, states, metadata, and slots from its literal fields. Omit
 `createModel()` when options already are the component model. Add it when the
-component must validate or normalize domain input. `defineSemanticLeafComponent()`
-and `defineDecorativeLeafComponent()` remain shorter direct paths for leaves.
+component must validate or normalize domain input. Use the same `defineComponent()`
+entrypoint for leaves, with `structure: 'leaf'` and the appropriate semantic
+discriminant.
 
 The optional `parts` and `visualStates` arrays declare the exact local styling
 contract. `style()` rejects undeclared slots at runtime, while TypeScript

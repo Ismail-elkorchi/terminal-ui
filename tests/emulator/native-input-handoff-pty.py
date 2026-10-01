@@ -1,0 +1,149 @@
+#!/usr/bin/env python3
+"""Check native stdin ownership and natural shutdown through a real Unix PTY.
+
+Only ASCII transport is used: this regression is independent of runtime Unicode
+segmentation differences. No terminal emulator, screen reader or ConPTY is tested.
+"""
+import argparse
+import fcntl
+import json
+import os
+from pathlib import Path
+import platform
+import pty
+import select
+import signal
+import struct
+import subprocess
+import termios
+import time
+
+
+ROOT = Path(__file__).resolve().parents[2]
+CYCLES = 3
+
+
+def run_case(runtime, executable, directory, scenario):
+    stem = directory / f'{runtime}-{scenario}'
+    report_path = Path(f'{stem}.events.jsonl')
+    report_path.unlink(missing_ok=True)
+    master, slave = pty.openpty()
+    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 24, 80, 0, 0))
+    initial_termios = termios.tcgetattr(slave)
+    environment = dict(os.environ, TERM='xterm-256color', COLORTERM='truecolor')
+    for name in ['TERM_PROGRAM', 'TERM_PROGRAM_VERSION', 'TMUX', 'WT_SESSION', 'KITTY_WINDOW_ID']:
+        environment.pop(name, None)
+    command = [executable]
+    if runtime == 'deno':
+        environment['DENO_DIR'] = str(directory / 'deno-cache')
+        command += ['run', '--allow-read', '--allow-env', '--allow-write', '--allow-sys', '--allow-run=python3']
+    command += ['tests/emulator/native-input-handoff-probe.mjs', scenario, str(report_path)]
+    process = subprocess.Popen(command, cwd=ROOT, stdin=slave, stdout=slave, stderr=slave,
+                               env=environment, start_new_session=True)
+    output = bytearray()
+    events = []
+    sent = set()
+    forced = False
+
+    def read_events():
+        if not report_path.exists():
+            return []
+        # Ignore a last partially written line, never a complete malformed event.
+        lines = report_path.read_text().splitlines(keepends=True)
+        return [json.loads(line) for line in lines if line.endswith('\n')]
+
+    def collect():
+        if select.select([master], [], [], .02)[0]:
+            try:
+                output.extend(os.read(master, 65536))
+            except OSError:
+                pass
+
+    try:
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
+            collect()
+            events = read_events()
+            for event in events:
+                kind, cycle = event['kind'], event.get('cycle')
+                key = (kind, cycle, event.get('phase'))
+                if key in sent:
+                    continue
+                if kind == 'child-ready':
+                    assert event['canonicalBefore'], 'Suspension did not restore canonical input before the child'
+                    os.write(master, b'C')
+                    sent.add(key)
+                elif kind == 'replacement-ready':
+                    os.write(master, b'R')
+                    sent.add(key)
+                elif kind == 'ui-ready':
+                    assert event['rawMode'], 'runTui did not reacquire raw input'
+                    os.write(master, b'\r' if event['phase'] == 'ready' else b'R')
+                    sent.add(key)
+            if process.poll() is not None:
+                break
+        assert process.poll() is not None, \
+            f'Native process did not exit naturally; events={events!r}; output={bytes(output[-5000:])!r}'
+        collect()
+        events = read_events()
+        assert process.returncode == 0, f'Native process failed; events={events!r}; output={bytes(output[-5000:])!r}'
+        assert events[0] == {'kind': 'started', 'runtime': runtime, 'scenario': scenario, 'cycles': CYCLES}
+        assert events[-1] == {'kind': 'complete', 'cycles': CYCLES}, events
+        assert not any(event['kind'] == 'failure' for event in events), events
+        for cycle in range(CYCLES):
+            at_cycle = [event for event in events if event.get('cycle') == cycle]
+            assert [event['data'] for event in at_cycle if event['kind'] == 'child-input'] == ['C']
+            received = 'replacement-input' if scenario == 'direct' else 'ui-input'
+            assert [event['data'] for event in at_cycle if event['kind'] == received] == ['R']
+            assert [event['rawMode'] for event in at_cycle if event['kind'] == 'operation-start'] == [False]
+            if scenario == 'direct':
+                assert sum(event['kind'] == 'pending-read' for event in at_cycle) == 1
+                assert sum(event['kind'] == 'reader-released' for event in at_cycle) == 1
+            else:
+                assert [event['phase'] for event in at_cycle if event['kind'] == 'ui-ready'] == ['ready', 'resumed']
+        assert termios.tcgetattr(slave) == initial_termios, 'Native termios state was not restored at natural exit'
+        if scenario == 'visual':
+            assert output.count(b'\x1b[?1049h') >= CYCLES + 1, 'Visual session was not reacquired after each handoff'
+            assert output.count(b'\x1b[?1049l') >= CYCLES + 1, 'Visual session was not restored after each handoff'
+        elif scenario == 'accessible':
+            assert b'\x1b[?1049h' not in output, 'Accessible suspension entered the alternate screen'
+            assert b'\x1b[?25l' not in output, 'Accessible suspension hid the cursor'
+            assert b'Handoff input' in output, 'Accessible run did not emit semantic input context'
+        return {'runtime': runtime, 'scenario': scenario, 'cycles': CYCLES,
+                'naturalExit': True, 'termiosRestored': True, 'outputBytes': len(output),
+                'events': str(report_path)}
+    finally:
+        Path(f'{stem}.terminal-output.bin').write_bytes(output)
+        if process.poll() is None:
+            forced = True
+            os.killpg(process.pid, signal.SIGTERM)
+            try:
+                process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.wait(timeout=2)
+        Path(f'{stem}.supervisor.json').write_text(json.dumps({
+            'forcedTermination': forced, 'exitCode': process.returncode,
+            'termiosRestored': termios.tcgetattr(slave) == initial_termios,
+        }, indent=2) + '\n')
+        os.close(master)
+        os.close(slave)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--runtime', required=True, choices=['node', 'deno', 'bun'])
+    parser.add_argument('--executable', required=True)
+    parser.add_argument('--output-directory', required=True, type=Path)
+    args = parser.parse_args()
+    args.output_directory.mkdir(parents=True, exist_ok=True)
+    cases = [run_case(args.runtime, args.executable, args.output_directory, scenario)
+             for scenario in ['direct', 'visual', 'accessible']]
+    summary = {'evidence': 'automated-unix-pty', 'operatingSystem': platform.platform(), 'cases': cases,
+               'limitations': 'ASCII synthetic PTY input; no terminal emulator, hardware keyboard, IME or screen reader observed'}
+    (args.output_directory / f'{args.runtime}-summary.json').write_text(json.dumps(summary, indent=2) + '\n')
+    print(json.dumps(summary))
+
+
+if __name__ == '__main__':
+    main()

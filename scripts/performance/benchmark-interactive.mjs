@@ -1,3 +1,4 @@
+import { createLogViewerView } from '../../dist/behavior/index.js';
 import process from 'node:process';
 import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
@@ -24,6 +25,7 @@ import {
   appendLogHistory,
   createScrollState,
   createSearchPickerIndex,
+  querySearchPickerIndex,
   createLogHistory,
   createTableCollection,
   createTreeSource,
@@ -206,7 +208,7 @@ function renderScenarios() {
       scale: history.entryCount,
       setupWork: { normalized_records: history.entryCount },
       createElement(index) {
-        return logViewer({
+        return logViewer({ view: null,
           id: 'scrolling-log',
           history,
           scroll: createScrollState({
@@ -242,6 +244,7 @@ function renderScenarios() {
           id: 'scrolling-tree',
           meta: { accessibleName: 'Scrolling tree' },
           source: treeSource,
+          view: treeView,
           state: {
             ...treeState,
             scroll: createScrollState({ offsetRow: index + 100 })
@@ -332,12 +335,13 @@ function renderScenarios() {
       scale: history.entryCount,
       setupWork: { normalized_records: history.entryCount },
       createElement(index) {
-        return logViewer({
-          id: 'wrapped-log',
-          history: appendLogHistory(history, [{
+        const preparedLayout1 = createLogViewerView({ history: appendLogHistory(history, [{
             id: `new-${String(index)}`,
             text: `Newest wrapped line ${String(index)}`
-          }]),
+          }]), wrap: true, width: terminalSize.columns, widthProfile: defaultTextWidthProfile });
+        return logViewer({ view: preparedLayout1,
+          id: 'wrapped-log',
+          history: preparedLayout1.history,
           wrap: true
         });
       }
@@ -354,9 +358,10 @@ function renderScenarios() {
           'log search must paint a visible highlighted match');
       },
       createElement(index) {
-        return logViewer({
+        const preparedQuery1 = createLogViewerView({ history: history, query: { text: `searchable text ${String(index % 17)}`, mode: 'contains' } });
+        return logViewer({ view: preparedQuery1,
           id: 'searched-log',
-          history,
+          history: preparedQuery1.history,
           query: { text: `searchable text ${String(index % 17)}`, mode: 'contains' }
         });
       }
@@ -374,6 +379,7 @@ function renderScenarios() {
           id: 'commands',
           meta: { accessibleName: 'Commands' },
           searchPickerIndex,
+          queryResult: querySearchPickerIndex(searchPickerIndex, { text: String(entries.length - 1 - index), mode: 'fuzzy' }),
           view: {
             input: {
               text: String(entries.length - 1 - index),

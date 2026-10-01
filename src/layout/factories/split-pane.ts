@@ -1,7 +1,7 @@
-import type { SplitPaneTransition } from '../../behavior/split-pane.ts';
 import { mergeKeyBindings } from '../../element/metadata-normalization.ts';
 import type { ElementKeyBindings } from '../../element/metadata.ts';
 import { decodeElementStyles } from '../../element/styles.ts';
+import { isStringMember } from '../../foundation/validation.ts';
 import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/types.ts';
 import {
   layoutElementFromRenderNode,
@@ -12,7 +12,7 @@ import {
 import {
   renderNodeInteraction as interactionProps,
 } from '../../renderer/internal/render-tree/metadata.ts';
-import { renderNodeLayoutProps } from '../../renderer/internal/render-tree/props/shared-layout.ts';
+import { decodeLayoutFlowOptions, decodeLayoutTracks } from '../decode-options.ts';
 import type { ResizableSplitPaneOptions, SplitPaneOptions } from '../options.ts';
 
 export function splitPane<
@@ -24,6 +24,10 @@ export function splitPane<
 ): Element<ElementChildrenMessage<TChildren> | TActionMessage> {
   type Message = ElementChildrenMessage<TChildren> | TActionMessage;
   const renderChildren = renderNodeChildren(children);
+  if (!isStringMember(options.direction, ['horizontal', 'vertical'])) {
+    throw new TypeError('splitPane direction must be horizontal or vertical.');
+  }
+  const sizes = options.sizes === undefined ? undefined : decodeLayoutTracks(options.sizes, 'splitPane sizes');
   assertSplitPaneOptions(renderChildren.length, options);
   const styles = options.styles === undefined
     ? undefined
@@ -38,8 +42,8 @@ export function splitPane<
       kind: 'splitPane',
       props: {
         direction: options.direction,
-        ...(options.sizes === undefined ? {} : { sizes: options.sizes }),
-        ...renderNodeLayoutProps(options)
+        ...(sizes === undefined ? {} : { sizes }),
+        ...decodeLayoutFlowOptions(options, 'splitPane')
       },
       children: renderChildren,
       ...interactionProps({ meta: options.meta, styles })
@@ -47,15 +51,18 @@ export function splitPane<
   }
 
   const keys = mergeKeyBindings(splitPaneKeyBindings(options), options.keys);
+  if (sizes === undefined || sizes.some((track) => track.kind !== 'percent')) {
+    throw new TypeError('Resizable splitPane sizes must contain percent tracks.');
+  }
   return layoutElementFromRenderNode<'splitPane', Message>({
     ...requiredRenderNodeId(options.id, 'splitPane'),
     kind: 'splitPane',
     props: {
       direction: options.direction,
-      sizes: options.sizes,
+      sizes,
       activeDivider: options.activeDivider ?? 0,
-      toActionMessage: (transition: SplitPaneTransition) => options.onTransition(transition),
-      ...renderNodeLayoutProps({ ...options, gap: options.gap ?? 1 })
+      toActionMessage: options.onTransition,
+      ...decodeLayoutFlowOptions({ ...options, gap: options.gap ?? 1 }, 'splitPane')
     },
     children: renderChildren,
     ...interactionProps({ keys, meta: options.meta, styles })

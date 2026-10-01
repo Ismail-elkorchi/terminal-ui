@@ -5,6 +5,7 @@ import type {
   TreeActivateEvent,
   TreeControlTransition,
   TreeSource,
+  TreeView,
   TreeTransition,
   UnscrolledTreeState,
 } from '../../behavior/tree.ts';
@@ -29,6 +30,8 @@ interface TreeCommonOptions {
 
 type TreeBaseOptions<TMetadata extends Readonly<Record<string, unknown>>> = TreeCommonOptions & {
   readonly source: TreeSource<TMetadata>;
+  /** Accepted projection; null displays a pending empty collection. */
+  readonly view: TreeView<TMetadata> | null;
 };
 
 export type TreeOptions<

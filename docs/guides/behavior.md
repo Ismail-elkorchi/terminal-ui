@@ -110,7 +110,9 @@ function view(state: State) {
 
 Collection-dependent reducers receive their current data as reducer options;
 the routed action remains a compact user intent. A controlled search picker follows
-the same pattern:
+the same pattern. This small-data example deliberately prepares synchronously
+in initialization and update, then retains the result for rendering. Large live
+queries should use [cooperative preparation](./tui.md#prepared-queries) instead:
 
 ```ts
 import {
@@ -123,6 +125,8 @@ import {
   searchPickerView,
   searchPickerReducer,
   createSearchPickerIndex,
+  querySearchPickerIndex,
+  type SearchPickerQueryResult,
   type UnscrolledSearchPickerState
 } from '@ismail-elkorchi/terminal-ui/behavior';
 
@@ -132,24 +136,42 @@ const entries = [
 const searchPickerIndex = createSearchPickerIndex(entries);
 
 type SearchPickerMessage = { kind: 'searchPicker'; transition: SearchPickerControlTransition };
-type SearchPickerState = UnscrolledSearchPickerState;
-const initialSearchPickerState = createSearchPickerState(
-  { query: { text: '', mode: 'fuzzy' } },
-  searchPickerIndex
-);
+interface PickerModel {
+  readonly state: UnscrolledSearchPickerState;
+  readonly queryResult: SearchPickerQueryResult<string>;
+}
+const initialResult = querySearchPickerIndex(searchPickerIndex, { text: '', mode: 'fuzzy' });
+const initialPickerModel: PickerModel = {
+  state: createSearchPickerState(
+    { query: { text: '', mode: 'fuzzy' }, queryResult: initialResult },
+    searchPickerIndex
+  ),
+  queryResult: initialResult
+};
 
 function updateSearchPicker(
-  state: SearchPickerState,
+  model: PickerModel,
   transition: SearchPickerControlTransition
-): SearchPickerState {
-  return searchPickerReducer(state, transition, { searchPickerIndex });
+): PickerModel {
+  let state = searchPickerReducer(model.state, transition, {
+    searchPickerIndex, queryResult: model.queryResult
+  });
+  const queryResult = querySearchPickerIndex(searchPickerIndex, {
+    text: state.editor.input.text, mode: state.mode, caseSensitive: state.caseSensitive
+  });
+  // Choose an initial active item after the changed query has been prepared.
+  if (state.editor.activeId === undefined) {
+    state = searchPickerReducer(state, { kind: 'firstActive' }, { searchPickerIndex, queryResult });
+  }
+  return { state, queryResult };
 }
 
-function renderSearchPicker(state: SearchPickerState) {
+function renderSearchPicker(model: PickerModel) {
   return searchPicker<string, SearchPickerMessage>({
     id: 'commands',
     searchPickerIndex,
-    view: searchPickerView(state),
+    queryResult: model.queryResult,
+    view: searchPickerView(model.state),
     onTransition: (transition: SearchPickerControlTransition): SearchPickerMessage => ({
       kind: 'searchPicker',
       transition
@@ -172,18 +194,22 @@ collection; both behavior operations consume the retained index. Configure the r
 `maxVisibleOptions` from the same application constant.
 
 Hierarchical data uses the same controlled shape without moving application
-effects into the component:
+effects into the component. This example also prepares synchronously for a small,
+fixed hierarchy; [large tree preparation](./tree-query-preparation.md) belongs in
+cancellable application work:
 
 ```ts
 import {
   tree,
   type TreeControlTransition,
   type TreeNode,
+  type TreeView,
   type UnscrolledTreeState
 } from '@ismail-elkorchi/terminal-ui/components';
 import {
   treeReducer,
-  createTreeSource
+  createTreeSource,
+  createTreeView
 } from '@ismail-elkorchi/terminal-ui/behavior';
 
 const nodes: readonly TreeNode[] = [
@@ -191,26 +217,41 @@ const nodes: readonly TreeNode[] = [
 ];
 const treeSource = createTreeSource(nodes);
 type Message = { kind: 'tree'; transition: TreeControlTransition };
-type TreeState = UnscrolledTreeState;
+interface TreeModel {
+  readonly state: UnscrolledTreeState;
+  readonly view: TreeView;
+}
+const initialTreeState: UnscrolledTreeState = { expandedIds: [], selection: { mode: 'none' } };
+const initialTreeModel: TreeModel = {
+  state: initialTreeState,
+  view: createTreeView(treeSource, initialTreeState)
+};
 
-function updateTree(state: TreeState, message: Message): TreeState {
-  return treeReducer(state, message.transition, {
-    source: treeSource
+function updateTree(model: TreeModel, message: Message): TreeModel {
+  const state = treeReducer(model.state, message.transition, {
+    source: treeSource, view: model.view
   });
+  return { state, view: createTreeView(treeSource, state) };
 }
 
-function treeView(state: TreeState) {
+function treeView(model: TreeModel) {
   return tree({
     id: 'navigation',
     source: treeSource,
-    state,
-    onTransition: (transition): Message => ({ kind: 'tree', transition })
+    state: model.state,
+    view: model.view,
+    onTransition: (transition: TreeControlTransition): Message => ({ kind: 'tree', transition })
   });
 }
 ```
 
 Loading children, opening a selected resource, and persistence remain
 application effects. The reducer owns only deterministic hierarchy state.
+The component and reducer require an explicit prepared view or `null` while
+pending. Missing views are rejected; stale projections remain pending and never
+trigger a synchronous fallback. Keep desired input and accepted results in the
+application model, then publish each current completion through its existing
+update lifecycle.
 
 Behavior helpers may return the same state object for no-op transitions. That
 lets applications avoid unnecessary rerenders while keeping update logic
@@ -306,7 +347,10 @@ Append-heavy documents use the same retained-resource rule through a
 dedicated contract. Build a `LogHistory` once with
 `createLogHistory()`, store it in application state, and append log entries
 with `appendLogHistory()`. The append helper preserves existing history
-segments, while wrapping and search indexes are reused by the renderer.
+segments. Prepare and retain a `LogViewerView` with `prepareLogViewerView()` for
+its history, query and folds, and for its width/profile when wrapping. Pass that
+accepted view to the component and reducer, or `null` while pending. Deliberately
+synchronous snapshots and small fixed inputs can use `createLogViewerView()`.
 
 Scrollable controls use exact option variants. A passive `table()` has no
 managed navigation, while `dataGrid()` has an explicit row or cell interaction

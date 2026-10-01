@@ -481,12 +481,6 @@ export type {
   UnscrolledSearchPickerOptions,
 } from './components/search-picker/options.ts';
 export type {
-  isNotificationTone,
-  isProcessStatus,
-  isStatusBarStatus,
-  isValidationLevel,
-} from './components/status.ts';
-export type {
   ActivityIndicatorStylePart,
   BarChartStylePart,
   ButtonStylePart,
@@ -606,7 +600,6 @@ export type {
   InteractiveElementOptions,
   StructuralElementOptions,
 } from './element/metadata.ts';
-export type { inspectRegisteredElement as inspectElement } from './element/registry.ts';
 export type {
   Element,
   ElementChildren,

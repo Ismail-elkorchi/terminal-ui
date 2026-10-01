@@ -6,9 +6,9 @@ import type {
 } from '../../../../interaction/anchored-surface.ts';
 import type { BorderOptions, BorderTitle } from '../../../../visual/border.ts';
 import type { SurfaceAppearance } from '../../../../visual/surface-appearance.ts';
-import type { RenderNodeLayoutProps } from './shared-layout.ts';
+import type { LayoutFlowOptions } from '../../../../geometry/types.ts';
 
-export interface SurfaceRenderProps extends RenderNodeLayoutProps {
+export interface SurfaceRenderProps extends LayoutFlowOptions {
   readonly title?: BorderTitle;
   readonly appearance?: SurfaceAppearance;
   readonly border?: BorderOptions;

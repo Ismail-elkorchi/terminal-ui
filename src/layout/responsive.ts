@@ -1,3 +1,6 @@
+import { isNonArrayObject } from '../foundation/validation.ts';
+import { decodeLayoutCellCount } from './decode-options.ts';
+
 export interface ViewportDimensions {
   readonly columns: number;
   readonly rows: number;
@@ -16,14 +19,19 @@ export type ResponsiveVariants<TBreakpoints extends ResponsiveBreakpointMap, TRe
   & { readonly [K in keyof TBreakpoints]: () => TResult }
   & { readonly default?: () => TResult };
 
+const admittedBreakpoints = new WeakSet<object>();
+
 export function defineBreakpoints<TBreakpoints extends ResponsiveBreakpointMap>(
   breakpoints: TBreakpoints
-): TBreakpoints {
-  const entries = Object.entries(breakpoints);
+): Readonly<Record<keyof TBreakpoints, BreakpointRange>> {
+  if (!isNonArrayObject(breakpoints)) {
+    throw new TypeError('Responsive breakpoints must be an object.');
+  }
+  if (admittedBreakpoints.has(breakpoints)) return breakpoints;
+  const entries = Object.entries(breakpoints).map(([name, range]) => [name, adoptRange(name, range)] as const);
   if (entries.length === 0) throw new RangeError('defineBreakpoints requires at least one breakpoint.');
-  for (const [name, range] of entries) {
+  for (const [name] of entries) {
     if (name === 'default') throw new RangeError('Breakpoint name "default" is reserved for responsive fallback variants.');
-    assertRange(name, range);
   }
   for (let leftIndex = 0; leftIndex < entries.length; leftIndex += 1) {
     for (let rightIndex = leftIndex + 1; rightIndex < entries.length; rightIndex += 1) {
@@ -40,7 +48,9 @@ export function defineBreakpoints<TBreakpoints extends ResponsiveBreakpointMap>(
       }
     }
   }
-  return Object.freeze({ ...breakpoints });
+  const admitted = Object.freeze(Object.fromEntries(entries)) as Readonly<Record<keyof TBreakpoints, BreakpointRange>>;
+  admittedBreakpoints.add(admitted);
+  return admitted;
 }
 
 export function viewportVariant<TBreakpoints extends ResponsiveBreakpointMap>(
@@ -48,7 +58,10 @@ export function viewportVariant<TBreakpoints extends ResponsiveBreakpointMap>(
   breakpoints: TBreakpoints,
   options: { readonly allowDefault?: boolean } = {}
 ): keyof TBreakpoints | 'default' {
-  const matches = Object.entries(breakpoints)
+  decodeLayoutCellCount(viewport.columns, 'Responsive viewport columns');
+  decodeLayoutCellCount(viewport.rows, 'Responsive viewport rows');
+  const admitted: ResponsiveBreakpointMap = defineBreakpoints(breakpoints);
+  const matches = Object.entries(admitted)
     .filter((entry): entry is [keyof TBreakpoints & string, BreakpointRange] => matchesRange(viewport, entry[1]))
     .map(([name]) => name);
   if (matches.length === 1) return matches[0] as keyof TBreakpoints;
@@ -79,11 +92,14 @@ function matchesRange(viewport: ViewportDimensions, range: BreakpointRange): boo
     && lessOrEqual(viewport.rows, range.maxRows);
 }
 
-function assertRange(name: string, range: BreakpointRange): void {
-  const minColumns = normalizedBoundary(range.minColumns);
-  const maxColumns = normalizedBoundary(range.maxColumns);
-  const minRows = normalizedBoundary(range.minRows);
-  const maxRows = normalizedBoundary(range.maxRows);
+function adoptRange(name: string, range: unknown): BreakpointRange {
+  if (!isNonArrayObject(range)) {
+    throw new TypeError(`Breakpoint "${name}" must be an object.`);
+  }
+  const minColumns = range['minColumns'] === undefined ? undefined : decodeLayoutCellCount(range['minColumns'], `Breakpoint "${name}" minColumns`);
+  const maxColumns = range['maxColumns'] === undefined ? undefined : decodeLayoutCellCount(range['maxColumns'], `Breakpoint "${name}" maxColumns`);
+  const minRows = range['minRows'] === undefined ? undefined : decodeLayoutCellCount(range['minRows'], `Breakpoint "${name}" minRows`);
+  const maxRows = range['maxRows'] === undefined ? undefined : decodeLayoutCellCount(range['maxRows'], `Breakpoint "${name}" maxRows`);
   if (minColumns === undefined && maxColumns === undefined && minRows === undefined && maxRows === undefined) {
     throw new RangeError(`Breakpoint "${name}" must define at least one boundary.`);
   }
@@ -93,6 +109,12 @@ function assertRange(name: string, range: BreakpointRange): void {
   if (minRows !== undefined && maxRows !== undefined && minRows > maxRows) {
     throw new RangeError(`Breakpoint "${name}" has minRows greater than maxRows.`);
   }
+  return Object.freeze({
+    ...(minColumns === undefined ? {} : { minColumns }),
+    ...(maxColumns === undefined ? {} : { maxColumns }),
+    ...(minRows === undefined ? {} : { minRows }),
+    ...(maxRows === undefined ? {} : { maxRows }),
+  });
 }
 
 function rangesOverlap(left: BreakpointRange, right: BreakpointRange): boolean {
@@ -106,21 +128,17 @@ function intervalsOverlap(
   rightMin: number | undefined,
   rightMax: number | undefined
 ): boolean {
-  const aMin = normalizedBoundary(leftMin) ?? Number.NEGATIVE_INFINITY;
-  const aMax = normalizedBoundary(leftMax) ?? Number.POSITIVE_INFINITY;
-  const bMin = normalizedBoundary(rightMin) ?? Number.NEGATIVE_INFINITY;
-  const bMax = normalizedBoundary(rightMax) ?? Number.POSITIVE_INFINITY;
+  const aMin = leftMin ?? Number.NEGATIVE_INFINITY;
+  const aMax = leftMax ?? Number.POSITIVE_INFINITY;
+  const bMin = rightMin ?? Number.NEGATIVE_INFINITY;
+  const bMax = rightMax ?? Number.POSITIVE_INFINITY;
   return aMin <= bMax && bMin <= aMax;
 }
 
 function greaterOrEqual(value: number, boundary: number | undefined): boolean {
-  return boundary === undefined || Math.floor(value) >= boundary;
+  return boundary === undefined || value >= boundary;
 }
 
 function lessOrEqual(value: number, boundary: number | undefined): boolean {
-  return boundary === undefined || Math.floor(value) <= boundary;
-}
-
-function normalizedBoundary(value: number | undefined): number | undefined {
-  return value === undefined || !Number.isFinite(value) ? undefined : Math.floor(value);
+  return boundary === undefined || value <= boundary;
 }

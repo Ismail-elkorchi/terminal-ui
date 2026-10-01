@@ -24,7 +24,7 @@ interface SearchPickerOptionsBase<TValue> {
   readonly title?: string;
   readonly searchPickerIndex: SearchPickerIndex<TValue>;
   /** Caller-prepared results; null keeps editing responsive while a query is pending. */
-  readonly queryResult?: SearchPickerQueryResult<TValue> | null;
+  readonly queryResult: SearchPickerQueryResult<TValue> | null;
   readonly maxVisible?: number;
   readonly helpText?: string;
   readonly emptyText?: string;

@@ -1,9 +1,8 @@
-import { cyclicIndex } from '../foundation/cyclic-index.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import type { CollectionQuery, CompiledCollectionQuery } from '../text/query.ts';
 import { compileCollectionQuery } from '../text/query.ts';
-import type { LogHistory, LogSearchMatch } from './log-history.ts';
-import { logHistoryRecordMatches, logHistorySegments } from './log-history.ts';
+import type { LogHistory } from './log-history.ts';
+import { matchingLogViewerView, nextLogViewerMatch, type LogViewerView } from './log-viewer-view.ts';
 import type {
   LogViewerControlTransition,
   LogViewerSelection,
@@ -31,6 +30,7 @@ export type LogViewerState = UnscrolledLogViewerState | ScrollableLogViewerState
 
 export interface LogViewerReducerOptions {
   readonly history: LogHistory;
+  readonly view: LogViewerView | null;
 }
 
 export function logViewerReducer(
@@ -71,11 +71,9 @@ export function logViewerReducer(
       return { ...withoutActiveMatch(state), query };
     }
     case 'jumpMatch': {
-      const matches = logViewerSearchMatches(
-        options.history,
-        state.query ?? compileCollectionQuery({ text: '', mode: 'contains' }),
-      );
-      const activeMatch = adjacentMatch(matches, state.activeMatchId, transition.direction);
+      const result = matchingLogViewerView({ history: options.history, ...(state.query === undefined ? {} : { query: state.query }), foldedIds: state.foldedIds }, options.view);
+      if (result === undefined) return state;
+      const activeMatch = nextLogViewerMatch(result, state.activeMatchId, transition.direction);
       if (activeMatch?.id === state.activeMatchId) return state;
       if (activeMatch === undefined) return withoutActiveMatch(state);
       return { ...state, activeMatchId: activeMatch.id };
@@ -84,38 +82,19 @@ export function logViewerReducer(
       const foldedIds = state.foldedIds.includes(transition.id)
         ? state.foldedIds.filter((current) => current !== transition.id)
         : canonicalIds([...state.foldedIds, transition.id]);
-      return sameStrings(foldedIds, state.foldedIds) ? state : { ...state, foldedIds };
+      return sameStrings(foldedIds, state.foldedIds) ? state : { ...withoutActiveMatch(state), foldedIds };
     }
     case 'fold':
       return state.foldedIds.includes(transition.id)
         ? state
-        : { ...state, foldedIds: canonicalIds([...state.foldedIds, transition.id]) };
+        : { ...withoutActiveMatch(state), foldedIds: canonicalIds([...state.foldedIds, transition.id]) };
     case 'unfold': {
       const foldedIds = state.foldedIds.filter((id) => id !== transition.id);
-      return foldedIds.length === state.foldedIds.length ? state : { ...state, foldedIds };
+      return foldedIds.length === state.foldedIds.length ? state : { ...withoutActiveMatch(state), foldedIds };
     }
     case 'setFollowTail':
       return state.followTail === transition.followTail ? state : { ...state, followTail: transition.followTail };
   }
-}
-
-export function logViewerSearchMatches(
-  history: LogHistory,
-  query: CollectionQuery,
-): readonly LogSearchMatch[] {
-  const normalized = compileCollectionQuery(query);
-  if (normalized.text.length === 0) return [];
-  return Object.freeze(logHistorySegments(history).flatMap((segment) =>
-    segment.records.flatMap((record) => logHistoryRecordMatches(record, normalized))
-  ));
-}
-
-export function nextLogViewerMatch(
-  matches: readonly LogSearchMatch[],
-  activeMatchId: string | undefined,
-  direction: 1 | -1
-): LogSearchMatch | undefined {
-  return adjacentMatch(matches, activeMatchId, direction);
 }
 
 export function followTailScrollState(input: {
@@ -209,16 +188,4 @@ function sameQuery(left: CompiledCollectionQuery | undefined, right: CompiledCol
   return left?.text === right.text
     && left.mode === right.mode
     && left.caseSensitive === right.caseSensitive;
-}
-
-function adjacentMatch(
-  matches: readonly LogSearchMatch[],
-  activeId: string | undefined,
-  direction: 1 | -1
-): LogSearchMatch | undefined {
-  if (matches.length === 0) return undefined;
-  const activeIndex = activeId === undefined
-    ? direction > 0 ? -1 : 0
-    : matches.findIndex((match) => match.id === activeId);
-  return matches[cyclicIndex(activeIndex + direction, matches.length)];
 }

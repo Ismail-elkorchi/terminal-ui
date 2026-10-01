@@ -2,6 +2,7 @@ import { findTextHighlightMatches } from '../text/search-highlight.ts';
 import type { TextHighlightOptions } from '../text/search-index.ts';
 import { createTerminalTextIndex } from '../text/terminal-text-index.ts';
 import type { RenderSpan, TerminalStyle } from '../visual/render-content.ts';
+import { mergeTerminalStyles } from '../visual/terminal-style.ts';
 
 export interface HighlightRenderSpansOptions extends TextHighlightOptions {
   readonly baseStyle?: TerminalStyle;
@@ -27,7 +28,7 @@ export function highlightRenderSpans(
     const start = index.graphemeIndexToCodeUnitOffset(match.startGraphemeIndex);
     const end = index.graphemeIndexToCodeUnitOffset(match.endGraphemeIndexExclusive);
     if (start > cursor) spans.push(spanForText(text.slice(cursor, start), options.baseStyle));
-    spans.push(spanForText(text.slice(start, end), mergeStyles(options.baseStyle, options.matchStyle), true));
+    spans.push(spanForText(text.slice(start, end), mergeTerminalStyles(options.baseStyle, options.matchStyle), true));
     cursor = end;
   }
   if (cursor < text.length) spans.push(spanForText(text.slice(cursor), options.baseStyle));
@@ -40,10 +41,4 @@ function spanForText(text: string, style: TerminalStyle | undefined, matched?: t
     ...(style === undefined ? {} : { style }),
     ...(matched === undefined ? {} : { matched })
   };
-}
-
-function mergeStyles(base: TerminalStyle | undefined, match: TerminalStyle | undefined): TerminalStyle | undefined {
-  if (base === undefined) return match;
-  if (match === undefined) return base;
-  return { ...base, ...match };
 }

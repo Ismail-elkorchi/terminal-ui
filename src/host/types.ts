@@ -47,7 +47,7 @@ export interface TerminalCapabilityDetectionOptions {
 
 export interface TerminalInput {
   read(options?: TerminalInputReadOptions): AsyncIterable<TerminalInputChunk>;
-  /** Settles only when the previous reader can no longer consume input. */
+  /** Reusable handoff: settles only when the previous reader can no longer consume input. */
   release?(): Promise<void>;
   setRawMode?(enabled: boolean): Promise<void> | void;
   isRawModeEnabled?(): boolean;
@@ -301,6 +301,10 @@ export interface MemoryTerminalHostOptions {
 
 export interface RuntimeInputSource {
   read(options?: TerminalInputReadOptions): AsyncIterable<string | Uint8Array>;
+  /** Retires native reads without destroying the source; safe when idle and permits later read(). */
+  release?(): Promise<void>;
+  /** Permanently releases owned resources when the host is disposed. */
+  dispose?(): Promise<void>;
 }
 
 export interface RuntimeTerminalInputOptions {

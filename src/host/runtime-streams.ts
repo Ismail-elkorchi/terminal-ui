@@ -6,10 +6,12 @@ import { TerminalCapabilityDetector } from './capability-detection.ts';
 import type { RuntimeTarget } from './capability-types.ts';
 import { settleResourceDisposal } from './dispose.ts';
 import { TerminalInputAuthority } from './input-authority.ts';
+import { NodeInput } from './node-input.ts';
 import { waitForTerminalOperation } from './operation.ts';
 import { OrderedOutputQueue, createTerminalHostOutputAuthority } from './ordered-output.ts';
 import { TerminalStateAuthorityBinding } from './terminal-state.ts';
 import type {
+  NodeReadableTerminalStream,
   RuntimeInputSource,
   RuntimeTerminalInputOptions,
   RuntimeTerminalOutputOptions,
@@ -49,7 +51,7 @@ export interface StreamTerminalHostOptions {
 
 export function createStreamTerminalHost(options: StreamTerminalHostOptions): TerminalHost {
   const inputSource = new RuntimeInput(options.stdin);
-  const stdin = new TerminalInputAuthority(inputSource);
+  const stdin = new TerminalInputAuthority(inputSource, () => inputSource.dispose());
   const stdout = options.stdoutOutput ?? new RuntimeOutput(options.stdout);
   const stderr = options.stderrOutput ?? new RuntimeOutput(options.stderr);
   const clock = new RuntimeClock();
@@ -130,12 +132,35 @@ export class RuntimeInput implements TerminalInput {
     this.#options = options;
   }
 
-  async *read(options: TerminalInputReadOptions = {}): AsyncIterable<TerminalInputChunk> {
-    if (this.#options.source === undefined) return;
-    for await (const chunk of this.#options.source.read(options)) {
-      if (options.signal?.aborted === true) return;
-      yield { data: chunk };
-    }
+  read(options: TerminalInputReadOptions = {}): AsyncIterable<TerminalInputChunk> {
+    return {
+      [Symbol.asyncIterator]: () => {
+        const source = this.#options.source?.read(options)[Symbol.asyncIterator]();
+        return {
+          next: async () => {
+            const result = await source?.next();
+            // The authority owns cancellation and replays bytes consumed while
+            // retiring a source. Never discard a completed read after abort.
+            return result === undefined || result.done === true
+              ? { done: true, value: undefined }
+              : { done: false, value: { data: result.value } };
+          },
+          return: async () => {
+            // A manual wrapper keeps return independent of a pending next().
+            await source?.return?.();
+            return { done: true, value: undefined };
+          }
+        };
+      }
+    };
+  }
+
+  async release(): Promise<void> {
+    await this.#options.source?.release?.();
+  }
+
+  async dispose(): Promise<void> {
+    await this.#options.source?.dispose?.();
   }
 
   async setRawMode(enabled: boolean): Promise<void> {
@@ -283,61 +308,32 @@ export class ObjectEnvironment implements TerminalEnvironment {
   }
 }
 
-export function runtimeInputSourceFromReadableStream(
-  source: ReadableStream<string | Uint8Array>
-): RuntimeInputSource {
-  return {
-    async *read(options = {}) {
-      const signal = options.signal;
-      if (isAborted(signal)) return;
-      const reader = source.getReader();
-      let cancellation: Promise<void> | undefined;
-      const abort = (): void => {
-        cancellation ??= reader.cancel();
-        void cancellation.catch(() => undefined);
-      };
-      signal?.addEventListener('abort', abort, { once: true });
-      try {
-        for (;;) {
-          const next = await reader.read();
-          if (next.done || isAborted(signal)) return;
-          yield next.value;
-        }
-      } catch (cause) {
-        if (!isAborted(signal)) throw cause;
-      } finally {
-        signal?.removeEventListener('abort', abort);
-        try {
-          await cancellation;
-        } finally {
-          reader.releaseLock();
-        }
-      }
-    }
-  };
-}
-
+/** Node-compatible event streams support reusable native stdin ownership. */
 export function runtimeInputSourceFromAsyncIterable(
-  source: AsyncIterable<string | Uint8Array>
+  source: NodeReadableTerminalStream
 ): RuntimeInputSource {
+  const input = new NodeInput(source);
   return {
-    async *read(options = {}) {
-      const signal = options.signal;
-      if (isAborted(signal)) return;
-      const iterator = source[Symbol.asyncIterator]();
-      try {
-        for (;;) {
-          const next = await iterator.next();
-          if (next.done === true || isAborted(signal)) return;
-          yield next.value;
+    read(options = {}) {
+      return {
+        [Symbol.asyncIterator]: () => {
+          const reader = input.read(options)[Symbol.asyncIterator]();
+          return {
+            next: async () => {
+              const result = await reader.next();
+              return result.done === true
+                ? { done: true, value: undefined }
+                : { done: false, value: result.value.data };
+            },
+            return: async () => {
+              await reader.return?.();
+              return { done: true, value: undefined };
+            }
+          };
         }
-      } finally {
-        await iterator.return?.();
-      }
-    }
+      };
+    },
+    release: () => input.release(),
+    dispose: () => input.dispose()
   };
-}
-
-function isAborted(signal: AbortSignal | undefined): boolean {
-  return signal?.aborted ?? false;
 }

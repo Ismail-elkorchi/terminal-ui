@@ -43,7 +43,7 @@ export interface TreeReducerOptions<
 > {
   readonly source: TreeSource<TMetadata>;
   /** Prepared projection; null keeps navigation idle while a new projection is pending. */
-  readonly view?: TreeView<TMetadata> | null;
+  readonly view: TreeView<TMetadata> | null;
   readonly navigation?: NavigationPolicy;
   readonly pageSize?: number;
 }
@@ -165,6 +165,18 @@ function* createTreeViewWork<TMetadata extends Readonly<Record<string, unknown>>
   return view;
 }
 
+/** Validate prepared data without rebuilding a missing projection. */
+export function matchingTreeView<TMetadata extends Readonly<Record<string, unknown>>>(
+  source: TreeSource<TMetadata>, state: TreeState, view: TreeView<TMetadata> | null,
+): TreeView<TMetadata> | undefined {
+  treeSourceData(source);
+  if (view === null) return undefined;
+  if (!treeViews.has(view)) throw new TypeError('Prepared tree view must be created by terminal-ui.');
+  return view.source === source && treeViewKeys.get(view) === treeProjectionKey(
+    state, compileCollectionQuery(state.query ?? { text: '', mode: 'contains' }),
+  ) ? view : undefined;
+}
+
 function treeProjectionKey(state: TreeState, query: CompiledCollectionQuery): string {
   return finishWork(treeProjectionKeyWork(state, query));
 }
@@ -224,11 +236,8 @@ export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>
     return query.text.length === 0 ? withoutQuery(state) : { ...state, query };
   }
   if (isDisclosure(transition)) return reduceDisclosure(state, transition, options.source);
-  if (options.view === null) return state;
-  const view = options.view ?? createTreeView(options.source, state);
-  if (view.source !== options.source || treeViewKeys.get(view) !== treeProjectionKey(
-    state, compileCollectionQuery(state.query ?? { text: '', mode: 'contains' }),
-  )) throw new TypeError('Prepared tree view must match its source and projection state.');
+  const view = matchingTreeView(options.source, state, options.view);
+  if (view === undefined) return state;
   const collection = view.collection;
   const interaction = collectionInteractionReducer(state, transition, {
     index: view.interactionIndex,

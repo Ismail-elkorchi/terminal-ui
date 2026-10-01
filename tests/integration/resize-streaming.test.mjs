@@ -52,7 +52,7 @@ test('PTY harness handles resize while async stream messages are rendering', asy
       }
     }],
     view: (state, context) => column([
-      logViewer({
+      logViewer({ view: null,
         id: 'stream-log',
         history: state.history
       }),
