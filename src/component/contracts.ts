@@ -159,6 +159,13 @@ export interface ComponentLayoutInput<
   readonly slots: ComponentSlotMeasurements<TSlots>;
 }
 
+/** Geometry of an accepted frame, delivered after publication rather than during layout. */
+export interface ComponentLayoutCommitInput<TModel extends object> extends ComponentInput<TModel> {
+  readonly commitId: string;
+  readonly allocatedBounds: Rect;
+  readonly previous?: ComponentInput<TModel> & { readonly allocatedBounds: Rect };
+}
+
 export interface ComponentCompositionInput<
   TModel extends object,
   TSlots extends ComponentSlotShape,
@@ -302,6 +309,7 @@ type FocusTargetDefinition<TModel extends object, TAction, TPart extends string>
 
 type InteractiveDefinition<TModel extends object, TAction, TPart extends string> =
   FocusTargetDefinition<TModel, TAction, TPart> & {
+  readonly onLayout?: (this: undefined, input: ComponentLayoutCommitInput<TModel>) => MessageResolution<TAction>;
   /** Prevents raw text events from being recorded while this component owns focus. */
   readonly sensitiveInput?: boolean;
   readonly hitTargets?: (
@@ -368,6 +376,7 @@ interface DecorativeDefinition {
   readonly keys?: never;
   readonly onInput?: never;
   readonly onPaste?: never;
+  readonly onLayout?: never;
   readonly sensitiveInput?: never;
 }
 

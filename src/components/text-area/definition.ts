@@ -19,7 +19,7 @@ import {
 } from '../shared/inspection.ts';
 import { textEditingHandlers } from '../shared/text-key-bindings.ts';
 import { textPointerTarget } from '../shared/text-pointer-target.ts';
-import { measureTextArea, projectedCaret, textAreaGeometry } from './geometry.ts';
+import { measureTextArea, projectedCaret, textAreaGeometry, textAreaCommittedLayout } from './geometry.ts';
 import type { TextAreaComponentAction } from './interaction.ts';
 import {
   pointerOffset,
@@ -69,6 +69,10 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
     };
   },
   measure: measureTextArea,
+  onLayout(input) {
+    const snapshot = textAreaCommittedLayout(input);
+    return snapshot === undefined ? ignoreMessage() : { kind: 'layout', snapshot };
+  },
   retainPaint: true as const,
   render: paintTextArea,
   keys: (input) => controlKeyBindings<TextAreaKeyAction, TextAreaComponentAction>(input.model.keymap, {
@@ -244,18 +248,21 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
 });
 
 export const textArea: TextAreaFactory = (options) => {
+  assertOptionalCallback(options.onLayout, 'text-area onLayout');
   assertOptionalCallback(options.onContextMenu, 'text-area onContextMenu');
   if (options.disabled === true && options.onTransition === undefined) {
     const { onContextMenu, ...rest } = withoutTransitionCallback(options);
     void onContextMenu;
-    return instantiateTextArea({ ...rest, disabled: true });
+    return instantiateTextArea({ ...rest, disabled: true, onAction: (action) => action.kind === 'layout' ? options.onLayout?.(action.snapshot) ?? ignoreMessage() : ignoreMessage() });
   }
   assertRequiredPropertyCallback(options, 'onTransition', 'textArea onTransition');
   if (!isScrollableTextArea(options)) {
     const { onTransition, onContextMenu, ...componentOptions } = options;
     return instantiateTextArea({
       ...componentOptions,
-      onAction: (action) => action.kind === 'contextMenu'
+      onAction: (action) => action.kind === 'layout'
+        ? options.onLayout?.(action.snapshot) ?? ignoreMessage()
+        : action.kind === 'contextMenu'
         ? onContextMenu?.(action.event) ?? ignoreMessage()
         : action.kind === 'scroll' ? ignoreMessage() : onTransition(action),
     });
@@ -263,7 +270,9 @@ export const textArea: TextAreaFactory = (options) => {
   const { onTransition, onContextMenu, ...componentOptions } = options;
   return instantiateTextArea({
     ...componentOptions,
-    onAction: (action) => action.kind === 'contextMenu'
+    onAction: (action) => action.kind === 'layout'
+        ? options.onLayout?.(action.snapshot) ?? ignoreMessage()
+        : action.kind === 'contextMenu'
       ? onContextMenu?.(action.event) ?? ignoreMessage()
       : onTransition(action),
   });

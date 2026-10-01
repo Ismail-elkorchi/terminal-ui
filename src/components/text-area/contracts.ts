@@ -39,3 +39,13 @@ export interface TextAreaLineNumberOptions {
   readonly startNumber?: number;
   readonly minWidth?: number;
 }
+
+/** Source-exact geometry from an accepted frame. Rectangles use terminal coordinates. */
+export interface TextAreaLayoutSnapshot {
+  readonly document: import('../../text/document.ts').TextDocument;
+  readonly layoutRevision: string;
+  readonly allocatedBounds: import('../../geometry/types.ts').Rect;
+  readonly contentBounds: import('../../geometry/types.ts').Rect;
+  readonly rowOffsetMap: import('../../text/types.ts').RowOffsetMap;
+  readonly scroll: import('../../interaction/scroll.ts').ScrollState;
+}

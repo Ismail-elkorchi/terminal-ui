@@ -8,7 +8,7 @@ For signatures and public members, use the [API reference](./reference.md).
 
 | Import path | Declarations |
 | --- | ---: |
-| `@ismail-elkorchi/terminal-ui` | 558 |
+| `@ismail-elkorchi/terminal-ui` | 567 |
 | `@ismail-elkorchi/terminal-ui/host` | 84 |
 | `@ismail-elkorchi/terminal-ui/input` | 79 |
 | `@ismail-elkorchi/terminal-ui/interaction` | 96 |
@@ -18,16 +18,16 @@ For signatures and public members, use the [API reference](./reference.md).
 | `@ismail-elkorchi/terminal-ui/theme` | 34 |
 | `@ismail-elkorchi/terminal-ui/theme/packs` | 8 |
 | `@ismail-elkorchi/terminal-ui/prompts` | 61 |
-| `@ismail-elkorchi/terminal-ui/tui` | 76 |
-| `@ismail-elkorchi/terminal-ui/components` | 450 |
+| `@ismail-elkorchi/terminal-ui/tui` | 83 |
+| `@ismail-elkorchi/terminal-ui/components` | 451 |
 | `@ismail-elkorchi/terminal-ui/components/foundations` | 35 |
-| `@ismail-elkorchi/terminal-ui/components/forms` | 122 |
+| `@ismail-elkorchi/terminal-ui/components/forms` | 123 |
 | `@ismail-elkorchi/terminal-ui/components/collections` | 99 |
 | `@ismail-elkorchi/terminal-ui/components/overlays` | 37 |
 | `@ismail-elkorchi/terminal-ui/components/feedback` | 21 |
 | `@ismail-elkorchi/terminal-ui/components/patterns` | 34 |
 | `@ismail-elkorchi/terminal-ui/components/visualizations` | 28 |
-| `@ismail-elkorchi/terminal-ui/component` | 115 |
+| `@ismail-elkorchi/terminal-ui/component` | 117 |
 | `@ismail-elkorchi/terminal-ui/layout` | 70 |
 | `@ismail-elkorchi/terminal-ui/behavior` | 334 |
 | `@ismail-elkorchi/terminal-ui/renderer` | 162 |

@@ -127,6 +127,7 @@ function assertDefinitionHooks(
 
 const optionalComponentDefinitionHooks = [
   'prepare',
+  'onLayout',
   'renderBeforeChildren',
   'renderAfterChildren',
   'capture',
@@ -209,6 +210,7 @@ function assertDefinitionInteraction(
 
 const decorativeInteractionFields = [
   'states',
+  'onLayout',
   'keys',
   'onInput',
   'onPaste',

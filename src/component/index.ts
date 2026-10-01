@@ -1,3 +1,4 @@
+export type { ComponentLayoutCommitInput } from './contracts.ts';
 export type {
   ComponentInspectionRecord,
   ComponentInspectionValue,
@@ -134,3 +135,5 @@ export type {
 } from './scrollbar.ts';
 export { mapComponentStyles } from './styles.ts';
 export type { ComponentStylePartMapping } from './styles.ts';
+
+export type { ElementState } from '../element/metadata.ts';

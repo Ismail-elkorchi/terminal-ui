@@ -1,3 +1,6 @@
+import { createRowOffsetMap } from '../../text/row-offset-map.ts';
+import type { ComponentLayoutCommitInput } from '../../component/contracts.ts';
+import type { TextAreaLayoutSnapshot } from './contracts.ts';
 import { scrollReducer } from '../../behavior/scroll.ts';
 import type { ComponentInput, ComponentMeasureInput } from '../../component/contracts.ts';
 import { layoutComponentScrollbar } from '../../component/scrollbar.ts';
@@ -40,7 +43,20 @@ export interface TextAreaGeometry {
   readonly scrollbar: ReturnType<typeof layoutComponentScrollbar>;
 }
 
+const geometryCache = new WeakMap<TextAreaModel, { readonly input: ComponentInput<TextAreaModel>; readonly geometry: TextAreaGeometry }>();
+const rowMapCache = new WeakMap<TextAreaGeometry, TextAreaLayoutSnapshot['rowOffsetMap']>();
+
 export function textAreaGeometry(input: ComponentInput<TextAreaModel>): TextAreaGeometry {
+  const cached = geometryCache.get(input.model);
+  if (cached?.input.bounds.width === input.bounds.width
+    && cached.input.bounds.height === input.bounds.height && cached.input.theme === input.theme
+    && cached.input.widthProfile === input.widthProfile) return cached.geometry;
+  const geometry = computeTextAreaGeometry(input);
+  geometryCache.set(input.model, { input, geometry });
+  return geometry;
+}
+
+function computeTextAreaGeometry(input: ComponentInput<TextAreaModel>): TextAreaGeometry {
   const display = textAreaDisplayDocument(input.model, input.widthProfile);
   const lineCount = textDocumentLineCount(display.document);
   const prefixWidth = textAreaPrefixWidth(input.model, input.theme, input.widthProfile, lineCount);
@@ -186,4 +202,39 @@ export function textAreaPrefixWidth(
   );
   return 1 + width +
     measureTextCells(` ${theme.tokens.symbols.borderSingle.vertical} `, { widthProfile }).cells;
+}
+
+/** Uses the exact geometry already consulted by painting and interaction. */
+export function textAreaCommittedLayout(input: ComponentLayoutCommitInput<TextAreaModel>): TextAreaLayoutSnapshot | undefined {
+  if (!input.model.observeLayout) return undefined;
+  const geometry = textAreaGeometry(input);
+  const previous = input.previous;
+  if (previous !== undefined && previous.model.observeLayout && previous.model.document === input.model.document
+    && previous.model.decorations === input.model.decorations && previous.theme === input.theme
+    && previous.widthProfile === input.widthProfile && sameRect(previous.allocatedBounds, input.allocatedBounds)) {
+    const before = textAreaGeometry(previous);
+    if (before.layout === geometry.layout && sameRect(before.scrollbar.contentBounds, geometry.scrollbar.contentBounds)
+      && before.scrollbar.scroll.offsetRow === geometry.scrollbar.scroll.offsetRow
+      && before.scrollbar.scroll.offsetColumn === geometry.scrollbar.scroll.offsetColumn
+      && before.scrollbar.scroll.followTail === geometry.scrollbar.scroll.followTail) return undefined;
+  }
+  let rowOffsetMap = rowMapCache.get(geometry);
+  if (rowOffsetMap === undefined) {
+    rowOffsetMap = createRowOffsetMap(geometry.usesPlaceholder ? [0] : geometry.layout.allRowStartOffsets().map((offset) =>
+      geometry.projection.sourceOffsetAtDisplayOffset(offset, 'upstream')));
+    rowMapCache.set(geometry, rowOffsetMap);
+  }
+  const content = geometry.scrollbar.contentBounds;
+  return Object.freeze({
+    document: input.model.document,
+    layoutRevision: input.commitId,
+    allocatedBounds: Object.freeze({ ...input.allocatedBounds }),
+    contentBounds: Object.freeze({ ...content, row: content.row + input.allocatedBounds.row, column: content.column + input.allocatedBounds.column }),
+    rowOffsetMap,
+    scroll: Object.freeze({ ...geometry.scrollbar.scroll }),
+  });
+}
+
+function sameRect(left: import('../../geometry/types.ts').Rect, right: import('../../geometry/types.ts').Rect): boolean {
+  return left.row === right.row && left.column === right.column && left.width === right.width && left.height === right.height;
 }

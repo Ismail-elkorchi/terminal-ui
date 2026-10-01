@@ -18,7 +18,8 @@ import type { TextAreaLineNumberOptions, TextAreaWrapOptions } from './contracts
 import type { TextAreaDecorations } from './decorations.ts';
 
 
-interface TextAreaBaseOptions {
+interface TextAreaBaseOptions<TMessage extends ComponentMessage> {
+  readonly onLayout?: (snapshot: import('./contracts.ts').TextAreaLayoutSnapshot) => MessageResolution<TMessage>;
   readonly keymap?: ControlKeymap<TextAreaKeyAction>;
   readonly id: string;
   readonly decorations?: TextAreaDecorations;
@@ -39,7 +40,7 @@ export type TextAreaOptions<TMessage extends ComponentMessage = never> =
   | DisabledTextAreaOptions<TMessage>;
 
 export type UnscrolledTextAreaOptions<TMessage extends ComponentMessage = never> =
-  & TextAreaBaseOptions
+  & TextAreaBaseOptions<TMessage>
   & {
     readonly disabled?: boolean;
     readonly state: UnscrolledTextAreaControlState;
@@ -50,7 +51,7 @@ export type UnscrolledTextAreaOptions<TMessage extends ComponentMessage = never>
   };
 
 export type ScrollableTextAreaOptions<TMessage extends ComponentMessage = never> =
-  & TextAreaBaseOptions
+  & TextAreaBaseOptions<TMessage>
   & {
     readonly disabled?: boolean;
     readonly state: ScrollableTextAreaControlState;
@@ -60,7 +61,7 @@ export type ScrollableTextAreaOptions<TMessage extends ComponentMessage = never>
     readonly onContextMenu?: (event: TextContextMenuEvent) => MessageResolution<TMessage>;
   };
 
-export type DisabledTextAreaOptions<TMessage extends ComponentMessage = never> = TextAreaBaseOptions & {
+export type DisabledTextAreaOptions<TMessage extends ComponentMessage = never> = TextAreaBaseOptions<TMessage> & {
   readonly disabled: true;
   readonly readOnly?: never;
 } & (

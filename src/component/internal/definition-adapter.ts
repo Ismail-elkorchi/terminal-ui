@@ -1,3 +1,4 @@
+import { mapComponentAction } from '../message.ts';
 import type { AccessibleNode } from '../../accessibility/types.ts';
 import type { ElementState } from '../../element/metadata.ts';
 import { executeSynchronousRenderCallback } from '../../foundation/synchronous-render.ts';
@@ -60,7 +61,23 @@ export function adaptDefinition<
   TVisualStates
 >): RenderNodeRenderer<unknown, 'component'> {
   const { contract, definition } = compiled;
+  const onLayout = definition.semantics === 'decorative' ? undefined : definition.onLayout;
   const renderer: RenderNodeRenderer<unknown, 'component'> = {
+    ...(onLayout === undefined ? {} : {
+      onLayout: (input) => executeComponentPhase(definition.name, input.renderNode.id, 'layout', () => {
+        const previous = input.previous;
+        const action = onLayout.call(undefined, {
+          ...componentInput<TModel>(input.renderNode, input.layoutNode.bounds, input.layoutNode.viewport, input.theme, input.widthProfile),
+          commitId: input.commitId,
+          allocatedBounds: input.layoutNode.bounds,
+          ...(previous === undefined ? {} : { previous: {
+            ...componentInput<TModel>(previous.renderNode, previous.layoutNode.bounds, previous.layoutNode.viewport, previous.theme, previous.widthProfile),
+            allocatedBounds: previous.layoutNode.bounds,
+          } }),
+        });
+        return mapComponentAction(action, input.renderNode.props.toActionMessage);
+      }),
+    }),
     ...(definition.structure === 'leaf' && definition.retainPaint === true ? { retainPaint: true } : {}),
     ...(definition.prepare === undefined ? {} : {
       prepare: async ({ renderNode, context }) => {

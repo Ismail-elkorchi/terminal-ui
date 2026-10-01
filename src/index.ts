@@ -1,3 +1,7 @@
+export type { ElementState } from './element/metadata.ts';
+export type { TextAreaLayoutSnapshot } from './components/text-area/contracts.ts';
+export { createTuiChild } from './tui/child.ts';
+export type { TuiChild, TuiChildDefinition, TuiChildIdentity, TuiChildMessage, TuiChildResult, TuiChildState } from './tui/child.ts';
 export { createDataGridKeymap } from './components/keymaps.ts';
 export type { DataGridKeyAction } from './components/keymaps.ts';
 export { createListboxKeymap, createTreeKeymap, createSearchPickerKeymap, createTextInputKeymap, createTextAreaKeymap } from './components/keymaps.ts';

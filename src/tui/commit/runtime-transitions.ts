@@ -1,3 +1,4 @@
+import { layoutLifecycleMessages } from '../lifecycle/layout-lifecycle.ts';
 import { diagnostic } from '../../diagnostics.ts';
 import { TerminalUiError } from '../../errors.ts';
 import type { TerminalSize } from '../../geometry/types.ts';
@@ -86,7 +87,7 @@ export function createRuntimeTransitions<TState, TMessage>(options: RuntimeTrans
       if (lifecycle.phase() === 'starting') lifecycle.activate();
       options.recordFrameCommit();
       recordCommittedRender(result.render, result.diff);
-      if (lifecycle.active()) runPostCommit('subscription_activation', () => {
+      if (initial.exit === undefined && lifecycle.active()) runPostCommit('subscription_activation', () => {
         subscriptions.activate(subscriptionPlan);
       });
       for (const item of result.diagnostics) diagnostics.report(item);
@@ -96,17 +97,25 @@ export function createRuntimeTransitions<TState, TMessage>(options: RuntimeTrans
         stateVersion: result.render.stateVersion,
         frame: result.render.frame
       });
-      const focusMessages = resolvePostCommitMessages('focus_lifecycle_mapping', () => focusLifecycleMessages<TMessage>({
-        next: {
-          node: result.render.node,
-          layout: result.render.layout,
-          ...(result.render.frame.focusPath === undefined
-            ? {}
-            : { focusPath: result.render.frame.focusPath }),
-        },
-      }));
-      if (focusMessages.length > 0 && lifecycle.active()) {
-        await dispatchPostCommitMessages(focusMessages, 'focus_lifecycle');
+      if (initial.exit === undefined) {
+        const layoutMessages = resolvePostCommitMessages('layout_lifecycle_mapping', () => layoutLifecycleMessages(result.render));
+        const focusMessages = resolvePostCommitMessages('focus_lifecycle_mapping', () => focusLifecycleMessages<TMessage>({
+          next: {
+            node: result.render.node,
+            layout: result.render.layout,
+            ...(result.render.frame.focusPath === undefined
+              ? {}
+              : { focusPath: result.render.frame.focusPath }),
+          },
+        }));
+        if (initial.effects !== undefined && lifecycle.active()) {
+          const initialEffects = initial.effects;
+          runPostCommit('effect_start', () => { effects.start(initialEffects); });
+        }
+        const postCommitMessages = [...layoutMessages, ...focusMessages];
+        if (postCommitMessages.length > 0 && lifecycle.active()) {
+          await dispatchPostCommitMessages(postCommitMessages, 'layout_and_focus_lifecycle');
+        }
       }
       if (initial.exit !== undefined) {
         lifecycle.beginExit();
@@ -121,11 +130,6 @@ export function createRuntimeTransitions<TState, TMessage>(options: RuntimeTrans
           diagnostics: diagnostics.values(),
         };
         changes.publish({ kind: 'exit', exit: terminalExit });
-      } else if (initial.effects !== undefined && lifecycle.active()) {
-        const initialEffects = initial.effects;
-        runPostCommit('effect_start', () => {
-          effects.start(initialEffects);
-        });
       }
       return commits.frame();
     } catch (cause) {
@@ -198,6 +202,7 @@ export function createRuntimeTransitions<TState, TMessage>(options: RuntimeTrans
     }
     if (reduction.exitReason === undefined && lifecycle.active()) {
       runPostCommit('effect_cancellation', () => { effects.cancelIds(reduction.cancelEffects); });
+      const layoutMessages = resolvePostCommitMessages('layout_lifecycle_mapping', () => layoutLifecycleMessages(result.render, previousRender));
       const focusMessages = resolvePostCommitMessages('focus_lifecycle_mapping', () => focusLifecycleMessages<TMessage>({
         previous: {
           node: previousRender.node,
@@ -214,10 +219,11 @@ export function createRuntimeTransitions<TState, TMessage>(options: RuntimeTrans
             : { focusPath: result.render.frame.focusPath }),
         },
       }));
-      if (focusMessages.length > 0) await dispatchPostCommitMessages(focusMessages, 'focus_lifecycle');
       if (terminalExit === undefined && lifecycle.active()) {
         runPostCommit('effect_start', () => { startReductionEffects(reduction); });
       }
+      const postCommitMessages = [...layoutMessages, ...focusMessages];
+      if (postCommitMessages.length > 0) await dispatchPostCommitMessages(postCommitMessages, 'layout_and_focus_lifecycle');
     }
     return commits.state();
   }

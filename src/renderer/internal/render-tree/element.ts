@@ -130,6 +130,37 @@ export function mapElementMessages(
   return registerElement(mapped, inspection);
 }
 
+/** Scope a child application's messages and local element/focus identities together. */
+export function scopeElement(
+  element: ElementValue,
+  mapper: (message: unknown) => unknown,
+  identity: (id: string) => string,
+): Element<unknown> {
+  const mapped = scopeRenderNode(mapRenderNodeMessages(toRenderNode(element), mapper), identity);
+  const inspection = inspectRenderNode(mapped, inspectRegisteredElement(element).factory);
+  renderNodeInspections.set(mapped, inspection);
+  return registerElement(mapped, inspection);
+}
+
+function scopeRenderNode(node: RenderNode, identity: (id: string) => string): RenderNode {
+  const scope = node.focus?.scope;
+  const selector = scope?.initialFocus;
+  const mapped = {
+    ...node,
+    ...(node.id === undefined ? {} : { id: identity(node.id) }),
+    ...(selector === undefined ? {} : { focus: {
+      ...node.focus,
+      scope: { ...scope, initialFocus: selector.kind === 'path'
+        ? selector
+        : { ...selector, elementId: identity(selector.elementId) } },
+    } }),
+    ...(node.children === undefined ? {} : { children: node.children.map((child) => scopeRenderNode(child, identity)) }),
+  } as RenderNode;
+  const inspection = renderNodeInspections.get(node);
+  if (inspection !== undefined) renderNodeInspections.set(mapped, inspectRenderNode(mapped, inspection.factory));
+  return mapped;
+}
+
 function mapRenderNodeMessages<TMessage>(
   node: RenderNode<TMessage>,
   mapper: (message: unknown) => unknown

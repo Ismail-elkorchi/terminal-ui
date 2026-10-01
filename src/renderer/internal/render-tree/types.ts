@@ -192,10 +192,25 @@ export interface RenderNodeKeyInput<
   readonly focusedTargetId?: string;
 }
 
+export interface RenderNodeLayoutCommitInput<TMessage, TKind extends RenderNodeKind> {
+  readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
+  readonly layoutNode: LayoutNode;
+  readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
+  readonly commitId: string;
+  readonly previous?: {
+    readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
+    readonly layoutNode: LayoutNode;
+    readonly theme: TerminalTheme;
+    readonly widthProfile: TextWidthProfile;
+  };
+}
+
 export interface RenderNodeRenderer<
   TMessage = unknown,
   TKind extends RenderNodeKind = RenderNodeKind
 > {
+  onLayout?(input: RenderNodeLayoutCommitInput<TMessage, TKind>): unknown;
   readonly clipChildren?: boolean;
   readonly retainPaint?: boolean;
   prepare?(input: { readonly renderNode: RenderNodeOfKind<TMessage, TKind>; readonly context: RenderPreparationContext }): Promise<void>;

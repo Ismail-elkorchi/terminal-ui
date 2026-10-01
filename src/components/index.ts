@@ -1,3 +1,4 @@
+export type { TextAreaLayoutSnapshot } from './text-area/contracts.ts';
 export { createDataGridKeymap } from './keymaps.ts';
 export type { DataGridKeyAction } from './keymaps.ts';
 export { createListboxKeymap, createTreeKeymap, createSearchPickerKeymap, createTextInputKeymap, createTextAreaKeymap } from './keymaps.ts';

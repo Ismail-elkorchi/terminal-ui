@@ -28,6 +28,7 @@ import type { TextAreaOptions } from './options.ts';
 
 
 export interface TextAreaModel {
+  readonly observeLayout: boolean;
   readonly keymap: ControlKeymap<TextAreaKeyAction>;
   readonly document: TextDocument;
   readonly caret: TextCaret;
@@ -110,6 +111,7 @@ export function createTextAreaModel(
   const required = booleanOption(value.required, 'textArea required');
   const revealCaret = booleanOption(state.revealCaret, 'textArea revealCaret');
   return {
+    observeLayout: value.onLayout !== undefined,
     keymap: resolveControlKeymap(value.keymap, defaultTextAreaKeymap),
     document,
     caret: normalizedCaret,

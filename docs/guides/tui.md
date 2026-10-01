@@ -115,3 +115,50 @@ helper input or resize call. Inspect frames, diffs, accessibility, focus, and
 restoration through the [testing harness](./testing-harness.md). For renderer
 data structures and output costs, see [rendering internals](./rendering-internals.md)
 and [performance evidence](./performance.md).
+
+## Composing child applications
+
+`createTuiChild(definition, toParentMessage)` reuses the ordinary `init`,
+`update`, `view`, and optional `subscriptions` contract. Store the returned
+`TuiChildState` in the parent's state. It contains the local state, a stable ID,
+its mount generation, and owned effect IDs; there is no additional runtime or
+mutable state registry. Reuse a finite set of local operation IDs (for example
+`read` or `save`); mount ownership retains those identities until removal.
+
+Initialize with `child.init({ id: 'notes', generation }, context)`. Use a fresh
+parent-owned generation each time that child is mounted after removal. Forward
+one `TuiChildMessage` envelope to `child.update`, render with `child.view`, and
+include `child.subscriptions` while the child exists. The adapter scopes local
+effect IDs, cancellation IDs, source IDs, element IDs, and element-based focus
+requests. It fences old-generation messages and preserves local error/source
+lifecycle identities. Child focus requests use `element` or `elementTarget`;
+explicit paths in view metadata are absolute parent paths.
+
+When removing or replacing a child, return `child.remove(instance)` in the
+parent's `cancelEffects`, remove its state, and omit its subscriptions in that
+same update. Merely hiding its view does not remove it or cancel its work.
+`outputs` from child initialization/update are explicit domain decisions for
+the parent to handle, such as closing a panel; they do not silently dispatch
+parent messages or exit the application.
+
+## Accepted layout notifications
+
+`textArea({ onLayout: snapshot => message, ... })` reports the accepted frame's
+`TextAreaLayoutSnapshot`: source document identity, layout revision, allocated
+and content bounds, source row-offset map, and resolved scroll. Bounds use
+terminal coordinates, including the actual gutter and scrollbar allocation.
+The source map reuses the editor's rendered layout. Unchanged geometry does not
+notify again; document, decoration, allocation, and scrolling changes do.
+
+Callbacks run only after frame publication. Standalone rendering and failed
+writes never notify. Handle the message in the normal reducer and compare the
+document identity with the current document before using a retained snapshot.
+This removes the need to repeat text-area configuration and guess its width in
+an application reducer.
+
+Custom semantic components can implement `onLayout(input)` to return a local
+action after publication. Its input includes `commitId`, absolute
+`allocatedBounds`, and the previous committed component input when present.
+Return `ignoreMessage()` when the relevant geometry/model has not changed to
+avoid a feedback loop. Layout hooks must not dispatch or mutate application
+state while measuring or painting.

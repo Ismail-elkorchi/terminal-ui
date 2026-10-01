@@ -18,7 +18,7 @@ import type { TextAreaGeometry } from './geometry.ts';
 import { projectedCaret, textAreaGeometry } from './geometry.ts';
 import type { TextAreaModel } from './model.ts';
 
-export type TextAreaComponentAction = TextAreaTransition | {
+export type TextAreaComponentAction = TextAreaTransition | { readonly kind: 'layout'; readonly snapshot: import('./contracts.ts').TextAreaLayoutSnapshot } | {
   readonly kind: 'contextMenu';
   readonly event: TextContextMenuEvent;
 };

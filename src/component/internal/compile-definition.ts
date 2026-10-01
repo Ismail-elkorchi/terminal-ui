@@ -64,6 +64,7 @@ export function compileDefinition<
       partSet: new Set(definition.parts ?? []),
       visualStateSet: new Set(definition.visualStates ?? []),
       actionful: definition.semantics === 'semantic' && (
+        definition.onLayout !== undefined ||
         definition.hitTargets !== undefined
         || definition.structure !== 'leaf' && definition.capture !== undefined
         || definition.keys !== undefined

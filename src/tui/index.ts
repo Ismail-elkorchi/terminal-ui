@@ -1,3 +1,5 @@
+export { createTuiChild } from './child.ts';
+export type { TuiChild, TuiChildDefinition, TuiChildIdentity, TuiChildMessage, TuiChildResult, TuiChildState } from './child.ts';
 export {
   advanceAnimationTimeline,
   createAnimationTimeline,
