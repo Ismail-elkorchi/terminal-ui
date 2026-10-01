@@ -23,6 +23,48 @@ ROOT = Path(__file__).resolve().parents[2]
 CYCLES = 3
 
 
+def termios_snapshot(attributes):
+    return dict(zip(['iflag', 'oflag', 'cflag', 'lflag', 'ispeed', 'ospeed', 'cc'],
+                    [*attributes[:6], [value if isinstance(value, int) else value[0]
+                                       for value in attributes[6]]]))
+
+
+def termios_difference(before, after):
+    initial, final = termios_snapshot(before), termios_snapshot(after)
+    return {name: {'before': value, 'after': final[name],
+                   **({'xor': value ^ final[name]} if isinstance(value, int) else {})}
+            for name, value in initial.items() if value != final[name]}
+
+
+def runtime_termios_controls(runtime, executable, environment):
+    """Diagnose a failed equality using independent PTYs, without the library."""
+    results = []
+    programs = [
+        ('startup', ''),
+        ('raw-round-trip', "const { default: process } = await import('node:process'); "
+         'process.stdin.setRawMode(true); process.stdin.setRawMode(false); '
+         'process.stdin.pause(); process.stdin.unref();'),
+    ]
+    for scenario, program in programs:
+        master, slave = pty.openpty()
+        before = termios.tcgetattr(slave)
+        command = [executable, 'eval', program] if runtime == 'deno' else \
+            [executable, '--input-type=module', '--eval', program]
+        try:
+            result = subprocess.run(command, stdin=slave, stdout=slave, stderr=slave,
+                                    env=environment, start_new_session=True, timeout=5)
+            after = termios.tcgetattr(slave)
+            results.append({'scenario': scenario, 'exitCode': result.returncode,
+                            'initial': termios_snapshot(before), 'final': termios_snapshot(after),
+                            'difference': termios_difference(before, after)})
+        except subprocess.TimeoutExpired:
+            results.append({'scenario': scenario, 'timedOut': True})
+        finally:
+            os.close(master)
+            os.close(slave)
+    return results
+
+
 def run_case(runtime, executable, directory, scenario):
     stem = directory / f'{runtime}-{scenario}'
     report_path = Path(f'{stem}.events.jsonl')
@@ -101,7 +143,16 @@ def run_case(runtime, executable, directory, scenario):
                 assert sum(event['kind'] == 'reader-released' for event in at_cycle) == 1
             else:
                 assert [event['phase'] for event in at_cycle if event['kind'] == 'ui-ready'] == ['ready', 'resumed']
-        assert termios.tcgetattr(slave) == initial_termios, 'Native termios state was not restored at natural exit'
+        final_termios = termios.tcgetattr(slave)
+        assert final_termios == initial_termios, \
+            'Native termios state was not restored at natural exit; ' + json.dumps({
+                'initial': termios_snapshot(initial_termios),
+                'final': termios_snapshot(final_termios),
+                'difference': termios_difference(initial_termios, final_termios),
+                'PENDIN': getattr(termios, 'PENDIN', None),
+                'runtimeControls': runtime_termios_controls(runtime, executable, environment),
+                'events': events,
+            })
         if scenario == 'visual':
             assert output.count(b'\x1b[?1049h') >= CYCLES + 1, 'Visual session was not reacquired after each handoff'
             assert output.count(b'\x1b[?1049l') >= CYCLES + 1, 'Visual session was not restored after each handoff'
@@ -125,6 +176,9 @@ def run_case(runtime, executable, directory, scenario):
         Path(f'{stem}.supervisor.json').write_text(json.dumps({
             'forcedTermination': forced, 'exitCode': process.returncode,
             'termiosRestored': termios.tcgetattr(slave) == initial_termios,
+            'initialTermios': termios_snapshot(initial_termios),
+            'finalTermios': termios_snapshot(termios.tcgetattr(slave)),
+            'termiosDifference': termios_difference(initial_termios, termios.tcgetattr(slave)),
         }, indent=2) + '\n')
         os.close(master)
         os.close(slave)

@@ -24,15 +24,20 @@ path, cycle = sys.argv[1], int(sys.argv[2])
 def record(kind, **details):
     with open(path, 'a') as output:
         output.write(json.dumps(dict(kind=kind, cycle=cycle, **details)) + '\\n')
+def snapshot(attributes):
+    return dict(zip(['iflag', 'oflag', 'cflag', 'lflag', 'ispeed', 'ospeed', 'cc'],
+                    [*attributes[:6], [value if isinstance(value, int) else value[0]
+                                       for value in attributes[6]]]))
 initial = termios.tcgetattr(0)
 try:
     tty.setraw(0)
-    record('child-ready', canonicalBefore=bool(initial[3] & termios.ICANON))
+    record('child-ready', canonicalBefore=bool(initial[3] & termios.ICANON), termiosBefore=snapshot(initial))
     data = os.read(0, 1)
     record('child-input', data=data.decode('ascii'), length=len(data))
     assert data == b'C', repr(data)
 finally:
     termios.tcsetattr(0, termios.TCSANOW, initial)
+    record('child-restored', termiosAfter=snapshot(termios.tcgetattr(0)))
 `;
 
 async function externalOperation(cycle) {
