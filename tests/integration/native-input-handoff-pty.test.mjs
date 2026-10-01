@@ -31,7 +31,16 @@ for (const runtime of ['node', 'deno', 'bun']) {
       const summary = JSON.parse(result.stdout);
       assert.equal(summary.evidence, 'automated-unix-pty');
       assert.deepEqual(summary.cases.map(({ scenario }) => scenario), ['direct', 'visual', 'accessible']);
-      assert.ok(summary.cases.every(({ cycles, naturalExit, termiosRestored }) => cycles === 3 && naturalExit && termiosRestored));
+      assert.ok(summary.cases.every(({ cycles, naturalExit, termiosRestored, readableInputBytesAtExit }) =>
+        cycles === 3 && naturalExit && termiosRestored && readableInputBytesAtExit === 0));
+      assert.equal(summary.readinessObservation.preservedInput, 'keep\n');
+      assert.equal(summary.readinessObservation.termiosRestored, true);
+      assert.equal(summary.readinessObservation.persistentMismatchDetected, true);
+      context.diagnostic(JSON.stringify({
+        readinessObservation: summary.readinessObservation,
+        termiosObservations: summary.cases.map(({ scenario, readableInputBytesAtExit, termiosObservation }) =>
+          ({ scenario, readableInputBytesAtExit, ...termiosObservation })),
+      }));
       await fs.rm(directory, { recursive: true, force: true });
     } catch (error) {
       throw new Error(`Native ${runtime} input handoff failed; artifacts retained in ${directory}`, { cause: error });

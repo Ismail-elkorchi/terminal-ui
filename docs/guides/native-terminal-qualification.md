@@ -157,7 +157,13 @@ receives `R`. It also repeats three `runTui()` effect calls to
 `context.withTerminalSuspended()` in each of visual and accessible output modes,
 checking that the child receives `C` and the resumed UI receives `R`. The Unix
 PTY supervisor observes natural process exit without a forced `process.exit()`
-in the fixture and exact termios restoration; a timeout is a failure. Run it
+in the fixture and exact termios restoration; a timeout is a failure. The
+comparison observes input readiness once at each boundary, allowing the OS to
+settle deferred canonical-input bookkeeping without consuming or flushing bytes.
+It requires an empty input queue and equality of every flag, speed and control
+character. Raw post-exit snapshots remain in the evidence; independent controls
+verify queued bytes survive the observation and persistent mode changes remain
+detectable. Run it
 with `node --test tests/integration/native-input-handoff-pty.test.mjs` after
 building. Optional `TERMINAL_UI_NODE_EXECUTABLE`, `TERMINAL_UI_DENO_EXECUTABLE`
 and `TERMINAL_UI_BUN_EXECUTABLE` environment variables select exact runtime

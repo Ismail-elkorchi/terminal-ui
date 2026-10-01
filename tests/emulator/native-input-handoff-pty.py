@@ -17,6 +17,7 @@ import struct
 import subprocess
 import termios
 import time
+import tty
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -36,11 +37,57 @@ def termios_difference(before, after):
             for name, value in initial.items() if value != final[name]}
 
 
+def readable_input_bytes(slave):
+    # FIONREAD does not dequeue input. On BSD it also settles deferred canonical
+    # processing (PENDIN), so compare complete termios at this readiness boundary.
+    # Never flush the terminal, mask flags, or retry the restoration assertion.
+    return struct.unpack('i', fcntl.ioctl(slave, termios.FIONREAD, struct.pack('i', 0)))[0]
+
+
+def verify_readiness_observation():
+    """Prove the observation preserves queued bytes and persistent settings."""
+    master, slave = pty.openpty()
+    try:
+        assert readable_input_bytes(slave) == 0
+        initial = termios.tcgetattr(slave)
+        tty.setraw(slave)
+        os.write(master, b'keep')
+        assert select.select([slave], [], [], 2)[0], 'Preservation control input did not arrive'
+        assert readable_input_bytes(slave) == 4
+        termios.tcsetattr(slave, termios.TCSANOW, initial)
+        before_observation = termios.tcgetattr(slave)
+        readable = readable_input_bytes(slave)
+        settled = termios.tcgetattr(slave)
+        assert settled == initial, termios_difference(initial, settled)
+        os.write(master, b'\n')
+        received = bytearray()
+        deadline = time.monotonic() + 2
+        while len(received) < 5 and time.monotonic() < deadline:
+            if select.select([slave], [], [], max(0, deadline - time.monotonic()))[0]:
+                received.extend(os.read(slave, 32))
+        assert received == b'keep\n', f'Readiness observation changed queued input: {received!r}'
+        assert readable_input_bytes(slave) == 0
+
+        changed = [*initial[:6], list(initial[6])]
+        changed[3] ^= termios.ECHO
+        termios.tcsetattr(slave, termios.TCSANOW, changed)
+        assert readable_input_bytes(slave) == 0
+        observed = termios.tcgetattr(slave)
+        assert observed == changed and observed != initial, 'Readiness observation hid a persistent mode change'
+        return {'preservedInput': received.decode('ascii'), 'readableBeforeNewline': readable,
+                'unsettledTermios': termios_snapshot(before_observation),
+                'settledTermios': termios_snapshot(settled), 'termiosRestored': True,
+                'persistentMismatchDetected': True}
+    finally:
+        os.close(master)
+        os.close(slave)
+
+
 def runtime_termios_controls(runtime, executable, environment):
     """Diagnose a failed equality using independent PTYs, without the library."""
     results = []
     programs = [
-        ('startup', ''),
+        ('startup', 'void 0;'),
         ('raw-round-trip', "const { default: process } = await import('node:process'); "
          'process.stdin.setRawMode(true); process.stdin.setRawMode(false); '
          'process.stdin.pause(); process.stdin.unref();'),
@@ -71,6 +118,8 @@ def run_case(runtime, executable, directory, scenario):
     report_path.unlink(missing_ok=True)
     master, slave = pty.openpty()
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 24, 80, 0, 0))
+    initial_unsettled_termios = termios.tcgetattr(slave)
+    assert readable_input_bytes(slave) == 0, 'Fresh PTY already contained readable input'
     initial_termios = termios.tcgetattr(slave)
     environment = dict(os.environ, TERM='xterm-256color', COLORTERM='truecolor')
     for name in ['TERM_PROGRAM', 'TERM_PROGRAM_VERSION', 'TMUX', 'WT_SESSION', 'KITTY_WINDOW_ID']:
@@ -86,6 +135,8 @@ def run_case(runtime, executable, directory, scenario):
     events = []
     sent = set()
     forced = False
+    final_unsettled_termios = None
+    final_readable_bytes = None
 
     def read_events():
         if not report_path.exists():
@@ -143,10 +194,14 @@ def run_case(runtime, executable, directory, scenario):
                 assert sum(event['kind'] == 'reader-released' for event in at_cycle) == 1
             else:
                 assert [event['phase'] for event in at_cycle if event['kind'] == 'ui-ready'] == ['ready', 'resumed']
+        final_unsettled_termios = termios.tcgetattr(slave)
+        final_readable_bytes = readable_input_bytes(slave)
         final_termios = termios.tcgetattr(slave)
+        assert final_readable_bytes == 0, f'Native process left unread input: {final_readable_bytes}'
         assert final_termios == initial_termios, \
             'Native termios state was not restored at natural exit; ' + json.dumps({
                 'initial': termios_snapshot(initial_termios),
+                'unsettledFinal': termios_snapshot(final_unsettled_termios),
                 'final': termios_snapshot(final_termios),
                 'difference': termios_difference(initial_termios, final_termios),
                 'PENDIN': getattr(termios, 'PENDIN', None),
@@ -162,6 +217,10 @@ def run_case(runtime, executable, directory, scenario):
             assert b'Handoff input' in output, 'Accessible run did not emit semantic input context'
         return {'runtime': runtime, 'scenario': scenario, 'cycles': CYCLES,
                 'naturalExit': True, 'termiosRestored': True, 'outputBytes': len(output),
+                'readableInputBytesAtExit': final_readable_bytes,
+                'termiosObservation': {'initial': termios_snapshot(initial_termios),
+                                       'unsettledFinal': termios_snapshot(final_unsettled_termios),
+                                       'final': termios_snapshot(final_termios)},
                 'events': str(report_path)}
     finally:
         Path(f'{stem}.terminal-output.bin').write_bytes(output)
@@ -176,8 +235,11 @@ def run_case(runtime, executable, directory, scenario):
         Path(f'{stem}.supervisor.json').write_text(json.dumps({
             'forcedTermination': forced, 'exitCode': process.returncode,
             'termiosRestored': termios.tcgetattr(slave) == initial_termios,
+            'initialUnsettledTermios': termios_snapshot(initial_unsettled_termios),
             'initialTermios': termios_snapshot(initial_termios),
+            'finalUnsettledTermios': None if final_unsettled_termios is None else termios_snapshot(final_unsettled_termios),
             'finalTermios': termios_snapshot(termios.tcgetattr(slave)),
+            'readableInputBytesAtExit': final_readable_bytes,
             'termiosDifference': termios_difference(initial_termios, termios.tcgetattr(slave)),
         }, indent=2) + '\n')
         os.close(master)
@@ -191,9 +253,11 @@ def main():
     parser.add_argument('--output-directory', required=True, type=Path)
     args = parser.parse_args()
     args.output_directory.mkdir(parents=True, exist_ok=True)
+    readiness_observation = verify_readiness_observation()
     cases = [run_case(args.runtime, args.executable, args.output_directory, scenario)
              for scenario in ['direct', 'visual', 'accessible']]
     summary = {'evidence': 'automated-unix-pty', 'operatingSystem': platform.platform(), 'cases': cases,
+               'readinessObservation': readiness_observation,
                'limitations': 'ASCII synthetic PTY input; no terminal emulator, hardware keyboard, IME or screen reader observed'}
     (args.output_directory / f'{args.runtime}-summary.json').write_text(json.dumps(summary, indent=2) + '\n')
     print(json.dumps(summary))
