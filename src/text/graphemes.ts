@@ -9,9 +9,10 @@ export function graphemeSegments(text: string): Intl.Segments {
   return graphemeSegmenter.segment(text);
 }
 
+/** Iterates measured source graphemes lazily without materializing the whole string. */
 export function* measuredGraphemes(
   text: string,
-  options: TextMeasurementOptions,
+  options: TextMeasurementOptions = {},
 ): IterableIterator<GraphemeSegment> {
   for (const segment of graphemeSegments(text)) {
     yield {
@@ -114,6 +115,10 @@ function measureGraphemeCells(text: string, options: TextMeasurementOptions): nu
   const codePoints = Array.from(text, (value) => value.codePointAt(0) ?? 0);
   const visible = codePoints.filter((value) => !isZeroWidthCodePoint(value));
   if (visible.length === 0) return 0;
+  if (profile.emoji === 'codepoint' && hasEmojiPresentation(text)) {
+    return visible.reduce((cells, value) => cells + (inRanges(value, eastAsianWideRanges)
+      || (profile.ambiguous === 'wide' && inRanges(value, eastAsianAmbiguousRanges)) ? 2 : 1), 0);
+  }
   if (hasEmojiPresentation(text)) return profile.emoji === 'wide' ? 2 : 1;
   if (visible.some((value) => inRanges(value, eastAsianWideRanges))) return 2;
   if (profile.ambiguous === 'wide'

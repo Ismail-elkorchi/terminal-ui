@@ -87,10 +87,10 @@ const instantiateList = defineComponent<{ readonly items: readonly SemanticListI
   },
   layout(input) {
     let row = 0;
-    const markerWidth = semanticListMarkerWidth(input.model, input.widthProfile);
+    const markerWidth = Math.min(input.bounds.width, semanticListMarkerWidth(input.model, input.widthProfile));
     const rects = input.model.items.map((_item, index): Rect => {
       const measured = input.slots.measure('items', index);
-      const height = measured.preferredHeight;
+      const height = Math.min(measured.preferredHeight, input.bounds.height - row);
       const rect = {
         row,
         column: markerWidth,
@@ -275,7 +275,7 @@ const instantiateListView = defineComponent<ListViewModel, ListViewComponentActi
       visibleIndexes.push(index);
       return {
         row: item.rowOffset,
-        column: 2,
+        column: Math.min(2, scrollbar.contentBounds.width),
         width: Math.max(0, scrollbar.contentBounds.width - 2),
         height: Math.min(item.visibleRows, scrollbar.contentBounds.height - item.rowOffset),
       };

@@ -69,7 +69,8 @@ names.
 ## Leaf And Composite Components
 
 A leaf measures and draws one element. A composite additionally receives
-opaque child measurements and returns one rectangle per child. It may draw
+opaque child measurements and returns one allocation per child: a rectangle
+for a participating child, or `null` to retain a hidden subtree. It may draw
 before or after its children.
 
 ```ts
@@ -128,6 +129,20 @@ const snapshot = renderElementSnapshot({
 });
 console.log(snapshot.plainTextFrame);
 ```
+
+Return `null` for an inactive tab panel, collapsed disclosure, or another
+semantically hidden slot child. Its element and model remain available for
+later activation, but its layout, paint, focus, pointer, accessibility, and
+post-commit layout hooks do not run while hidden. Slot counts and measurement
+access remain unchanged; measurement and preparation may still inspect retained
+children. Optional slots use `undefined` only when there is no child.
+Accessibility slot arrays contain only accessible children, without placeholders
+for hidden roots.
+
+A zero-sized rectangle is still a participating allocation, not a visibility
+flag. Composite layout hooks run even with an empty allocation so they can
+choose which retained children are hidden. Offscreen viewport children retain
+their logical geometry for focus reveal.
 
 Child rectangles must stay inside the allocated component rectangle. Use
 `overlay()`, `anchored()`, `portal()`, or another layout primitive for content

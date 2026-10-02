@@ -16,8 +16,8 @@ export function defineTextWidthProfile(profile: unknown = defaultTextWidthProfil
   if (existing !== undefined) return existing;
   const emoji: unknown = 'emoji' in profile ? profile.emoji : undefined;
   const ambiguous: unknown = 'ambiguous' in profile ? profile.ambiguous : undefined;
-  if (emoji !== 'narrow' && emoji !== 'wide') {
-    throw new TypeError('Text width profile emoji must be "narrow" or "wide".');
+  if (emoji !== 'narrow' && emoji !== 'wide' && emoji !== 'codepoint') {
+    throw new TypeError('Text width profile emoji must be "narrow", "wide", or "codepoint".');
   }
   if (ambiguous !== 'narrow' && ambiguous !== 'wide') {
     throw new TypeError('Text width profile ambiguous must be "narrow" or "wide".');

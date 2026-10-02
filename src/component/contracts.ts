@@ -85,12 +85,13 @@ export interface ComponentSlotMeasurements<TSlots extends ComponentSlotShape> {
   measure(name: keyof TSlots & string, index?: number): Measurement;
 }
 
+/** Return null for a retained slot child that must not participate in layout, paint, or interaction. */
 export type ComponentSlotLayout<TSlots extends ComponentSlotShape> = {
   readonly [TName in keyof TSlots]: TSlots[TName]['cardinality'] extends 'many'
-    ? readonly Rect[]
+    ? readonly (Rect | null)[]
     : TSlots[TName]['cardinality'] extends 'optional'
-      ? Rect | undefined
-      : Rect;
+      ? Rect | null | undefined
+      : Rect | null;
 };
 
 export interface ComponentBehaviorInput<TModel extends object> {

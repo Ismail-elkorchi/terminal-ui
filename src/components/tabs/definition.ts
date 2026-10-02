@@ -130,7 +130,7 @@ const instantiateTabs = defineComponent<TabsOwnOptions, TabsComponentAction>()({
     const content = layoutContentBounds(input.bounds, input.model.layout);
     const panels = Array.from(
       { length: input.slots.count('panels') },
-      (_unused, index): Rect =>
+      (_unused, index): Rect | null =>
         index === input.model.selectedIndex
           ? {
             row: content.row + Math.min(1, content.height),
@@ -138,7 +138,7 @@ const instantiateTabs = defineComponent<TabsOwnOptions, TabsComponentAction>()({
             width: content.width,
             height: Math.max(0, content.height - 1),
           }
-          : { row: content.row, column: content.column, width: 0, height: 0 },
+          : null,
     );
     return { panels };
   },
@@ -618,8 +618,8 @@ function tabsAccessibility(
     role: 'tabpanel',
     label: tab.label,
     labelledBy: `${input.id}:${tab.id}`,
-    ...(index === input.model.selectedIndex && input.slots.panels[index] !== undefined
-      ? { children: [input.slots.panels[index]] }
+    ...(index === input.model.selectedIndex && input.slots.panels.length > 0
+      ? { children: input.slots.panels }
       : {}),
   }));
   return {

@@ -40,9 +40,15 @@ interface VisualLineLayout {
   readonly index: TerminalTextIndex;
 }
 
+interface LogicalLineMeasurement {
+  readonly cells: number;
+  readonly index: TerminalTextIndex;
+}
+
 interface LogicalLineLayout {
   readonly text: string;
   readonly intrinsicColumns: number;
+  readonly measurement: LogicalLineMeasurement;
   readonly visualLines: readonly VisualLineLayout[];
 }
 
@@ -87,7 +93,11 @@ export function layoutTextAreaDocument(
     cache.set(key, cached);
     return cached;
   }
-  const root = updatedLayoutRoot(document, normalizedWidth, wrap, widthProfile, key);
+  const profileKey = `:${textWidthProfileKey(widthProfile)}`;
+  const previous = [...cache.entries()].reverse().find(([candidate]) => candidate.endsWith(profileKey));
+  const root = previous === undefined
+    ? updatedLayoutRoot(document, normalizedWidth, wrap, widthProfile, key)
+    : relayoutRoot(layoutRoot(previous[1]), normalizedWidth, wrap, widthProfile);
   const created = createDocumentLayout(root, normalizedWidth, wrap);
   while (cache.size >= 8) {
     const oldest = cache.keys().next().value;
@@ -211,6 +221,23 @@ function buildLayoutRange(
     if (line !== undefined) lines.push(layoutLogicalLine(line.text, width, wrap, widthProfile));
   }
   return buildBalancedLayout(lines, 0, lines.length);
+}
+
+/** Width changes retain source measurements and indexes in the existing document layout. */
+function relayoutRoot(
+  root: LayoutNode | undefined,
+  width: number,
+  wrap: boolean,
+  widthProfile: TextWidthProfile,
+): LayoutNode | undefined {
+  if (root === undefined) return undefined;
+  // An already unwrapped subtree has no width-dependent geometry to rebuild.
+  if (root.rowCount === root.lineCount && (!wrap || width <= 0 || root.intrinsicColumns <= width)) return root;
+  return layoutNode(
+    layoutLogicalLine(root.line.text, width, wrap, widthProfile, root.line),
+    relayoutRoot(root.left, width, wrap, widthProfile),
+    relayoutRoot(root.right, width, wrap, widthProfile),
+  );
 }
 
 function buildBalancedLayout(
@@ -458,6 +485,7 @@ function layoutLogicalLine(
   width: number,
   wrap: boolean,
   widthProfile: TextWidthProfile,
+  previous?: LogicalLineLayout,
 ): LogicalLineLayout {
   const cacheKey = text.length <= sharedLineMaximumTextLength
     ? `${wrap ? 'wrap' : 'single'}:${String(wrap ? width : 0)}:${textWidthProfileKey(widthProfile)}\u0000${text}`
@@ -468,15 +496,17 @@ function layoutLogicalLine(
     sharedLineLayouts.set(cacheKey, cached);
     return cached;
   }
-  const cells = measureTextWidth(text, { widthProfile });
+  const measurement = previous?.measurement ?? measureLogicalLine(text, widthProfile);
+  const cells = measurement.cells;
   if (!wrap || width <= 0 || cells <= width || text === '') {
     return retainSharedLineLayout(cacheKey, Object.freeze({
       text,
       intrinsicColumns: cells,
+      measurement,
       visualLines: Object.freeze([visualLine(text, 0, widthProfile)]),
     }));
   }
-  const index = createTerminalTextIndex(text, { widthProfile });
+  const index = measurement.index;
   const visualLines: VisualLineLayout[] = [];
   let visualColumn = 0;
   while (visualColumn < index.cells) {
@@ -495,8 +525,17 @@ function layoutLogicalLine(
   return retainSharedLineLayout(cacheKey, Object.freeze({
     text,
     intrinsicColumns: index.cells,
+    measurement,
     visualLines: Object.freeze(visualLines),
   }));
+}
+
+function measureLogicalLine(text: string, widthProfile: TextWidthProfile): LogicalLineMeasurement {
+  let index: TerminalTextIndex | undefined;
+  return Object.freeze({
+    cells: measureTextWidth(text, { widthProfile }),
+    get index() { return index ??= createTerminalTextIndex(text, { widthProfile }); },
+  });
 }
 
 function visualLine(text: string, localStart: number, widthProfile: TextWidthProfile): VisualLineLayout {

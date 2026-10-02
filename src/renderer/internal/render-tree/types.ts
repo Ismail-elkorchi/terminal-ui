@@ -217,7 +217,7 @@ export interface RenderNodeRenderer<
   keyMap?(input: RenderNodeKeyInput<TMessage, TKind>): import('../../../element/metadata.ts').ElementKeyBindings<TMessage> | undefined;
   place?(input: RenderNodePlaceInput<TMessage, TKind>): Rect;
   measure(input: RenderNodeMeasureInput<TMessage, TKind>): Measurement;
-  layout?(input: RenderNodeLayoutInput<TMessage, TKind>): readonly Rect[];
+  layout?(input: RenderNodeLayoutInput<TMessage, TKind>): readonly (Rect | null)[];
   render(input: RenderNodeRenderInput<TMessage, TKind>): void;
   accessibility?(input: RenderNodeAccessibilityInput<TMessage, TKind>): AccessibleNode;
   focusTargets?(input: RenderNodeFocusInput<TMessage, TKind>): readonly FocusTarget[];

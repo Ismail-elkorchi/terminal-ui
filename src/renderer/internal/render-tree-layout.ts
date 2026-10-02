@@ -53,7 +53,7 @@ export function layoutRenderTree<TMessage>(
 
 function layoutNode<TMessage>(
   renderNode: RenderNode<TMessage>,
-  bounds: Rect,
+  allocation: Rect | null,
   viewport: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
@@ -69,27 +69,10 @@ function layoutNode<TMessage>(
 ): LaidOutRenderNode<TMessage> {
   budget.visitNode(depth);
   recordLayoutVisit(renderNode, instrumentation, uniqueNodes);
-  if (renderNode.kind === 'viewport' && renderNode.props.measured === true) {
-    renderNode = resolveMeasuredViewport(renderNode, bounds, measurements, depth);
-  }
+  const placement = placeLayoutNode(renderNode, allocation, viewport, theme, widthProfile, measurements, depth);
+  renderNode = placement.node;
+  const { bounds: placedBounds, visible } = placement;
   const children = renderNode.children ?? [];
-  const measureChild = (index: number): import('../contracts.ts').Measurement => {
-    const child = children[index];
-    return child === undefined
-      ? { minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }
-      : measurements.measure(child, bounds, depth + 1);
-  };
-  const placedBounds = placeRenderNode(
-    renderNode,
-    bounds,
-    viewport,
-    theme,
-    widthProfile,
-    () => measurements.measure(renderNode, bounds, depth),
-    children.length,
-    measureChild
-  );
-  const visible = renderNode.layer?.visible !== false;
   const zIndex = parentZIndex + zIndexForRenderNode(renderNode);
   const identity = renderNode.id ?? `${renderNode.kind}:${String(ordinal)}`;
   const identityPath = [...parentIdentity, identity];
@@ -144,7 +127,7 @@ function layoutNode<TMessage>(
     : viewport;
   const laidOutChildren = children.map((child, index) => layoutNode(
     child,
-    childBounds[index] ?? emptyRect(placedBounds),
+    childBounds[index] === undefined ? emptyRect(placedBounds) : childBounds[index],
     childViewport,
     theme,
     widthProfile,
@@ -188,6 +171,38 @@ function layoutNode<TMessage>(
   };
 }
 
+function placeLayoutNode<TMessage>(
+  renderNode: RenderNode<TMessage>,
+  allocation: Rect | null,
+  viewport: Rect,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
+  measurements: RenderMeasurementContext,
+  depth: number,
+): { readonly node: RenderNode<TMessage>; readonly bounds: Rect; readonly visible: boolean } {
+  if (allocation === null) return { node: renderNode, bounds: emptyRect(viewport), visible: false };
+  if (renderNode.kind === 'viewport' && renderNode.props.measured === true) {
+    renderNode = resolveMeasuredViewport(renderNode, allocation, measurements, depth);
+  }
+  const children = renderNode.children ?? [];
+  const bounds = placeRenderNode(
+    renderNode,
+    allocation,
+    viewport,
+    theme,
+    widthProfile,
+    () => measurements.measure(renderNode, allocation, depth),
+    children.length,
+    (index) => {
+      const child = children[index];
+      return child === undefined
+        ? { minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }
+        : measurements.measure(child, allocation, depth + 1);
+    },
+  );
+  return { node: renderNode, bounds, visible: renderNode.layer?.visible !== false };
+}
+
 function recordLayoutVisit(
   node: RenderNode,
   instrumentation: Pick<RenderInstrumentation, 'recordWork'> | undefined,
@@ -209,7 +224,7 @@ function boundsForChildren(
   viewport: Rect,
   measurements: RenderMeasurementContext,
   depth: number,
-): readonly Rect[] {
+): readonly (Rect | null)[] {
   const children = renderNode.children ?? [];
   return children.length === 0 ? [] : layoutChildBounds(
     renderNode,

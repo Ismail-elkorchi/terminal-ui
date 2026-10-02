@@ -14,7 +14,7 @@ For signatures and public members, use the [API reference](./reference.md).
 | `@ismail-elkorchi/terminal-ui/interaction` | 96 |
 | `@ismail-elkorchi/terminal-ui/collection` | 32 |
 | `@ismail-elkorchi/terminal-ui/protocol` | 37 |
-| `@ismail-elkorchi/terminal-ui/text` | 124 |
+| `@ismail-elkorchi/terminal-ui/text` | 126 |
 | `@ismail-elkorchi/terminal-ui/theme` | 34 |
 | `@ismail-elkorchi/terminal-ui/theme/packs` | 8 |
 | `@ismail-elkorchi/terminal-ui/prompts` | 61 |

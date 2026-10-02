@@ -219,8 +219,8 @@ export function layoutInsetSize(input: LayoutInsetInput | undefined): {
 
 function insetRect(bounds: Rect, inset: LayoutInsets): Rect {
   return clampRect({
-    row: bounds.row + inset.top,
-    column: bounds.column + inset.left,
+    row: bounds.row + Math.min(bounds.height, inset.top),
+    column: bounds.column + Math.min(bounds.width, inset.left),
     width: bounds.width - inset.left - inset.right,
     height: bounds.height - inset.top - inset.bottom
   });

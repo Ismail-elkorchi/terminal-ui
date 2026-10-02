@@ -3,6 +3,7 @@ import {
   defineComponent,
   span,
   type ComponentMessage,
+  type ComponentSlotLayout,
   type SemanticComposedComponentDefinition,
 } from '@ismail-elkorchi/terminal-ui/component';
 import { row } from '@ismail-elkorchi/terminal-ui/layout';
@@ -384,3 +385,29 @@ void nullComponentMessage;
 declare const nullMessageElement: Element<null>;
 // @ts-expect-error component slots cannot reintroduce the reserved null message
 actionRow({ id: 'null-child', slots: { actions: [nullMessageElement] } });
+
+
+const visibilitySlots = {
+  content: { cardinality: 'one', owner: 'caller', messages: 'bubble' },
+  optional: { cardinality: 'optional', owner: 'caller', messages: 'bubble' },
+  items: { cardinality: 'many', owner: 'caller', messages: 'bubble' },
+} as const;
+const hiddenSlotLayout: ComponentSlotLayout<typeof visibilitySlots> = {
+  content: null,
+  optional: null,
+  items: [{ row: 0, column: 0, width: 0, height: 0 }, null],
+};
+const absentOptionalLayout: ComponentSlotLayout<typeof visibilitySlots> = {
+  content: null,
+  optional: undefined,
+  items: [],
+};
+const invalidAbsentRequired: ComponentSlotLayout<typeof visibilitySlots> = {
+  // @ts-expect-error undefined is reserved for absent optional slots
+  content: undefined,
+  optional: undefined,
+  items: [],
+};
+void hiddenSlotLayout;
+void absentOptionalLayout;
+void invalidAbsentRequired;

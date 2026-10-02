@@ -20,7 +20,8 @@ export interface TextLine {
 }
 
 export interface TextWidthProfile {
-  readonly emoji: 'narrow' | 'wide';
+  /** Joined emoji width, or scalar widths for terminals that render sequences separately. */
+  readonly emoji: 'narrow' | 'wide' | 'codepoint';
   readonly ambiguous: 'narrow' | 'wide';
 }
 

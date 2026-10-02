@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { layoutElement, renderElementFrame, renderFramePlain } from '../../../dist/renderer/index.js';
 import { defaultTheme, noColorTheme } from '../../../dist/theme/index.js';
+import { defineComponent } from '../../../dist/component/index.js';
 import { tabs, text, textInput } from '../../../dist/components/index.js';
 
 test('tabs render only the selected panel as focusable content', () => {
@@ -212,4 +213,65 @@ test('tab controls preserve one-cell geometry under ambiguous-wide profiles', ()
   assert.equal(wideIndicator?.width, 1);
   assert.equal(wideClose?.text, 'x');
   assert.equal(wideClose?.width, 1);
+});
+
+test('inactive tab panels retain their model without running visible component hooks', () => {
+  const calls = [];
+  const panel = defineComponent({
+    name: 'terminal-ui-tests/components/tab-panel-probe',
+    identity: 'required',
+    structure: 'leaf',
+    semantics: 'semantic',
+    accessibleRole: 'button',
+    measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 8, preferredHeight: 1 }),
+    render({ id, model, bounds, target }) {
+      calls.push({ phase: 'paint', id, model });
+      assert.ok(bounds.width > 0 && bounds.height > 0, 'inactive panel must not paint');
+      target.write(0, 0, [{ text: model.value }]);
+    },
+    focusTargets({ id, model, bounds }) {
+      calls.push({ phase: 'focus', id, model });
+      return [{ id: 'self', bounds }];
+    },
+    hitTargets({ id, model, bounds }) {
+      calls.push({ phase: 'pointer', id, model });
+      return [{ id: `${id}:press`, bounds, message: () => id }];
+    },
+    accessibility({ id, model, focused }) {
+      calls.push({ phase: 'accessibility', id, model });
+      return { id, role: 'button', label: model.value, ...(focused ? { focused } : {}) };
+    }
+  });
+  const panels = ['first', 'second'].map((id) => panel({
+    id: `${id}-probe`, value: `${id} state`, onAction: (action) => action
+  }));
+  const makeTabs = (selectedId) => tabs({
+    id: 'probe-tabs',
+    meta: { accessibleName: 'Panels' },
+    state: { selectedId, activeId: selectedId },
+    tabs: ['first', 'second'].map((id, index) => ({ id, label: id, panel: panels[index] })),
+    onTransition: (action) => action
+  });
+  const firstModels = new Map();
+  for (const selectedId of ['first', 'second', 'first']) {
+    calls.length = 0;
+    const element = makeTabs(selectedId);
+    const frame = renderElementFrame(element, { columns: 30, rows: 4 }, {
+      focusPath: ['probe-tabs', `${selectedId}-probe`]
+    });
+    assert.ok(calls.length > 0);
+    assert.deepEqual([...new Set(calls.map((call) => call.id))], [`${selectedId}-probe`]);
+    assert.deepEqual(new Set(calls.map((call) => call.phase)), new Set(['paint', 'focus', 'pointer', 'accessibility']));
+    for (const call of calls) {
+      if (!firstModels.has(call.id)) firstModels.set(call.id, call.model);
+      assert.equal(call.model, firstModels.get(call.id));
+    }
+    assert.deepEqual(frame.focusPath, ['probe-tabs', `${selectedId}-probe`]);
+    assert.deepEqual(frame.hitTargets.filter((target) => target.id.endsWith(':press')).map((target) => target.id), [`${selectedId}-probe:press`]);
+    const panelNodes = frame.accessibility.root.children.slice(1);
+    assert.deepEqual(panelNodes.flatMap((node) => node.children ?? []).map((node) => node.id), [`${selectedId}-probe`]);
+    assert.match(renderFramePlain(frame), new RegExp(`${selectedId} state`, 'u'));
+    const layout = layoutElement(element, { columns: 30, rows: 4 });
+    assert.deepEqual(layout.children.map((child) => child.visible), ['first', 'second'].map((id) => id === selectedId));
+  }
 });

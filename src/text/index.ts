@@ -50,7 +50,7 @@ export type {
   TextEditHistoryResult,
 } from './edit-history.ts';
 export { editTextBuffer } from './edit.ts';
-export { segmentGraphemes } from './graphemes.ts';
+export { measuredGraphemes, segmentGraphemes } from './graphemes.ts';
 export { measureTerminalCellText, measureTextCells } from './measure.ts';
 export {
   compareCollectionText,
@@ -73,6 +73,7 @@ export type {
 export { createRowOffsetMap } from './row-offset-map.ts';
 export {
   sanitizeTerminalCellText,
+  sanitizeTerminalControlText,
   sanitizeTerminalSingleLineText,
   sanitizeTerminalText,
 } from './sanitize.ts';

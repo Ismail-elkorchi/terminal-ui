@@ -7,6 +7,7 @@ import type { Rect } from '../../geometry/types.ts';
 import type {
   ComponentRenderTarget,
   FocusTarget,
+  LayoutNode,
   Measurement,
   RenderTarget,
 } from '../../renderer/contracts.ts';
@@ -141,7 +142,7 @@ export function adaptDefinition<
               measureChild: input.measureChild,
               slots: componentSlotMeasurements(input.renderNode.props.slots, input.measureChild)
             }), contract, input.renderNode.props.slots, localBounds(input.bounds), input.childCount)
-              .map((bounds) => toAbsoluteRect(bounds, input.bounds))
+              .map((bounds) => bounds === null ? null : toAbsoluteRect(bounds, input.bounds))
       )
     }),
     render: (input) => {
@@ -192,6 +193,7 @@ export function adaptDefinition<
             slots: accessibleSlotValues<TSlots>(
               input.renderNode.props.slots,
               input.renderNode.children ?? [],
+              input.layoutNode.children,
               input.accessibleNodes
             )
           });
@@ -237,12 +239,13 @@ export function adaptDefinition<
 function accessibleSlotValues<TSlots extends ComponentSlotShape>(
   ranges: readonly ComponentSlotRange[],
   roots: readonly RenderNode[],
+  layouts: readonly LayoutNode[],
   accessibleNodes: ReadonlyMap<RenderNode, AccessibleNode>
 ): ComponentAccessibleSlotValues<TSlots> {
   return Object.freeze(Object.fromEntries(ranges.map((range) => [
     range.name,
     Object.freeze(range.accessiblePaths.flatMap((path) => {
-      const root = renderNodeAtPath(roots, path);
+      const root = renderNodeAtPath(roots, layouts, path);
       const accessible = root === undefined ? undefined : accessibleNodes.get(root);
       return accessible === undefined ? [] : [accessible];
     }))
@@ -251,14 +254,18 @@ function accessibleSlotValues<TSlots extends ComponentSlotShape>(
 
 function renderNodeAtPath(
   roots: readonly RenderNode[],
+  layouts: readonly LayoutNode[],
   path: readonly number[]
 ): RenderNode | undefined {
   let nodes = roots;
+  let layoutNodes = layouts;
   let current: RenderNode | undefined;
   for (const index of path) {
     current = nodes[index];
-    if (current === undefined) return undefined;
+    const layout = layoutNodes[index];
+    if (current === undefined || layout?.visible !== true || layout.inert) return undefined;
     nodes = current.children ?? [];
+    layoutNodes = layout.children;
   }
   return current;
 }
@@ -403,12 +410,13 @@ function componentHelpers<TPart extends string>(
 type ComponentHelpers = Pick<ComponentRenderInput<object>, 'style' | 'frameSource'>;
 const componentHelperCache = new WeakMap<object, WeakMap<object, ComponentHelpers>>();
 
-function decodeChildBounds(values: unknown, parent: Rect, childCount: number): readonly Rect[] {
+function decodeChildBounds(values: unknown, parent: Rect, childCount: number): readonly (Rect | null)[] {
   if (!Array.isArray(values)) throw new TypeError('Composite component layout must return an array.');
   if (values.length !== childCount) {
     throw new RangeError(`Composite component layout returned ${String(values.length)} bounds for ${String(childCount)} children.`);
   }
   return Object.freeze(values.map((value, index) => {
+    if (value === null) return null;
     if (!rectHasValidCoordinates(value) || !rectFits(value, parent)) {
       throw new RangeError(`Composite component child ${String(index)} returned bounds outside its parent.`);
     }
@@ -441,14 +449,14 @@ function decodeComponentLayout(
   ranges: readonly { readonly name: string; readonly start: number; readonly count: number }[],
   parent: Rect,
   childCount: number
-): readonly Rect[] {
+): readonly (Rect | null)[] {
   if (!isNonArrayObject(value)) throw new TypeError('Composite component layout must return a slot bounds object.');
   const allowed = new Set(definition.slots.map((slot) => slot.name));
   const unsupported = findUnsupportedField(value, allowed);
   if (unsupported !== undefined) {
     throw new TypeError(`Composite component layout contains unknown slot "${unsupported}".`);
   }
-  const flattened: Rect[] = [];
+  const flattened: (Rect | null)[] = [];
   for (const slot of definition.slots) {
     const range = ranges.find((candidate) => candidate.name === slot.name);
     const count = range?.count ?? 0;
@@ -461,7 +469,7 @@ function decodeComponentLayout(
         `Composite component slot "${slot.name}" returned invalid bounds for ${String(count)} children.`
       );
     }
-    flattened.push(...bounds as Rect[]);
+    flattened.push(...bounds as (Rect | null)[]);
   }
   return decodeChildBounds(flattened, parent, childCount);
 }

@@ -67,10 +67,12 @@ export function layoutChildBounds(
   viewport: Rect,
   measurements: RenderMeasurementContext,
   depth = 0,
-): readonly Rect[] {
+): readonly (Rect | null)[] {
   const children = renderNode.children ?? [];
   if (children.length === 0) return [];
-  if (bounds.width <= 0 || bounds.height <= 0) return children.map(() => emptyRect(bounds));
+  if (renderNode.kind !== 'component' && (bounds.width <= 0 || bounds.height <= 0)) {
+    return children.map(() => emptyRect(bounds));
+  }
   const renderer = rendererForRenderNode(renderNode);
   if (renderer.layout === undefined) {
     throw new Error(`RenderNode "${renderNode.kind}" has children but does not define layout.`);

@@ -132,7 +132,10 @@ until focused, hovered, or pressed.
 
 Tabs accept `maxTabWidth` when document names must not let one tab consume the
 strip. The visible label is clipped, while its full accessible name and close
-action remain intact.
+action remain intact. Inactive panel elements and their caller-owned state are
+retained, but their layout, paint, interaction, and accessibility hooks do not
+run until the panel is selected. Collapsed disclosures apply the same rule to
+their content.
 
 Components that expose interactive scrollbars use controlled variants. Scroll
 position is caller-owned; content and viewport geometry is derived during

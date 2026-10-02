@@ -619,3 +619,46 @@ test('listbox preserves the component runtime rejection of null application mess
     await runtime.dispose();
   }
 });
+
+
+test('passive list bounds child allocations when markers or content exhaust the host', () => {
+  const element = list({
+    id: 'small-list',
+    items: [
+      { id: 'one', content: text({ content: 'First\nline' }) },
+      { id: 'two', content: text({ content: 'Second' }) },
+    ],
+  });
+  for (const size of [
+    { columns: 0, rows: 3 }, { columns: 10, rows: 0 }, { columns: 0, rows: 0 },
+    { columns: 1, rows: 1 }, { columns: 10, rows: 1 },
+  ]) {
+    const layout = layoutElement(element, size);
+    for (const child of layout.children) {
+      assert.equal(child.visible, true);
+      assert.ok(child.bounds.column + child.bounds.width <= 1 + size.columns);
+      assert.ok(child.bounds.row + child.bounds.height <= 1 + size.rows);
+    }
+    assert.doesNotThrow(() => renderElementFrame(element, size));
+  }
+});
+
+
+test('listView retains measured-window checks while fitting an exhausted marker column', () => {
+  const collection = createMeasuredCollection([
+    { id: 'item', rows: 1, value: { label: 'Item', content: text({ content: 'Item' }) } },
+  ]);
+  const window = measuredWindow(collection, { viewportRows: 1, activeId: 'item' });
+  const element = listView({
+    id: 'narrow-list', window, renderItem: (item) => item.value,
+    state: { activeId: 'item', selection: { mode: 'single', selectedId: 'item' } },
+    onTransition: (transition) => transition,
+  });
+  for (const columns of [0, 1]) {
+    const frame = renderElementFrame(element, { columns, rows: 1 });
+    assert.equal(frame.width, columns);
+    assert.equal(layoutElement(element, { columns, rows: 1 }).children[0].visible, true);
+  }
+  assert.throws(() => renderElementFrame(element, { columns: 10, rows: 0 }),
+    (error) => /measured window has 1 viewport rows but received 0 layout rows/u.test(error.cause?.message));
+});

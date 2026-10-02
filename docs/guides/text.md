@@ -36,6 +36,16 @@ them when an edit produces a new document.
 Cell measurement uses `defaultTextWidthProfile`: emoji presentation is wide and
 East Asian ambiguous characters are narrow. Callers and terminal hosts may pass
 one explicit `widthProfile` with independent `emoji` and `ambiguous` policies.
+`emoji: 'codepoint'` measures the visible scalars of emoji sequences separately,
+for terminals that do not join ZWJ/modifier/variation sequences into one glyph.
+It does not change grapheme boundaries for cursor movement or editing. Select
+this policy from measured terminal behavior; terminal names alone are not proof
+of a width policy. The default remains joined wide emoji.
+
+`measuredGraphemes(text, options)` lazily yields source offsets and cell widths
+without materializing a whole-string array. Callers can stop iteration or yield
+between bounded batches when preparing large documents.
+
 East Asian wide and fullwidth code points measure as two cells. Clipping,
 padding, fixed-cell filling, wrapping, indexing, and output planning use the
 same profile and Unicode 17 width data, so output stays inside the requested
@@ -55,3 +65,7 @@ This keeps layouts, frames, snapshots, render diffs, and transcripts
 deterministic across runtimes. If a terminal applies its own bidirectional
 display behavior, that behavior belongs to the terminal emulator; the
 machine-readable `terminal-ui` artifacts remain logical-order data.
+
+`sanitizeTerminalControlText()` removes unsafe control sequences while retaining
+tabs and source-removal metadata. Use it when a source-mapped layout owns tab
+expansion; `sanitizeTerminalText()` also performs display expansion.

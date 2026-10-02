@@ -111,7 +111,7 @@ function formContentBounds(input: ComponentLayoutInput<FormModel, typeof formSlo
   const content = layoutContentBounds(input.bounds, input.model.layout);
   const titleRows = input.model.title.length === 0 ? 0 : 1;
   return {
-    row: content.row + titleRows,
+    row: content.row + Math.min(content.height, titleRows),
     column: content.column,
     width: content.width,
     height: Math.max(0, content.height - titleRows),

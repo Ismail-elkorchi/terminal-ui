@@ -683,7 +683,7 @@ const instantiateDisclosure = defineComponent<{ readonly label: string; readonly
           width: bounds.width,
           height: Math.max(0, bounds.height - 1),
         }
-        : { row: Math.min(1, bounds.height), column: 0, width: 0, height: 0 },
+        : null,
     };
   },
   renderBeforeChildren(input) {

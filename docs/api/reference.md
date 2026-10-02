@@ -78,12 +78,12 @@ See [API stability](../guides/api-stability.md) for stability labels.
 - [`breakTextEditHistoryGroup`](#text-breaktextedithistorygroup), [`clampTextOffset`](#text-clamptextoffset), [`clipTextCells`](#text-cliptextcells), [`createRowOffsetMap`](#text-createrowoffsetmap), [`createTerminalTextIndex`](#text-createterminaltextindex), [`createTextChangeSet`](#text-createtextchangeset), [`createTextDocument`](#text-createtextdocument), [`defaultEditHistoryPolicy`](#text-defaultedithistorypolicy)
 - [`defaultTextWidthProfile`](#text-defaulttextwidthprofile), [`defineTextWidthProfile`](#text-definetextwidthprofile), [`editTextBuffer`](#text-edittextbuffer), [`editTextDocument`](#text-edittextdocument), [`emptyTextChangeSet`](#text-emptytextchangeset), [`emptyTextEditHistory`](#text-emptytextedithistory), [`extractTextBufferSelection`](#text-extracttextbufferselection), [`extractTextDocumentSelection`](#text-extracttextdocumentselection)
 - [`extractTextSelection`](#text-extracttextselection), [`fillTextCells`](#text-filltextcells), [`findTextHighlightMatches`](#text-findtexthighlightmatches), [`indexQueryCandidate`](#text-indexquerycandidate), [`invertTextChangeSet`](#text-inverttextchangeset), [`isTextDocument`](#text-istextdocument), [`lineEndOffset`](#text-lineendoffset), [`lineOffsetByDelta`](#text-lineoffsetbydelta)
-- [`lineSelectionAt`](#text-lineselectionat), [`lineStartOffset`](#text-linestartoffset), [`matchCompiledCollectionQuery`](#text-matchcompiledcollectionquery), [`measureTerminalCellText`](#text-measureterminalcelltext), [`measureTextCells`](#text-measuretextcells), [`nextGraphemeBoundary`](#text-nextgraphemeboundary), [`nextWordBoundary`](#text-nextwordboundary), [`normalizeTextCaret`](#text-normalizetextcaret)
-- [`normalizeTextCursor`](#text-normalizetextcursor), [`normalizeTextDocumentOffset`](#text-normalizetextdocumentoffset), [`normalizeTextDocumentRange`](#text-normalizetextdocumentrange), [`normalizeTextDocumentSelection`](#text-normalizetextdocumentselection), [`normalizeTextPosition`](#text-normalizetextposition), [`normalizeTextSelection`](#text-normalizetextselection), [`oneCellGlyph`](#text-onecellglyph), [`padTextCells`](#text-padtextcells)
-- [`previousGraphemeBoundary`](#text-previousgraphemeboundary), [`previousWordBoundary`](#text-previouswordboundary), [`queryIndexedCandidates`](#text-queryindexedcandidates), [`replaceTextRange`](#text-replacetextrange), [`sanitizeTerminalCellText`](#text-sanitizeterminalcelltext), [`sanitizeTerminalSingleLineText`](#text-sanitizeterminalsinglelinetext), [`sanitizeTerminalText`](#text-sanitizeterminaltext), [`segmentGraphemes`](#text-segmentgraphemes)
-- [`selectedText`](#text-selectedtext), [`terminalTextWidth`](#text-terminaltextwidth), [`textCaretAt`](#text-textcaretat), [`textDocumentBytes`](#text-textdocumentbytes), [`textDocumentEdit`](#text-textdocumentedit), [`textDocumentLength`](#text-textdocumentlength), [`textDocumentLineAt`](#text-textdocumentlineat), [`textDocumentLineCount`](#text-textdocumentlinecount)
-- [`textDocumentLineIndexAtOffset`](#text-textdocumentlineindexatoffset), [`textDocumentLines`](#text-textdocumentlines), [`textDocumentSelectionBetween`](#text-textdocumentselectionbetween), [`textDocumentSelectionRange`](#text-textdocumentselectionrange), [`textDocumentSlice`](#text-textdocumentslice), [`textDocumentText`](#text-textdocumenttext), [`textPositionAt`](#text-textpositionat), [`textWidthProfileKey`](#text-textwidthprofilekey)
-- [`wordSelectionAt`](#text-wordselectionat), [`wrapTextCells`](#text-wraptextcells)
+- [`lineSelectionAt`](#text-lineselectionat), [`lineStartOffset`](#text-linestartoffset), [`matchCompiledCollectionQuery`](#text-matchcompiledcollectionquery), [`measureTerminalCellText`](#text-measureterminalcelltext), [`measureTextCells`](#text-measuretextcells), [`measuredGraphemes`](#text-measuredgraphemes), [`nextGraphemeBoundary`](#text-nextgraphemeboundary), [`nextWordBoundary`](#text-nextwordboundary)
+- [`normalizeTextCaret`](#text-normalizetextcaret), [`normalizeTextCursor`](#text-normalizetextcursor), [`normalizeTextDocumentOffset`](#text-normalizetextdocumentoffset), [`normalizeTextDocumentRange`](#text-normalizetextdocumentrange), [`normalizeTextDocumentSelection`](#text-normalizetextdocumentselection), [`normalizeTextPosition`](#text-normalizetextposition), [`normalizeTextSelection`](#text-normalizetextselection), [`oneCellGlyph`](#text-onecellglyph)
+- [`padTextCells`](#text-padtextcells), [`previousGraphemeBoundary`](#text-previousgraphemeboundary), [`previousWordBoundary`](#text-previouswordboundary), [`queryIndexedCandidates`](#text-queryindexedcandidates), [`replaceTextRange`](#text-replacetextrange), [`sanitizeTerminalCellText`](#text-sanitizeterminalcelltext), [`sanitizeTerminalControlText`](#text-sanitizeterminalcontroltext), [`sanitizeTerminalSingleLineText`](#text-sanitizeterminalsinglelinetext)
+- [`sanitizeTerminalText`](#text-sanitizeterminaltext), [`segmentGraphemes`](#text-segmentgraphemes), [`selectedText`](#text-selectedtext), [`terminalTextWidth`](#text-terminaltextwidth), [`textCaretAt`](#text-textcaretat), [`textDocumentBytes`](#text-textdocumentbytes), [`textDocumentEdit`](#text-textdocumentedit), [`textDocumentLength`](#text-textdocumentlength)
+- [`textDocumentLineAt`](#text-textdocumentlineat), [`textDocumentLineCount`](#text-textdocumentlinecount), [`textDocumentLineIndexAtOffset`](#text-textdocumentlineindexatoffset), [`textDocumentLines`](#text-textdocumentlines), [`textDocumentSelectionBetween`](#text-textdocumentselectionbetween), [`textDocumentSelectionRange`](#text-textdocumentselectionrange), [`textDocumentSlice`](#text-textdocumentslice), [`textDocumentText`](#text-textdocumenttext)
+- [`textPositionAt`](#text-textpositionat), [`textWidthProfileKey`](#text-textwidthprofilekey), [`wordSelectionAt`](#text-wordselectionat), [`wrapTextCells`](#text-wraptextcells)
 
 ### @ismail-elkorchi/terminal-ui/theme
 
@@ -8544,9 +8544,11 @@ type · beta · [source](../../src/component/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
+Return null for a retained slot child that must not participate in layout, paint, or interaction.
+
 ```ts
 export type ComponentSlotLayout<TSlots extends ComponentSlotShape> = {
-    readonly [TName in keyof TSlots]: TSlots[TName]['cardinality'] extends 'many' ? readonly Rect[] : TSlots[TName]['cardinality'] extends 'optional' ? Rect | undefined : Rect;
+    readonly [TName in keyof TSlots]: TSlots[TName]['cardinality'] extends 'many' ? readonly (Rect | null)[] : TSlots[TName]['cardinality'] extends 'optional' ? Rect | null | undefined : Rect | null;
 };
 ```
 
@@ -35440,8 +35442,10 @@ export interface TextWidthProfile { … }
 <a id="text-textwidthprofile-emoji"></a>
 #### emoji
 
+Joined emoji width, or scalar widths for terminals that render sequences separately.
+
 ```ts
-readonly emoji: 'narrow' | 'wide';
+readonly emoji: 'narrow' | 'wide' | 'codepoint';
 ```
 
 <a id="text-textwidthprofile-ambiguous"></a>
@@ -35902,6 +35906,21 @@ export declare function measureTextCells(
 
 Related types: [`text`](#components-foundations-text), [`TextCellMetrics`](#text-textcellmetrics), [`TextMeasurementOptions`](#text-textmeasurementoptions)
 
+<a id="text-measuredgraphemes"></a>
+### measuredGraphemes
+
+function · beta · [source](../../src/text/graphemes.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/text`
+
+Iterates measured source graphemes lazily without materializing the whole string.
+
+```ts
+export declare function measuredGraphemes(text: string, options?: TextMeasurementOptions): IterableIterator<GraphemeSegment>;
+```
+
+Related types: [`text`](#components-foundations-text), [`GraphemeSegment`](#text-graphemesegment), [`TextMeasurementOptions`](#text-textmeasurementoptions)
+
 <a id="text-nextgraphemeboundary"></a>
 ### nextGraphemeBoundary
 
@@ -36120,6 +36139,21 @@ export declare function sanitizeTerminalCellText(text: string, options?: Sanitiz
 ```
 
 Related types: [`text`](#components-foundations-text), [`SanitizeTerminalTextOptions`](#text-sanitizeterminaltextoptions), [`SanitizedTerminalText`](#text-sanitizedterminaltext)
+
+<a id="text-sanitizeterminalcontroltext"></a>
+### sanitizeTerminalControlText
+
+function · beta · [source](../../src/text/sanitize.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/text`
+
+Strip unsafe controls while retaining tabs until a layout profile is known.
+
+```ts
+export declare function sanitizeTerminalControlText(text: string): SanitizedTerminalText;
+```
+
+Related types: [`text`](#components-foundations-text), [`SanitizedTerminalText`](#text-sanitizedterminaltext)
 
 <a id="text-sanitizeterminalsinglelinetext"></a>
 ### sanitizeTerminalSingleLineText

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ignoreMessage, measureConstrainedBox } from '../../../dist/component/index.js';
 import { gridCellRects, layoutElement, renderElementFrame, renderFramePlain, splitTracks } from '../../../dist/renderer/index.js';
-import { button, commandInput, field, form, searchPicker, text, textArea, textInput } from '../../../dist/components/index.js';
+import { button, commandInput, field, form, searchPicker, tabs, text, textArea, textInput } from '../../../dist/components/index.js';
 import {
   anchored,
   column,
@@ -131,8 +131,8 @@ test('layout inset helpers clamp margin and padding bounds independently', () =>
     height: 3,
   });
   assert.deepEqual(layoutPaddingBounds(bounds, 10), {
-    row: 12,
-    column: 13,
+    row: 7,
+    column: 11,
     width: 0,
     height: 0,
   });
@@ -693,4 +693,32 @@ test('layout overflow controls whether min sizes can exceed parent bounds', () =
 
   assert.deepEqual(clipped.children[0]?.bounds, { row: 1, column: 1, width: 4, height: 2 });
   assert.deepEqual(visible.children[0]?.bounds, { row: 1, column: 1, width: 8, height: 2 });
+});
+
+
+test('composite titles and insets consume no more than the allocated space', () => {
+  for (const insets of [{}, { padding: 1 }, { margin: 1 }, { padding: 3, margin: 2 }]) {
+    const content = text({ id: 'small-content', content: 'Content' });
+    const elements = [
+      form({ id: 'small-form', title: 'Title', ...insets, slots: { content: [content] } }),
+      field({ id: 'small-field', label: 'Label', description: 'Description', ...insets, control: content }),
+      tabs({
+        id: 'small-tabs', meta: { accessibleName: 'Small tabs' }, ...insets, state: { selectedId: 'one', activeId: 'one' },
+        tabs: [{ id: 'one', label: 'One', panel: content }, { id: 'two', label: 'Two', panel: content }],
+        onTransition: (action) => action,
+      }),
+    ];
+    for (const element of elements) {
+      for (const size of [
+        { columns: 0, rows: 0 }, { columns: 0, rows: 2 }, { columns: 2, rows: 0 }, { columns: 1, rows: 1 },
+      ]) {
+        const layout = layoutElement(element, size);
+        for (const child of layout.children) {
+          assert.ok(child.bounds.column + child.bounds.width <= 1 + size.columns);
+          assert.ok(child.bounds.row + child.bounds.height <= 1 + size.rows);
+        }
+        assert.doesNotThrow(() => renderElementFrame(element, size));
+      }
+    }
+  }
 });
