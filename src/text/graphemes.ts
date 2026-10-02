@@ -1,6 +1,6 @@
 import type { GraphemeSegment, TextBoundaryOptions, TextMeasurementOptions } from './types.ts';
 import { eastAsianAmbiguousRanges, eastAsianWideRanges } from './unicode-width-data.ts';
-import { defaultTextWidthProfile, textWidthProfileKey } from './width-profile.ts';
+import { defaultTextWidthProfile, defineTextWidthProfile, textWidthProfileKey } from './width-profile.ts';
 
 const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
@@ -14,12 +14,13 @@ export function* measuredGraphemes(
   text: string,
   options: TextMeasurementOptions = {},
 ): IterableIterator<GraphemeSegment> {
+  const measurement = { widthProfile: defineTextWidthProfile(options.widthProfile) };
   for (const segment of graphemeSegments(text)) {
     yield {
       text: segment.segment,
       startOffset: segment.index,
       endOffsetExclusive: segment.index + segment.segment.length,
-      cells: measureGraphemeCells(segment.segment, options),
+      cells: measureGraphemeCells(segment.segment, measurement),
     };
   }
 }

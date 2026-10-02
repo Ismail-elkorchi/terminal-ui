@@ -41,3 +41,14 @@ test('source-preserving control sanitization leaves tab expansion to layout', as
   assert.equal(result.changed, true);
   assert.equal(sanitizeTerminalControlText('a\tb\n').changed, false);
 });
+
+test('lazy measurement owns one width policy throughout iteration', () => {
+  const profile = { emoji: 'wide', ambiguous: 'narrow' };
+  const options = { widthProfile: profile };
+  const iterator = measuredGraphemes('👩🏽‍💻👩🏽‍💻', options);
+  assert.equal(iterator.next().value.cells, 2);
+  profile.emoji = 'codepoint';
+  options.widthProfile = { emoji: 'narrow', ambiguous: 'wide' };
+  assert.equal(iterator.next().value.cells, 2);
+  assert.equal(iterator.next().done, true);
+});
