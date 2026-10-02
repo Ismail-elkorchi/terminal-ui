@@ -26,9 +26,8 @@ export function createMeasuredFeedApp(count = 10000) {
       for (const request of measurementRequests(state, 3)) {
         context.signal.throwIfAborted();
         // The component's own implementation measures it. Individual custom hooks remain synchronous.
-        const rows = measureElement(request.value, {
-          columns: state.geometry.columns, rows: state.viewportRows,
-        }, { widthProfile: context.capabilities.unicode.widthProfile }).preferredHeight;
+        const rows = measureElement(request.value, request.geometry,
+          { widthProfile: context.capabilities.unicode.widthProfile }).preferredHeight;
         updates.push({ request, rows });
         await context.clock.sleep(0, context.signal);
         context.signal.throwIfAborted();
@@ -46,7 +45,7 @@ export function createMeasuredFeedApp(count = 10000) {
     return { ...result, state: { ...state, preparation: result.state } };
   };
   const dimensions = (context: TuiContext) => ({
-    geometry: { columns: context.terminalSize.columns, revision: context.capabilities.unicode.widthProfile },
+    geometry: { ...context.terminalSize, revision: context.capabilities.unicode.widthProfile },
     viewportRows: context.terminalSize.rows,
   });
   return defineTui<State, Message>({
@@ -87,7 +86,9 @@ export function createMeasuredFeedApp(count = 10000) {
       if (state.preparation.error !== null) return text({ content: state.preparation.error.message });
       if (state.preparation.pending) return text({ content: 'Preparing visible rows…' });
       const window = measuredWindow(state.measurements.collection, state.measurements);
-      return viewport(measuredColumn(window, entry => entry.item.value), {
+      return viewport(measuredColumn(window, entry => entry.item.value, {
+        measurementRows: state.measurements.geometry.rows,
+      }), {
         id: 'feed', offset: { row: state.measurements.offsetRow }, keyboardScroll: 'vertical',
         onScroll: request => ({ kind: 'scroll' as const, offset: request.nextState.offsetRow }),
       });

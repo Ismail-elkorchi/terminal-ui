@@ -180,7 +180,11 @@ test('terminal text indexing and editing stay centralized', async () => {
     ...await sourceFiles(sourceRoot),
     ...await exampleSourceFiles()
   ];
-  const textSources = [
+  const segmenterOwners = [
+    { suffix: '/src/text/source-boundaries.ts', granularity: 'grapheme' },
+    { suffix: '/src/text/graphemes.ts', granularity: 'word' },
+  ];
+  const widthSources = [
     '/src/text/graphemes.ts',
     '/src/text/measure.ts',
     '/src/text/terminal-text-index.ts'
@@ -188,8 +192,16 @@ test('terminal text indexing and editing stay centralized', async () => {
 
   for (const file of sourceFilesToCheck) {
     const source = await readFile(file, 'utf8');
-    if (!textSources.some((suffix) => file.pathname.endsWith(suffix))) {
+    const owner = segmenterOwners.find(({ suffix }) => file.pathname.endsWith(suffix));
+    if (owner === undefined) {
       assert.doesNotMatch(source, /\bnew Intl\.Segmenter\b/u, file.pathname);
+    } else {
+      assert.equal([...source.matchAll(/\bnew Intl\.Segmenter\b/gu)].length, 1, file.pathname);
+      assert.match(source, new RegExp(
+        `\\bnew Intl\\.Segmenter\\([^;]+\\bgranularity:\\s*'${owner.granularity}'`, 'u',
+      ), file.pathname);
+    }
+    if (!widthSources.some((suffix) => file.pathname.endsWith(suffix))) {
       assert.doesNotMatch(source, /Extended_Pictographic/u, file.pathname);
     }
   }

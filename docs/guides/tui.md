@@ -170,6 +170,14 @@ requests. It fences old-generation messages and preserves local error/source
 lifecycle identities. Child focus requests use `element` or `elementTarget`;
 explicit paths in view metadata are absolute parent paths.
 
+Forward scoped effects, sources, and cancellation requests unchanged or copy the
+whole descriptor with object spread or `Object.assign`. For example,
+`{ ...effect, concurrency: 'enqueue', run: context => effect.run(context) }`
+retains its child lifetime when decorating work. Ownership is carried by private,
+immutable metadata, including through nested children. Rebuilding descriptors
+from selected fields or serializing them discards that metadata; do transformations
+before child scoping if they cannot preserve the whole descriptor.
+
 When removing or replacing a child, return `child.remove(instance)` in the
 parent's `cancel` array as `[child.remove(instance)]`, remove its state, and omit its subscriptions in that
 same update. Merely hiding its view does not remove it or cancel its work.

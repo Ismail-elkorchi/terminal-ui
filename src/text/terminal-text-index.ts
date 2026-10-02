@@ -1,3 +1,5 @@
+import { sourceBoundaries } from './source-boundaries.ts';
+import type { SourceBoundaryIndex } from './source-boundaries.ts';
 import { segmentGraphemesForMeasurement } from './graphemes.ts';
 import { selectedText } from './text-range.ts';
 import type { TerminalTextIndex, TextIndexOptions, TextSelection } from './types.ts';
@@ -9,7 +11,11 @@ export function createTerminalTextIndex(
   text: string,
   options: TextIndexOptions = {}
 ): TerminalTextIndex {
-  const graphemes = segmentGraphemesForMeasurement(text, options);
+  return createSourceTextIndex(text, options, sourceBoundaries(text));
+}
+
+export function createSourceTextIndex(text: string, options: TextIndexOptions, source: SourceBoundaryIndex): TerminalTextIndex {
+  const graphemes = segmentGraphemesForMeasurement(text, options, undefined, source);
   const codeUnitOffsets = graphemeCodeUnitOffsets(graphemes, text.length);
   const visualOffsets = visualColumnOffsets(graphemes);
   let retainedByteOffsets: readonly number[] | undefined;

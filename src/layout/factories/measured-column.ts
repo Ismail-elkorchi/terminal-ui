@@ -13,17 +13,17 @@ import {
   renderNodeInteraction,
   renderNodeMeta,
 } from '../../renderer/internal/render-tree/metadata.ts';
-import { decodeLayoutFlowOptions } from '../decode-options.ts';
+import { decodeLayoutCellCount, decodeLayoutFlowOptions } from '../decode-options.ts';
 import type { MeasuredViewportOptions } from '../options.ts';
 
-/** @beta */
+/** Lay out exact heights; supply measurementRows when entries were prepared under a separate height constraint. @beta */
 export function measuredColumn<
   TValue,
   const TElement extends Element<unknown>
 >(
   window: MeasuredWindow<TValue>,
   renderEntry: (entry: MeasuredWindowEntry<TValue>) => TElement,
-  options: StructuralElementOptions = {}
+  options: StructuralElementOptions & { readonly measurementRows?: number } = {}
 ): Element<ElementMessage<TElement>> {
   if (!isMeasuredWindow(window)) {
     throw new TypeError('measuredColumn() window must be created with measuredWindow().');
@@ -31,6 +31,8 @@ export function measuredColumn<
   if (typeof renderEntry !== 'function') {
     throw new TypeError('measuredColumn() renderEntry must be a function.');
   }
+  const measurementHeight = options.measurementRows === undefined ? undefined
+    : decodeLayoutCellCount(options.measurementRows, 'measuredColumn() measurementRows');
   const children = window.entries.map((entry) => toRenderNode(renderEntry(entry)));
   return layoutElementFromRenderNode<'measuredColumn', ElementMessage<TElement>>({
     ...optionalRenderNodeId(options.id),
@@ -39,7 +41,8 @@ export function measuredColumn<
       entries: window.entries.map((entry) => ({
         rowOffset: window.offsetRow + entry.rowOffset,
         clippedRowsBefore: entry.clippedRowsBefore,
-        rows: entry.item.rows
+        rows: entry.item.rows,
+        ...(measurementHeight === undefined ? {} : { measurementHeight }),
       })),
       totalRows: window.totalRows
     },

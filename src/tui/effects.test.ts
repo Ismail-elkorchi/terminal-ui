@@ -9,6 +9,7 @@ import { createTuiChild } from './child.ts';
 import { decodeTuiInitialResult, decodeTuiUpdateResult } from './hook-results.ts';
 import { createTuiEffectManager } from './lifecycle/effects.ts';
 import type { TuiEffectManagerOptions } from './lifecycle/effects.ts';
+import type { ProducerAdmissionLease } from './lifecycle/producer-admission.ts';
 import type { TuiEffect, TuiEffectConcurrency, TuiEffectPolicy } from './types.ts';
 
 interface TestManagerOptions<TMessage> {
@@ -352,6 +353,133 @@ void test('replace rejects a successor when prior work ignores abort beyond the 
 
   priorGate.release();
   await effects.dispose();
+});
+
+void test('policy rejection recovers atomically with the original diagnostic and redaction', async () => {
+  const activeGate = gate();
+  const outputs: { messages: readonly string[]; redacted: boolean }[] = [];
+  const diagnostics: TerminalDiagnostic[] = [];
+  const { effects } = manager<string>(async (messages, lease, redacted) => {
+    assert.equal(lease.authorized(), true);
+    outputs.push({ messages, redacted });
+  }, {
+    policy: { maxActive: 1, maxActivePerId: 1, maxQueued: 1, maxQueuedPerId: 1, replacementGracePeriodMs: 10 },
+    reportDiagnostic: item => { diagnostics.push(item); },
+  });
+  effects.start([{ id: 'busy', concurrency: 'parallel', run: async () => { await activeGate.promise; return { kind: 'none' }; } }]);
+  effects.start([{
+    id: 'rejected', concurrency: 'parallel',
+    run: async () => { assert.fail('rejected work must not run'); },
+    onError: ({ id, diagnostic }) => {
+      const reason = diagnostic.data?.['reason'];
+      assert.ok(typeof reason === 'string');
+      return { kind: 'messages', messages: [id, diagnostic.code, reason] };
+    },
+  }], true);
+  try {
+    await waitUntil(() => diagnostics.length === 1);
+    assert.deepEqual(outputs, [{ messages: ['rejected', 'TUI_EFFECT_REJECTED', 'active_limit'], redacted: true }]);
+    assert.equal(diagnostics[0]?.code, 'TUI_EFFECT_REJECTED');
+    assert.deepEqual(effects.metrics(), { active: 1, queued: 0, rejected: 1 });
+  } finally { activeGate.release(); await effects.dispose(); }
+});
+
+for (const cancellation of ['effect', 'replace', 'dispose'] as const) {
+  void test(`policy rejection recovery loses admission after ${cancellation}`, async () => {
+    const activeGate = gate();
+    const dispatchGate = gate();
+    const emitted: string[] = [];
+    let dispatchStarted = false;
+    const { effects } = manager<string>(async (messages, lease) => {
+      dispatchStarted = true;
+      await dispatchGate.promise;
+      if (lease.authorized()) emitted.push(...messages);
+    }, { policy: { maxActive: 1, maxActivePerId: 1, maxQueued: 1, maxQueuedPerId: 1, replacementGracePeriodMs: 10 } });
+    effects.start([{ id: 'busy', concurrency: 'parallel', run: async () => { await activeGate.promise; return { kind: 'none' }; } }]);
+    effects.start([{
+      id: 'rejected', concurrency: 'parallel', run: async () => { assert.fail('rejected work must not run'); },
+      onError: () => ({ kind: 'message', message: 'obsolete' }),
+    }]);
+    try {
+      await waitUntil(() => dispatchStarted);
+      if (cancellation === 'effect') effects.cancelRequests([{ kind: 'effect', id: 'rejected' }]);
+      if (cancellation === 'replace') effects.start([{ id: 'rejected', concurrency: 'replace', run: async () => ({ kind: 'none' }) }]);
+      const disposal = cancellation === 'dispose' ? effects.dispose() : undefined;
+      dispatchGate.release();
+      activeGate.release();
+      await (disposal ?? effects.dispose());
+      assert.deepEqual(emitted, []);
+    } finally { dispatchGate.release(); activeGate.release(); await effects.dispose(); }
+  });
+}
+
+void test('disposal waits for a cancelled rejection dispatch to finish', async () => {
+  const dispatchGate = gate();
+  let admitted: ProducerAdmissionLease | undefined;
+  let disposed = false;
+  const { effects } = manager<string>(async (_messages, lease) => { admitted = lease; await dispatchGate.promise; }, {
+    policy: { maxActive: 1, maxActivePerId: 1, maxQueued: 1, maxQueuedPerId: 1, replacementGracePeriodMs: 10 },
+  });
+  effects.start([
+    { id: 'busy', concurrency: 'parallel', run: async () => ({ kind: 'none' }) },
+    { id: 'rejected', concurrency: 'parallel', run: async () => { assert.fail('rejected work must not run'); },
+      onError: () => ({ kind: 'message', message: 'failed' }) },
+  ]);
+  try {
+    await waitUntil(() => effects.metrics().active === 0);
+    const disposal = effects.dispose().then(() => { disposed = true; });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(admitted?.authorized(), false);
+    assert.equal(disposed, false);
+    dispatchGate.release();
+    await disposal;
+    assert.equal(disposed, true);
+  } finally { dispatchGate.release(); await effects.dispose(); }
+});
+
+void test('policy rejection encloses mapper, dispatch and diagnostic failures', async () => {
+  const activeGate = gate();
+  const diagnostics: TerminalDiagnostic[] = [];
+  const { effects } = manager<string>(async () => { throw new Error('dispatch failed'); }, {
+    policy: { maxActive: 1, maxActivePerId: 1, maxQueued: 1, maxQueuedPerId: 1, replacementGracePeriodMs: 10 },
+    reportDiagnostic: item => { diagnostics.push(item); if (item.target === 'diagnostic') throw new Error('diagnostic failed'); },
+  });
+  const rejected = (id: string): TuiEffect<string> => ({
+    id, concurrency: 'parallel', run: async () => { assert.fail('rejected work must not run'); },
+  });
+  effects.start([
+    { id: 'busy', concurrency: 'parallel', run: async () => { await activeGate.promise; return { kind: 'none' }; } },
+    { ...rejected('mapper'), onError: () => { throw new Error('mapper failed'); } },
+    { ...rejected('dispatch'), onError: () => ({ kind: 'message', message: 'failed' }) },
+    rejected('diagnostic'),
+  ]);
+  try {
+    await waitUntil(() => diagnostics.length === 3);
+    activeGate.release();
+    await assert.rejects(effects.dispose(), /TUI effect execution cleanup failed/u);
+    assert.deepEqual(diagnostics.map(item => item.data?.['phase']).filter(Boolean).sort(), ['error_dispatch', 'onError']);
+    assert.equal(diagnostics.find(item => item.target === 'diagnostic')?.code, 'TUI_EFFECT_REJECTED');
+  } finally { activeGate.release(); await effects.dispose(); }
+});
+
+void test('completed policy recoveries release admission without occupying run or queue capacity', async () => {
+  const activeGate = gate();
+  const leases: ProducerAdmissionLease[] = [];
+  const { effects } = manager<number>(async (_messages, lease) => { leases.push(lease); }, {
+    policy: { maxActive: 1, maxActivePerId: 1, maxQueued: 1, maxQueuedPerId: 1, replacementGracePeriodMs: 10 },
+  });
+  effects.start([{ id: 'busy', concurrency: 'parallel', run: async () => { await activeGate.promise; return { kind: 'none' }; } }]);
+  try {
+    for (let batch = 0; batch < 8; batch += 1) {
+      effects.start(Array.from({ length: 8 }, (_, index) => ({
+        id: `rejected-${String(batch)}-${String(index)}`, concurrency: 'parallel' as const,
+        run: async () => { assert.fail('rejected work must not run'); },
+        onError: () => ({ kind: 'message' as const, message: index }),
+      })));
+      await waitUntil(() => leases.length === (batch + 1) * 8 && leases.every(lease => !lease.authorized()));
+      assert.deepEqual(effects.metrics(), { active: 1, queued: 0, rejected: (batch + 1) * 8 });
+    }
+  } finally { activeGate.release(); await effects.dispose(); }
 });
 
 async function waitUntil(predicate: () => boolean): Promise<void> {

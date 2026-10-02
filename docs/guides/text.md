@@ -13,11 +13,26 @@ An edit can join graphemes across its seam, so its resulting caret is placed
 after the complete joined cluster. Unchanged logical lines reuse their source
 boundaries across document edits and width-profile changes.
 
-Boundary indexes advance lazily and are retained within a bounded cache. The
-first lookup can traverse a logical-line prefix; resegmenting an edited line
-can require that complete line. A long grapheme itself is an indivisible
-runtime segmentation call. Neither case has a constant-time guarantee, and
-oversized strings are processed without adding an unbounded cache entry.
+Boundary indexes advance lazily. Standalone string helpers use a bounded global
+cache; edit buffers and document revisions own their indexes even when a line
+exceeds that cache budget. Document indexes read from the rope, so navigation
+does not repeatedly flatten an oversized logical line. Index storage is
+proportional to the visited source, and complete offset pages are shared across
+edits and released with their owners.
+
+The first lookup can traverse a logical-line prefix. An edit retains the known
+unchanged prefix, restarts at the beginning of the entire preceding grapheme,
+and lazily resegments the remaining suffix. It does not assume a fixed-size
+Unicode context or reuse potentially changed suffix boundaries. Regional
+indicator parity can change all following boundaries; one enormous grapheme
+still requires its full segmentation context. Neither cold lookup nor an edit
+has a constant-time guarantee. Width-profile changes reuse source boundaries.
+
+Retain the returned buffer or document when continuing an editing session.
+Stateless calls such as `normalizeTextCursor(hugeString, offset)` have no owner;
+if that string exceeds the global cache budget, each call can scan its prefix
+again. Reconstructing a fresh buffer from only its text also discards its owned
+index.
 
 ## Word Navigation
 

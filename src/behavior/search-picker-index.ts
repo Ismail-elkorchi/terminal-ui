@@ -266,6 +266,8 @@ function dataFor<TValue>(index: SearchPickerIndex<TValue>): SearchPickerIndexDat
   return data;
 }
 
+const whitespaceCharacter = /\s/u;
+
 function* cleanWork(value: string): Generator<void, string> {
   const sanitized = yield* sanitizeTerminalTextWork(value);
   const text = sanitized.text;
@@ -275,7 +277,7 @@ function* cleanWork(value: string): Generator<void, string> {
   let newline = false;
   for (let offset = 0; offset <= text.length; offset += 1) {
     const character = text[offset];
-    if (character !== undefined && /\s/u.test(character)) {
+    if (character !== undefined && whitespaceCharacter.test(character)) {
       if (whitespaceStart < 0) whitespaceStart = offset;
       if (character === '\n') newline = true;
     } else if (whitespaceStart >= 0) {

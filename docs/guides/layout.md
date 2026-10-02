@@ -85,12 +85,23 @@ the existing component measurement implementation; return a batch of
 
 `updateMeasurementState()` reconciles append, prepend, replacement, removal,
 viewport changes and scrolling, preserving the logical item/intra-item anchor.
-Set `followTail` explicitly to follow appended content. Its geometry includes
-columns and an owned revision identity: change that identity when the theme,
-terminal text-width profile, or other height-affecting policy changes. Content
+Set `followTail` explicitly to follow appended content. Its geometry includes the
+actual `columns` and `rows` constraints passed to `measureElement()`, separately
+from `viewportRows`, which selects the visible window. Changing only the window
+height retains accepted measurements and valid outstanding requests. Change the
+row constraint too when content is measured against the new viewport height;
+height-dependent components and vertical flows can produce different heights.
+Geometry also includes an owned revision identity: change that identity when the
+theme, terminal text-width profile, or other height-affecting policy changes. Content
 changes replace the immutable collection value. Invalidation keeps old heights
 as estimates without scanning or measuring the full history. Stale replies are
 rejected, and accepted unchanged heights produce no further requests.
+
+Pass `request.geometry` to `measureElement()` and the same geometry's `rows` as
+`measuredColumn()`'s `measurementRows` option. This retains the preparation height
+constraint while validating entries inside the potentially much taller scroll
+content. Its actual layout width must match the prepared `columns` constraint.
+Without `measurementRows`, entries are measured at the column's layout height.
 
 `measuredColumn()` still requires exact heights. While requested entries are
 pending, explicitly display a pending representation, or a previously accepted

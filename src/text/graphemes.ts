@@ -1,100 +1,15 @@
+import { sourceBoundaries } from './source-boundaries.ts';
+import type { SourceBoundaryIndex } from './source-boundaries.ts';
 import type { GraphemeSegment, TextBoundaryOptions, TextMeasurementOptions } from './types.ts';
 import { eastAsianAmbiguousRanges, eastAsianWideRanges } from './unicode-width-data.ts';
 import { defaultTextWidthProfile, defineTextWidthProfile, textWidthProfileKey } from './width-profile.ts';
 
-const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
-
-// Source indexes contain only Unicode boundaries. Geometry caches may be rebuilt
-// for another width profile without asking the segmenter to reinterpret offsets.
-// Reserve an upper bound, including UTF-16 source and numeric offset storage,
-// before retaining an index. Very large strings still work, but are not cached.
-const boundaryCacheLimit = 33_554_432;
-const boundaryCache = new Map<string, SourceBoundaries>();
-let boundaryCacheBytes = 0;
-
-interface SourceBoundaries {
-  readonly offsets: number[];
-  readonly length: number;
-  iterator: Iterator<Intl.SegmentData> | undefined;
-}
-
-function sourceBoundaries(text: string): SourceBoundaries | undefined {
-  const cached = boundaryCache.get(text);
-  if (cached !== undefined) {
-    boundaryCache.delete(text);
-    boundaryCache.set(text, cached);
-    return cached;
-  }
-  const weight = boundaryWeight(text);
-  if (weight > boundaryCacheLimit / 2) return undefined;
-  const boundaries: SourceBoundaries = {
-    offsets: [0],
-    length: text.length,
-    iterator: text.length === 0 ? undefined : graphemeSegmenter.segment(text)[Symbol.iterator](),
-  };
-  boundaryCache.set(text, boundaries);
-  boundaryCacheBytes += weight;
-  while (boundaryCacheBytes > boundaryCacheLimit) {
-    const oldest = boundaryCache.keys().next().value;
-    if (oldest === undefined) break;
-    boundaryCache.delete(oldest);
-    boundaryCacheBytes -= boundaryWeight(oldest);
-  }
-  return boundaries;
-}
-
-function boundaryWeight(text: string): number {
-  return 128 + text.length * 18;
-}
-
-function extendBoundaries(boundaries: SourceBoundaries, offset: number): void {
-  while (boundaries.iterator !== undefined && (boundaries.offsets.at(-1) ?? 0) <= offset) {
-    const next = boundaries.iterator.next();
-    if (next.done === true) boundaries.iterator = undefined;
-    else {
-      const end = next.value.index + next.value.segment.length;
-      boundaries.offsets.push(end);
-      if (end === boundaries.length) boundaries.iterator = undefined;
-    }
-  }
-}
-
 /** Source segmentation shared by editing, matching and lazy measurement. */
-export function* graphemeSegments(text: string): IterableIterator<{
+export function graphemeSegments(text: string): IterableIterator<{
   readonly segment: string;
   readonly index: number;
 }> {
-  const boundaries = sourceBoundaries(text);
-  if (boundaries === undefined) {
-    // Oversized sources remain true streams: do not accumulate an off-screen
-    // boundary table merely because a caller wants lazy width measurements.
-    for (const segment of graphemeSegmenter.segment(text)) {
-      yield { segment: segment.segment, index: segment.index };
-    }
-    return;
-  }
-  let index = 0;
-  let at = 0;
-  while (index < text.length) {
-    extendBoundaries(boundaries, index);
-    // The iterator and boundary queries share the same offsets, even when a
-    // consumer interleaves them or abandons lazy measurement partway through.
-    const end = boundaries.offsets[at + 1] ?? text.length;
-    yield { segment: text.slice(index, end), index };
-    index = end;
-    at += 1;
-  }
-}
-
-function boundaryIndex(offsets: readonly number[], offset: number): number {
-  let lower = 0;
-  let upper = offsets.length;
-  while (lower < upper) {
-    const middle = Math.floor((lower + upper) / 2);
-    if ((offsets[middle] ?? 0) <= offset) lower = middle + 1;
-    else upper = middle;
-  }
-  return Math.max(0, lower - 1);
+  return sourceBoundaries(text).segments();
 }
 
 /** Iterates measured source graphemes lazily without materializing the whole string. */
@@ -102,8 +17,12 @@ export function* measuredGraphemes(
   text: string,
   options: TextMeasurementOptions = {},
 ): IterableIterator<GraphemeSegment> {
+  yield* measuredSourceGraphemes(sourceBoundaries(text), options);
+}
+
+function* measuredSourceGraphemes(source: SourceBoundaryIndex, options: TextMeasurementOptions, text?: string): IterableIterator<GraphemeSegment> {
   const measurement = { widthProfile: defineTextWidthProfile(options.widthProfile) };
-  for (const segment of graphemeSegments(text)) {
+  for (const segment of source.segments(text)) {
     yield {
       text: segment.segment,
       startOffset: segment.index,
@@ -113,36 +32,8 @@ export function* measuredGraphemes(
   }
 }
 
-/** Resolve an offset using the same iterator boundaries as every text operation.
- * The first lookup may traverse the line prefix; subsequent lookups reuse it.
- * A single long grapheme still requires its complete segmentation context. */
-export function graphemeAt(text: string, offset: number): { readonly startOffset: number; readonly endOffsetExclusive: number } | undefined {
-  if (!Number.isFinite(offset) || offset < 0 || offset >= text.length) return undefined;
-  const boundaries = sourceBoundaries(text);
-  if (boundaries === undefined) {
-    for (const segment of graphemeSegments(text)) {
-      const end = segment.index + segment.segment.length;
-      if (offset < end) return { startOffset: segment.index, endOffsetExclusive: end };
-    }
-    return undefined;
-  }
-  extendBoundaries(boundaries, offset);
-  const index = boundaryIndex(boundaries.offsets, offset);
-  return {
-    startOffset: boundaries.offsets[index] ?? 0,
-    endOffsetExclusive: boundaries.offsets[index + 1] ?? text.length,
-  };
-}
-
 export function graphemeBoundaryOffsets(text: string): readonly number[] {
-  const boundaries = sourceBoundaries(text);
-  if (boundaries === undefined) {
-    const offsets = Array.from(graphemeSegments(text), (segment) => segment.index);
-    offsets.push(text.length);
-    return Object.freeze(offsets);
-  }
-  extendBoundaries(boundaries, text.length);
-  return Object.freeze(boundaries.offsets);
+  return sourceBoundaries(text).offsets();
 }
 const defaultWordLocale = 'en';
 const wordSegmenterCacheLimit = 32;
@@ -160,6 +51,7 @@ export function segmentGraphemesForMeasurement(
   text: string,
   options: TextMeasurementOptions,
   onSegmentation?: (codeUnits: number) => void,
+  source?: SourceBoundaryIndex,
 ): readonly GraphemeSegment[] {
   const cacheKey = segmentCacheKey(text, options);
   if (cacheKey !== undefined) {
@@ -170,7 +62,7 @@ export function segmentGraphemesForMeasurement(
       return cached;
     }
   }
-  const segments = Object.freeze(Array.from(measuredGraphemes(text, options), segment => Object.freeze(segment)));
+  const segments = Object.freeze(Array.from(measuredSourceGraphemes(source ?? sourceBoundaries(text), options, text), segment => Object.freeze(segment)));
   onSegmentation?.(text.length);
   if (cacheKey !== undefined) {
     segmentCache.set(cacheKey, segments);

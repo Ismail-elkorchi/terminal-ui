@@ -6,12 +6,13 @@ import {
   textDocumentEdit,
   textDocumentLength,
   textDocumentLineAt,
+  textDocumentLineBoundaries,
   textDocumentLineCount,
   textDocumentLineIndexAtOffset,
   textDocumentSelectionRange,
 } from './document.ts';
-import { createTerminalTextIndex } from './terminal-text-index.ts';
-import { nextGraphemeBoundary, previousGraphemeBoundary } from './text-range.ts';
+import { createSourceTextIndex } from './terminal-text-index.ts';
+import { nextSourceBoundary, previousSourceBoundary } from './text-range.ts';
 import type {
   TextCaret,
   TextDocumentSelection,
@@ -23,7 +24,7 @@ import { textWidthProfileKey } from './width-profile.ts';
 import { standaloneWordBoundaryIndex } from './word-boundaries.ts';
 
 const lineIndexCacheLimit = 33_554_432;
-const lineIndexCache = new Map<string, ReturnType<typeof createTerminalTextIndex>>();
+const lineIndexCache = new Map<string, ReturnType<typeof createSourceTextIndex>>();
 let lineIndexCacheBytes = 0;
 
 export interface TextDocumentEditState {
@@ -74,7 +75,7 @@ export function editTextDocument(
         }
       }
       const local = caret.position.offset - line.startOffset;
-      const previous = line.startOffset + previousGraphemeBoundary(line.text, local);
+      const previous = line.startOffset + previousSourceBoundary(textDocumentLineBoundaries(state.document, line), local);
       return replaceOffsets(state, previous, caret.position.offset, '');
     }
     case 'deleteForward': {
@@ -89,7 +90,7 @@ export function editTextDocument(
           : replaceOffsets(state, caret.position.offset, nextLine.startOffset, '');
       }
       const local = caret.position.offset - line.startOffset;
-      return replaceOffsets(state, caret.position.offset, line.startOffset + nextGraphemeBoundary(line.text, local), '');
+      return replaceOffsets(state, caret.position.offset, line.startOffset + nextSourceBoundary(textDocumentLineBoundaries(state.document, line), local), '');
     }
     case 'deleteWordBackward':
       if (selection !== undefined) return replaceRange(state, caret, selection, '');
@@ -226,7 +227,7 @@ function moveByLine(
   options: TextIndexOptions
 ): TextDocumentEditResult {
   const current = lineContaining(state.document, caret.position.offset);
-  const currentIndex = textIndexForLine(current, options);
+  const currentIndex = textIndexForLine(state.document, current, options);
   const local = Math.max(0, Math.min(current.text.length, caret.position.offset - current.startOffset));
   const preferred = caret.preferredColumnCells
     ?? currentIndex.graphemeIndexToVisualColumn(currentIndex.codeUnitOffsetToGraphemeIndex(local));
@@ -235,7 +236,7 @@ function moveByLine(
     Math.min(textDocumentLineCount(state.document) - 1, current.lineIndex + delta)
   );
   const target = textDocumentLineAt(state.document, targetIndex) ?? current;
-  const targetText = textIndexForLine(target, options);
+  const targetText = textIndexForLine(state.document, target, options);
   const grapheme = targetText.visualColumnToGraphemeIndex(preferred);
   const offset = target.startOffset + targetText.graphemeIndexToCodeUnitOffset(grapheme);
   return move(state, caret, selection, offset, 'downstream', selecting, preferred);
@@ -254,7 +255,7 @@ function leftOffset(
     return textDocumentLineAt(document, line.lineIndex - 1)?.endOffsetExclusive
       ?? caret.position.offset;
   }
-  return line.startOffset + previousGraphemeBoundary(line.text, caret.position.offset - line.startOffset);
+  return line.startOffset + previousSourceBoundary(textDocumentLineBoundaries(document, line), caret.position.offset - line.startOffset);
 }
 
 function rightOffset(
@@ -271,7 +272,7 @@ function rightOffset(
     return textDocumentLineAt(document, line.lineIndex + 1)?.startOffset
       ?? caret.position.offset;
   }
-  return line.startOffset + nextGraphemeBoundary(line.text, caret.position.offset - line.startOffset);
+  return line.startOffset + nextSourceBoundary(textDocumentLineBoundaries(document, line), caret.position.offset - line.startOffset);
 }
 
 function previousWordOffset(
@@ -304,9 +305,10 @@ function nextWordOffset(
 }
 
 function textIndexForLine(
+  document: TextDocument,
   line: NonNullable<ReturnType<typeof textDocumentLineAt>>,
   options: TextIndexOptions = {}
-): ReturnType<typeof createTerminalTextIndex> {
+): ReturnType<typeof createSourceTextIndex> {
   const key = `${options.locale ?? 'en'}\u0000${textWidthProfileKey(options.widthProfile)}\u0000${line.text}`;
   const cached = lineIndexCache.get(key);
   if (cached !== undefined) {
@@ -314,7 +316,7 @@ function textIndexForLine(
     lineIndexCache.set(key, cached);
     return cached;
   }
-  const index = createTerminalTextIndex(line.text, options);
+  const index = createSourceTextIndex(line.text, options, textDocumentLineBoundaries(document, line));
   // Grapheme objects and offsets dominate retained memory. Reject an oversized
   // line rather than letting one entry defeat the global revision budget.
   const weight = key.length * 2 + index.graphemes.length * 160;

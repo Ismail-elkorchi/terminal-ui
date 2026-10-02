@@ -1,0 +1,109 @@
+{
+  "runtime": "Node v24.19.0",
+  "baselineCommit": "2f881c8",
+  "scenario": "eight alternating moveLeft/moveRight operations starting at UTF-16 length - 1; cold first lookup included; source uniform ASCII; counters wrap Intl.Segmenter iterator output UTF-16 length and segment() calls",
+  "before": [
+    {
+      "mode": "buffer",
+      "length": 100000,
+      "ms": 15.122521,
+      "traversedCodeUnits": 100000,
+      "segmentCalls": 1
+    },
+    {
+      "mode": "document",
+      "length": 100000,
+      "ms": 14.424955,
+      "traversedCodeUnits": 100000,
+      "segmentCalls": 1
+    },
+    {
+      "mode": "buffer",
+      "length": 1100000,
+      "ms": 4557.325796,
+      "traversedCodeUnits": 35199980,
+      "segmentCalls": 32
+    },
+    {
+      "mode": "document",
+      "length": 1100000,
+      "ms": 4271.113027,
+      "traversedCodeUnits": 35199980,
+      "segmentCalls": 32
+    }
+  ],
+  "after": [
+    {
+      "mode": "buffer",
+      "length": 100000,
+      "ms": 17.421777,
+      "traversedCodeUnits": 100000,
+      "segmentCalls": 1
+    },
+    {
+      "mode": "document",
+      "length": 100000,
+      "ms": 18.033364,
+      "traversedCodeUnits": 100000,
+      "segmentCalls": 1
+    },
+    {
+      "mode": "buffer",
+      "length": 1100000,
+      "ms": 155.774917,
+      "traversedCodeUnits": 1100000,
+      "segmentCalls": 1
+    },
+    {
+      "mode": "document",
+      "length": 1100000,
+      "ms": 170.645188,
+      "traversedCodeUnits": 1100000,
+      "segmentCalls": 1
+    }
+  ],
+  "warm80Moves": [
+    {
+      "mode": "buffer",
+      "length": 1100000,
+      "ms": 0.206066,
+      "traversedCodeUnits": 0,
+      "segmentCalls": 0
+    },
+    {
+      "mode": "document",
+      "length": 1100000,
+      "ms": 5.68021,
+      "traversedCodeUnits": 0,
+      "segmentCalls": 0
+    }
+  ],
+  "warm20InsertDeletePairs": [
+    {
+      "mode": "buffer",
+      "length": 1100000,
+      "ms": 26.282148,
+      "traversedCodeUnits": 100,
+      "segmentCalls": 40
+    },
+    {
+      "mode": "document",
+      "length": 1100000,
+      "ms": 7.035442,
+      "traversedCodeUnits": 100,
+      "segmentCalls": 40
+    }
+  ],
+  "verification": [
+    "Focused build, test types, and lint passed",
+    "13 Unicode + cost tests passed on Node24.19, Bun1.3.14, Deno2.9",
+    "GC subprocess verifies 12 retired 1.1M-line revisions with tiny cached line release their documents and indexes; oversized buffer/index release too"
+  ],
+  "limitations": [
+    "Shared cloud CPU single-run timings; structural counts are the regression contract",
+    "Cold lookup remains linear in source prefix",
+    "A single enormous grapheme remains indivisible native segmentation work",
+    "Stateless oversized raw-string calls remain outside bounded global cache and may rescan; returned edit buffer/document owns retained index",
+    "Near-start edits can invalidate the entire following suffix"
+  ]
+}

@@ -1,11 +1,12 @@
+import { bufferSourceBoundaries, retainBufferBoundaries } from './source-boundaries.ts';
+import type { SourceBoundaryIndex } from './source-boundaries.ts';
 import { sanitizeTerminalControlText, sanitizeTerminalSingleLineText } from './sanitize.ts';
 import {
-  nextGraphemeBoundary,
-  normalizeTextCursor,
-  normalizeTextEditCursor,
-  normalizeTextSelection,
-  previousGraphemeBoundary,
-  replaceTextRange,
+  nextSourceBoundary,
+  normalizeSourceCursor,
+  normalizeSourceSelection,
+  replaceSourceRange,
+  previousSourceBoundary,
 } from './text-range.ts';
 import type {
   TextBoundaryOptions,
@@ -26,7 +27,7 @@ export function editTextBuffer(
   operation: TextEditOperation,
   options: TextBoundaryOptions = {}
 ): TextEditBuffer {
-  return normalizeEditedBuffer(buffer, editBuffer(buffer, operation, options, (text) => sanitizeTerminalSingleLineText(text).text));
+  return editOwnedBuffer(buffer, operation, options, (text) => sanitizeTerminalSingleLineText(text).text);
 }
 
 /** Source-backed text inputs defer tab expansion until the active display profile is known. */
@@ -34,7 +35,19 @@ export function editSourceTextBuffer(
   buffer: TextEditBuffer,
   operation: TextEditOperation,
 ): TextEditBuffer {
-  return normalizeEditedBuffer(buffer, editBuffer(buffer, operation, {}, sanitizeInsertedText));
+  return editOwnedBuffer(buffer, operation, {}, sanitizeInsertedText);
+}
+
+function editOwnedBuffer(
+  buffer: TextEditBuffer,
+  operation: TextEditOperation,
+  options: TextBoundaryOptions,
+  sanitizeInsertion: (text: string) => string,
+): TextEditBuffer {
+  const source = bufferSourceBoundaries(buffer);
+  const result = editBuffer(buffer, operation, options, sanitizeInsertion, source);
+  if (result.text === buffer.text) retainBufferBoundaries(result, source);
+  return result;
 }
 
 function editBuffer(
@@ -42,67 +55,54 @@ function editBuffer(
   operation: TextEditOperation,
   options: TextBoundaryOptions,
   sanitizeInsertion: (text: string) => string,
+  source: SourceBoundaryIndex,
 ): TextEditBuffer {
   const words = isWordOperation(operation) ? standaloneWordBoundaryIndex(buffer.text, options) : undefined;
-  const cursor = normalizeTextCursor(buffer.text, buffer.cursor);
-  const selection = normalizeTextSelection(buffer.text, buffer.selection);
+  const cursor = normalizeSourceCursor(source, buffer.cursor);
+  const selection = normalizeSourceSelection(source, buffer.selection);
   switch (operation.kind) {
     case 'insert': {
-      return replaceTextRange(
-        buffer.text,
+      return replaceSourceRange(
+        source,
         selectedRange(selection, cursor),
         sanitizeInsertion(operation.text)
       );
     }
     case 'replaceRange':
-      return replaceTextRange(
-        buffer.text,
+      return replaceSourceRange(
+        source,
         operation.range,
         sanitizeInsertion(operation.text)
       );
     case 'deleteBackward':
-      if (selection !== undefined) return replaceTextRange(buffer.text, selection, '');
+      if (selection !== undefined) return replaceSourceRange(source, selection, '');
       if (cursor === 0) return { ...buffer, cursor };
       {
-        const previous = previousGraphemeBoundary(buffer.text, cursor);
-        return {
-          text: `${buffer.text.slice(0, previous)}${buffer.text.slice(cursor)}`,
-          cursor: previous
-        };
+        const previous = previousSourceBoundary(source, cursor);
+        return replaceSourceRange(source, { startOffset: previous, endOffsetExclusive: cursor }, '');
       }
     case 'deleteForward': {
-      if (selection !== undefined) return replaceTextRange(buffer.text, selection, '');
+      if (selection !== undefined) return replaceSourceRange(source, selection, '');
       if (cursor >= buffer.text.length) return { ...buffer, cursor };
-      const next = nextGraphemeBoundary(buffer.text, cursor);
-      return {
-        text: `${buffer.text.slice(0, cursor)}${buffer.text.slice(next)}`,
-        cursor
-      };
+      const next = nextSourceBoundary(source, cursor);
+      return replaceSourceRange(source, { startOffset: cursor, endOffsetExclusive: next }, '');
     }
     case 'deleteWordBackward':
-      if (selection !== undefined) return replaceTextRange(buffer.text, selection, '');
+      if (selection !== undefined) return replaceSourceRange(source, selection, '');
       {
         const startOffset = requiredWordIndex(words).previous(cursor);
-        return {
-          text: `${buffer.text.slice(0, startOffset)}${buffer.text.slice(cursor)}`,
-          cursor: startOffset
-        };
+        return replaceSourceRange(source, { startOffset, endOffsetExclusive: cursor }, '');
       }
     case 'deleteWordForward':
-      if (selection !== undefined) return replaceTextRange(buffer.text, selection, '');
-      return {
-        text: `${buffer.text.slice(0, cursor)}${buffer.text.slice(
-          requiredWordIndex(words).next(cursor)
-        )}`,
-        cursor
-      };
+      if (selection !== undefined) return replaceSourceRange(source, selection, '');
+      return replaceSourceRange(source, { startOffset: cursor, endOffsetExclusive: requiredWordIndex(words).next(cursor) }, '');
     case 'moveLeft':
-      return moveTo(buffer.text, cursor, selection, leftTarget(buffer.text, cursor, selection, operation.extendSelection), operation.extendSelection);
+      return moveTo(buffer.text, source, cursor, selection, leftTarget(source, cursor, selection, operation.extendSelection), operation.extendSelection);
     case 'moveRight':
-      return moveTo(buffer.text, cursor, selection, rightTarget(buffer.text, cursor, selection, operation.extendSelection), operation.extendSelection);
+      return moveTo(buffer.text, source, cursor, selection, rightTarget(source, cursor, selection, operation.extendSelection), operation.extendSelection);
     case 'moveWordLeft':
       return moveTo(
-        buffer.text,
+        buffer.text, source,
         cursor,
         selection,
         wordLeftTarget(requiredWordIndex(words), cursor, selection, operation.extendSelection),
@@ -110,28 +110,28 @@ function editBuffer(
       );
     case 'moveWordRight':
       return moveTo(
-        buffer.text,
+        buffer.text, source,
         cursor,
         selection,
         wordRightTarget(requiredWordIndex(words), cursor, selection, operation.extendSelection),
         operation.extendSelection
       );
     case 'moveHome':
-      return moveTo(buffer.text, cursor, selection, lineStartOffset(buffer.text, cursor), operation.extendSelection);
+      return moveTo(buffer.text, source, cursor, selection, lineStartOffset(buffer.text, cursor), operation.extendSelection);
     case 'moveEnd':
-      return moveTo(buffer.text, cursor, selection, lineEndOffset(buffer.text, cursor), operation.extendSelection);
+      return moveTo(buffer.text, source, cursor, selection, lineEndOffset(buffer.text, cursor), operation.extendSelection);
     case 'moveLineUp':
-      return moveTo(buffer.text, cursor, selection, lineOffsetByDelta(buffer.text, cursor, -1), operation.extendSelection);
+      return moveTo(buffer.text, source, cursor, selection, lineOffsetByDelta(buffer.text, cursor, -1), operation.extendSelection);
     case 'moveLineDown':
-      return moveTo(buffer.text, cursor, selection, lineOffsetByDelta(buffer.text, cursor, 1), operation.extendSelection);
+      return moveTo(buffer.text, source, cursor, selection, lineOffsetByDelta(buffer.text, cursor, 1), operation.extendSelection);
     case 'moveDocumentStart':
-      return moveTo(buffer.text, cursor, selection, 0, operation.extendSelection);
+      return moveTo(buffer.text, source, cursor, selection, 0, operation.extendSelection);
     case 'moveDocumentEnd':
-      return moveTo(buffer.text, cursor, selection, buffer.text.length, operation.extendSelection);
+      return moveTo(buffer.text, source, cursor, selection, buffer.text.length, operation.extendSelection);
     case 'moveTo':
-      return moveTo(buffer.text, cursor, selection, operation.caret.position.offset, operation.extendSelection);
+      return moveTo(buffer.text, source, cursor, selection, operation.caret.position.offset, operation.extendSelection);
     case 'selectAll': {
-      const normalized = normalizeTextSelection(buffer.text, { startOffset: 0, endOffsetExclusive: buffer.text.length });
+      const normalized = normalizeSourceSelection(source, { startOffset: 0, endOffsetExclusive: buffer.text.length });
       return {
         text: buffer.text,
         cursor: buffer.text.length,
@@ -139,8 +139,8 @@ function editBuffer(
       };
     }
     case 'replaceSelection':
-      return replaceTextRange(
-        buffer.text,
+      return replaceSourceRange(
+        source,
         selectedRange(selection, cursor),
         sanitizeInsertion(operation.text)
       );
@@ -153,15 +153,16 @@ function selectedRange(selection: TextSelection | undefined, cursor: number): Te
 
 function moveTo(
   text: string,
+  source: SourceBoundaryIndex,
   cursor: number,
   selection: TextSelection | undefined,
   target: number,
   extendSelection: boolean | undefined
 ): TextEditBuffer {
-  const nextCursor = normalizeTextCursor(text, target);
+  const nextCursor = normalizeSourceCursor(source, target);
   if (extendSelection !== true) return { text, cursor: nextCursor };
   const anchor = selectionAnchor(selection, cursor);
-  const nextSelection = normalizeTextSelection(text, { startOffset: anchor, endOffsetExclusive: nextCursor });
+  const nextSelection = normalizeSourceSelection(source, { startOffset: anchor, endOffsetExclusive: nextCursor });
   return {
     text,
     cursor: nextCursor,
@@ -177,23 +178,23 @@ function selectionAnchor(selection: TextSelection | undefined, cursor: number): 
 }
 
 function leftTarget(
-  text: string,
+  source: SourceBoundaryIndex,
   cursor: number,
   selection: TextSelection | undefined,
   extendSelection: boolean | undefined
 ): number {
   if (extendSelection !== true && selection !== undefined) return selection.startOffset;
-  return previousGraphemeBoundary(text, cursor);
+  return previousSourceBoundary(source, cursor);
 }
 
 function rightTarget(
-  text: string,
+  source: SourceBoundaryIndex,
   cursor: number,
   selection: TextSelection | undefined,
   extendSelection: boolean | undefined
 ): number {
   if (extendSelection !== true && selection !== undefined) return selection.endOffsetExclusive;
-  return nextGraphemeBoundary(text, cursor);
+  return nextSourceBoundary(source, cursor);
 }
 
 function wordLeftTarget(
@@ -231,10 +232,4 @@ function requiredWordIndex(index: WordBoundaryIndex | undefined): WordBoundaryIn
 function sanitizeInsertedText(text: string): string {
   // Keep tabs as source text; their geometry belongs to the active display profile.
   return sanitizeTerminalControlText(text).text.replace(/\n/gu, ' ');
-}
-
-function normalizeEditedBuffer(previous: TextEditBuffer, buffer: TextEditBuffer): TextEditBuffer {
-  if (previous.text === buffer.text) return buffer;
-  const cursor = normalizeTextEditCursor(buffer.text, buffer.cursor);
-  return cursor === buffer.cursor ? buffer : { ...buffer, cursor };
 }

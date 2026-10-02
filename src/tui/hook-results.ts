@@ -77,7 +77,7 @@ export function decodeTuiEffect<TMessage>(value: unknown, index?: number): TuiEf
   if (onError !== undefined && typeof onError !== 'function') {
     throw new TypeError(`${label} onError must be a function when provided.`);
   }
-  return copyWorkOwnership(effect, Object.freeze({
+  return Object.freeze(copyWorkOwnership(effect, {
     id,
     concurrency,
     run: (context: TuiEffectContext) =>
@@ -139,7 +139,7 @@ function decodeTuiEventSource<TMessage>(value: unknown, index: number): TuiEvent
   }
   const channel = decodeTuiEventSourceChannel(source['channel'], label);
   const callbacks = decodeTuiEventSourceCallbacks<TMessage>(source, label);
-  return copyWorkOwnership(source, Object.freeze({
+  return Object.freeze(copyWorkOwnership(source, {
     id,
     generation,
     ...(sourceName === undefined ? {} : { source: sourceName }),
@@ -255,10 +255,10 @@ function nonEmptyString(value: unknown, label: string): string {
 function decodeCancellation(value: unknown): TuiCancellation {
   const request = objectResult(value, 'TUI cancellation');
   const id = requiredIdentity(request['id'], 'TUI cancellation', effectExecutionId);
-  if (request['kind'] === 'effect') return copyWorkOwnership(request, Object.freeze({ kind: 'effect', id }));
+  if (request['kind'] === 'effect') return Object.freeze({ kind: 'effect', id });
   const generation = request['generation'];
   if (request['kind'] !== 'child' || (typeof generation !== 'string' && !(typeof generation === 'number' && Number.isFinite(generation)))) {
     throw new TypeError('TUI cancellation must identify an effect or a child lifetime.');
   }
-  return copyWorkOwnership(request, Object.freeze({ kind: 'child', id, generation }));
+  return Object.freeze(copyWorkOwnership(request, { kind: 'child', id, generation }));
 }

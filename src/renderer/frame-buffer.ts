@@ -535,14 +535,18 @@ class CellFrameBuffer implements FrameBuffer {
       || clipped.width !== this.width
       || clipped.height !== this.height) return false;
     const backdrop = decodeTerminalStyle(style, 'Frame canvas backdrop style');
-    this.canvasStyleOverride = Object.freeze({ ...this.canvasStyleOverride, ...backdrop });
+    this.canvasStyleOverride = this.canvasStyleOverride === undefined
+      ? backdrop
+      : effectiveCellStyle(this.canvasStyleOverride, backdrop);
     for (const [row, cells] of this.rows) {
       for (const cell of [...cells.values()]) {
+        const style = cell.style === undefined ? backdrop : effectiveCellStyle(cell.style, backdrop);
+        if (style === cell.style && cell.link === undefined) continue;
         const unlinked = { ...cell };
         Reflect.deleteProperty(unlinked, 'link');
         this.setCell(row, cell.column, {
           ...unlinked,
-          style: Object.freeze({ ...cell.style, ...backdrop }),
+          style,
         });
       }
     }
@@ -661,7 +665,7 @@ class CellFrameBuffer implements FrameBuffer {
     this.recordWriteSpan(row, column, Math.max(1, cell.width));
     const style = existingBackground === undefined
       ? cell.style
-      : Object.freeze({ ...cell.style, bg: existingBackground });
+      : effectiveCellStyle(backgroundStyle(existingBackground), cell.style);
     const mainCell: FrameCell = {
       row,
       column,
@@ -839,17 +843,33 @@ function effectiveCanvasCell(cell: FrameCell, canvasStyle: TerminalStyle | undef
   if (canvasStyle === undefined) return cell;
   const cached = effectiveCanvasCells.get(cell);
   if (cached?.style === canvasStyle) return cached.cell;
-  const projected = Object.freeze({ ...cell, style: effectiveCellStyle(canvasStyle, cell.style) });
+  const style = effectiveCellStyle(canvasStyle, cell.style);
+  if (style === cell.style) return cell;
+  const projected = Object.freeze({ ...cell, style });
   effectiveCanvasCells.set(cell, { style: canvasStyle, cell: projected });
   return projected;
 }
 
 const effectiveCanvasStyles = new WeakMap<TerminalStyle, WeakMap<TerminalStyle, TerminalStyle>>();
+const backgroundStyles = new WeakMap<TerminalColor, TerminalStyle>();
+
+/** The color comes from an admitted immutable cell; inherit only its background. */
+function backgroundStyle(background: TerminalColor): TerminalStyle {
+  let style = backgroundStyles.get(background);
+  if (style === undefined) {
+    style = decodeTerminalStyle({ bg: background }, 'Frame inherited background style');
+    backgroundStyles.set(background, style);
+  }
+  return style;
+}
 
 function effectiveCellStyle(canvasStyle: TerminalStyle, cellStyle: TerminalStyle | undefined): TerminalStyle {
   if (cellStyle === undefined) return canvasStyle;
-  const cachedByCellStyle = effectiveCanvasStyles.get(canvasStyle) ?? new WeakMap<TerminalStyle, TerminalStyle>();
-  effectiveCanvasStyles.set(canvasStyle, cachedByCellStyle);
+  let cachedByCellStyle = effectiveCanvasStyles.get(canvasStyle);
+  if (cachedByCellStyle === undefined) {
+    cachedByCellStyle = new WeakMap<TerminalStyle, TerminalStyle>();
+    effectiveCanvasStyles.set(canvasStyle, cachedByCellStyle);
+  }
   const cached = cachedByCellStyle.get(cellStyle);
   if (cached !== undefined) return cached;
   const effective = decodeTerminalStyle({ ...canvasStyle, ...cellStyle }, 'Frame effective cell style');

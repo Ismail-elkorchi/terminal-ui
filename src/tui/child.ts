@@ -80,8 +80,9 @@ export function createTuiChild<TState, TMessage, TParentMessage, TOutput = never
         state: local.state,
       }),
       ...(effects === undefined ? {} : { effects }),
-      ...(local.cancel === undefined ? {} : { cancel: local.cancel.map((request) => scopeWork(identity, request,
-        request.kind === 'effect' ? { ...request, id: scopeId(identity, request.id) } : { ...request })) }),
+      ...(local.cancel === undefined ? {} : { cancel: local.cancel.map((request) => request.kind === 'effect'
+        ? { kind: 'effect' as const, id: scopeId(identity, request.id) }
+        : scopeWork(identity, request, { ...request })) }),
       ...(local.focus === undefined ? {} : { focus: scopeFocus(local.focus, (id) => scopeId(identity, id)) }),
       ...(local.outputs === undefined ? {} : { outputs: local.outputs }),
     };

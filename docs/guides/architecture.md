@@ -174,13 +174,18 @@ artifacts in the package manifest.
 
 ## Preparation And Paint Retention
 
-Every component definition may provide `prepare({ model, id, signal, yield })`.
-The TUI runtime awaits preparation before measurement and painting. Long work
-must check `signal` and call `yield()` to cooperate with the host scheduler.
-Cancellation prevents publication of an unfinished candidate; failures carry
-the component identity and the `prepare` execution phase. Direct synchronous
-rendering does not run preparation, so rendering must support an unprepared
-model as well. Prepared resources are caches owned by the component.
+Component construction, measurement, layout, painting and semantics are
+synchronous. Rendering consumes accepted immutable results, an explicitly
+retained previous result, or a pending representation; it never starts or awaits
+application preparation. Accepted-layout notifications report committed geometry.
+
+`createTuiPreparedQuery()` coordinates expensive derived work through ordinary
+effects and completion messages. Requests carry their source, query and geometry
+dependencies, and completions are admitted against the current request and child
+lifetime. Application state owns accepted results; runtime work managers own
+execution and cancellation. Cooperative preparation checks its abort signal and
+yields through the supplied work context. Synchronous preparation APIs drive the
+same computation for deliberate small-data or direct-rendering use.
 
 Leaf definitions may opt into `retainPaint: true` when painting is a deterministic
 function of immutable render inputs. Model, resource, theme and style identities

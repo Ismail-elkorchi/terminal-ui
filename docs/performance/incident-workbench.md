@@ -68,6 +68,91 @@ The native Node clock supplies real cooperative yields with memory-backed output
 No terminal emulator or physical presentation latency is measured. Run baseline
 and candidate sequentially in fresh processes without concurrent builds/tests.
 
+## Reviewed allocation and input paths (2026-10-02)
+
+The baseline is `2f881c856b2bb5e0fefee1a7f0ab336d4d8f7f30`; the candidate is
+this revision. Both used the unchanged workbench benchmark, Node v24.19.0,
+120×40 memory output and the native Node clock on the same shared Linux x64
+host. Four fresh processes ran sequentially after all builds/tests stopped:
+baseline, candidate, baseline with 5ms/write, then candidate with 5ms/write.
+Each measured 20 whole queries, 20 superseding-input pairs, 220 character events
+and 20 Escape events. Headline runs had no profiler or forced garbage collection.
+They still do not measure physical display latency or isolate other cloud users.
+
+Milliseconds, p50 / p95 / maximum:
+
+| Measurement | Baseline | Reviewed paths |
+| --- | ---: | ---: |
+| Character to committed feedback | 36.8 / 46.7 / 1505.9 | 24.4 / 30.1 / 1104.0 |
+| Whole query to final matching frame | 136.4 / 184.0 / 197.0 | 99.5 / 117.6 / 121.4 |
+| Superseding input event-loop delay | 41.3 / 50.4 / 142.6 | 28.8 / 36.8 / 37.6 |
+| Escape to committed feedback | 25.7 / 35.7 / 37.1 | 28.7 / 32.3 / 35.2 |
+| Character feedback with 5ms/write | 45.7 / 54.5 / 1346.8 | 29.7 / 37.4 / 840.3 |
+| Final matching frame with 5ms/write | 145.1 / 154.6 / 201.8 | 116.7 / 132.5 / 136.3 |
+
+The single cold run's initial frame plus module import was 432ms before and
+401ms after. First picker feedback was 135ms versus 99ms; picker readiness,
+including cooperative construction, was 1804ms versus 1516ms. These cold values
+are observations, not distributions. The normal-output Escape median regressed,
+and large character outliers remain despite lower typical and p95 latency.
+
+Profiling identified allocation work rather than a hidden synchronous corpus
+query in the character handler:
+
+- Compositing inherited backgrounds and modal backdrops created a distinct style
+  object for every occupied cell. Reusing the existing owned style-composition
+  cache preserves canonical style identities; an already-effective canvas cell
+  now retains its identity. Link removal, wide-cell continuations, source metadata,
+  accessibility and refreshed interaction callbacks remain covered by tests
+- Synchronous sanitization constructed work iterators even on cache hits.
+  Validation and cache admission now happen in one shared front door, with the
+  same cooperative computation for misses. The structural regression counts zero
+  work-generator steps for 80 warm calls, versus 160 before. Unsafe replacements,
+  control sequences, Unicode and width-profile-dependent tabs remain validated
+- Search descriptor normalization constructed a whitespace regular expression
+  for every character. One stateless classifier now serves the same computation;
+  its identity and newline/Unicode behavior have a structural regression test
+
+A separate candidate run used render instrumentation, `PerformanceObserver`
+garbage-collection entries and Node CPU sampling. Its median character stages
+were 0.61ms layout, 2.24ms accessibility, 12.18ms region painting, 2.17ms composition
+and 3.79ms snapshot work. A 1055ms character event overlapped a 923ms major GC.
+It still transferred 5182 visible-region cells while only one final row changed.
+The retained index/candidate fields and lazy folded search strings, plus ongoing
+visible-frame allocation, remain meaningful memory costs. No leak or hard latency
+bound is established by these runs. A preparatory frame-only diagnostic, before
+the final sanitizer/boundary changes, retained approximately 269MB after forced GC
+at both 200 and 300 edit commits. Forced GC was not used in headline benchmarks;
+RSS alone is not a retention measure.
+
+A separate 24-trial, 100,004-entry frozen-descriptor probe reached its first
+cooperative yield in 16.2ms median / 29.8ms p95 / 32.0ms maximum. This includes
+raw descriptor/keyword adoption and normalization of the first 256 records;
+it is not pure copying time. Existing complete collections only shallowly own
+arbitrary item fields, so they cannot safely bypass keyword adoption. The picker
+already reuses its accepted index across queries and reopenings. This review
+adds no trusted-source flag or parallel resource API.
+
+Long-line boundary ownership was measured separately: eight cold-included cursor
+moves near the end of a 1.1M-code-unit line went from about 35.2M segmented code
+units / 32 iterator starts to 1.1M / one start. Eight moves took 4557ms versus
+156ms for a buffer and 4271ms versus 171ms for a document on this host. Eighty
+subsequent moves performed no new segmentation; 20 near-end insert/delete pairs
+segmented 100 code units total. This does not make the initial native segmentation
+of a large line preemptible, nor does it bound a single enormous grapheme.
+
+Evidence: [baseline](./workbench-reviewed-baseline.json),
+[reviewed](./workbench-reviewed-after.json),
+[baseline with delayed writes](./workbench-reviewed-baseline-slow.json),
+[reviewed with delayed writes](./workbench-reviewed-after-slow.json),
+[separate profile and adoption probe](./workbench-reviewed-profile.json), and
+[long-line boundary counts](./long-line-boundary-review.json).
+Reproduce headline runs with `WORKBENCH_SAMPLES=20` and the commands above; for
+a baseline checkout, archive the recorded commit, install/build it, and use the
+same benchmark script. Run `node --cpu-prof scripts/performance/benchmark-workbench.mjs`
+separately for CPU attribution. Render-stage and GC observations are deliberately
+kept separate from uninstrumented before/after timings.
+
 ## Controlled ownership and construction (2026-10-02)
 
 This comparison uses main at `67e54bbe86cfb5f2d5a89504e714c38d657b67ed`

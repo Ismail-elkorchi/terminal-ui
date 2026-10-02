@@ -7238,7 +7238,7 @@ interface · beta · [source](../../src/collection/measurement.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/collection` (type only)
 
-Geometry dependencies that affect height. Change revision for theme or text-width policy changes.
+Actual measurement constraints, independent of the visible window. Change revision for theme or text-width policy changes.
 
 ```ts
 export interface MeasurementGeometry { … }
@@ -7249,6 +7249,15 @@ export interface MeasurementGeometry { … }
 
 ```ts
 readonly columns: number;
+```
+
+<a id="collection-measurementgeometry-rows"></a>
+#### rows
+
+Height constraint passed to measurement, which need not be the visible window height.
+
+```ts
+readonly rows: number;
 ```
 
 <a id="collection-measurementgeometry-revision"></a>
@@ -27457,6 +27466,8 @@ function · beta · [source](../../src/layout/factories/measured-column.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/layout`
 
+Lay out exact heights; supply measurementRows when entries were prepared under a separate height constraint.
+
 ```ts
 export declare function measuredColumn<
   TValue,
@@ -27464,7 +27475,9 @@ export declare function measuredColumn<
 >(
   window: MeasuredWindow<TValue>,
   renderEntry: (entry: MeasuredWindowEntry<TValue>) => TElement,
-  options?: StructuralElementOptions
+  options?: StructuralElementOptions & {
+    readonly measurementRows?: number;
+}
 ): Element<ElementMessage<TElement>>;
 ```
 

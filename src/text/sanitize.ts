@@ -25,6 +25,7 @@ const sanitizeCacheWeightLimit = 65_536;
 const sanitizeCacheMaxTextLength = 256;
 const sanitizeCache = new Map<string, SanitizedTerminalText>();
 let sanitizeCacheWeight = 0;
+type SanitizationMode = 'multiline' | 'single-line' | 'cell' | 'control';
 
 export function sanitizeTerminalText(
   text: string,
@@ -48,7 +49,8 @@ export function sanitizeTerminalControlText(text: string): SanitizedTerminalText
 
 /** Cooperative form of the same sanitizer used by direct text operations. */
 export function* sanitizeTerminalTextWork(text: string): Generator<void, SanitizedTerminalText> {
-  return yield* sanitizeWork(text, {}, 'multiline');
+  const result = sanitization(text, {}, 'multiline');
+  return 'text' in result ? result : yield* result;
 }
 
 /** Source offsets for an editable one-line value whose terminal text may be sanitized. */
@@ -175,18 +177,20 @@ export function sanitizeTerminalCellText(
 function sanitize(
   text: string,
   options: SanitizeTerminalTextOptions,
-  mode: 'multiline' | 'single-line' | 'cell' | 'control'
+  mode: SanitizationMode
 ): SanitizedTerminalText {
-  return finishWork(sanitizeWork(text, options, mode));
+  const result = sanitization(text, options, mode);
+  return 'text' in result ? result : finishWork(result);
 }
 
-function* sanitizeWork(
+/** Validate every request before cache admission; cache hits need no work iterator. */
+function sanitization(
   text: string,
   options: SanitizeTerminalTextOptions,
-  mode: 'multiline' | 'single-line' | 'cell' | 'control',
-): Generator<void, SanitizedTerminalText> {
+  mode: SanitizationMode,
+): SanitizedTerminalText | Generator<void, SanitizedTerminalText> {
   const replacement = options.replacement ?? '';
-  if (hasUnsafeTerminalText(replacement) || /[\t\r\n]/u.test(replacement)) {
+  if (replacement !== '' && (hasUnsafeTerminalText(replacement) || /[\t\r\n]/u.test(replacement))) {
     throw new TypeError('Terminal text replacement must not contain control characters or terminal sequences.');
   }
   const cacheKey = sanitizeCacheKey(text, replacement, mode, options);
@@ -194,6 +198,16 @@ function* sanitizeWork(
     const cached = sanitizeCache.get(cacheKey);
     if (cached !== undefined) return cached;
   }
+  return sanitizeWork(text, options, mode, replacement, cacheKey);
+}
+
+function* sanitizeWork(
+  text: string,
+  options: SanitizeTerminalTextOptions,
+  mode: SanitizationMode,
+  replacement: string,
+  cacheKey: string | undefined,
+): Generator<void, SanitizedTerminalText> {
   if ((yield* terminalTextSafetyWork(text, true)) && (mode === 'multiline' || !text.includes('\n'))) {
     const result = Object.freeze({
       text,

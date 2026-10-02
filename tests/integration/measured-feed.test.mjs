@@ -30,6 +30,12 @@ test('measured feed prepares visible rows outside render and settles scroll, res
     await runtime.resize({ columns: 30, rows: 6 });
     await settle(runtime);
     assert.equal(runtime.state().measurements.geometry.columns, 30);
+    assert.equal(runtime.state().measurements.geometry.rows, 6);
+    const beforeHeightChange = runtime.state().measurements.geometry;
+    await runtime.resize({ columns: 30, rows: 8 });
+    assert.notEqual(runtime.state().measurements.geometry, beforeHeightChange);
+    assert.equal(runtime.state().measurements.geometry.rows, 8);
+    await settle(runtime);
     assert.deepEqual(runtime.diagnostics(), []);
     await runtime.resize({ columns: 1, rows: 1 });
     await settle(runtime);

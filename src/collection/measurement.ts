@@ -2,9 +2,11 @@ import type { MeasuredCollection } from './measured-collection.ts';
 import { readMeasuredCollection, replaceMeasuredItemIdentity } from './measured-collection.ts';
 import { measuredAnchorAt, measuredWindow } from './measured-window-operations.ts';
 
-/** Geometry dependencies that affect height. Change revision for theme or text-width policy changes. @beta */
+/** Actual measurement constraints, independent of the visible window. Change revision for theme or text-width policy changes. @beta */
 export interface MeasurementGeometry {
   readonly columns: number;
+  /** Height constraint passed to measurement, which need not be the visible window height. */
+  readonly rows: number;
   readonly revision: unknown;
 }
 
@@ -61,7 +63,7 @@ export function updateMeasurementState<TValue>(
   options: MeasurementOptions<TValue>,
 ): MeasurementState<TValue> {
   const viewportRows = rows(options.viewportRows, 'viewportRows');
-  const geometry = viewportRows === state.viewportRows && sameGeometry(state.geometry, options.geometry)
+  const geometry = sameGeometry(state.geometry, options.geometry)
     ? state.geometry : ownedGeometry(options.geometry);
   const followTail = options.followTail ?? state.followTail;
   const anchor = options.offsetRow === undefined && !followTail
@@ -122,11 +124,11 @@ export function acceptMeasurements<TValue>(
 }
 
 function sameGeometry(left: MeasurementGeometry, right: MeasurementGeometry): boolean {
-  return left.columns === right.columns && Object.is(left.revision, right.revision);
+  return left.columns === right.columns && left.rows === right.rows && Object.is(left.revision, right.revision);
 }
 
 function ownedGeometry(value: MeasurementGeometry): MeasurementGeometry {
-  return Object.freeze({ columns: rows(value.columns, 'columns'), revision: value.revision });
+  return Object.freeze({ columns: rows(value.columns, 'columns'), rows: rows(value.rows, 'rows'), revision: value.revision });
 }
 
 function rows(value: number, name: string): number {

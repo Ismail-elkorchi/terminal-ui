@@ -1,5 +1,6 @@
 import { isTerminalControlTextSafe, isTerminalTextSafe } from './sanitize.ts';
-import { normalizeTextCursor } from './text-range.ts';
+import { normalizeSourceCursor } from './text-range.ts';
+import { cachedSourceBoundaries, SourceBoundaryIndex } from './source-boundaries.ts';
 import type {
   TextCaret,
   TextDocumentChange,
@@ -55,6 +56,7 @@ interface TextChunkBranch extends TextChunkMetrics {
 interface TextDocumentData {
   readonly root: TextChunkNode;
   readonly revision: object;
+  readonly boundaries: Map<number, SourceBoundaryIndex>;
   readonly previousMutation?: TextDocumentMutationLineage;
 }
 
@@ -95,7 +97,8 @@ const MIN_CHUNK_LENGTH = 1_024;
 const documents = new WeakMap<object, TextDocumentData>();
 // A global budget also bounds retained lines when many document revisions stay live.
 const lineCacheLimit = 4_194_304;
-const lineCache = new Map<TextDocument, Map<number, TextDocumentLine>>();
+const lineCache = new WeakMap<TextDocument, Map<number, TextDocumentLine>>();
+const retainedLines = new Map<TextDocumentLine, WeakRef<TextDocument>>();
 let lineCacheBytes = 0;
 
 export function createTextDocument(value: string): TextDocument {
@@ -221,20 +224,69 @@ export function textDocumentLineAt(document: TextDocument, lineIndex: number): T
   const cached = lineCache.get(document)?.get(lineIndex);
   if (cached?.startOffset === startOffset
     && cached.endOffsetExclusive === endOffsetExclusive) {
-    const lines = lineCache.get(document);
-    lines?.delete(lineIndex);
-    lines?.set(lineIndex, cached);
-    if (lines !== undefined) {
-      lineCache.delete(document);
-      lineCache.set(document, lines);
-    }
+    retainedLines.delete(cached);
+    retainedLines.set(cached, new WeakRef(document));
     return cached;
   }
   const inherited = inheritedLine(document, lineIndex, startOffset, endOffsetExclusive);
-  const text = inherited?.text ?? textDocumentSlice(document, startOffset, endOffsetExclusive);
-  const line = { lineIndex, startOffset, endOffsetExclusive, text };
+  const line = (endOffsetExclusive - startOffset) * 2 + 96 <= lineCacheLimit / 2
+    ? { lineIndex, startOffset, endOffsetExclusive, text: inherited?.text ?? textDocumentSlice(document, startOffset, endOffsetExclusive) }
+    : lazyDocumentLine(root, lineIndex, startOffset, endOffsetExclusive);
   retainLine(document, line);
   return line;
+}
+
+function lazyDocumentLine(root: TextChunkNode, lineIndex: number, startOffset: number, endOffsetExclusive: number): TextDocumentLine {
+  let text: string | undefined;
+  return { lineIndex, startOffset, endOffsetExclusive, get text() {
+    if (text === undefined) {
+      const parts: string[] = [];
+      collectSlice(root, startOffset, endOffsetExclusive, parts);
+      text = parts.join('');
+    }
+    return text;
+  } };
+}
+
+/** Revision-owned boundaries are not evicted merely because a line is large.
+ * The source accessor keeps the rope, not a permanently flattened line string. */
+export function textDocumentLineBoundaries(document: TextDocument, line: TextDocumentLine): SourceBoundaryIndex {
+  const data = dataFor(document);
+  const cached = data.boundaries.get(line.lineIndex);
+  if (cached !== undefined) return cached;
+  const length = line.endOffsetExclusive - line.startOffset;
+  const root = data.root;
+  const startOffset = line.startOffset;
+  const source = { length, slice(start: number, end = length): string {
+    const parts: string[] = [];
+    collectSlice(root, startOffset + start, startOffset + end, parts);
+    return parts.join('');
+  } };
+  const previous = inheritedBoundaries(document, line);
+  // Small already-materialized lines can also share the standalone source cache.
+  const shared = length * 2 + 96 <= lineCacheLimit / 2 ? cachedSourceBoundaries(line.text) : undefined;
+  const boundaries = shared ?? new SourceBoundaryIndex(source, previous?.index, previous?.changedAt);
+  data.boundaries.set(line.lineIndex, boundaries);
+  return boundaries;
+}
+
+function inheritedBoundaries(document: TextDocument, line: TextDocumentLine): {
+  readonly index: SourceBoundaryIndex;
+  readonly changedAt: number;
+} | undefined {
+  const lineage = textDocumentPreviousMutation(document);
+  const change = lineage?.changes.length === 1 ? lineage.changes[0] : undefined;
+  if (lineage === undefined || change === undefined) return undefined;
+  const delta = change.insertedText.length - (change.endOffsetExclusive - change.startOffset);
+  const before = line.endOffsetExclusive <= change.startOffset;
+  const after = line.startOffset >= change.startOffset + change.insertedText.length;
+  const oldStart = line.startOffset - (after && !before ? delta : 0);
+  if (!before && !after && line.startOffset > change.startOffset) return undefined;
+  const oldIndex = textDocumentLineIndexAtOffset(lineage.document, oldStart);
+  const oldLine = textDocumentLineAt(lineage.document, oldIndex);
+  const index = dataFor(lineage.document).boundaries.get(oldIndex);
+  if (index === undefined || oldLine?.startOffset !== oldStart) return undefined;
+  return { index, changedAt: before || after ? line.endOffsetExclusive - line.startOffset + 1 : change.startOffset - line.startOffset };
 }
 
 function inheritedLine(
@@ -264,23 +316,25 @@ function inheritedLine(
 }
 
 function retainLine(document: TextDocument, line: TextDocumentLine): void {
-  const weight = line.text.length * 2 + 96;
+  const weight = (line.endOffsetExclusive - line.startOffset) * 2 + 96;
   if (weight > lineCacheLimit / 2) return;
   const lines = lineCache.get(document) ?? new Map<number, TextDocumentLine>();
   const previous = lines.get(line.lineIndex);
-  if (previous !== undefined) lineCacheBytes -= previous.text.length * 2 + 96;
+  if (previous !== undefined) {
+    retainedLines.delete(previous);
+    lineCacheBytes -= previous.text.length * 2 + 96;
+  }
   lines.set(line.lineIndex, line);
-  lineCache.delete(document);
   lineCache.set(document, lines);
+  retainedLines.set(line, new WeakRef(document));
   lineCacheBytes += weight;
   while (lineCacheBytes > lineCacheLimit) {
-    const oldest = lineCache.entries().next().value;
+    const oldest = retainedLines.entries().next().value;
     if (oldest === undefined) break;
-    const first = oldest[1].entries().next().value;
-    if (first === undefined) { lineCache.delete(oldest[0]); continue; }
-    oldest[1].delete(first[0]);
-    lineCacheBytes -= first[1].text.length * 2 + 96;
-    if (oldest[1].size === 0) lineCache.delete(oldest[0]);
+    retainedLines.delete(oldest[0]);
+    const owner = oldest[1].deref();
+    if (owner !== undefined) lineCache.get(owner)?.delete(oldest[0].lineIndex);
+    lineCacheBytes -= oldest[0].text.length * 2 + 96;
   }
 }
 
@@ -309,7 +363,7 @@ export function normalizeTextDocumentOffset(document: TextDocument, offset: numb
   const lineIndex = textDocumentLineIndexAtOffset(document, bounded);
   const line = textDocumentLineAt(document, lineIndex);
   if (line === undefined || bounded > line.endOffsetExclusive) return bounded;
-  return line.startOffset + normalizeTextCursor(line.text, bounded - line.startOffset);
+  return line.startOffset + normalizeSourceCursor(textDocumentLineBoundaries(document, line), bounded - line.startOffset);
 }
 
 export function normalizeTextDocumentRange(
@@ -467,6 +521,7 @@ function createDocument(
   documents.set(document, Object.freeze({
     root,
     revision: Object.freeze({}),
+    boundaries: new Map<number, SourceBoundaryIndex>(),
     ...(previousDocument === undefined || changes === undefined ? {} : {
       previousMutation: Object.freeze({
         previousDocument: new WeakRef(previousDocument),

@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { createTextDocument, textDocumentEdit, textDocumentLineAt } from './document.ts';
 import { editTextDocument } from './document-edit.ts';
+import type { TextDocumentEditState } from './document-edit.ts';
 import { editTextBuffer } from './edit.ts';
 import {
   nextGraphemeBoundary,
@@ -185,5 +186,73 @@ void test('source-boundary reuse is bounded and oversized sources remain lazy wi
       iterator.return?.();
     }
     assert.equal(count(), sources.length + 3, 'oversized source was retained or eagerly traversed');
+  });
+});
+
+void test('owned buffers and documents reuse oversized line prefixes through navigation and edits', () => {
+  for (const length of [1_100_000, 2_200_000]) {
+    for (const kind of ['buffer', 'document']) {
+      const text = `${kind}:${'L'.repeat(length)}`;
+      countSegmentIteration((count) => {
+        let buffer = { text, cursor: text.length - 8 };
+        let state: TextDocumentEditState = { document: createTextDocument(text), caret: { position: {
+          offset: text.length - 8, affinity: 'downstream' as const,
+        } } };
+        const move = (operation: 'moveLeft' | 'moveRight' | 'insert' | 'deleteBackward'): void => {
+          const edit = operation === 'insert' ? { kind: operation, text: 'x' } as const : { kind: operation };
+          if (kind === 'buffer') buffer = editTextBuffer(buffer, edit);
+          else state = editTextDocument(state, edit);
+        };
+        move('moveLeft');
+        const cold = count();
+        assert.ok(cold >= text.length - 8 && cold <= text.length);
+        for (let step = 0; step < 20; step += 1) { move('moveRight'); move('moveLeft'); }
+        assert.ok(count() <= cold + 1, 'warm navigation traversed the unchanged prefix');
+        const warm = count();
+        for (let step = 0; step < 20; step += 1) { move('insert'); move('deleteBackward'); }
+        assert.ok(count() - warm <= 100, `near-end edits resegmented ${String(count() - warm)} code units`);
+        assert.equal(kind === 'buffer' ? buffer.cursor : state.caret.position.offset, text.length - 9);
+      });
+    }
+  }
+});
+
+void test('owned indexes survive global cache eviction and caller-owned buffer mutation', () => {
+  const text = `owned:${'o'.repeat(100_000)}`;
+  let buffer = editTextBuffer({ text, cursor: text.length }, { kind: 'moveLeft' });
+  let state = editTextDocument({ document: createTextDocument(text), caret: {
+    position: { offset: text.length, affinity: 'downstream' },
+  } }, { kind: 'moveLeft' });
+  for (let index = 0; index < 30; index += 1) {
+    const iterator = measuredGraphemes(`evict:${String(index)}${'q'.repeat(80_000)}`);
+    iterator.next();
+    iterator.return?.();
+  }
+  countSegmentIteration((count) => {
+    buffer = editTextBuffer(buffer, { kind: 'moveLeft' });
+    state = editTextDocument(state, { kind: 'moveLeft' });
+    assert.equal(count(), 0, 'global cache eviction discarded a live owner’s boundaries');
+  });
+  const mutable = { text: 'e\u0301', cursor: 2 };
+  editTextBuffer(mutable, { kind: 'moveLeft' });
+  mutable.text = 'ab';
+  assert.equal(editTextBuffer(mutable, { kind: 'moveLeft' }).cursor, 1);
+});
+
+void test('an enormous grapheme is scanned whole and its boundaries are reused', () => {
+  const cluster = `e${'\u0301'.repeat(1_100_000)}`;
+  const text = `huge:${cluster}!`;
+  countSegmentIteration((count) => {
+    let buffer = editTextBuffer({ text, cursor: text.length }, { kind: 'moveLeft' });
+    assert.equal(buffer.cursor, text.length - 1);
+    const traversed = count();
+    assert.equal(traversed, text.length);
+    for (let step = 0; step < 10; step += 1) {
+      buffer = editTextBuffer(buffer, { kind: 'moveLeft' });
+      assert.equal(buffer.cursor, 5);
+      buffer = editTextBuffer(buffer, { kind: 'moveRight' });
+      assert.equal(buffer.cursor, text.length - 1);
+    }
+    assert.equal(count(), traversed);
   });
 });

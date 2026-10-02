@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createTextDocument, normalizeTextDocumentSelection, textDocumentText } from './document.ts';
+import { createTextDocument, normalizeTextDocumentOffset, normalizeTextDocumentSelection, textDocumentEditExact, textDocumentText } from './document.ts';
 import { editTextDocument } from './document-edit.ts';
 import { editTextBuffer } from './edit.ts';
 import { applyTextEditWithHistory, emptyTextEditHistory } from './edit-history.ts';
@@ -85,4 +85,36 @@ void test('deleting between clusters never leaves the caret inside a newly joine
   } }, { kind: 'deleteBackward' });
   assert.equal(textDocumentText(document.document), buffer.text);
   assert.equal(document.caret.position.offset, buffer.cursor);
+});
+
+void test('warm edited prefixes preserve iterator boundaries across every seam and retained revision', () => {
+  const cases = [
+    { text: `head:${'🇦'.repeat(300)}tail`, start: 201, end: 205, insertion: '🇧' },
+    { text: `head:${'🇦'.repeat(301)}`, start: 607, end: 607, insertion: '🇧' },
+    { text: `head:e${'\u0301'.repeat(5_000)}tail`, start: 5_006, end: 5_006, insertion: '\u0301' },
+    { text: 'head:👩🏽 tail', start: 9, end: 10, insertion: '\u200d💻' },
+    { text: 'head:क् षtail', start: 7, end: 8, insertion: '\u200d' },
+    { text: 'head:🇲 🇦tail', start: 7, end: 8, insertion: '' },
+    { text: 'head:\ud83dX\ude00tail', start: 6, end: 7, insertion: '' },
+    { text: 'first\r\nsecond', start: 6, end: 6, insertion: 'X' },
+  ];
+  const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+  const checkOffsets = (document: ReturnType<typeof createTextDocument>, text: string): void => {
+    const offsets = [...segmenter.segment(text)].map((part) => part.index);
+    offsets.push(text.length);
+    let boundary = 0;
+    for (let offset = 0; offset <= text.length; offset += 1) {
+      if (offset === offsets[boundary + 1]) boundary += 1;
+      assert.equal(normalizeTextDocumentOffset(document, offset), offsets[boundary], `length ${String(text.length)} at ${String(offset)}`);
+    }
+  };
+  for (const sample of cases) {
+    const prefix = 'P'.repeat(2_048);
+    const source = prefix + sample.text;
+    const original = createTextDocument(source);
+    checkOffsets(original, source);
+    const changed = textDocumentEditExact(original, prefix.length + sample.start, prefix.length + sample.end, sample.insertion).document;
+    checkOffsets(changed, textDocumentText(changed));
+    checkOffsets(original, source);
+  }
 });
