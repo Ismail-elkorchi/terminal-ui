@@ -58,7 +58,7 @@ void test('cooperative construction owns descriptors before yielding and agrees 
   assert.ok(entry);
   const expected = createSearchPickerIndex(source);
   let yields = 0;
-  const result = await prepareSearchPickerIndex(source, {
+  const result = await prepareSearchPickerIndex([source], {
     signal: new AbortController().signal,
     yield: () => {
       yields += 1;
@@ -77,7 +77,7 @@ void test('one large record can be cancelled during construction and matching wi
   for (const stop of [1, 55, 100]) {
     const controller = new AbortController();
     let yields = 0;
-    await assert.rejects(prepareSearchPickerIndex(entries, {
+    await assert.rejects(prepareSearchPickerIndex([entries], {
       signal: controller.signal,
       yield: () => { if (++yields === stop) controller.abort(new Error('superseded')); return Promise.resolve(); },
     }), /superseded/u);
@@ -97,10 +97,29 @@ void test('one large record can be cancelled during construction and matching wi
 void test('long whitespace without a newline is normalized linearly and can be cancelled', async () => {
   const controller = new AbortController();
   let yields = 0;
-  await assert.rejects(prepareSearchPickerIndex([{ id: 'one', label: ' '.repeat(100_000), value: 1 }], {
+  await assert.rejects(prepareSearchPickerIndex([[{ id: 'one', label: ' '.repeat(100_000), value: 1 }]], {
     signal: controller.signal,
     yield: () => { if (++yields === 60) controller.abort(new Error('new source')); return Promise.resolve(); },
   }), /new source/u);
   const index = createSearchPickerIndex([{ id: 'one', label: '  a \n \t b  ', value: 1 }]);
   assert.equal(querySearchPickerIndex(index).entries[0]?.label, '  a b  ');
+});
+
+void test('concurrent query admission counts each retained result once through weighted eviction', async () => {
+  const label = Array.from({ length: 12 }, (_, i) => `needle${String(i)}`).join(' ');
+  const entries = () => Array.from({ length: 300 }, (_, i) => ({ id: String(i), label, value: i }));
+  const concurrent = createSearchPickerIndex(entries());
+  const sequential = createSearchPickerIndex(entries());
+  const context = { signal: new AbortController().signal, yield: () => Promise.resolve() };
+  for (let i = 0; i < 12; i += 1) {
+    const query = { text: `needle${String(i)}`, mode: 'contains' as const };
+    const results = await Promise.all(Array.from({ length: 4 }, () => prepareSearchPickerQuery(concurrent, query, context)));
+    assert.ok(results.every(result => result === results[0]), 'concurrent completions must share the admitted owner');
+    querySearchPickerIndex(sequential, query);
+    const actual = searchPickerIndexStatistics(concurrent);
+    const expected = searchPickerIndexStatistics(sequential);
+    assert.equal(actual.cachedQueries, expected.cachedQueries);
+    assert.equal(actual.retainedQueryBytes, expected.retainedQueryBytes, 'evictions must not retain phantom storage weight');
+  }
+  assert.ok(searchPickerIndexStatistics(concurrent).cachedQueries < 12, 'exercise weighted eviction');
 });

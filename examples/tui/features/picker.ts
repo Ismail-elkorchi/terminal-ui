@@ -1,11 +1,13 @@
 import { createTuiPreparedQuery, liftTuiResult, searchPicker, createSearchPickerKeymap } from '@ismail-elkorchi/terminal-ui';
 import type { TuiChildDefinition, TuiPreparedQueryState, TuiPreparedQueryMessage, SearchPickerControlTransition, SearchEntry } from '@ismail-elkorchi/terminal-ui';
-import { createSearchPickerState, createSearchPickerIndex, prepareSearchPickerIndex, prepareSearchPickerQuery, searchPickerReducer, searchPickerView, searchPickerEntryById, searchPickerQueryPosition } from '@ismail-elkorchi/terminal-ui/behavior';
-import type { SearchPickerIndex, SearchPickerQueryResult, UnscrolledSearchPickerState } from '@ismail-elkorchi/terminal-ui/behavior';
+import { createSearchPickerState, createSearchPickerIndex, prepareSearchPickerIndex, prepareSearchPickerIndexUpdate, prepareSearchPickerQuery, searchPickerReducer, searchPickerView, searchPickerEntryById, searchPickerQueryPosition } from '@ismail-elkorchi/terminal-ui/behavior';
+import type { SearchPickerIndex, SearchPickerQueryResult, SearchPickerIndexChange, UnscrolledSearchPickerState } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { CollectionQuery } from '@ismail-elkorchi/terminal-ui/text';
 
-/** Entry descriptors are immutable owned application input, including their keyword arrays. */
-export type PickerSource<T> = SearchPickerIndex<T> | readonly SearchEntry<T>[];
+/** Restartable producers yield bounded batches; an accepted index owns the resulting snapshot. */
+type PickerPreparation<T> = (() => Iterable<readonly SearchEntry<T>[]>)
+  | { readonly base: PickerSource<T>; readonly changes: () => Iterable<readonly SearchPickerIndexChange<T>[]> };
+export type PickerSource<T> = SearchPickerIndex<T> | PickerPreparation<T>;
 export interface PickerState<T> extends TuiPreparedQueryState<SearchPickerQueryResult<T>> {
   readonly source: PickerSource<T>;
   readonly construction: TuiPreparedQueryState<SearchPickerIndex<T>>;
@@ -15,13 +17,14 @@ export interface PickerState<T> extends TuiPreparedQueryState<SearchPickerQueryR
 export type PickerMessage<T> =
   | { readonly kind: 'open' | 'close' }
   | { readonly kind: 'replace'; readonly source: PickerSource<T> }
+  | { readonly kind: 'updateSource'; readonly changes: () => Iterable<readonly SearchPickerIndexChange<T>[]> }
   | { readonly kind: 'transition'; readonly transition: SearchPickerControlTransition }
   | { readonly kind: 'constructed'; readonly message: TuiPreparedQueryMessage<SearchPickerIndex<T>> }
   | { readonly kind: 'prepared'; readonly message: TuiPreparedQueryMessage<SearchPickerQueryResult<T>> }
   | { readonly kind: 'accept'; readonly id: string };
 
 function isIndex<T>(source: PickerSource<T>): source is SearchPickerIndex<T> {
-  return !Array.isArray(source);
+  return typeof source !== 'function' && 'kind' in source;
 }
 
 /** Construction and querying have different dependencies but share the existing effect lifecycle. */
@@ -29,9 +32,29 @@ export function pickerDefinition<T>(source: PickerSource<T>, keymap: ReturnType<
   const emptyIndex = createSearchPickerIndex<T>([]);
   const construction = createTuiPreparedQuery({
     id: 'source',
-    prepare: (entries: readonly SearchEntry<T>[], context) => prepareSearchPickerIndex(entries, {
-      signal: context.signal, yield: async () => { await context.clock.sleep(0, context.signal); },
-    }),
+    prepare: async (input: PickerPreparation<T>, context) => {
+      const work = { signal: context.signal, yield: async () => { await context.clock.sleep(0, context.signal); } };
+      // Changes are reliable ordered input. Keep their desired-source chain
+      // through cancellation, then consume it oldest-first in one version build.
+      const changes: (() => Iterable<readonly SearchPickerIndexChange<T>[]>)[] = [];
+      let base: PickerSource<T> = input;
+      while (typeof base !== 'function' && !isIndex(base)) {
+        changes.push(base.changes);
+        base = base.base;
+        if (changes.length % 256 === 0) {
+          await work.yield();
+          work.signal.throwIfAborted();
+        }
+      }
+      const index = typeof base === 'function' ? await prepareSearchPickerIndex(base(), work) : base;
+      if (changes.length === 0) return index;
+      return prepareSearchPickerIndexUpdate(index, (function* () {
+        for (let position = changes.length - 1; position >= 0; position -= 1) {
+          const produce = changes[position];
+          if (produce !== undefined) yield* produce();
+        }
+      })(), work);
+    },
     toMessage: (message): PickerMessage<T> => ({ kind: 'constructed', message }),
   });
   const query = createTuiPreparedQuery({
@@ -65,12 +88,16 @@ export function pickerDefinition<T>(source: PickerSource<T>, keymap: ReturnType<
           const stopped = construction.cancel(state.construction);
           return { ...cancelled, state: { ...cancelled.state, construction: stopped.state }, cancel: [...(cancelled.cancel ?? []), ...(stopped.cancel ?? [])] };
         }
+        case 'updateSource':
         case 'replace': {
-          if (message.source === state.source) return { state };
+          let replacement: PickerSource<T>;
+          if (message.kind === 'replace') replacement = message.source;
+          else replacement = { base: state.construction.result ?? state.source, changes: message.changes };
+          if (replacement === state.source) return { state };
           const cancelled = query.cancel(state);
           const stopped = construction.cancel(state.construction);
-          const next = { ...cancelled.state, source: message.source, result: null,
-            construction: { ...stopped.state, result: isIndex(message.source) ? message.source : null } };
+          const next = { ...cancelled.state, source: replacement, result: null,
+            construction: { ...stopped.state, result: isIndex(replacement) ? replacement : null } };
           const requested = state.open ? request(next) : { state: next };
           return { ...requested, cancel: [...(cancelled.cancel ?? []), ...(stopped.cancel ?? [])] };
         }
@@ -85,14 +112,13 @@ export function pickerDefinition<T>(source: PickerSource<T>, keymap: ReturnType<
         case 'constructed': {
           const built = construction.update(state.construction, message.message).state;
           if (built === state.construction) return { state };
-          const next = { ...state, construction: built };
+          const next = { ...state, construction: built, source: built.result ?? state.source };
           return built.error === null && state.open ? request(next) : { state: next };
         }
         case 'prepared': {
           const settled = query.update(state, message.message).state;
           if (settled === state || settled.error !== null) return { state: settled };
-          const id = settled.result?.entries.find(entry => !entry.disabled)?.id;
-          const control = searchPickerReducer(settled.control, { kind: 'setActive', ...(id === undefined ? {} : { id }) }, { searchPickerIndex: index, queryResult: settled.result });
+          const control = searchPickerReducer(settled.control, { kind: 'firstActive' }, { searchPickerIndex: index, queryResult: settled.result });
           return { state: { ...settled, control } };
         }
         case 'accept': {

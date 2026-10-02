@@ -1,3 +1,6 @@
+import type { TextDocument } from '../../text/document.ts';
+import type { TextWidthProfile } from '../../text/types.ts';
+import type { TerminalTheme } from '../../theme/theme.ts';
 import type { TerminalStyle } from '../../visual/render-content.ts';
 
 interface TextAreaDecorationBase {
@@ -48,4 +51,33 @@ export interface TextAreaLayoutSnapshot {
   readonly contentBounds: import('../../geometry/types.ts').Rect;
   readonly rowOffsetMap: import('../../text/types.ts').RowOffsetMap;
   readonly scroll: import('../../interaction/scroll.ts').ScrollState;
+}
+
+declare const preparedTextAreaLayoutBrand: unique symbol;
+
+/** Opaque, completed layout for one document and actual component allocation.
+ * Admit through the application's ordinary update messages before rendering. */
+export interface PreparedTextAreaLayout {
+  readonly [preparedTextAreaLayoutBrand]: true;
+  readonly document: TextDocument;
+  readonly width: number;
+  readonly height: number;
+  readonly wrap: boolean;
+  readonly widthProfile: TextWidthProfile;
+  readonly theme: TerminalTheme;
+}
+
+declare const textAreaLayoutRequestBrand: unique symbol;
+
+/** Actual measurement queries and allocation from an accepted pending frame.
+ * Prepare this opaque request in an application effect, then admit its result. */
+export interface TextAreaLayoutRequest {
+  readonly [textAreaLayoutRequestBrand]: true;
+  readonly document: TextDocument;
+  readonly layoutRevision: string;
+  readonly width: number;
+  readonly height: number;
+  readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
+  readonly measurementWidths: readonly number[];
 }

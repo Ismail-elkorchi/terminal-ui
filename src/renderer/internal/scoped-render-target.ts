@@ -7,7 +7,7 @@ import type { RenderBlock, RenderLine, RenderSpan } from '../../visual/render-co
 import { decodeTerminalLink } from '../../visual/render-content.ts';
 import { decodeTerminalStyle } from '../../visual/terminal-style.ts';
 import type { ComponentRenderTarget, RenderTarget, RenderTargetCell } from '../contracts.ts';
-import { recordTargetSegmentation, transferFrameBufferSpans } from '../frame-buffer.ts';
+import { recordTargetSegmentation, registerFrameBufferAlias, transferFrameBufferSpans } from '../frame-buffer.ts';
 
 /** Creates the bounded, write-only target exposed to component definitions. */
 export function createLocalComponentRenderTarget(
@@ -70,7 +70,7 @@ function createBoundedRenderTarget(
     if (writableBounds === undefined || !rowInside(row, writableBounds)) return;
     writeClippedSpans(target, writableBounds, row, column, spans, owner);
   };
-  return Object.freeze({
+  return registerFrameBufferAlias(Object.freeze({
     ...(target.coordinateSpace === undefined ? {} : { coordinateSpace: target.coordinateSpace }),
     width: target.width,
     height: target.height,
@@ -112,7 +112,7 @@ function createBoundedRenderTarget(
       const clipped = intersectRects(writableBounds, requested);
       if (clipped !== undefined) target.clear(clipped);
     }
-  } satisfies RenderTarget);
+  } satisfies RenderTarget), target);
 }
 
 export interface ScopedRenderOwner {

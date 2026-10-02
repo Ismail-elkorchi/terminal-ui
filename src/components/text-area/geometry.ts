@@ -1,4 +1,10 @@
-import { createRowOffsetMap } from '../../text/row-offset-map.ts';
+import type { TextDocument } from '../../text/document.ts';
+import type { TextAreaDocumentLayout } from './layout.ts';
+import type { TextAreaGeometry } from './geometry-contracts.ts';
+export type { TextAreaGeometry } from './geometry-contracts.ts';
+import { createRowOffsetMapWork } from '../../text/row-offset-map.ts';
+import { finishWork } from '../../foundation/cooperative-work.ts';
+import { measurePreparedTextArea, preparedTextAreaGeometry } from './prepared-layout.ts';
 import type { ComponentLayoutCommitInput } from '../../component/contracts.ts';
 import type { TextAreaLayoutSnapshot } from './contracts.ts';
 import { scrollReducer } from '../../behavior/scroll.ts';
@@ -6,25 +12,30 @@ import type { ComponentInput, ComponentMeasureInput } from '../../component/cont
 import { layoutComponentScrollbar } from '../../component/scrollbar.ts';
 import type { ScrollState } from '../../interaction/scroll.ts';
 import type { Measurement } from '../../renderer/contracts.ts';
-import type { TextDocument } from '../../text/document.ts';
 import {
-  createTextDocument,
+  createTextDocumentWork,
   textDocumentLength,
   textDocumentLineCount,
 } from '../../text/document.ts';
 import { measureTextCells } from '../../text/measure.ts';
 import type { TextCaret, TextWidthProfile } from '../../text/types.ts';
+import { textWidthProfileKey } from '../../text/width-profile.ts';
 import { emptyTextAreaDecorations, readTextAreaDecorations } from './decorations.ts';
-import { layoutTextAreaDocument, type TextAreaDocumentLayout } from './layout.ts';
+import { layoutTextAreaDocumentWork } from './layout.ts';
 import type { TextAreaModel } from './model.ts';
-import { createTextAreaProjection, type TextAreaProjection } from './projection.ts';
+import { createTextAreaProjectionWork, type TextAreaProjection } from './projection.ts';
 
 export function measureTextArea(input: ComponentMeasureInput<TextAreaModel>): Measurement {
-  const document = textAreaDisplayDocument(input.model, input.widthProfile).document;
+  return input.model.preparedLayout === undefined
+    ? finishWork(measureTextAreaWork(input)) : measurePreparedTextArea(input);
+}
+
+export function* measureTextAreaWork(input: ComponentMeasureInput<TextAreaModel>): Generator<void, Measurement> {
+  const document = (yield* textAreaDisplayDocumentWork(input.model, input.widthProfile)).document;
   const count = textDocumentLineCount(document);
   const prefix = textAreaPrefixWidth(input.model, input.theme, input.widthProfile, count);
   const width = Math.max(0, input.constraints.width - prefix);
-  const layout = layoutTextAreaDocument(document, width, input.model.wrap, input.widthProfile);
+  const layout = yield* layoutTextAreaDocumentWork(document, width, input.model.wrap, input.widthProfile);
   return {
     minWidth: prefix,
     minHeight: 1,
@@ -33,15 +44,10 @@ export function measureTextArea(input: ComponentMeasureInput<TextAreaModel>): Me
   };
 }
 
-export interface TextAreaGeometry {
-  readonly document: TextDocument;
-  readonly projection: TextAreaProjection;
-  readonly usesPlaceholder: boolean;
-  readonly lineCount: number;
-  readonly prefixWidth: number;
-  readonly layout: TextAreaDocumentLayout;
-  readonly scrollbar: ReturnType<typeof layoutComponentScrollbar>;
+export function textAreaLayoutPending(input: ComponentInput<TextAreaModel>): boolean {
+  return input.model.preparedLayout !== undefined && preparedTextAreaGeometry(input) === undefined;
 }
+
 
 const geometryCache = new WeakMap<TextAreaModel, { readonly input: ComponentInput<TextAreaModel>; readonly geometry: TextAreaGeometry }>();
 const rowMapCache = new WeakMap<TextAreaGeometry, TextAreaLayoutSnapshot['rowOffsetMap']>();
@@ -51,26 +57,36 @@ export function textAreaGeometry(input: ComponentInput<TextAreaModel>): TextArea
   if (cached?.input.bounds.width === input.bounds.width
     && cached.input.bounds.height === input.bounds.height && cached.input.theme === input.theme
     && cached.input.widthProfile === input.widthProfile) return cached.geometry;
-  const geometry = computeTextAreaGeometry(input);
+  const prepared = input.model.preparedLayout === undefined ? undefined : preparedTextAreaGeometry(input);
+  if (input.model.preparedLayout !== undefined && prepared === undefined) {
+    throw new TypeError('textArea layout is pending.');
+  }
+  const geometry = prepared === undefined ? finishWork(textAreaGeometryWork(input))
+    : completeTextAreaGeometry(input, prepared.geometry, textAreaScrollbar(input, prepared.geometry.layout, prepared.geometry.prefixWidth));
+  if (prepared?.rowOffsetMap !== undefined) rowMapCache.set(geometry, prepared.rowOffsetMap);
   geometryCache.set(input.model, { input, geometry });
   return geometry;
 }
 
-function computeTextAreaGeometry(input: ComponentInput<TextAreaModel>): TextAreaGeometry {
-  const display = textAreaDisplayDocument(input.model, input.widthProfile);
+export function* textAreaGeometryWork(input: ComponentInput<TextAreaModel>): Generator<void, TextAreaGeometry> {
+  const display = yield* textAreaDisplayDocumentWork(input.model, input.widthProfile);
   const lineCount = textDocumentLineCount(display.document);
   const prefixWidth = textAreaPrefixWidth(input.model, input.theme, input.widthProfile, lineCount);
   let frameWidth = Math.max(0, input.bounds.width - prefixWidth);
-  let layout = layoutTextAreaDocument(
+  let layout = yield* layoutTextAreaDocumentWork(
     display.document,
     frameWidth,
     input.model.wrap,
     input.widthProfile,
   );
+  const measurement: Measurement = {
+    minWidth: prefixWidth, minHeight: 1, preferredWidth: layout.intrinsicColumns + prefixWidth,
+    preferredHeight: layout.contentRows + Number(input.model.error !== ''),
+  };
   let scrollbar = textAreaScrollbar(input, layout, prefixWidth);
   if (scrollbar.contentBounds.width !== frameWidth) {
     frameWidth = scrollbar.contentBounds.width;
-    layout = layoutTextAreaDocument(
+    layout = yield* layoutTextAreaDocumentWork(
       display.document,
       frameWidth,
       input.model.wrap,
@@ -78,48 +94,69 @@ function computeTextAreaGeometry(input: ComponentInput<TextAreaModel>): TextArea
     );
     scrollbar = textAreaScrollbar(input, layout, prefixWidth);
   }
+  return completeTextAreaGeometry(input, { ...display, lineCount, prefixWidth, layout, measurement }, scrollbar);
+}
+
+function completeTextAreaGeometry(
+  input: ComponentInput<TextAreaModel>,
+  base: Omit<TextAreaGeometry, 'scrollbar'>,
+  initialScrollbar: ReturnType<typeof textAreaScrollbar>,
+): TextAreaGeometry {
+  let scrollbar = initialScrollbar;
   if (input.model.revealCaret && input.model.scroll !== undefined) {
-    const displayCaret = projectedCaret(display.projection, input.model.caret);
-    const caret = layout.cursorAt(displayCaret.position.offset, displayCaret.position.affinity);
+    const displayCaret = projectedCaret(base.projection, input.model.caret);
+    const caret = base.layout.cursorAt(displayCaret.position.offset, displayCaret.position.affinity);
     const revealed = textAreaCaretScroll(scrollbar, caret.rowIndex, caret.columnCells);
-    if (revealed !== scrollbar.scroll) {
-      scrollbar = textAreaScrollbar(input, layout, prefixWidth, revealed);
+    if (revealed !== scrollbar.scroll) scrollbar = textAreaScrollbar(input, base.layout, base.prefixWidth, revealed);
+  }
+  return { ...base, scrollbar };
+}
+
+/** Prepare observation offsets without materializing every visual row's text index. */
+export function* textAreaRowOffsetMapWork(geometry: TextAreaGeometry): Generator<void, TextAreaLayoutSnapshot['rowOffsetMap']> {
+  const existing = rowMapCache.get(geometry);
+  if (existing !== undefined) return existing;
+  const offsets: number[] = [];
+  if (geometry.usesPlaceholder) offsets.push(0);
+  else {
+    const rowStarts = yield* geometry.layout.rowStartOffsetsWork();
+    for (const offset of rowStarts) {
+      offsets.push(geometry.projection.sourceOffsetAtDisplayOffset(offset, 'upstream'));
+      if (offsets.length % 128 === 0) yield;
     }
   }
-  return {
-    document: display.document,
-    projection: display.projection,
-    usesPlaceholder: display.usesPlaceholder,
-    lineCount,
-    prefixWidth,
-    layout,
-    scrollbar,
-  };
+  const map = yield* createRowOffsetMapWork(offsets);
+  rowMapCache.set(geometry, map);
+  return map;
 }
 
 export function textAreaEditorHeight(model: TextAreaModel, height: number): number {
   return Math.max(0, height - Number(model.error !== '' && height > 1));
 }
 
-function textAreaDisplayDocument(model: TextAreaModel, widthProfile: TextWidthProfile): {
+interface TextAreaDisplayDocument {
   readonly document: TextDocument;
   readonly projection: TextAreaProjection;
   readonly usesPlaceholder: boolean;
-} {
+}
+const displayCache = new WeakMap<TextAreaModel, { readonly key: string; readonly display: TextAreaDisplayDocument }>();
+
+function* textAreaDisplayDocumentWork(model: TextAreaModel, widthProfile: TextWidthProfile): Generator<void, TextAreaDisplayDocument> {
+  const key = textWidthProfileKey(widthProfile);
+  const cached = displayCache.get(model);
+  if (cached?.key === key) return cached.display;
   const usesPlaceholder = textDocumentLength(model.document) === 0 && model.placeholder !== '';
-  const source = usesPlaceholder ? createTextDocument(model.placeholder) : model.document;
-  const projection = createTextAreaProjection(
+  const source = usesPlaceholder ? yield* createTextDocumentWork(model.placeholder) : model.document;
+  const projection = yield* createTextAreaProjectionWork(
     source,
     usesPlaceholder
       ? readTextAreaDecorations(emptyTextAreaDecorations(source)).decorations
       : readTextAreaDecorations(model.decorations).decorations,
     widthProfile
   );
-  return {
-    document: projection.document,
-    projection,
-    usesPlaceholder,
-  };
+  const display = { document: projection.document, projection, usesPlaceholder };
+  displayCache.set(model, { key, display });
+  return display;
 }
 
 export function projectedCaret(projection: TextAreaProjection, caret: TextCaret): TextCaret {
@@ -206,10 +243,10 @@ export function textAreaPrefixWidth(
 
 /** Uses the exact geometry already consulted by painting and interaction. */
 export function textAreaCommittedLayout(input: ComponentLayoutCommitInput<TextAreaModel>): TextAreaLayoutSnapshot | undefined {
-  if (!input.model.observeLayout) return undefined;
+  if (!input.model.observeLayout || textAreaLayoutPending(input)) return undefined;
   const geometry = textAreaGeometry(input);
   const previous = input.previous;
-  if (previous !== undefined && previous.model.observeLayout && previous.model.document === input.model.document
+  if (previous !== undefined && previous.model.observeLayout && !textAreaLayoutPending(previous) && previous.model.document === input.model.document
     && previous.model.decorations === input.model.decorations && previous.theme === input.theme
     && previous.widthProfile === input.widthProfile && sameRect(previous.allocatedBounds, input.allocatedBounds)) {
     const before = textAreaGeometry(previous);
@@ -219,11 +256,7 @@ export function textAreaCommittedLayout(input: ComponentLayoutCommitInput<TextAr
       && before.scrollbar.scroll.followTail === geometry.scrollbar.scroll.followTail) return undefined;
   }
   let rowOffsetMap = rowMapCache.get(geometry);
-  if (rowOffsetMap === undefined) {
-    rowOffsetMap = createRowOffsetMap(geometry.usesPlaceholder ? [0] : geometry.layout.allRowStartOffsets().map((offset) =>
-      geometry.projection.sourceOffsetAtDisplayOffset(offset, 'upstream')));
-    rowMapCache.set(geometry, rowOffsetMap);
-  }
+  rowOffsetMap ??= finishWork(textAreaRowOffsetMapWork(geometry));
   const content = geometry.scrollbar.contentBounds;
   return Object.freeze({
     document: input.model.document,

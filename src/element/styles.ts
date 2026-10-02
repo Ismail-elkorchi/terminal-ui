@@ -1,8 +1,13 @@
 import { findUnsupportedField, isNonArrayObject } from '../foundation/validation.ts';
 import type { ElementVisualState } from '../visual/frame-source.ts';
+import { maximumModelDependencySlots, ownModelDependencies } from '../visual/model-dependencies.ts';
 import type { TerminalStyle } from '../visual/render-content.ts';
 import { decodeTerminalStyle, mergeTerminalStyles } from '../visual/terminal-style.ts';
 import type { ElementStyles } from './metadata.ts';
+
+const stylesPaintDescriptor = Symbol('element styles');
+const statesPaintDescriptor = Symbol('element states');
+const statePaintDescriptor = Symbol('element state');
 
 const allVisualStates = new Set<Exclude<ElementVisualState, 'default'>>([
   'focused',
@@ -38,11 +43,37 @@ export function decodeElementStyles(
     contract.parts,
     `${contract.subject}.states`,
   );
-  return Object.freeze({
+  const model = {
     ...(root === undefined ? {} : { root }),
     ...(parts === undefined ? {} : { parts }),
     ...(states === undefined ? {} : { states }),
-  });
+  };
+  const slots = elementStylePaintSlots(model);
+  return slots === undefined ? Object.freeze(model) : ownModelDependencies(model, { paint: slots });
+}
+
+// Styles are already validated and owned. Snapshot only a bounded number of
+// canonical style identities, with no second traversal of a large style matrix.
+function elementStylePaintSlots(
+  value: ElementStyles<string, Exclude<ElementVisualState, 'default'>>,
+): readonly unknown[] | undefined {
+  const slots: unknown[] = [stylesPaintDescriptor, value.root];
+  const appendParts = (parts: Readonly<Record<string, TerminalStyle | undefined>> | undefined): boolean => {
+    for (const name in parts) {
+      if (slots.length + 2 > maximumModelDependencySlots) return false;
+      slots.push(name, parts[name]);
+    }
+    return true;
+  };
+  if (!appendParts(value.parts)) return undefined;
+  slots.push(statesPaintDescriptor);
+  for (const state in value.states) {
+    if (slots.length + 3 > maximumModelDependencySlots) return undefined;
+    const style = value.states[state as Exclude<ElementVisualState, 'default'>];
+    slots.push(statePaintDescriptor, state, style?.root);
+    if (!appendParts(style?.parts)) return undefined;
+  }
+  return slots.length > maximumModelDependencySlots ? undefined : slots;
 }
 
 /** Returns an owned, immutable, right-biased composition of component style matrices. */

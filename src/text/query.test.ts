@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { prepareWork } from '../foundation/cooperative-work.ts';
 
 import {
   compareCollectionText,
   matchCollectionQuery,
   compileCollectionQuery,
+  compileCollectionQueryWork,
   indexQueryCandidate,
   matchCompiledCollectionQuery,
 } from '../text/query.ts';
@@ -50,6 +52,21 @@ void test('compiled collection queries are retained and nominally proved', () =>
     () => matchCompiledCollectionQuery({ ...candidate }, query),
     /indexQueryCandidate/u,
   );
+});
+
+void test('concurrent compilation admits one canonical query owner without phantom eviction weight', async () => {
+  const context = { signal: new AbortController().signal, yield: () => Promise.resolve() };
+  for (let i = 0; i < 4; i += 1) {
+    const query = { text: `${String(i)}${'é'.repeat(2_100)}`, mode: 'exact' as const };
+    const compiled = await Promise.all(Array.from({ length: 4 }, () => prepareWork(compileCollectionQueryWork(query), context)));
+    assert.ok(compiled.every(value => value === compiled[0]), 'concurrent compilers must return the admitted owner');
+    assert.equal(compileCollectionQuery(query), compiled[0]);
+  }
+  // Every long query above evicts previous long entries. Replacement accounting
+  // errors otherwise leave enough phantom weight to evict even a tiny new owner.
+  const request = { text: 'canonical-after-concurrent-evictions', mode: 'exact' as const };
+  const compiled = compileCollectionQuery(request);
+  assert.equal(compileCollectionQuery(request), compiled);
 });
 
 void test('bounded native ASCII matching agrees with the cooperative general path in every mode', () => {

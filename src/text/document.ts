@@ -1,3 +1,4 @@
+import { finishWork } from '../foundation/cooperative-work.ts';
 import { isTerminalControlTextSafe, isTerminalTextSafe } from './sanitize.ts';
 import { normalizeSourceCursor } from './text-range.ts';
 import { cachedSourceBoundaries, SourceBoundaryIndex } from './source-boundaries.ts';
@@ -102,8 +103,13 @@ const retainedLines = new Map<TextDocumentLine, WeakRef<TextDocument>>();
 let lineCacheBytes = 0;
 
 export function createTextDocument(value: string): TextDocument {
+  return finishWork(createTextDocumentWork(value));
+}
+
+/** Internal cooperative construction shares the direct document's leaf metrics. */
+export function* createTextDocumentWork(value: string): Generator<void, TextDocument> {
   if (typeof value !== 'string') throw new TypeError('text document source must be a string.');
-  return createDocument(treeFromText(value));
+  return createDocument(yield* treeFromTextWork(value));
 }
 
 export function assertTextDocument(value: unknown): asserts value is TextDocument {
@@ -171,7 +177,17 @@ export function textDocumentEditExact(
   endOffsetExclusive: number,
   insertion: string
 ): TextDocumentMutation {
-  return textDocumentEditAtOffsets(document, startOffset, endOffsetExclusive, insertion);
+  return finishWork(textDocumentEditExactWork(document, startOffset, endOffsetExclusive, insertion));
+}
+
+/** Admitted UTF-16 edits for cooperative projection; no cursor normalization. */
+export function* textDocumentEditExactWork(
+  document: TextDocument,
+  startOffset: number,
+  endOffsetExclusive: number,
+  insertion: string,
+): Generator<void, TextDocumentMutation> {
+  return yield* textDocumentEditAtOffsetsWork(document, startOffset, endOffsetExclusive, insertion);
 }
 
 function textDocumentEditAtOffsets(
@@ -180,6 +196,15 @@ function textDocumentEditAtOffsets(
   end: number,
   insertion: string
 ): TextDocumentMutation {
+  return finishWork(textDocumentEditAtOffsetsWork(document, start, end, insertion));
+}
+
+function* textDocumentEditAtOffsetsWork(
+  document: TextDocument,
+  start: number,
+  end: number,
+  insertion: string,
+): Generator<void, TextDocumentMutation> {
   if (start === end && insertion.length === 0) {
     return {
       document,
@@ -197,9 +222,8 @@ function textDocumentEditAtOffsets(
   const root = dataFor(document).root;
   const [before, remainder] = splitChunks(root, start);
   const [, after] = splitChunks(remainder, end - start);
-  const next = compactFragmentedChunks(
-    joinChunks(joinChunks(before, treeFromText(insertion)), after),
-  );
+  const inserted = yield* treeFromTextWork(insertion);
+  const next = yield* compactFragmentedChunksWork(joinChunks(joinChunks(before, inserted), after));
   const changes = Object.freeze([Object.freeze({
     startOffset: start,
     endOffsetExclusive: end,
@@ -478,38 +502,38 @@ export function textDocumentApplyChangesExact(
   document: TextDocument,
   changes: readonly TextDocumentChange[],
 ): TextDocument {
+  return finishWork(textDocumentApplyChangesExactWork(document, changes));
+}
+
+/** The projection owns its admitted changes; partial trees are never published. */
+export function* textDocumentApplyChangesExactWork(
+  document: TextDocument,
+  changes: readonly TextDocumentChange[],
+): Generator<void, TextDocument> {
   if (changes.length === 0) return document;
-  const effective = changes.filter((change) => (
-    change.insertedText !== textDocumentSlice(
-      document,
-      change.startOffset,
-      change.endOffsetExclusive,
-    )
-  ));
+  const effective: TextDocumentChange[] = [];
+  let operations = 0;
+  for (const change of changes) {
+    if (change.insertedText !== textDocumentSlice(document, change.startOffset, change.endOffsetExclusive)) {
+      effective.push(Object.freeze({ ...change }));
+    }
+    if (++operations % 128 === 0) yield;
+  }
   if (effective.length === 0) return document;
   let sourceOffset = 0;
   let remainder = dataFor(document).root;
   let result: TextChunkNode = EMPTY_LEAF;
   for (const change of effective) {
-    const [unchanged, afterUnchanged] = splitChunks(
-      remainder,
-      change.startOffset - sourceOffset,
-    );
-    const [, afterChange] = splitChunks(
-      afterUnchanged,
-      change.endOffsetExclusive - change.startOffset,
-    );
+    const [unchanged, afterUnchanged] = splitChunks(remainder, change.startOffset - sourceOffset);
+    const [, afterChange] = splitChunks(afterUnchanged, change.endOffsetExclusive - change.startOffset);
     result = joinChunks(result, unchanged);
-    result = joinChunks(result, treeFromText(change.insertedText));
+    result = joinChunks(result, yield* treeFromTextWork(change.insertedText));
     remainder = afterChange;
     sourceOffset = change.endOffsetExclusive;
+    if (++operations % 128 === 0) yield;
   }
-  result = compactFragmentedChunks(joinChunks(result, remainder));
-  return createDocument(
-    result,
-    document,
-    Object.freeze(effective.map((change) => Object.freeze({ ...change }))),
-  );
+  result = yield* compactFragmentedChunksWork(joinChunks(result, remainder));
+  return createDocument(result, document, Object.freeze(effective));
 }
 
 function createDocument(
@@ -532,7 +556,7 @@ function createDocument(
   return document;
 }
 
-function treeFromText(text: string): TextChunkNode {
+function* treeFromTextWork(text: string): Generator<void, TextChunkNode> {
   if (text.length === 0) return EMPTY_LEAF;
   const leaves: TextChunkNode[] = [];
   let start = 0;
@@ -541,23 +565,25 @@ function treeFromText(text: string): TextChunkNode {
     if (end < text.length && isLowSurrogate(text.charCodeAt(end))) end -= 1;
     leaves.push(leaf(text.slice(start, end)));
     start = end;
+    if (leaves.length % 8 === 0) yield;
   }
-  return balancedTree(leaves, 0, leaves.length);
+  return yield* balancedTreeWork(leaves, 0, leaves.length, { operations: 0 });
 }
 
-function balancedTree(
+function* balancedTreeWork(
   nodes: readonly TextChunkNode[],
   startIndex: number,
   endIndexExclusive: number,
-): TextChunkNode {
+  budget: { operations: number },
+): Generator<void, TextChunkNode> {
   const count = endIndexExclusive - startIndex;
   if (count <= 0) return EMPTY_LEAF;
   if (count === 1) return nodes[startIndex] ?? EMPTY_LEAF;
   const middle = startIndex + Math.floor(count / 2);
-  return branch(
-    balancedTree(nodes, startIndex, middle),
-    balancedTree(nodes, middle, endIndexExclusive)
-  );
+  const left = yield* balancedTreeWork(nodes, startIndex, middle, budget);
+  const right = yield* balancedTreeWork(nodes, middle, endIndexExclusive, budget);
+  if (++budget.operations % 128 === 0) yield;
+  return branch(left, right);
 }
 
 function leaf(text: string): TextChunkLeaf {
@@ -866,15 +892,22 @@ function boundaryChunks(text: string): TextChunkNode {
   return branch(leaf(text.slice(0, middle)), leaf(text.slice(middle)));
 }
 
-function compactFragmentedChunks(root: TextChunkNode): TextChunkNode {
-  const maximumChunkCount = Math.max(
-    64,
-    Math.ceil(root.length / MIN_CHUNK_LENGTH),
-  );
+function* compactFragmentedChunksWork(root: TextChunkNode): Generator<void, TextChunkNode> {
+  const maximumChunkCount = Math.max(64, Math.ceil(root.length / MIN_CHUNK_LENGTH));
   if (root.chunkCount <= maximumChunkCount) return root;
   const parts: string[] = [];
-  collectSlice(root, 0, root.length, parts);
-  return treeFromText(parts.join(''));
+  const pending = [root];
+  let operations = 0;
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (node === undefined) break;
+    if (node.kind === 'leaf') parts.push(node.text);
+    else pending.push(node.right, node.left);
+    if (++operations % 128 === 0) yield;
+  }
+  // Joining immutable strings is native allocation; rebuilding leaf metrics is
+  // bounded and resumable rather than one framework-owned whole-document loop.
+  return yield* treeFromTextWork(parts.join(''));
 }
 
 function dataFor(document: TextDocument): TextDocumentData {

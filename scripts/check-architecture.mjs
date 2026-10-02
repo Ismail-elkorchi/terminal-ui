@@ -149,6 +149,9 @@ for (const filePath of sourceFiles) {
       failures.push(`${relative(filePath)} imports itself through ${dependency.specifier}`);
     }
   }
+  if (sourceRelative(filePath) === 'foundation/validation.ts' && architectureDependenciesForFile.size > 0) {
+    failures.push(`${relative(filePath)} primitive validation must remain dependency-free`);
+  }
   runtimeDependencyGraph.set(filePath, runtimeDependencies);
   architectureDependencyGraph.set(filePath, architectureDependenciesForFile);
   inspectDeterministicGlobals(sourceFile, sourceLayer, filePath);
@@ -507,10 +510,10 @@ function inspectDependencyAuthority(filePath, sourceLayer, dependency) {
   const targetLayer = architectureUnit(dependency.target);
   if (sourceLayer !== targetLayer) {
     const allowed = architectureDependencies.get(sourceLayer);
-    // Shared deterministic work drivers and public item contracts do not grant
-    // text or TUI code access to other foundation/collection internals.
+    // Shared deterministic work and primitive validation do not grant text
+    // access to other foundation internals or TUI access to collection machinery.
     const narrowDependency = (sourceLayer === 'text'
-      && sourceRelative(dependency.target) === 'foundation/cooperative-work.ts')
+      && ['foundation/cooperative-work.ts', 'foundation/validation.ts'].includes(sourceRelative(dependency.target)))
       || (sourceLayer === 'tui' && dependency.kind === 'type'
         && sourceRelative(dependency.target) === 'collection/item.ts');
     if (!narrowDependency && (allowed === undefined || !allowed.has(targetLayer))) {

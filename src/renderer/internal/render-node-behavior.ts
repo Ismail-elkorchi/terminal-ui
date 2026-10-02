@@ -40,6 +40,12 @@ const retainedMeasurements = new WeakMap<RenderNode, {
   readonly constraints: Map<string, Measurement>;
 }>();
 
+/** Carry measurement storage only after renderer-owned dependencies matched. */
+export function retainRenderMeasurements(current: RenderNode, previous: RenderNode): void {
+  const retained = retainedMeasurements.get(previous);
+  if (retained !== undefined) retainedMeasurements.set(current, retained);
+}
+
 function rendererForRenderNode<TMessage>(renderNode: RenderNode<TMessage>): RenderNodeRenderer<TMessage> {
   if (renderNode.kind === 'component') return renderNode.definition.renderer;
   return rendererForStructuralNode(renderNode);

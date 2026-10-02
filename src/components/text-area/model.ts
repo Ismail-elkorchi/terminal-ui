@@ -1,3 +1,5 @@
+import { assertPreparedTextAreaDocument, assertPreparedTextAreaLayout, preparedTextAreaModelText } from './prepared-layout.ts';
+import type { PreparedTextAreaLayout } from './contracts.ts';
 import { resolveControlKeymap, type ControlKeymap } from '../../interaction/control-keymap.ts';
 import { createTextAreaKeymap, type TextAreaKeyAction } from '../keymaps.ts';
 const defaultTextAreaKeymap = createTextAreaKeymap();
@@ -28,6 +30,11 @@ import type { TextAreaOptions } from './options.ts';
 
 
 export interface TextAreaModel {
+  readonly preparedLayout?: PreparedTextAreaLayout | null;
+  readonly observeLayoutRequest: boolean;
+  readonly sourceReady: boolean;
+  readonly rawPlaceholder: string;
+  readonly rawError: string;
   readonly observeLayout: boolean;
   readonly keymap: ControlKeymap<TextAreaKeyAction>;
   readonly document: TextDocument;
@@ -48,6 +55,7 @@ export interface TextAreaModel {
 
 export function createTextAreaModel(
   value: Readonly<Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onTransition' | 'onContextMenu' | 'styles' | 'meta'>>,
+  preparedText?: { readonly placeholder: string; readonly error: string },
 ): TextAreaModel {
   if (!isNonArrayObject(value.state)) {
     throw new TypeError('textArea state must be an object.');
@@ -55,6 +63,8 @@ export function createTextAreaModel(
   const state = value.state;
   const document = state.document;
   assertTextDocument(document);
+  const prepared = preparedLayoutOption(value.preparedLayout, document, value.onLayoutRequest !== undefined);
+  const text = textAreaModelText(value, document, preparedText);
   const caret = state.caret;
   if (!isNonArrayObject(caret) || !isNonArrayObject(caret.position)) {
     throw new TypeError('textArea caret must contain a position object.');
@@ -83,14 +93,14 @@ export function createTextAreaModel(
     position: { offset, affinity },
     ...(preferredColumnCells === undefined ? {} : { preferredColumnCells }),
   };
-  const normalizedCaret = normalizeTextCaret(document, decodedCaret);
+  const normalizedCaret = text.sourceReady ? normalizeTextCaret(document, decodedCaret) : Object.freeze(decodedCaret);
   let selection: TextDocumentSelection | undefined;
   if (state.selection !== undefined) {
     const candidate = state.selection;
     if (!isNonArrayObject(candidate)) {
       throw new TypeError('textArea selection must contain anchor and focus positions.');
     }
-    selection = normalizeTextDocumentSelection(document, {
+    selection = normalizeModelSelection(text.sourceReady, document, {
       anchor: decodeTextPosition(candidate.anchor, 'textArea selection.anchor'),
       focus: decodeTextPosition(candidate.focus, 'textArea selection.focus'),
     });
@@ -111,19 +121,20 @@ export function createTextAreaModel(
   const required = booleanOption(value.required, 'textArea required');
   const revealCaret = booleanOption(state.revealCaret, 'textArea revealCaret');
   return {
+    ...prepared,
+    ...text,
+    observeLayoutRequest: value.onLayoutRequest !== undefined,
     observeLayout: value.onLayout !== undefined,
     keymap: resolveControlKeymap(value.keymap, defaultTextAreaKeymap),
     document,
     caret: normalizedCaret,
     ...(selection === undefined ? {} : { selection }),
     decorations,
-    placeholder: textOption(value.placeholder, 'textArea placeholder') ?? '',
     ...(lineNumbers === undefined ? {} : { lineNumbers }),
     highlightActiveLine,
     wrap,
     revealCaret,
     required,
-    error: textOption(value.error, 'textArea error') ?? '',
     ...(scroll === undefined ? {} : { scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
@@ -187,14 +198,46 @@ export function decodeWrap(value: boolean | TextAreaWrapOptions | undefined): bo
   return value['mode'] !== 'none';
 }
 
-function textOption(value: unknown, owner: string): string | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value !== 'string') throw new TypeError(`${owner} must be a string.`);
-  return sanitizeTerminalText(value).text;
-}
-
 function booleanOption(value: unknown, owner: string): boolean {
   if (value === undefined) return false;
   if (typeof value === 'boolean') return value;
   throw new TypeError(`${owner} must be a boolean.`);
+}
+
+function preparedLayoutOption(value: PreparedTextAreaLayout | null | undefined, document: TextDocument, observe: boolean): { readonly preparedLayout?: PreparedTextAreaLayout | null } {
+  if (value === undefined) return {};
+  if (value === null) {
+    if (!observe) throw new TypeError('textArea preparedLayout: null requires onLayoutRequest.');
+    return { preparedLayout: null };
+  }
+  assertPreparedTextAreaLayout(value);
+  if (!observe) assertPreparedTextAreaDocument(value, document);
+  return { preparedLayout: value };
+}
+
+function normalizeModelSelection(ready: boolean, document: TextDocument, selection: TextDocumentSelection): TextDocumentSelection | undefined {
+  return ready ? normalizeTextDocumentSelection(document, selection) : Object.freeze(selection);
+}
+
+function textAreaModelText(
+  value: Pick<TextAreaOptions<ComponentMessage>, 'placeholder' | 'error' | 'preparedLayout'>,
+  document: TextDocument,
+  preparedText?: { readonly placeholder: string; readonly error: string },
+): Pick<TextAreaModel, 'rawPlaceholder' | 'rawError' | 'placeholder' | 'error' | 'sourceReady'> {
+  const rawPlaceholder = rawTextOption(value.placeholder, 'textArea placeholder');
+  const rawError = rawTextOption(value.error, 'textArea error');
+  if (preparedText !== undefined) return { rawPlaceholder, rawError, ...preparedText, sourceReady: true };
+  if (value.preparedLayout !== undefined) {
+    const texts = value.preparedLayout === null ? undefined
+      : preparedTextAreaModelText(value.preparedLayout, document, rawPlaceholder, rawError);
+    return { rawPlaceholder, rawError, placeholder: texts?.placeholder ?? '', error: texts?.error ?? '', sourceReady: texts !== undefined };
+  }
+  return { rawPlaceholder, rawError, placeholder: sanitizeTerminalText(rawPlaceholder).text,
+    error: sanitizeTerminalText(rawError).text, sourceReady: true };
+}
+
+function rawTextOption(value: unknown, owner: string): string {
+  if (value === undefined) return '';
+  if (typeof value !== 'string') throw new TypeError(`${owner} must be a string.`);
+  return value;
 }

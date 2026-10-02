@@ -1,3 +1,5 @@
+export { prepareTextAreaLayout } from './text-area/preparation.ts';
+export type { PreparedTextAreaLayout, TextAreaLayoutRequest } from './text-area/preparation.ts';
 export type { TextAreaLayoutSnapshot } from './text-area/contracts.ts';
 export { createDataGridKeymap } from './keymaps.ts';
 export type { DataGridKeyAction } from './keymaps.ts';

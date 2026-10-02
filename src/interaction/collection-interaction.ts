@@ -1,7 +1,7 @@
 import { finishWork } from '../foundation/cooperative-work.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
 import type { NavigationPolicy } from './navigation.ts';
-import { adjacentItemId } from './navigation.ts';
+import { navigateIndex } from './navigation.ts';
 
 export type SelectionState =
   | { readonly mode: 'none' }
@@ -49,6 +49,7 @@ export interface CollectionInteractionIndex {
 interface CollectionInteractionIndexData {
   readonly ids: readonly string[];
   readonly positions: ReadonlyMap<string, number>;
+  readonly enabledPositions?: readonly number[];
 }
 
 const collectionIndexes = new WeakMap<CollectionInteractionIndex, CollectionInteractionIndexData>();
@@ -82,19 +83,67 @@ export function* createCollectionInteractionIndexWork(value: unknown): Generator
   return index;
 }
 
+/** One ordered projection owns result rank and enabled navigation together. */
+export function createCollectionInteractionOrderBuilder<T>(): {
+  readonly add: (item: T, id: string, disabled?: boolean) => void;
+  readonly has: (id: string) => boolean;
+  readonly finish: () => { readonly items: readonly T[]; readonly index: CollectionInteractionIndex };
+} {
+  const items: T[] = [];
+  const ids: string[] = [];
+  const positions = new Map<string, number>();
+  const enabledPositions: number[] = [];
+  let finished = false;
+  return {
+    has: id => positions.has(id),
+    add(item, value, disabled = false) {
+      if (finished) throw new TypeError('Collection order is already finished.');
+      const id = selectionId(value, 'Collection interaction id');
+      if (positions.has(id)) throw new TypeError('Collection interaction ids must be unique.');
+      positions.set(id, items.length);
+      items.push(item);
+      enabledPositions.push(disabled ? -1 : ids.length);
+      if (!disabled) ids.push(id);
+    },
+    finish() {
+      if (finished) throw new TypeError('Collection order is already finished.');
+      finished = true;
+      const index = Object.freeze({}) as CollectionInteractionIndex;
+      collectionIndexes.set(index, { ids: Object.freeze(ids), positions,
+        ...(ids.length === items.length ? {} : { enabledPositions: Object.freeze(enabledPositions) }) });
+      return { items: Object.freeze(items), index };
+    },
+  };
+}
+
+/** Absolute result rank includes disabled items, unlike keyboard navigation rank. */
+export function collectionInteractionOrderPosition(index: CollectionInteractionIndex, id: string): number | undefined {
+  return collectionInteractionIndexData(index).positions.get(id);
+}
+
+/** Storage retained by an ordered projection, excluding its item payloads. */
+export function collectionInteractionIndexStorageBytes(index: CollectionInteractionIndex): number {
+  const data = collectionInteractionIndexData(index);
+  return 64 + data.ids.length * 8 + data.positions.size * 48 + (data.enabledPositions?.length ?? 0) * 8;
+}
+
 export function collectionInteractionIds(index: CollectionInteractionIndex): readonly string[] {
   return collectionInteractionIndexData(index).ids;
 }
 
 export function collectionInteractionHas(index: CollectionInteractionIndex, id: string): boolean {
-  return collectionInteractionIndexData(index).positions.has(id);
+  return collectionInteractionPosition(index, id) !== undefined;
 }
 
 export function collectionInteractionPosition(
   index: CollectionInteractionIndex,
   id: string,
 ): number | undefined {
-  return collectionInteractionIndexData(index).positions.get(id);
+  const data = collectionInteractionIndexData(index);
+  const position = data.positions.get(id);
+  if (position === undefined) return undefined;
+  const enabled = data.enabledPositions?.[position] ?? position;
+  return enabled < 0 ? undefined : enabled;
 }
 
 export function assertCollectionInteractionReferences(
@@ -383,7 +432,8 @@ function adjacentIndexedItemId(
   navigation: NavigationPolicy | undefined,
 ): string | undefined {
   const ids = collectionInteractionIds(index);
-  return adjacentItemId(ids, currentId, delta, navigation);
+  const current = currentId === undefined ? undefined : collectionInteractionPosition(index, currentId);
+  return ids[navigateIndex(current, delta, ids.length, navigation)];
 }
 
 function sameSelection(left: SelectionState, right: SelectionState): boolean {

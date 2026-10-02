@@ -1,3 +1,5 @@
+export { prepareTextAreaLayout } from './text-area/preparation.ts';
+export type { PreparedTextAreaLayout, TextAreaLayoutRequest } from './text-area/preparation.ts';
 export type { TextAreaLayoutSnapshot } from './text-area/contracts.ts';
 export { createTextInputKeymap, createTextAreaKeymap } from './keymaps.ts';
 export type { TextInputKeyAction, TextAreaKeyAction, TextEditingKeyAction } from './keymaps.ts';

@@ -25,14 +25,16 @@ import type {
   RenderStage,
   RenderTarget,
 } from '../contracts.ts';
-import type { FrameBuffer } from '../frame-buffer.ts';
+import type { FrameBuffer, FrameBufferCheckpoint, FrameBufferSnapshot } from '../frame-buffer.ts';
 import {
   applyImplicitCanvasBackdrop,
+  applyRetainedCanvasBackdrop,
   blitFrameCell,
   captureFrameBufferDamage,
+  checkpointFrameBuffer,
   createFrameBuffer,
   frameSnapshotWork,
-  retainFrameBufferRows,
+  restoreFrameBufferStorage,
   transferFrameCell,
 } from '../frame-buffer.ts';
 import { boxDrawingJoinPass } from '../frame-passes/box-drawing-join.ts';
@@ -54,7 +56,10 @@ import {
   renderNodeLayoutAncestorsForFocus,
   resolveFocusPath,
 } from './focus.ts';
-import { frameSnapshotMetadata } from './frame-snapshot.ts';
+import { frameSnapshotMetadata, snapshotRow } from './frame-snapshot.ts';
+import type { FrameSnapshotRowIndex } from './frame-snapshot.ts';
+import { sameFrameCell } from './frame-cell-equality.ts';
+import { DirtyCoverageAccumulator } from './dirty-coverage.ts';
 import type { RegionTargetIndex } from './region-target-index.ts';
 import { createRegionTargetIndex } from './region-target-index.ts';
 import {
@@ -62,6 +67,7 @@ import {
   AccessibleRelationshipError,
   accessibleSourceForTarget,
   accountAccessibleTree,
+  commitAccessibleRetention,
   inertAccessibleRoot,
   withControlLabelRelationships,
 } from './render-accessibility.ts';
@@ -128,7 +134,7 @@ export function renderElementInternal<TMessage>(
   });
   const { theme, widthProfile } = environment;
   const resolved = measureRenderStage(options.instrumentation, 'layout', () =>
-    layoutRenderTree(renderNode, terminalSize, theme, widthProfile, budget, options.instrumentation)
+    layoutRenderTree(renderNode, terminalSize, theme, widthProfile, budget, options.instrumentation, options.previous?.layout)
   );
   const paintOptions = options.focusPathForLayout === undefined
     ? options
@@ -189,13 +195,13 @@ function materializeRenderNode<TMessage>(
     });
   }
   const composition = measureRenderStage(options.instrumentation, 'composition', () => {
-    return compositeRegions(terminalSize, regions, widthProfile, budget, options.instrumentation, previous?.frame);
+    return compositeRegions(terminalSize, regions, widthProfile, budget, options.instrumentation, previous?.regions);
   });
   const buffer = composition.buffer;
   if (options.instrumentation?.recordWork !== undefined) {
     options.instrumentation.recordWork({
       kind: 'region_cells',
-      count: regions.reduce((total, region) => total + region.cells.length, 0)
+      count: regions.reduce((total, region) => total + region.metadata.rowIndexes.reduce((count, row) => count + row.cells.size, 0), 0)
     });
   }
   let cursor: ReturnType<typeof cursorForFocusedRenderNode> = undefined;
@@ -254,7 +260,9 @@ function materializeRenderNode<TMessage>(
         { cause: result.error },
       );
     }
-    return decodeRenderedAccessibility(result.value, resolvedFocusPath !== undefined);
+    const accessibility = decodeRenderedAccessibility(result.value, resolvedFocusPath !== undefined);
+    commitAccessibleRetention(accessibleNodes);
+    return accessibility;
   });
   const frame = measureRenderStage(options.instrumentation, 'snapshot', () => buffer.snapshot({
       accessibility,
@@ -813,14 +821,13 @@ function createRegionComposer<TMessage>(
           const snapshot = region.buffer.snapshot();
           const metadata = frameSnapshotMetadata(snapshot);
           if (metadata === undefined) throw new Error('Framework frame snapshot metadata is unavailable.');
-          return {
+          return regionSnapshot(snapshot, {
             id: region.id,
             zIndex: region.zIndex,
             order: region.order,
             bounds: region.bounds,
             underlay: region.underlay,
             ...(region.backdropBounds === undefined ? {} : { backdropBounds: region.backdropBounds }),
-            cells: snapshot.cells,
             graphics: snapshot.graphics,
             metadata,
             hitTargets: frameHitTargets(
@@ -832,11 +839,21 @@ function createRegionComposer<TMessage>(
               budget,
             ),
             focusTargets: index.focusTargetsForRegion(region.zIndex, region.bounds)
-          };
+          });
         })].toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order));
     }
   };
 }
+
+// Kept outside the composer closure: a published cells accessor must not retain
+// the composer, its prior-region map, or any predecessor render history.
+function regionSnapshot<TMessage>(
+  snapshot: FrameBufferSnapshot, region: Omit<RenderRegion<TMessage>, 'cells'>,
+): RenderRegion<TMessage> {
+  return { ...region, get cells() { return snapshot.cells; } };
+}
+
+const composedStorage = new WeakMap<readonly RenderRegion[], FrameBufferCheckpoint>();
 
 function compositeRegions(
   terminalSize: TerminalSize,
@@ -844,13 +861,13 @@ function compositeRegions(
   widthProfile: TextWidthProfile,
   budget?: RenderBudget,
   instrumentation?: RenderInstrumentation,
-  previous?: Frame,
+  previous?: readonly RenderRegion[],
 ): { readonly buffer: FrameBuffer; readonly diagnostic?: TerminalDiagnostic } {
   const buffer = createFrameBuffer(terminalSize.columns, terminalSize.rows, {
     widthProfile,
     ...(instrumentation === undefined ? {} : { instrumentation })
   });
-  if (previous !== undefined) retainFrameBufferRows(buffer, previous);
+  const previousStorage = previous === undefined ? undefined : composedStorage.get(previous);
   let graphicsAllowed = true;
   let graphicsDiagnostic: TerminalDiagnostic | undefined;
   if (budget !== undefined) {
@@ -863,40 +880,162 @@ function compositeRegions(
       graphicsDiagnostic = graphicsLimitDiagnostic(cause);
     }
   }
-  let canvasBackdropActive = false;
-  for (const region of regions.toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order)) {
-    if (region.backdropBounds !== undefined) {
-      buffer.occludeGraphics(region.backdropBounds);
-      canvasBackdropActive = applyModalBackdrop(buffer, region.backdropBounds) || canvasBackdropActive;
-    }
-    if (region.underlay === 'clear') {
-      buffer.clear(region.bounds);
-      for (const cell of region.cells) {
-        recordCellTransfer(instrumentation);
-        transferFrameCell(buffer, canvasBackdropActive ? aboveBackdrop(cell) : cell);
+  const damage = retainedCompositionDamage(buffer, previous, previousStorage, regions, widthProfile);
+  if (damage === undefined) composeRegionsInto(buffer, regions, graphicsAllowed, instrumentation);
+  else {
+    const byRow = compositionRegionsByRow(regions);
+    for (const rect of damage.rects) {
+      for (let row = rect.row; row < rect.row + rect.height; row += 1) {
+        const interval = { ...rect, row, height: 1 };
+        buffer.clear(interval);
+        composeRegionsInto(buffer, byRow.get(row) ?? [], graphicsAllowed, instrumentation, interval);
       }
-      if (graphicsAllowed) placeRegionGraphics(buffer, region.graphics);
-      continue;
     }
-    if (region.underlay === 'inheritBackground') {
-      for (const cell of region.cells) {
+  }
+  composedStorage.set(regions, checkpointFrameBuffer(buffer));
+  return { buffer, ...(graphicsDiagnostic === undefined ? {} : { diagnostic: graphicsDiagnostic }) };
+}
+
+function retainedCompositionDamage(
+  buffer: FrameBuffer, previous: readonly RenderRegion[] | undefined,
+  previousStorage: FrameBufferCheckpoint | undefined, regions: readonly RenderRegion[], widthProfile: TextWidthProfile,
+): DirtyRegionSet | undefined {
+  // Graphics fragmentation and changing backdrop surfaces use the same compositor
+  // on its full bounds; ordinary text updates fork only pre-frame-pass storage.
+  if (previous === undefined || previousStorage?.widthProfile.emoji !== widthProfile.emoji
+    || previousStorage.widthProfile.ambiguous !== widthProfile.ambiguous
+    || [...previous, ...regions].some(region => region.graphics.length > 0)
+    || !sameBackdropSurfaces(previous, regions)
+    || !restoreFrameBufferStorage(buffer, previousStorage)) return undefined;
+  return compositionDamage(previous, regions);
+}
+
+/** One compositor handles both complete surfaces and damaged row intersections. */
+function composeRegionsInto(
+  buffer: FrameBuffer, regions: readonly RenderRegion[], graphicsAllowed: boolean,
+  instrumentation?: RenderInstrumentation, damage?: Rect,
+): void {
+  let canvasBackdropActive = false;
+  for (const region of regions) {
+    if (region.backdropBounds !== undefined) {
+      const bounds = damage ?? region.backdropBounds;
+      buffer.occludeGraphics(bounds);
+      if (damage === undefined) canvasBackdropActive = applyModalBackdrop(buffer, bounds) || canvasBackdropActive;
+      else { applyRetainedCanvasBackdrop(buffer, bounds, backdropStyle); canvasBackdropActive = true; }
+    }
+    const intersection = damage === undefined ? region.bounds : intersectRects(damage, region.bounds);
+    if (intersection === undefined) continue;
+    if (region.underlay === 'clear') buffer.clear(intersection);
+    const rows = damage === undefined ? region.metadata.rowIndexes : [snapshotRow(region.metadata, damage.row)];
+    for (const row of rows) {
+      if (row === undefined) continue;
+      for (const cell of row.renderable) {
+        if (damage !== undefined && (cell.column >= damage.column + damage.width || cell.column + cell.width <= damage.column)) continue;
         recordCellTransfer(instrumentation);
-        const inherited = withInheritedBackground(cell, buffer.readCell(cell.row, cell.column));
+        const inherited = region.underlay === 'inheritBackground'
+          ? withInheritedBackground(cell, buffer.readCell(cell.row, cell.column)) : cell;
         transferFrameCell(buffer, canvasBackdropActive ? aboveBackdrop(inherited) : inherited);
       }
-      if (graphicsAllowed) placeRegionGraphics(buffer, region.graphics);
-      continue;
-    }
-    for (const cell of region.cells) {
-      recordCellTransfer(instrumentation);
-      transferFrameCell(buffer, canvasBackdropActive ? aboveBackdrop(cell) : cell);
     }
     if (graphicsAllowed) placeRegionGraphics(buffer, region.graphics);
   }
-  return {
-    buffer,
-    ...(graphicsDiagnostic === undefined ? {} : { diagnostic: graphicsDiagnostic }),
-  };
+}
+
+const compositionRows = new WeakMap<readonly RenderRegion[], ReadonlyMap<number, readonly RenderRegion[]>>();
+function compositionRegionsByRow(regions: readonly RenderRegion[]): ReadonlyMap<number, readonly RenderRegion[]> {
+  const cached = compositionRows.get(regions);
+  if (cached !== undefined) return cached;
+  const rows = new Map<number, RenderRegion[]>();
+  for (const region of regions) {
+    const bounds = region.backdropBounds ?? region.bounds;
+    for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
+      const entries = rows.get(row) ?? [];
+      entries.push(region);
+      rows.set(row, entries);
+    }
+  }
+  compositionRows.set(regions, rows);
+  return rows;
+}
+
+function sameBackdropSurfaces(previous: readonly RenderRegion[], next: readonly RenderRegion[]): boolean {
+  const before = previous.filter(region => region.backdropBounds !== undefined);
+  const after = next.filter(region => region.backdropBounds !== undefined);
+  return before.length === after.length && before.every((region, index) => {
+    const other = after[index];
+    return region.id === other?.id && region.order === other.order
+      && region.zIndex === other.zIndex && region.backdropBounds !== undefined
+      && other.backdropBounds !== undefined && sameRect(region.backdropBounds, other.backdropBounds);
+  });
+}
+
+function compositionDamage(previous: readonly RenderRegion[], next: readonly RenderRegion[]): DirtyRegionSet {
+  const damage = new DirtyCoverageAccumulator();
+  const oldById = new Map(previous.map(region => [region.id, region]));
+  const nextById = new Map(next.map(region => [region.id, region]));
+  for (const old of previous) if (!nextById.has(old.id)) damage.add(old.bounds);
+  for (const region of next) addRegionDamage(damage, oldById.get(region.id), region);
+  return expandWideDamage(damage.toDirtyRegionSet(), previous, next);
+}
+
+function addRegionDamage(damage: DirtyCoverageAccumulator, old: RenderRegion | undefined, region: RenderRegion): void {
+  if (old === region) return;
+  if (old?.order !== region.order || old.zIndex !== region.zIndex
+    || old.underlay !== region.underlay || !sameRect(old.bounds, region.bounds)) {
+    if (old !== undefined) damage.add(old.bounds);
+    damage.add(region.bounds);
+    return;
+  }
+  const rows = new Set([...old.metadata.rowIndexes, ...region.metadata.rowIndexes].map(row => row.row));
+  for (const row of rows) addRowDamage(damage, row, snapshotRow(old.metadata, row), snapshotRow(region.metadata, row));
+}
+
+function addRowDamage(
+  damage: DirtyCoverageAccumulator, row: number, before: FrameSnapshotRowIndex | undefined, after: FrameSnapshotRowIndex | undefined,
+): void {
+  if (before === after) return;
+  for (const column of new Set([...(before?.cells.keys() ?? []), ...(after?.cells.keys() ?? [])])) {
+    const left = before?.cells.get(column);
+    const right = after?.cells.get(column);
+    if (!sameFrameCell(left, right)) damage.addSpan(row, column, Math.max(1, left?.width ?? 1, right?.width ?? 1));
+  }
+}
+
+const wideRowCells = new WeakMap<FrameSnapshotRowIndex, readonly FrameCell[]>();
+function wideCells(row: FrameSnapshotRowIndex | undefined): readonly FrameCell[] {
+  if (row === undefined) return [];
+  let wide = wideRowCells.get(row);
+  if (wide === undefined) { wide = row.renderable.filter(cell => cell.width > 1); wideRowCells.set(row, wide); }
+  return wide;
+}
+
+function expandWideDamage(
+  damage: DirtyRegionSet, previous: readonly RenderRegion[], next: readonly RenderRegion[],
+): DirtyRegionSet {
+  if (damage.rects.length === 0) return damage;
+  const oldRows = compositionRegionsByRow(previous);
+  const nextRows = compositionRegionsByRow(next);
+  const expanded = new DirtyCoverageAccumulator();
+  for (const rect of damage.rects) {
+    for (let row = rect.row; row < rect.row + rect.height; row += 1) {
+      const wide = [...(oldRows.get(row) ?? []), ...(nextRows.get(row) ?? [])]
+        .flatMap(region => wideCells(snapshotRow(region.metadata, row)));
+      let start = rect.column;
+      let end = rect.column + rect.width;
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const cell of wide) {
+          if (cell.column >= end || cell.column + cell.width <= start) continue;
+          const left = Math.min(start, cell.column);
+          const right = Math.max(end, cell.column + cell.width);
+          if (left !== start || right !== end) { start = left; end = right; changed = true; }
+        }
+      }
+      expanded.addSpan(row, start, end - start);
+    }
+  }
+  return expanded.toDirtyRegionSet();
 }
 
 function recordCellTransfer(instrumentation: RenderInstrumentation | undefined): void {

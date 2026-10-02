@@ -1,0 +1,31 @@
+{
+  "work": {
+    "layout_nodes": 22,
+    "unique_nodes": 22,
+    "measurement_calls": 6,
+    "measurement_misses": 5,
+    "focus_target_visits": 6,
+    "region_allocations": 2,
+    "render_hooks": 23,
+    "target_index_entries": 36,
+    "region_target_visits": 36,
+    "hit_targets": 51,
+    "cell_transfer_calls": 2,
+    "region_cells": 5182,
+    "accessibility_hooks": 20,
+    "snapshot_rows": 1,
+    "snapshot_cells": 116,
+    "interval_operations": 1,
+    "frame_index_builds": 1,
+    "diff_rows": 1,
+    "cell_comparisons": 64,
+    "diff_operations": 1,
+    "diff_output_cells": 1,
+    "encoded_bytes": 39
+  },
+  "error": null,
+  "diagnostics": [],
+  "scenario": "Incident workbench 100,000 incidents,120x40; open and settle picker, type x, reset recordWork counters, type y before matching completes; no frame flattening observer",
+  "runtime": "v24.19.0",
+  "instrumentation": "createTuiRuntime instrumentation.recordWork, native Node clock, memory output cleared after each write"
+}

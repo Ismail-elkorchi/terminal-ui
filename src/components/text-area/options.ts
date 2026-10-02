@@ -19,6 +19,10 @@ import type { TextAreaDecorations } from './decorations.ts';
 
 
 interface TextAreaBaseOptions<TMessage extends ComponentMessage> {
+  /** Completed cooperative layout. A mismatched capability is rejected, never warmed synchronously. */
+  readonly preparedLayout?: import('./contracts.ts').PreparedTextAreaLayout | null;
+  /** Accepted pending-layout demand; prepare it in an ordinary replaceable effect. */
+  readonly onLayoutRequest?: (request: import('./contracts.ts').TextAreaLayoutRequest) => MessageResolution<TMessage>;
   readonly onLayout?: (snapshot: import('./contracts.ts').TextAreaLayoutSnapshot) => MessageResolution<TMessage>;
   readonly keymap?: ControlKeymap<TextAreaKeyAction>;
   readonly id: string;

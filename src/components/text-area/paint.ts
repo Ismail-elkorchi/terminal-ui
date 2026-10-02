@@ -8,12 +8,19 @@ import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
 import { span } from '../../visual/render-content.ts';
 import type { TextAreaStylePart } from '../style-parts.ts';
 import type { TextAreaGeometry } from './geometry.ts';
-import { projectedCaret, textAreaEditorHeight, textAreaGeometry } from './geometry.ts';
+import { projectedCaret, textAreaEditorHeight, textAreaGeometry, textAreaLayoutPending } from './geometry.ts';
 import { type TextAreaLayoutLine } from './layout.ts';
 import type { TextAreaModel } from './model.ts';
 import { type ProjectedTextStyleRange } from './projection.ts';
 
 export function paintTextArea(input: ComponentRenderInput<TextAreaModel, TextAreaStylePart>): undefined {
+  if (textAreaLayoutPending(input)) {
+    paintTextAreaPlane(input, input.bounds, input.style({ part: 'root' }), 'root.background', 'root');
+    input.target.write(input.bounds.row, input.bounds.column, [span('Preparing editor…', {
+      source: input.frameSource({ cellRole: 'text', partName: 'placeholder', partType: 'placeholder', description: 'layout.pending' }),
+    })]);
+    return;
+  }
   const geometry = textAreaGeometry(input);
   const content = geometry.scrollbar.contentBounds;
   const availabilityStates = textAreaAvailabilityStates(input);

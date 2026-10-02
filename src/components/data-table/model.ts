@@ -31,6 +31,7 @@ import {
   normalizeInlineContent,
   tryNormalizeInlineContent,
 } from '../../visual/inline-content.ts';
+import { maximumModelDependencySlots, ownModelDependencies } from '../../visual/model-dependencies.ts';
 import { sameTerminalStyle, type TerminalStyle } from '../../visual/render-content.ts';
 import { decodeTerminalStyle } from '../../visual/terminal-style.ts';
 import type { TableColumn, TableColumnWidth } from './column.ts';
@@ -108,6 +109,18 @@ export interface TableRenderSource {
 
 const noSelectedRows: readonly string[] = Object.freeze([]);
 const noSelectedCells: readonly DataGridCell[] = Object.freeze([]);
+// Selection is decoded once per model. Paint and accessibility share these
+// private indexes instead of scanning large selections for every visible row.
+const selectedRowsByIds = new WeakMap<readonly string[], ReadonlySet<string>>();
+const selectedColumnsByCells = new WeakMap<readonly DataGridCell[], ReadonlyMap<string, ReadonlySet<string>>>();
+
+export function tableRowIsSelected(model: TableModel, rowId: string): boolean {
+  return selectedRowsByIds.get(model.selectedRowIds)?.has(rowId) === true;
+}
+
+export function tableCellIsSelected(model: TableModel, rowId: string, columnId: string | undefined): boolean {
+  return columnId !== undefined && selectedColumnsByCells.get(model.selectedCells)?.get(rowId)?.has(columnId) === true;
+}
 
 const tableSources = new WeakMap<object, TableRenderSource>();
 
@@ -157,8 +170,8 @@ export function createTableModel<TRow, TMessage extends ComponentMessage>(
     ...(state.selectionMode === undefined ? {} : { selectionMode: state.selectionMode }),
     ...(state.activeRowId === undefined ? {} : { activeRowId: state.activeRowId }),
     ...(state.activeColumnId === undefined ? {} : { activeColumnId: state.activeColumnId }),
-    selectedRowIds: state.selectedRowIds.length === 0 ? noSelectedRows : state.selectedRowIds,
-    selectedCells: state.selectedCells.length === 0 ? noSelectedCells : state.selectedCells,
+    selectedRowIds: state.selectedRowIds,
+    selectedCells: state.selectedCells,
     ...(state.sort === undefined ? {} : { sort: state.sort }),
     columnWidths: state.columnWidths,
     density: density ?? 'regular',
@@ -170,6 +183,38 @@ export function createTableModel<TRow, TMessage extends ComponentMessage>(
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
   };
+}
+
+const tablePaintDescriptor = Symbol('table paint');
+
+/** Explicit visual slots: interaction callbacks and keymaps stay on the fresh model. */
+export function ownTableModel(model: TableModel): Readonly<TableModel> {
+  const stateSlots = model.selectedRowIds.length + model.selectedCells.length * 2;
+  // The fixed prefix below has 26 slots. Large selections use per-visible-row paint retention.
+  if (stateSlots + 26 > maximumModelDependencySlots) return Object.freeze(model);
+  const widths: (string | number)[] = [];
+  for (const id in model.columnWidths) {
+    if (stateSlots + widths.length + 28 > maximumModelDependencySlots) return Object.freeze(model);
+    widths.push(id, model.columnWidths[id] ?? 0);
+  }
+  const visual = [
+    tablePaintDescriptor, model.source, model.columns, model.semanticRole, model.hasHeader,
+    model.startIndex, model.totalCount, model.interactionKind, model.selectionMode,
+    model.activeRowId, model.activeColumnId, model.density, model.stickyHeader, model.emptyText,
+    model.sort?.columnId, model.sort?.direction,
+    model.scroll !== undefined, model.scroll?.offsetRow, model.scroll?.offsetColumn, model.scroll?.followTail,
+    model.scrollbar?.axis, model.scrollbar?.visible, model.scrollbar?.visualState,
+    model.selectedRowIds.length, ...model.selectedRowIds,
+    model.selectedCells.length, ...model.selectedCells.flatMap(cell => [cell.rowId, cell.columnId]),
+    widths.length / 2, ...widths,
+  ];
+  // Selection and active-row changes affect contents, not allocation or the
+  // focus rectangle. Intrinsic size depends on the complete column source.
+  const geometry = [model.source, model.columns, model.semanticRole, model.totalCount,
+    model.hasHeader, model.density, model.sort?.columnId, model.sort?.direction, ...widths];
+  return ownModelDependencies(model, {
+    paint: visual, measurement: geometry, layout: geometry, accessibility: visual,
+  });
 }
 
 function validateDataGridState(
@@ -484,8 +529,8 @@ function decodeTableState(
   if (value === undefined) {
     const scroll = decodeComponentScrollState(tableScroll, 'table scroll');
     return {
-      selectedRowIds: Object.freeze([]),
-      selectedCells: Object.freeze([]),
+      selectedRowIds: noSelectedRows,
+      selectedCells: noSelectedCells,
       columnWidths: Object.freeze({}),
       ...(scroll === undefined ? {} : { scroll }),
     };
@@ -511,7 +556,7 @@ function decodeTableInteraction(
   'interactionKind' | 'selectionMode' | 'activeRowId' | 'activeColumnId' | 'selectedRowIds' | 'selectedCells'
 > {
   if (interaction === undefined) {
-    return { selectedRowIds: Object.freeze([]), selectedCells: Object.freeze([]) };
+    return { selectedRowIds: noSelectedRows, selectedCells: noSelectedCells };
   }
   const selectionMode = interaction.selection.mode;
   if (!isStringMember(selectionMode, ['none', 'single', 'multiple'])) {
@@ -542,11 +587,11 @@ function decodeTableSelection(
   if (interaction.kind === 'row') {
     return {
       selectedRowIds: decodeRowSelection(interaction.selection),
-      selectedCells: Object.freeze([]),
+      selectedCells: noSelectedCells,
     };
   }
   return {
-    selectedRowIds: Object.freeze([]),
+    selectedRowIds: noSelectedRows,
     selectedCells: decodeCellSelection(interaction.selection),
   };
 }
@@ -556,9 +601,11 @@ function decodeRowSelection(
 ): readonly string[] {
   if (selection.mode === 'multiple') return decodeUniqueIds(selection.selectedRowIds, 'dataGrid selectedRowIds');
   if (selection.mode === 'single' && selection.selectedRowId !== undefined) {
-    return Object.freeze([nonEmpty(selection.selectedRowId, 'dataGrid selectedRowId')]);
+    const ids = Object.freeze([nonEmpty(selection.selectedRowId, 'dataGrid selectedRowId')]);
+    selectedRowsByIds.set(ids, new Set(ids));
+    return ids;
   }
-  return Object.freeze([]);
+  return noSelectedRows;
 }
 
 function decodeCellSelection(
@@ -568,7 +615,7 @@ function decodeCellSelection(
   if (selection.mode === 'single' && selection.selectedCell !== undefined) {
     return decodeGridCells([selection.selectedCell], 'dataGrid selectedCell');
   }
-  return Object.freeze([]);
+  return noSelectedCells;
 }
 
 function decodeTableSort(value: TableState['sort']): TableControlModel['sort'] {
@@ -598,15 +645,20 @@ function decodeOptionalId(value: string | undefined, owner: string): string | un
 
 function decodeUniqueIds(value: readonly string[], owner: string): readonly string[] {
   if (!Array.isArray(value)) throw new TypeError(`${owner} must be an array.`);
+  if (value.length === 0) return noSelectedRows;
   const ids = Object.freeze(value.map((id, index) => nonEmpty(id, `${owner}[${String(index)}]`)));
-  if (new Set(ids).size !== ids.length) throw new TypeError(`${owner} must contain unique ids.`);
+  const selected = new Set(ids);
+  if (selected.size !== ids.length) throw new TypeError(`${owner} must contain unique ids.`);
+  selectedRowsByIds.set(ids, selected);
   return ids;
 }
 
 function decodeGridCells(value: readonly DataGridCell[], owner: string): readonly DataGridCell[] {
   if (!Array.isArray(value)) throw new TypeError(`${owner} must be an array.`);
+  if (value.length === 0) return noSelectedCells;
   const keys = new Set<string>();
-  return Object.freeze(value.map((cell, index) => {
+  const columnsByRow = new Map<string, Set<string>>();
+  const cells = Object.freeze(value.map((cell, index) => {
     if (!isNonArrayObject(cell)) throw new TypeError(`${owner}[${String(index)}] must be an object.`);
     const model = Object.freeze({
       rowId: nonEmpty(cell['rowId'], `${owner}[${String(index)}].rowId`),
@@ -615,8 +667,13 @@ function decodeGridCells(value: readonly DataGridCell[], owner: string): readonl
     const key = `${model.rowId}\u0000${model.columnId}`;
     if (keys.has(key)) throw new TypeError(`${owner} must contain unique cells.`);
     keys.add(key);
+    const columns = columnsByRow.get(model.rowId) ?? new Set<string>();
+    columns.add(model.columnId);
+    columnsByRow.set(model.rowId, columns);
     return model;
   }));
+  selectedColumnsByCells.set(cells, columnsByRow);
+  return cells;
 }
 
 export function activeTablePosition(

@@ -177,6 +177,87 @@ wrapping, use `prepareLogViewerView()` in an existing replaceable effect.
 resize. The live component never computes missing query or wrapped geometry.
 See [prepared log views](./log-preparation.md) for the complete pattern.
 
+### Preparing a large wrapped editor
+
+For a cold or large `textArea()`, opt into its explicit pending representation
+with `preparedLayout: null` and `onLayoutRequest`. The accepted-frame callback
+provides an opaque `TextAreaLayoutRequest` containing the actual measurement
+widths, allocation, theme and width profile. The component derives projection,
+line-number gutter, error-row and scrollbar space internally. The same pattern
+works inside columns and split panes; do not guess a terminal or content width.
+
+Use the existing prepared-query/effect lifecycle:
+
+```ts
+import { createTuiPreparedQuery } from '@ismail-elkorchi/terminal-ui/tui';
+import { createTextAreaState, type TextAreaTransition } from '@ismail-elkorchi/terminal-ui/behavior';
+import { textArea, prepareTextAreaLayout, type TextAreaLayoutRequest } from '@ismail-elkorchi/terminal-ui/components/forms';
+
+const preparation = createTuiPreparedQuery({
+  id: 'editor-layout',
+  prepare: (request: TextAreaLayoutRequest, context) =>
+    prepareTextAreaLayout(request, {
+      signal: context.signal,
+      yield: async () => { await context.clock.sleep(0, context.signal); },
+    }),
+  toMessage: result => ({ kind: 'layoutPrepared' as const, result }),
+});
+
+const state = {
+  editor: createTextAreaState({ value: 'Document contents' }),
+  preparation: preparation.init(),
+};
+
+type EditorMessage =
+  | { readonly kind: 'layoutRequested'; readonly request: TextAreaLayoutRequest }
+  | { readonly kind: 'editorTransition'; readonly transition: TextAreaTransition };
+
+// In view(), retain the last admitted result even while the next effect runs.
+textArea<EditorMessage>({
+  id: 'editor',
+  meta: { accessibleName: 'Document editor' },
+  state: state.editor,
+  wrap: true,
+  preparedLayout: state.preparation.result,
+  onLayoutRequest: request => ({ kind: 'layoutRequested' as const, request }),
+  onTransition: (transition: TextAreaTransition): EditorMessage => ({ kind: 'editorTransition', transition }),
+});
+```
+
+Initialize the query with `preparation.init()`. In the ordinary update handler,
+pass `layoutRequested.request` to `preparation.request()` and pass
+`layoutPrepared.result` to `preparation.update()`, lifting their state/effect
+contributions back into application state. Admit completion only for the
+current document; never restore the prepared document as an editor snapshot.
+The query's revision rejects replaced work. Keep text, paste, selection and edit
+messages on their ordinary reliable update path. If applying an edit at a cold,
+deep source position would force normalization, queue that edit in normal
+application state and drain it in order once the matching source is prepared.
+Preparation completion is data, never a replacement for those ordered edits.
+
+While required measurements or geometry are missing, the editor shows
+“Preparing editor…” and exposes busy accessibility with no claim to rendered
+source content. Focus and ordinary text/paste transitions remain available;
+source-dependent pointer and visual-row navigation wait for ready geometry.
+Stable pending frames do not issue duplicate requests. Content-sized parents
+may need a second accepted request after exact preferred measurements change
+the allocation. Ordinary `onLayout` runs only for ready, source-exact geometry.
+
+The result owns its document, exact measurements and final layout without
+retaining option callbacks or prior request/result chains. Current caret,
+selection, scroll and placement still come from current component state. A
+changed document, decoration set, wrap/gutter/error policy, theme, width profile
+or allocation returns controlled preparation to pending. Supplying a mismatched
+capability without `onLayoutRequest` throws rather than doing cold synchronous
+work. Omitting `preparedLayout` deliberately keeps the existing synchronous
+mode; both modes drive the same computation.
+
+Cooperative work checkpoints source boundaries, projection, numeric geometry,
+wrapped-row construction, resizing and row-offset observations. Cancellation
+does not publish a partial capability. Native string/segmentation operations and
+an indivisible enormous grapheme are still synchronous; checkpoints cannot
+preempt a native callback already running.
+
 Component definitions own their accessibility contract. Callers supply domain
 labels and descriptions through declared component fields; they cannot replace
 required roles, relationships, or state through metadata. A decorative

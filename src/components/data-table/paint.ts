@@ -4,13 +4,14 @@ import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
 import { measureTextCells } from '../../text/measure.ts';
 import { terminalStyleHasBackground } from '../../theme/theme.ts';
 import { inlineSegmentText } from '../../visual/inline-content.ts';
+import { sameModelDependencies } from '../../visual/model-dependencies.ts';
 import type { TerminalStyle } from '../../visual/render-content.ts';
 import { clipRenderSpans, measureRenderSpans, span } from '../../visual/render-content.ts';
 import type { TableStylePart } from '../style-parts.ts';
 import type { TablePlan } from './layout.ts';
 import { tablePlan, tableSeparatorCells, tableSortMarker } from './layout.ts';
 import type { TableColumnModel, TableModel, TableRenderSource, TableRowModel } from './model.ts';
-import { tableSourceFor } from './model.ts';
+import { tableCellIsSelected, tableRowIsSelected, tableSourceFor } from './model.ts';
 
 export function paintTable(input: ComponentRenderInput<TableModel, TableStylePart>): undefined {
   const plan = tablePlan(input);
@@ -178,10 +179,10 @@ interface TableRowPaintDependencies {
   readonly interactionKind: TableModel['interactionKind'];
   readonly density: TableModel['density'];
   readonly widths: readonly number[];
-  readonly selectedRowIds: TableModel['selectedRowIds'];
+  readonly selected: boolean;
   readonly active: boolean;
   readonly activeColumnId: string | undefined;
-  readonly selectedCells: TableModel['selectedCells'];
+  readonly selectedCells: readonly boolean[];
   readonly pointer: ReturnType<typeof pointerVisualState>;
   readonly cellPointers: readonly ReturnType<typeof pointerVisualState>[];
   readonly styles: ComponentRenderInput<TableModel>['styles'];
@@ -194,10 +195,10 @@ interface TableRowPaintDependencies {
 function sameRowDependencies(a: TableRowPaintDependencies, b: TableRowPaintDependencies): boolean {
   if (a.id !== b.id || a.theme !== b.theme || a.emoji !== b.emoji || a.ambiguous !== b.ambiguous
     || a.columns !== b.columns || a.semanticRole !== b.semanticRole || a.interactionKind !== b.interactionKind
-    || a.density !== b.density || a.selectedRowIds !== b.selectedRowIds || a.active !== b.active
-    || a.activeColumnId !== b.activeColumnId || a.pointer !== b.pointer || a.styles !== b.styles
+    || a.density !== b.density || a.selected !== b.selected || a.active !== b.active
+    || a.activeColumnId !== b.activeColumnId || a.pointer !== b.pointer || !sameModelDependencies(a.styles, b.styles, 'paint')
     || a.disabled !== b.disabled || a.busy !== b.busy || a.readOnly !== b.readOnly || a.inert !== b.inert
-    || a.widths.length !== b.widths.length || a.selectedCells !== b.selectedCells
+    || a.widths.length !== b.widths.length || a.selectedCells.length !== b.selectedCells.length
     || a.cellPointers.length !== b.cellPointers.length) return false;
   return sameRowColumnDependencies(a, b);
 }
@@ -206,7 +207,9 @@ function sameRowColumnDependencies(a: TableRowPaintDependencies, b: TableRowPain
   // These dense arrays are constructed here from visible columns, never supplied
   // as arbitrary application data. No row contents or collections are traversed.
   for (let i = 0; i < a.widths.length; i += 1) if (a.widths[i] !== b.widths[i]) return false;
-  for (let i = 0; i < a.cellPointers.length; i += 1) if (a.cellPointers[i] !== b.cellPointers[i]) return false;
+  for (let i = 0; i < a.cellPointers.length; i += 1) {
+    if (a.cellPointers[i] !== b.cellPointers[i] || a.selectedCells[i] !== b.selectedCells[i]) return false;
+  }
   return true;
 }
 
@@ -231,9 +234,9 @@ function tableRowSpans(
     id: input.id, theme: input.theme, emoji: input.widthProfile.emoji, ambiguous: input.widthProfile.ambiguous,
     columns: input.model.columns, semanticRole: input.model.semanticRole,
     interactionKind: input.model.interactionKind, density: input.model.density, widths: plan.widths,
-    selectedRowIds: input.model.selectedRowIds, active,
+    selected: tableRowIsSelected(input.model, row.id), active,
     activeColumnId: active ? input.model.activeColumnId : undefined,
-    selectedCells: input.model.selectedCells,
+    selectedCells: input.model.columns.map(column => tableCellIsSelected(input.model, row.id, column.id)),
     pointer: pointerVisualState(input.pointerState, prefix),
     cellPointers: input.model.columns.map(column => pointerVisualState(input.pointerState, `${prefix}:cell:${String(column.index)}`)),
     styles: input.styles, disabled: input.disabled, busy: input.busy, readOnly: input.readOnly, inert: input.inert,
@@ -243,7 +246,7 @@ function tableRowSpans(
     next.set(row, cached);
     return cached.spans;
   }
-  const spans = Object.freeze(buildTableRowSpans(input, row, plan));
+  const spans = Object.freeze(buildTableRowSpans(input, row, plan, dependencies));
   next.set(row, { dependencies, spans });
   return spans;
 }
@@ -252,11 +255,9 @@ function buildTableRowSpans(
   input: ComponentRenderInput<TableModel, TableStylePart>,
   row: TableRowModel,
   plan: TablePlan,
+  dependencies: TableRowPaintDependencies,
 ): readonly import('../../visual/render-content.ts').RenderSpan[] {
-  const selected = input.model.selectedRowIds.includes(row.id);
-  const active = input.model.activeRowId === row.id;
-  const rowTargetId = `${input.id ?? 'table'}:row:${row.id}`;
-  const pointer = pointerVisualState(input.pointerState, rowTargetId);
+  const { selected, active, pointer } = dependencies;
   const rowStates = [
     ...(selected ? ['selected' as const] : []),
     ...(active ? ['active' as const] : []),
@@ -303,13 +304,10 @@ function buildTableRowSpans(
     })];
   input.model.columns.forEach((column, visibleIndex) => {
     if (visibleIndex > 0) result.push(tableSeparatorSpan(input, rowStyle));
-    const cellSelected = input.model.selectedCells.some((cell) =>
-      cell.rowId === row.id && cell.columnId === column.id
-    );
-    const cellActive = input.model.interactionKind === 'cell' && input.model.activeRowId === row.id &&
-      input.model.activeColumnId === column.id;
-    const cellTargetId = `${input.id ?? 'table'}:row:${row.id}:cell:${String(column.index)}`;
-    const cellPointer = pointerVisualState(input.pointerState, cellTargetId);
+    const cellSelected = dependencies.selectedCells[visibleIndex] === true;
+    const cellActive = input.model.interactionKind === 'cell' && active &&
+      dependencies.activeColumnId === column.id;
+    const cellPointer = dependencies.cellPointers[visibleIndex];
     const cellStates = input.model.interactionKind === 'row'
       ? rowStates
       : [

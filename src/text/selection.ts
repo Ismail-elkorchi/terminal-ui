@@ -1,7 +1,8 @@
+import { bufferSourceBoundaries } from './source-boundaries.ts';
 import type { TextDocument } from './document.ts';
 import { normalizeTextDocumentSelection, textDocumentSlice } from './document.ts';
 import { sanitizeTerminalText } from './sanitize.ts';
-import { normalizeTextSelection, selectedText } from './text-range.ts';
+import { normalizeSourceSelection, normalizeTextSelection, selectedText } from './text-range.ts';
 import type { TextDocumentSelection, TextEditBuffer, TextSelection } from './types.ts';
 
 export interface ExtractTextSelectionInput {
@@ -25,11 +26,10 @@ export interface ExtractTextBufferSelectionInput {
 export function extractTextBufferSelection(
   input: ExtractTextBufferSelectionInput,
 ): string | undefined {
-  return extractTextSelection({
-    text: input.buffer.text,
-    ...(input.buffer.selection === undefined ? {} : { selection: input.buffer.selection }),
-    ...(input.sanitize === undefined ? {} : { sanitize: input.sanitize }),
-  });
+  const selection = normalizeSourceSelection(bufferSourceBoundaries(input.buffer), input.buffer.selection);
+  if (selection === undefined) return undefined;
+  const extracted = selectedText(input.buffer.text, selection);
+  return input.sanitize === false ? extracted : sanitizeTerminalText(extracted).text;
 }
 
 export interface ExtractTextDocumentSelectionInput {

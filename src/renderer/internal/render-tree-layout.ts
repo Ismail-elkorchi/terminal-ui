@@ -1,5 +1,5 @@
 import type { LayerUnderlay } from '../../element/metadata.ts';
-import { intersectRects } from '../../geometry/rect.ts';
+import { intersectRects, sameRect } from '../../geometry/rect.ts';
 import type { Rect, TerminalSize } from '../../geometry/types.ts';
 import type { TextWidthProfile } from '../../text/types.ts';
 import { defaultTextWidthProfile } from '../../text/width-profile.ts';
@@ -23,14 +23,34 @@ import {
   focusTargetsForRenderNode,
   layoutChildBounds,
   placeRenderNode,
+  retainRenderMeasurements,
   renderNodeClipsChildren,
 } from './render-node-behavior.ts';
+import { sameNodePhase } from './retained-dependencies.ts';
 import { renderNodeFactoryName } from './render-tree/node.ts';
 import type { RenderNode } from './render-tree/types.ts';
 
 interface LaidOutRenderNode<TMessage = unknown> {
   readonly node: RenderNode<TMessage>;
   readonly layout: LayoutNode;
+}
+
+interface RetainedLayout {
+  readonly node: RenderNode;
+  readonly allocation: Rect | null;
+  readonly viewport: Rect;
+  readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
+  readonly parentZIndex: number;
+  readonly parentIdentity: string;
+  readonly ordinal: number;
+  readonly ancestorInert: boolean;
+}
+const retainedLayouts = new WeakMap<LayoutNode, RetainedLayout>();
+const layoutPredecessors = new WeakMap<LayoutNode, WeakRef<LayoutNode>>();
+
+export function previousLayoutNode(node: LayoutNode): LayoutNode | undefined {
+  return layoutPredecessors.get(node)?.deref();
 }
 
 export function layoutRenderTree<TMessage>(
@@ -40,6 +60,7 @@ export function layoutRenderTree<TMessage>(
   widthProfile: TextWidthProfile = defaultTextWidthProfile,
   budget: RenderBudget = createRenderBudget(),
   instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
+  previous?: LayoutNode,
 ): LaidOutRenderNode<TMessage> {
   const theme = themeForLayout(themeInput);
   const bounds = 'columns' in terminalSizeOrBounds
@@ -48,7 +69,9 @@ export function layoutRenderTree<TMessage>(
   const viewportBounds = clampRect(bounds);
   const measurements = createRenderMeasurementContext(theme, widthProfile, budget, instrumentation);
   const uniqueNodes = instrumentation?.recordWork === undefined ? undefined : new WeakSet<RenderNode>();
-  return layoutNode(renderNode, viewportBounds, viewportBounds, theme, widthProfile, measurements, budget, 0, 0, 0, [], false, instrumentation, uniqueNodes);
+  const reusable = new WeakMap<RenderNode, boolean>();
+  if (previous !== undefined) prepareRetention(renderNode, previous, reusable);
+  return layoutNode(renderNode, viewportBounds, viewportBounds, theme, widthProfile, measurements, budget, 0, 0, 0, [], false, instrumentation, uniqueNodes, previous, reusable);
 }
 
 function layoutNode<TMessage>(
@@ -66,7 +89,15 @@ function layoutNode<TMessage>(
   ancestorInert: boolean,
   instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
   uniqueNodes?: WeakSet<RenderNode>,
+  previous?: LayoutNode,
+  reusable = new WeakMap<RenderNode, boolean>(),
 ): LaidOutRenderNode<TMessage> {
+  const descriptor: RetainedLayout = {
+    node: renderNode, allocation, viewport, theme, widthProfile, parentZIndex,
+    parentIdentity: encodedIdentityPath(parentIdentity), ordinal, ancestorInert,
+  };
+  const retained = retainLayout(previous, descriptor, reusable, budget, depth);
+  if (retained !== undefined) return { node: renderNode, layout: retained };
   budget.visitNode(depth);
   recordLayoutVisit(renderNode, instrumentation, uniqueNodes);
   const placement = placeLayoutNode(renderNode, allocation, viewport, theme, widthProfile, measurements, depth);
@@ -97,6 +128,7 @@ function layoutNode<TMessage>(
       focusTargets: [],
       children: []
     };
+    rememberLayout(layout, descriptor, previous);
     const identified = renderNode.transparentFocusIdentity === true
       ? markTransparentFocusLayout(layout)
       : layout;
@@ -140,6 +172,8 @@ function layoutNode<TMessage>(
     inert,
     instrumentation,
     uniqueNodes,
+    previous?.children[index],
+    reusable,
   ));
   const layout: LayoutNode = {
     ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
@@ -156,6 +190,7 @@ function layoutNode<TMessage>(
     focusTargets,
     children: laidOutChildren.map((child) => child.layout),
   };
+  rememberLayout(layout, descriptor, previous);
   const revealable = renderNode.kind === 'viewport'
     && typeof renderNode.props.toScrollMessage === 'function'
       ? markFocusRevealLayout(layout)
@@ -260,4 +295,61 @@ function underlayForRenderNode(renderNode: RenderNode): LayerUnderlay {
 function themeForLayout(theme: TerminalTheme | TerminalThemeDefinition | undefined): TerminalTheme {
   if (theme === undefined) return defaultTheme;
   return resolveThemeInput(theme, defaultTheme);
+}
+
+function sameNullableRect(a: Rect | null, b: Rect | null): boolean {
+  return a === null || b === null ? a === b : sameRect(a, b);
+}
+
+function prepareRetention(node: RenderNode, layout: LayoutNode, reusable: WeakMap<RenderNode, boolean>): boolean {
+  const previous = retainedLayouts.get(layout)?.node;
+  const children = node.children ?? [];
+  const previousChildren = previous?.children ?? [];
+  let measurement = previous !== undefined && sameNodePhase(node, previous, 'measurement');
+  let geometry = previous !== undefined && sameNodePhase(node, previous, 'layout');
+  if (children.length !== previousChildren.length) measurement = geometry = false;
+  for (let index = 0; index < children.length; index += 1) {
+    const child = children[index];
+    const previousLayout = layout.children[index];
+    if (child === undefined || previousLayout === undefined) { measurement = geometry = false; continue; }
+    const childMeasurement = prepareRetention(child, previousLayout, reusable);
+    measurement = measurement && childMeasurement;
+    geometry = geometry && reusable.get(child) === true;
+  }
+  // Measured viewports resolve a new private render tree from current input.
+  if (node.kind === 'viewport' && node.props.measured === true) geometry = measurement = false;
+  if (measurement && previous !== undefined) retainRenderMeasurements(node, previous);
+  reusable.set(node, geometry);
+  return measurement;
+}
+
+function accountRetainedLayout(node: LayoutNode, budget: RenderBudget, depth: number): void {
+  budget.visitNode(depth);
+  for (const child of node.children) accountRetainedLayout(child, budget, depth + 1);
+}
+
+function sameLayoutDescriptor(a: RetainedLayout | undefined, b: RetainedLayout): boolean {
+  return a?.theme === b.theme
+    && a.widthProfile.emoji === b.widthProfile.emoji && a.widthProfile.ambiguous === b.widthProfile.ambiguous
+    && a.parentZIndex === b.parentZIndex && a.parentIdentity === b.parentIdentity
+    && a.ordinal === b.ordinal && a.ancestorInert === b.ancestorInert
+    && sameNullableRect(a.allocation, b.allocation) && sameRect(a.viewport, b.viewport);
+}
+
+function rememberLayout(layout: LayoutNode, descriptor: RetainedLayout, previous?: LayoutNode): void {
+  retainedLayouts.set(layout, descriptor);
+  if (previous !== undefined) layoutPredecessors.set(layout, new WeakRef(previous));
+}
+
+function retainLayout(
+  previous: LayoutNode | undefined,
+  descriptor: RetainedLayout,
+  reusable: WeakMap<RenderNode, boolean>,
+  budget: RenderBudget,
+  depth: number,
+): LayoutNode | undefined {
+  if (previous === undefined || reusable.get(descriptor.node) !== true
+    || !sameLayoutDescriptor(retainedLayouts.get(previous), descriptor)) return undefined;
+  accountRetainedLayout(previous, budget, depth);
+  return previous;
 }

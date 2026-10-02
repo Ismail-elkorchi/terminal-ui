@@ -459,8 +459,21 @@ have checkpoints; a single long field can yield even when there is only one
 record. Cancelled work does not publish a partially constructed resource or query
 result. Log append keeps existing history segments instead of rebuilding them.
 
-Raw entry descriptors and array membership are copied before the first yield,
-which is an explicit indivisible adoption cost. Strings are immutable; opaque
+Picker preparation takes an iterable of bounded entry batches rather than a raw
+snapshot array. Each batch is validated and owned before yielding; later batches
+are snapshotted when consumed. A batch has at most 256 entries and 1024 keyword
+references in total. Strings may be arbitrarily long and their content processing
+is cooperative. Batch production callbacks remain indivisible. Supply a restartable
+producer when cancelled construction can be retried. `createSearchPickerIndex`
+remains the synchronous raw-array snapshot API. `updateSearchPickerIndex` and
+`prepareSearchPickerIndexUpdate` apply ordered append/replace/remove changes to an
+immutable index version, sharing unchanged entries and their search indexes. The
+cooperative update consumes bounded change batches under the same limits. Replacing
+an entry preserves its rank; removing then appending it moves it to the end.
+Cancelled updates leave the old version usable and publish no new version.
+
+Other raw resource descriptors and array membership are copied before the first
+yield, which is an explicit indivisible adoption cost. Strings are immutable; opaque
 picker values, table rows, metadata values and callback dependencies remain
 application-owned and must be immutable for the duration of preparation. Table
 callbacks must bound their own work. Native grapheme segmentation and
@@ -478,3 +491,9 @@ geometry and collection dependencies; it does not recompile a query or sort
 expansion/fold state during rendering. Keep `expandedIds`, `loadStatusById` and
 `foldedIds` immutable, preserve their identities for unchanged state, and replace
 them on changes. In-place mutation is outside the controlled-state contract.
+
+Empty picker queries reuse the source's entries and navigation order directly;
+their `matches` array is empty because no highlights are needed. Nonempty queries
+provide ranked matches aligned with `entries`. Query-result caching includes query
+text, compiled search storage, highlight ranges and result/navigation indexes.
+Oversized results remain usable by their caller but are not retained in the cache.

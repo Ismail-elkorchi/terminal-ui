@@ -1,5 +1,6 @@
+import { adoptedAccessibleNode } from '../../accessibility/validate.ts';
 import type { AccessibilityOptions, AccessibleNode } from '../../accessibility/types.ts';
-import { intersectRects } from '../../geometry/rect.ts';
+import { intersectRects, sameRect } from '../../geometry/rect.ts';
 import type { FocusPath } from '../../interaction/focus.ts';
 import type { TextWidthProfile } from '../../text/types.ts';
 import type { TerminalTheme } from '../../theme/theme.ts';
@@ -14,8 +15,34 @@ import {
   renderFocusRelation,
 } from './focus.ts';
 import { accessibilityForRenderNode, renderNodeClipsChildren } from './render-node-behavior.ts';
+import { previousLayoutNode } from './render-tree-layout.ts';
+import { sameNodePhase } from './retained-dependencies.ts';
 import { renderNodeFactoryName } from './render-tree/node.ts';
 import type { RenderNode } from './render-tree/types.ts';
+
+interface RetainedAccessibility {
+  readonly node: RenderNode;
+  readonly layout: LayoutNode;
+  readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
+  readonly focus: ReturnType<typeof renderFocusRelation>;
+  readonly focusedTargetId: string | undefined;
+  readonly children: readonly AccessibleNode[];
+  readonly result: AccessibleNode;
+}
+const retainedAccessibility = new WeakMap<LayoutNode, RetainedAccessibility>();
+const pendingAccessibility = new WeakMap<AccessibleNode, RetainedAccessibility>();
+
+/** Publish retention only after the entire snapshot passed global validation. */
+export function commitAccessibleRetention(nodes: ReadonlyMap<RenderNode, AccessibleNode>): void {
+  for (const raw of nodes.values()) {
+    const pending = pendingAccessibility.get(raw);
+    const result = adoptedAccessibleNode(raw);
+    if (pending === undefined || result === undefined) continue;
+    const children = pending.children.map((child) => adoptedAccessibleNode(child) ?? child);
+    retainedAccessibility.set(pending.layout, { ...pending, children, result });
+  }
+}
 
 export function accessibleNode(
   renderNode: RenderNode,
@@ -54,6 +81,16 @@ export function accessibleNode(
   ) ?? [];
   const focus = renderFocusRelation(focusPath, path);
   const focusedTargetId = focusedTargetIdForLayoutNode(node, path, focusPath);
+  const predecessor = previousLayoutNode(node);
+  const previous = retainedAccessibility.get(node)
+    ?? (predecessor === undefined ? undefined : retainedAccessibility.get(predecessor));
+  if (previous !== undefined && sameAccessibilityDependencies(previous, {
+    node: renderNode, layout: node, theme, widthProfile, focus, focusedTargetId, children: renderedChildren,
+  })) {
+    accessibleNodes.set(renderNode, previous.result);
+    retainedAccessibility.set(node, previous);
+    return previous.result;
+  }
   const base = accessibilityForRenderNode(
     renderNode,
     node,
@@ -82,6 +119,10 @@ export function accessibleNode(
       }),
     });
   }
+  pendingAccessibility.set(result, {
+    node: renderNode, layout: node, theme, widthProfile, focus, focusedTargetId,
+    children: renderedChildren, result,
+  });
   accessibleNodes.set(renderNode, result);
   return result;
 }
@@ -187,19 +228,30 @@ export function withControlLabelRelationships(
   return applyControlLabels(root, labelsByTarget);
 }
 
+const accessibleNodeCosts = new WeakMap<AccessibleNode, { readonly relationships: number; readonly strings: number }>();
+
 export function accountAccessibleTree(root: AccessibleNode, budget: RenderBudget): void {
   const pending: { readonly node: AccessibleNode; readonly depth: number }[] = [{ node: root, depth: 0 }];
   while (pending.length > 0) {
     const current = pending.pop();
     if (current === undefined) continue;
-    budget.addAccessibilityNode(current.depth, relationshipCount(current.node));
-    budget.addAccessibilityStrings(accessibleStringCodeUnits(current.node));
+    const costs = accessibleCosts(current.node);
+    budget.addAccessibilityNode(current.depth, costs.relationships);
+    budget.addAccessibilityStrings(costs.strings);
     const children = current.node.children ?? [];
     for (let index = children.length - 1; index >= 0; index -= 1) {
       const child = children[index];
       if (child !== undefined) pending.push({ node: child, depth: current.depth + 1 });
     }
   }
+}
+
+function accessibleCosts(node: AccessibleNode): { readonly relationships: number; readonly strings: number } {
+  const previous = accessibleNodeCosts.get(node);
+  if (previous !== undefined) return previous;
+  const costs = { relationships: relationshipCount(node), strings: accessibleStringCodeUnits(node) };
+  if (adoptedAccessibleNode(node) === node) accessibleNodeCosts.set(node, costs);
+  return costs;
 }
 
 function accessibleStringCodeUnits(node: AccessibleNode): number {
@@ -266,6 +318,8 @@ function applyControlLabels(
 ): AccessibleNode {
   const labelledBy = labelsByTarget.get(node.id);
   const children = node.children?.map((child) => applyControlLabels(child, labelsByTarget));
+  if ((labelledBy === undefined || labelledBy === node.labelledBy)
+    && (children === undefined || children.every((child, index) => child === node.children?.[index]))) return node;
   return {
     ...node,
     ...(labelledBy === undefined ? {} : { labelledBy }),
@@ -387,4 +441,18 @@ function decorativeRootNode(id: string, options: AccessibilityOptions): Accessib
     ...(options.label === undefined ? {} : { label: options.label }),
     ...(options.description === undefined ? {} : { description: options.description })
   };
+}
+
+function sameAccessibilityDependencies(
+  a: RetainedAccessibility,
+  b: Omit<RetainedAccessibility, 'result'>,
+): boolean {
+  return sameNodePhase(b.node, a.node, 'accessibility')
+    && a.theme === b.theme && a.widthProfile.emoji === b.widthProfile.emoji
+    && a.widthProfile.ambiguous === b.widthProfile.ambiguous
+    && a.focus === b.focus && a.focusedTargetId === b.focusedTargetId
+    && a.layout.layer.id === b.layout.layer.id
+    && sameRect(a.layout.bounds, b.layout.bounds) && sameRect(a.layout.viewport, b.layout.viewport)
+    && a.children.length === b.children.length
+    && a.children.every((child, index) => child === b.children[index]);
 }

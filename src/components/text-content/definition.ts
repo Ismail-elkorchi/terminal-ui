@@ -20,6 +20,7 @@ import {
   inlineSegmentText,
   normalizeInlineContent,
 } from '../../visual/inline-content.ts';
+import { ownModelDependencies } from '../../visual/model-dependencies.ts';
 import type { RenderLine, RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
 import { line, measureRenderSpans, span, wrapRenderSpans } from '../../visual/render-content.ts';
 import { withoutTransitionCallback } from '../shared/form-control-helpers.ts';
@@ -37,28 +38,7 @@ interface TextModel {
   readonly headingLevel?: number;
 }
 
-// Primitive text has no opaque source handle. Keep a small content-weighted
-// interning window so ordinary view reconstruction preserves its owned model.
-const textModels = new Map<string, TextModel>();
-let textModelWeight = 0;
-function ownTextModel(model: TextModel): TextModel {
-  const prior = textModels.get(model.content);
-  if (prior?.textRole === model.textRole && prior.headingLevel === model.headingLevel) return prior;
-  const owned = Object.freeze(model);
-  const weight = model.content.length + 1;
-  if (weight > 65_536) return owned;
-  if (prior !== undefined) textModelWeight -= weight;
-  textModels.delete(model.content);
-  textModels.set(model.content, owned);
-  textModelWeight += weight;
-  while (textModels.size > 256 || textModelWeight > 65_536) {
-    const oldest = textModels.keys().next().value;
-    if (oldest === undefined) break;
-    textModels.delete(oldest);
-    textModelWeight -= oldest.length + 1;
-  }
-  return owned;
-}
+const textPaintDescriptor = Symbol('text paint');
 
 export const text: SemanticLeafComponentFactory<
   Pick<TextOptions, 'content' | 'textRole' | 'headingLevel'>,
@@ -91,10 +71,14 @@ export const text: SemanticLeafComponentFactory<
     if (headingLevel !== undefined && textRole !== 'heading' && textRole !== 'title') {
       throw new TypeError('text headingLevel requires a heading or title textRole.');
     }
-    return ownTextModel({
+    const model: TextModel = {
       content: sanitizeTerminalControlText(content).text,
       textRole: textRole ?? 'body',
       ...(headingLevel === undefined ? {} : { headingLevel }),
+    };
+    const dependencies = [textPaintDescriptor, model.content, model.textRole, model.headingLevel];
+    return ownModelDependencies(model, {
+      paint: dependencies, measurement: dependencies, layout: dependencies, accessibility: dependencies,
     });
   },
   measure({ model, widthProfile }) {

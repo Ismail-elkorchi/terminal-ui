@@ -1,0 +1,408 @@
+{
+  "kind": "Separate inspector-sampled cumulative allocations and forced-GC active-application heap observations",
+  "samplingIntervalBytes": 32768,
+  "sampleCount": 20,
+  "baseline": "ec247ee4ac7b88042b1672b3dceecc90b914a9c8",
+  "implementationFingerprint": "5e7f51d159354dce8a719dd046ab29df24e8b8b87e83ffeec751b2996d8378ca",
+  "limitations": "Allocation runs are separate from latency runs. Allocation is cumulative churn, not retained memory. Sites show exclusive sampled bytes, with only the largest 20 shown here. Raw inspector profiles were saved separately and released before forced GC. Active heap includes the application, dataset, caches and benchmark; RSS is not a leak measure. Shared cloud host; no physical presentation latency measured.",
+  "baselineResults": {
+    "runtime": "v24.19.0",
+    "retainedHeap": {
+      "beforeApplication": {
+        "rss": 71401472,
+        "heapTotal": 31715328,
+        "heapUsed": 11464824,
+        "external": 3986488,
+        "arrayBuffers": 212095
+      },
+      "activeAfterSetup": {
+        "rss": 493780992,
+        "heapTotal": 396042240,
+        "heapUsed": 224102096,
+        "external": 13722827,
+        "arrayBuffers": 212099
+      },
+      "activeAfterInteraction": {
+        "rss": 1196998656,
+        "heapTotal": 435113984,
+        "heapUsed": 290613328,
+        "external": 28941658,
+        "arrayBuffers": 212099
+      }
+    },
+    "profiles": {
+      "setup": {
+        "sampledBytes": 1511456976,
+        "sampleCount": 43488,
+        "largestSites": [
+          {
+            "location": "dist/text/search-index.js:6:createTextSearchIndexWork",
+            "bytes": 210108104
+          },
+          {
+            "location": "dist/behavior/search-picker-index.js:195:cleanWork",
+            "bytes": 209728856
+          },
+          {
+            "location": ":-1:next",
+            "bytes": 180999504
+          },
+          {
+            "location": "dist/text/sanitize.js:32:sanitizeTerminalTextWork",
+            "bytes": 180258688
+          },
+          {
+            "location": "dist/text/query.js:78:indexQueryCandidateWork",
+            "bytes": 134456112
+          },
+          {
+            "location": "dist/text/sanitize.js:169:sanitizeWork",
+            "bytes": 121194848
+          },
+          {
+            "location": "dist/behavior/search-picker-index.js:53:buildSearchPickerIndexWork",
+            "bytes": 96508424
+          },
+          {
+            "location": ":-1:set",
+            "bytes": 60169784
+          },
+          {
+            "location": ":-1:push",
+            "bytes": 35773352
+          },
+          {
+            "location": "examples/tui/incident-workbench.ts:98:",
+            "bytes": 31215376
+          },
+          {
+            "location": "dist/text/sanitize.js:224:terminalTextSafetyWork",
+            "bytes": 24568040
+          },
+          {
+            "location": "examples/tui/incident-workbench.ts:137:",
+            "bytes": 20725480
+          },
+          {
+            "location": "dist/behavior/search-picker-index.js:41:",
+            "bytes": 15574656
+          },
+          {
+            "location": "dist/text/query.js:155:queryIndexedCandidatesWork",
+            "bytes": 12321512
+          },
+          {
+            "location": "dist/renderer/frame-buffer.js:526:writeGrapheme",
+            "bytes": 8987888
+          },
+          {
+            "location": "dist/interaction/collection-interaction.js:14:createCollectionInteractionIndexWork",
+            "bytes": 7660024
+          },
+          {
+            "location": "examples/tui/incident-workbench.ts:106:",
+            "bytes": 6100192
+          },
+          {
+            "location": "dist/behavior/table-operations.js:55:tableCollectionWork",
+            "bytes": 6062904
+          },
+          {
+            "location": "dist/text/sanitize.js:156:sanitization",
+            "bytes": 5869280
+          },
+          {
+            "location": ":-1:add",
+            "bytes": 5713320
+          }
+        ]
+      },
+      "interaction": {
+        "sampledBytes": 11855404768,
+        "sampleCount": 355758,
+        "largestSites": [
+          {
+            "location": "dist/text/query.js:234:boundedCandidateMatch",
+            "bytes": 1778463328
+          },
+          {
+            "location": "dist/renderer/frame-buffer.js:526:writeGrapheme",
+            "bytes": 1090763912
+          },
+          {
+            "location": "dist/visual/frame-source.js:80:optionalTextField",
+            "bytes": 774877208
+          },
+          {
+            "location": ":-1:next",
+            "bytes": 760831912
+          },
+          {
+            "location": ":-1:set",
+            "bytes": 717789496
+          },
+          {
+            "location": "dist/renderer/frame-buffer.js:126:write",
+            "bytes": 517669928
+          },
+          {
+            "location": "dist/renderer/frame-buffer.js:415:",
+            "bytes": 382273152
+          },
+          {
+            "location": "dist/renderer/internal/scoped-render-target.js:120:writeClippedSpans",
+            "bytes": 367600656
+          },
+          {
+            "location": "dist/renderer/frame-buffer.js:474:snapshotCellsAndFingerprints",
+            "bytes": 358259152
+          },
+          {
+            "location": "dist/renderer/frame-buffer.js:356:",
+            "bytes": 276328384
+          },
+          {
+            "location": ":-1:push",
+            "bytes": 199723144
+          },
+          {
+            "location": "dist/renderer/internal/frame-snapshot.js:27:sameTerminalSnapshotRow",
+            "bytes": 173445608
+          },
+          {
+            "location": "dist/visual/render-content.js:60:clipRenderSpans",
+            "bytes": 171333456
+          },
+          {
+            "location": "dist/visual/frame-source.js:40:decodeFrameCellSource",
+            "bytes": 161516248
+          },
+          {
+            "location": "dist/visual/terminal-style.js:22:decodeTerminalStyle",
+            "bytes": 161011440
+          },
+          {
+            "location": "dist/components/data-table/paint.js:316:tableFrameSource",
+            "bytes": 137708456
+          },
+          {
+            "location": "dist/text/measure.js:26:terminalCellGraphemes",
+            "bytes": 132446552
+          },
+          {
+            "location": "dist/components/data-table/paint.js:284:scrollTableSpans",
+            "bytes": 128813696
+          },
+          {
+            "location": "dist/text/measure.js:43:measureText",
+            "bytes": 125475216
+          },
+          {
+            "location": "dist/components/data-table/paint.js:195:tableCellSpans",
+            "bytes": 120139776
+          }
+        ]
+      }
+    }
+  },
+  "afterResults": {
+    "runtime": "v24.19.0",
+    "retainedHeap": {
+      "beforeApplication": {
+        "rss": 77975552,
+        "heapTotal": 52686848,
+        "heapUsed": 12452816,
+        "external": 3920952,
+        "arrayBuffers": 212095
+      },
+      "activeAfterSetup": {
+        "rss": 406519808,
+        "heapTotal": 325804032,
+        "heapUsed": 160239856,
+        "external": 13682384,
+        "arrayBuffers": 212099
+      },
+      "activeAfterInteraction": {
+        "rss": 861188096,
+        "heapTotal": 365510656,
+        "heapUsed": 216015648,
+        "external": 22731488,
+        "arrayBuffers": 212099
+      }
+    },
+    "profiles": {
+      "setup": {
+        "sampledBytes": 1440414768,
+        "sampleCount": 42258,
+        "largestSites": [
+          {
+            "location": "dist/behavior/search-picker-index.js:357:cleanWork",
+            "bytes": 257659008
+          },
+          {
+            "location": "dist/text/sanitize.js:32:sanitizeTerminalTextWork",
+            "bytes": 208431792
+          },
+          {
+            "location": "dist/text/search-index.js:6:createTextSearchIndexWork",
+            "bytes": 205642792
+          },
+          {
+            "location": ":-1:next",
+            "bytes": 145525360
+          },
+          {
+            "location": "dist/text/sanitize.js:175:sanitizeWork",
+            "bytes": 122613184
+          },
+          {
+            "location": "dist/behavior/search-picker-index.js:136:normalizeEntryWork",
+            "bytes": 84728144
+          },
+          {
+            "location": "dist/text/query.js:102:indexQueryFieldsWork",
+            "bytes": 68126208
+          },
+          {
+            "location": "dist/behavior/search-picker-index.js:75:ownEntry",
+            "bytes": 57365712
+          },
+          {
+            "location": ":-1:set",
+            "bytes": 45859768
+          },
+          {
+            "location": "examples/tui/incident-workbench.ts:98:",
+            "bytes": 30067408
+          },
+          {
+            "location": "dist/text/sanitize.js:230:terminalTextSafetyWork",
+            "bytes": 22567080
+          },
+          {
+            "location": ":-1:push",
+            "bytes": 19924000
+          },
+          {
+            "location": "examples/tui/incident-workbench.ts:140:",
+            "bytes": 19840560
+          },
+          {
+            "location": "dist/behavior/search-picker-index.js:232:entryFields",
+            "bytes": 14233160
+          },
+          {
+            "location": "dist/renderer/frame-buffer.js:718:writeGrapheme",
+            "bytes": 7150208
+          },
+          {
+            "location": "examples/tui/incident-workbench.ts:106:",
+            "bytes": 6788560
+          },
+          {
+            "location": "dist/text/sanitize.js:264:sanitizeCacheKey",
+            "bytes": 5540792
+          },
+          {
+            "location": "dist/behavior/table-operations.js:55:tableCollectionWork",
+            "bytes": 4763320
+          },
+          {
+            "location": "dist/behavior/search-picker-index.js:157:buildSearchPickerIndexWork",
+            "bytes": 4441152
+          },
+          {
+            "location": "dist/renderer/frame-buffer.js:850:recordWriteSpan",
+            "bytes": 4131568
+          }
+        ]
+      },
+      "interaction": {
+        "sampledBytes": 7258830240,
+        "sampleCount": 218851,
+        "largestSites": [
+          {
+            "location": "dist/text/query.js:252:boundedCandidateMatch",
+            "bytes": 1869754656
+          },
+          {
+            "location": "dist/renderer/frame-buffer.js:718:writeGrapheme",
+            "bytes": 809788520
+          },
+          {
+            "location": ":-1:next",
+            "bytes": 620425968
+          },
+          {
+            "location": ":-1:set",
+            "bytes": 579973624
+          },
+          {
+            "location": "dist/renderer/frame-buffer.js:178:write",
+            "bytes": 518136864
+          },
+          {
+            "location": "dist/visual/frame-source.js:80:optionalTextField",
+            "bytes": 155090120
+          },
+          {
+            "location": "dist/renderer/frame-buffer.js:1121:sameStoredRow",
+            "bytes": 118997944
+          },
+          {
+            "location": "dist/renderer/frame.js:205:rowWriteOperations",
+            "bytes": 115612600
+          },
+          {
+            "location": "dist/renderer/frame-buffer.js:664:snapshotCellsAndFingerprints",
+            "bytes": 83004680
+          },
+          {
+            "location": ":-1:push",
+            "bytes": 75322168
+          },
+          {
+            "location": "dist/visual/terminal-style.js:22:decodeTerminalStyle",
+            "bytes": 71912368
+          },
+          {
+            "location": "dist/renderer/frame-buffer.js:420:",
+            "bytes": 64675248
+          },
+          {
+            "location": "dist/accessibility/validate.js:165:firstNodeIssue",
+            "bytes": 61974840
+          },
+          {
+            "location": "dist/accessibility/validate.js:810:firstRelationshipIssue",
+            "bytes": 53343728
+          },
+          {
+            "location": "dist/renderer/internal/scoped-render-target.js:120:writeClippedSpans",
+            "bytes": 49712328
+          },
+          {
+            "location": "dist/text/measure.js:26:terminalCellGraphemes",
+            "bytes": 48053640
+          },
+          {
+            "location": "dist/text/measure.js:43:measureText",
+            "bytes": 46427864
+          },
+          {
+            "location": "dist/renderer/frame-buffer.js:477:",
+            "bytes": 46365728
+          },
+          {
+            "location": "dist/renderer/frame-buffer.js:1006:hashTerminalFrameCell",
+            "bytes": 46083072
+          },
+          {
+            "location": ":-1:join",
+            "bytes": 42332624
+          }
+        ]
+      }
+    }
+  }
+}

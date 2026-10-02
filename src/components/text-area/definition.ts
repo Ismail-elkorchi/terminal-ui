@@ -1,3 +1,4 @@
+import { committedTextAreaLayoutRequest } from './prepared-layout.ts';
 import { controlKeyBindings } from '../shared/control-key-bindings.ts';
 import type { TextAreaKeyAction } from '../keymaps.ts';
 import { defineComponent } from '../../component/definition.ts';
@@ -19,7 +20,7 @@ import {
 } from '../shared/inspection.ts';
 import { textEditingHandlers } from '../shared/text-key-bindings.ts';
 import { textPointerTarget } from '../shared/text-pointer-target.ts';
-import { measureTextArea, projectedCaret, textAreaGeometry, textAreaCommittedLayout } from './geometry.ts';
+import { measureTextArea, projectedCaret, textAreaGeometry, textAreaCommittedLayout, textAreaLayoutPending } from './geometry.ts';
 import type { TextAreaComponentAction } from './interaction.ts';
 import {
   pointerOffset,
@@ -56,8 +57,9 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
     'scrollbarTrack', 'scrollbarThumb',
   ],
   visualStates: ['focused', 'hovered', 'active', 'selected', 'disabled', 'readOnly'],
-  createModel: createTextAreaModel,
+  createModel: (value) => createTextAreaModel(value),
   inspection: ({ model }) => {
+    if (!model.sourceReady) return { details: { layoutPending: true }, validation: inspectValidation(model.required, '') };
     const selection = model.selection === undefined
       ? undefined
       : textDocumentSelectionRange(model.document, model.selection, model.caret);
@@ -70,6 +72,8 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
   },
   measure: measureTextArea,
   onLayout(input) {
+    const request = committedTextAreaLayoutRequest(input);
+    if (request !== undefined) return { kind: 'layoutRequest', request };
     const snapshot = textAreaCommittedLayout(input);
     return snapshot === undefined ? ignoreMessage() : { kind: 'layout', snapshot };
   },
@@ -77,7 +81,7 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
   render: paintTextArea,
   keys: (input) => controlKeyBindings<TextAreaKeyAction, TextAreaComponentAction>(input.model.keymap, {
     ...textEditingHandlers(input.readOnly),
-    ...textAreaVisualHandlers(input),
+    ...(textAreaLayoutPending(input) ? {} : textAreaVisualHandlers(input)),
     ...(input.readOnly ? {} : {
       undo: () => ({ kind: 'undo' }),
       redo: () => ({ kind: 'redo' }),
@@ -89,6 +93,7 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
   onPaste: ({ text, readOnly }) =>
     readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
   focusTargets(input) {
+    if (textAreaLayoutPending(input)) return [{ id: 'self', bounds: input.bounds }];
     const geometry = textAreaGeometry(input);
     const displayCaret = projectedCaret(geometry.projection, input.model.caret);
     const caret = geometry.layout.cursorAt(
@@ -128,6 +133,7 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
     }];
   },
   hitTargets(input) {
+    if (textAreaLayoutPending(input)) return [];
     const geometry = textAreaGeometry(input);
     const selectionRange = input.model.selection === undefined
       ? undefined
@@ -149,7 +155,7 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
               : event.localColumn ?? event.column,
           );
         },
-        wordSelectionAt: (offset) => textAreaWordSelectionAt(input.model.document, offset, input.widthProfile),
+        wordSelectionAt: (offset) => textAreaWordSelectionAt(input.model.document, offset),
         onPointer: (transition, event) => {
           const scrollRequest = textAreaDragScrollRequest(input, geometry, transition, event);
           return {
@@ -170,6 +176,8 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
   },
   accessibility(input) {
     const { id, model, focused } = input;
+    if (textAreaLayoutPending(input)) return { id, role: 'textbox', value: '', busy: true,
+      description: 'Preparing editor layout', required: model.required, ...(focused ? { focused: true } : {}) };
     const geometry = textAreaGeometry(input);
     const scroll = geometry.scrollbar.scroll;
     const scrollGeometry = geometry.scrollbar.geometry;
@@ -249,18 +257,19 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
 
 export const textArea: TextAreaFactory = (options) => {
   assertOptionalCallback(options.onLayout, 'text-area onLayout');
+  assertOptionalCallback(options.onLayoutRequest, 'text-area onLayoutRequest');
   assertOptionalCallback(options.onContextMenu, 'text-area onContextMenu');
   if (options.disabled === true && options.onTransition === undefined) {
     const { onContextMenu, ...rest } = withoutTransitionCallback(options);
     void onContextMenu;
-    return instantiateTextArea({ ...rest, disabled: true, onAction: (action) => action.kind === 'layout' ? options.onLayout?.(action.snapshot) ?? ignoreMessage() : ignoreMessage() });
+    return instantiateTextArea({ ...rest, disabled: true, onAction: (action) => action.kind === 'layoutRequest' ? options.onLayoutRequest?.(action.request) ?? ignoreMessage() : action.kind === 'layout' ? options.onLayout?.(action.snapshot) ?? ignoreMessage() : ignoreMessage() });
   }
   assertRequiredPropertyCallback(options, 'onTransition', 'textArea onTransition');
   if (!isScrollableTextArea(options)) {
     const { onTransition, onContextMenu, ...componentOptions } = options;
     return instantiateTextArea({
       ...componentOptions,
-      onAction: (action) => action.kind === 'layout'
+      onAction: (action) => action.kind === 'layoutRequest' ? options.onLayoutRequest?.(action.request) ?? ignoreMessage() : action.kind === 'layout'
         ? options.onLayout?.(action.snapshot) ?? ignoreMessage()
         : action.kind === 'contextMenu'
         ? onContextMenu?.(action.event) ?? ignoreMessage()
@@ -270,7 +279,7 @@ export const textArea: TextAreaFactory = (options) => {
   const { onTransition, onContextMenu, ...componentOptions } = options;
   return instantiateTextArea({
     ...componentOptions,
-    onAction: (action) => action.kind === 'layout'
+    onAction: (action) => action.kind === 'layoutRequest' ? options.onLayoutRequest?.(action.request) ?? ignoreMessage() : action.kind === 'layout'
         ? options.onLayout?.(action.snapshot) ?? ignoreMessage()
         : action.kind === 'contextMenu'
       ? onContextMenu?.(action.event) ?? ignoreMessage()

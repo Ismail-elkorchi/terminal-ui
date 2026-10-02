@@ -17,9 +17,9 @@ import type {
 import type { WordBoundaryIndex } from './word-boundaries.ts';
 import {
   lineEndOffset,
-  lineOffsetByDelta,
+  sourceLineOffsetByDelta,
   lineStartOffset,
-  standaloneWordBoundaryIndex,
+  ownedWordBoundaryIndex,
 } from './word-boundaries.ts';
 
 export function editTextBuffer(
@@ -57,7 +57,7 @@ function editBuffer(
   sanitizeInsertion: (text: string) => string,
   source: SourceBoundaryIndex,
 ): TextEditBuffer {
-  const words = isWordOperation(operation) ? standaloneWordBoundaryIndex(buffer.text, options) : undefined;
+  const words = isWordOperation(operation) ? ownedWordBoundaryIndex(source, options) : undefined;
   const cursor = normalizeSourceCursor(source, buffer.cursor);
   const selection = normalizeSourceSelection(source, buffer.selection);
   switch (operation.kind) {
@@ -121,9 +121,9 @@ function editBuffer(
     case 'moveEnd':
       return moveTo(buffer.text, source, cursor, selection, lineEndOffset(buffer.text, cursor), operation.extendSelection);
     case 'moveLineUp':
-      return moveTo(buffer.text, source, cursor, selection, lineOffsetByDelta(buffer.text, cursor, -1), operation.extendSelection);
+      return moveTo(buffer.text, source, cursor, selection, sourceLineOffsetByDelta(source, buffer.text, cursor, -1), operation.extendSelection);
     case 'moveLineDown':
-      return moveTo(buffer.text, source, cursor, selection, lineOffsetByDelta(buffer.text, cursor, 1), operation.extendSelection);
+      return moveTo(buffer.text, source, cursor, selection, sourceLineOffsetByDelta(source, buffer.text, cursor, 1), operation.extendSelection);
     case 'moveDocumentStart':
       return moveTo(buffer.text, source, cursor, selection, 0, operation.extendSelection);
     case 'moveDocumentEnd':

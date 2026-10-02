@@ -1,6 +1,6 @@
 import { sourceBoundaries } from './source-boundaries.ts';
 import type { SourceBoundaryIndex } from './source-boundaries.ts';
-import type { GraphemeSegment, TextBoundaryOptions, TextMeasurementOptions } from './types.ts';
+import type { GraphemeSegment, TextMeasurementOptions } from './types.ts';
 import { eastAsianAmbiguousRanges, eastAsianWideRanges } from './unicode-width-data.ts';
 import { defaultTextWidthProfile, defineTextWidthProfile, textWidthProfileKey } from './width-profile.ts';
 
@@ -72,21 +72,7 @@ export function segmentGraphemesForMeasurement(
   return segments;
 }
 
-export function* segmentWords(text: string, options: TextBoundaryOptions = {}): Iterable<{
-  readonly startOffset: number;
-  readonly endOffsetExclusive: number;
-}> {
-  for (const segment of wordSegmenter(options.locale).segment(text)) {
-    if (segment.isWordLike === true) {
-      yield {
-        startOffset: segment.index,
-        endOffsetExclusive: segment.index + segment.segment.length
-      };
-    }
-  }
-}
-
-function wordSegmenter(locale = defaultWordLocale): Intl.Segmenter {
+export function wordSegmenter(locale = defaultWordLocale): Intl.Segmenter {
   const cached = wordSegmenters.get(locale);
   if (cached !== undefined) {
     wordSegmenters.delete(locale);
@@ -103,7 +89,7 @@ function wordSegmenter(locale = defaultWordLocale): Intl.Segmenter {
   return segmenter;
 }
 
-function measureGraphemeCells(text: string, options: TextMeasurementOptions): number {
+export function measureGraphemeCells(text: string, options: TextMeasurementOptions): number {
   if (text.length === 0) return 0;
   if (text.length === 1 && text.charCodeAt(0) >= 0x20 && text.charCodeAt(0) <= 0x7e) return 1;
   const profile = options.widthProfile ?? defaultTextWidthProfile;

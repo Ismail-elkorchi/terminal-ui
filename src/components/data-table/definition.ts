@@ -15,7 +15,7 @@ import { tableAccessibility } from './accessibility.ts';
 import { tableHitTargets, tableScrollHitTargets } from './interaction.ts';
 import { measureTable } from './layout.ts';
 import type { DataGridComponentAction, TableModel } from './model.ts';
-import { activeTablePosition, createTableModel, tableSourceFor } from './model.ts';
+import { activeTablePosition, createTableModel, ownTableModel, tableSourceFor } from './model.ts';
 import type {
   DataGridOptions,
   ScrollableDataGridOptions,
@@ -43,6 +43,7 @@ const tableBase = {
     'scrollbarTrack', 'scrollbarThumb',
   ] as const,
   visualStates: ['active', 'selected'] as const,
+  createModel: ownTableModel,
   measure: measureTable,
   retainPaint: true as const,
   render: paintTable,

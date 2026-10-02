@@ -22,6 +22,14 @@ import type {
 } from './types.ts';
 import { accessibleRoles, accessibleRoleSupportsReadOnly, accessibleSources } from './types.ts';
 
+const ownedAccessibleNodes = new WeakSet<object>();
+const accessibleNodeAdoptions = new WeakMap<object, AccessibleNode>();
+
+/** Internal handoff: only decoder-owned immutable nodes can be retained. */
+export function adoptedAccessibleNode(node: AccessibleNode): AccessibleNode | undefined {
+  return ownedAccessibleNodes.has(node) ? node : accessibleNodeAdoptions.get(node);
+}
+
 const decodedAccessibleSnapshots = new WeakMap<object, AccessibleSnapshot>();
 
 export function decodeAccessibleSnapshot(snapshot: unknown): Result<AccessibleSnapshot> {
@@ -211,6 +219,25 @@ function firstNodeIssue(
 ): TerminalDiagnostic | undefined {
   if (!isNonArrayObject(node)) return accessibilityFailure(`Accessible node at ${formatNodePath(path)} must be an object.`);
   const original = node;
+  if (ownedAccessibleNodes.has(node)) {
+    const owned = node as unknown as AccessibleNode;
+    const currentPath = [...path, owned.id];
+    pathsById.set(owned.id, currentPath);
+    if (ids.has(owned.id)) {
+      return accessibilityFailure(`Accessible node id must be unique: ${owned.id}; repeated at ${formatNodePath(currentPath)}.`, owned.id);
+    }
+    ids.add(owned.id);
+    if (owned.focused === true) recordFocusPath(currentPath);
+    // Local shape, text and child-role checks were already performed on this
+    // immutable value. IDs, focus, naming and relationships remain snapshot-wide.
+    for (const child of owned.children ?? []) {
+      const issue = firstNodeIssue(child, ids, adopted, nodesById, pathsById, sanitizeText, currentPath, recordFocusPath);
+      if (issue !== undefined) return issue;
+    }
+    adopted.set(original, owned);
+    nodesById.set(owned.id, owned);
+    return undefined;
+  }
   const candidate = copyAccessibleNode(node);
   if (!isNonEmptyString(candidate['id'])) return accessibilityFailure(`Accessible node id at ${formatNodePath(path)} must not be empty.`);
   const id = candidate['id'];
@@ -256,6 +283,8 @@ function firstNodeIssue(
   if (relationshipIssue !== undefined) return relationshipIssue;
   const owned = ownedAccessibleNode(candidate, id, role, children);
   adopted.set(original, owned);
+  ownedAccessibleNodes.add(owned);
+  accessibleNodeAdoptions.set(original, owned);
   nodesById.set(id, owned);
   return undefined;
 }

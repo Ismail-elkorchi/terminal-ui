@@ -265,8 +265,8 @@ export {
   scrollReducer,
   visibleWindowFromScroll,
 } from './scroll.ts';
-export { createSearchPickerIndex, prepareSearchPickerIndex, querySearchPickerIndex, prepareSearchPickerQuery, matchingSearchPickerQuery, searchPickerEntryById, searchPickerQueryPosition } from './search-picker-index.ts';
-export type { SearchPickerIndex, SearchPickerQueryResult } from './search-picker-index.ts';
+export { createSearchPickerIndex, prepareSearchPickerIndex, updateSearchPickerIndex, prepareSearchPickerIndexUpdate, querySearchPickerIndex, prepareSearchPickerQuery, matchingSearchPickerQuery, searchPickerEntryById, searchPickerQueryPosition } from './search-picker-index.ts';
+export type { SearchPickerIndex, SearchPickerQueryResult, SearchPickerIndexChange } from './search-picker-index.ts';
 export {
   activeSearchPickerEntry,
   createSearchPickerState,

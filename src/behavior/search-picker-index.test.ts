@@ -27,6 +27,8 @@ void test('searchPicker indexes snapshot entries and retain ranked query work', 
   assert.deepEqual(searchPickerIndexStatistics(index), {
     entries: 3,
     cachedQueries: 1,
+    retainedQueryBytes: searchPickerIndexStatistics(index).retainedQueryBytes,
+    queryCacheByteLimit: 256 * 1024,
     queryEvaluations: 1,
     candidateEvaluations: 3
   });
@@ -77,7 +79,7 @@ void test('cooperative picker queries match synchronous stable ranking and yield
   assert.deepEqual(result.matches, querySearchPickerIndex(other, { text: 'needle', mode: 'contains' }).matches);
   assert.deepEqual(result.entries, querySearchPickerIndex(other, { text: 'needle', mode: 'contains' }).entries);
   assert.ok(yields > 4096 / 256 * 3, 'scan, merge sort, projection and navigation index must cooperate');
-  assert.equal(querySearchPickerIndex(index, { text: 'needle', mode: 'contains' }), result);
+  assert.notEqual(querySearchPickerIndex(index, { text: 'needle', mode: 'contains' }), result, 'oversized broad results remain usable but are not cached');
 });
 
 void test('aborted scan, sort and projection never publish a partial picker result', async () => {
@@ -119,4 +121,39 @@ void test('prepared picker results reject a changed query or source without eval
   await assert.rejects(prepareSearchPickerQuery(index, { text: 'alpha' }, {
     signal: controller.signal, yield: () => Promise.resolve(),
   }), /disposed/u);
+});
+
+void test('picker cache charges query text, ranges and navigation, and skips individually oversized results', () => {
+  const index = createSearchPickerIndex(Array.from({ length: 4000 }, (_, i) => ({
+    id: String(i), label: `a-b-c ${String(i)}`, value: i, disabled: i % 2 === 0,
+  })));
+  const narrow = querySearchPickerIndex(index, { text: '3999', mode: 'contains' });
+  const before = searchPickerIndexStatistics(index);
+  const huge = { text: 'missing'.repeat(50_000), mode: 'contains' } as const;
+  assert.equal(querySearchPickerIndex(index, huge).entries.length, 0);
+  assert.equal(searchPickerIndexStatistics(index).cachedQueries, before.cachedQueries);
+  assert.equal(searchPickerIndexStatistics(index).retainedQueryBytes, before.retainedQueryBytes);
+  const broad = querySearchPickerIndex(index, { text: 'ac', mode: 'fuzzy' });
+  assert.equal(broad.entries.length, 4000);
+  assert.equal(broad.matches[0]?.ranges.length, 2);
+  assert.equal(querySearchPickerIndex(index, { text: '3999', mode: 'contains' }), narrow);
+  for (let i = 0; i < 24; i += 1) querySearchPickerIndex(index, { text: `absent ${String(i)}` });
+  const final = searchPickerIndexStatistics(index);
+  assert.equal(final.cachedQueries, 8);
+  assert.ok(final.retainedQueryBytes <= final.queryCacheByteLimit);
+  assert.equal(broad.entries[0]?.id, '0', 'caller-owned evicted results remain complete');
+});
+
+void test('empty picker queries reuse source order and navigation without scanning or match allocation', () => {
+  const index = createSearchPickerIndex([
+    { id: 'a', label: 'alpha', value: 1 },
+    { id: 'b', label: 'beta', value: 2, disabled: true },
+    { id: 'c', label: 'gamma', value: 3 },
+  ]);
+  const first = querySearchPickerIndex(index, { text: '', mode: 'exact' });
+  const second = querySearchPickerIndex(index, { text: '   ', mode: 'fuzzy' });
+  assert.equal(first.entries, second.entries);
+  assert.equal(first.interactionIndex, second.interactionIndex);
+  assert.deepEqual(first.matches, []);
+  assert.equal(searchPickerIndexStatistics(index).candidateEvaluations, 0);
 });

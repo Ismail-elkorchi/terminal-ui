@@ -222,5 +222,11 @@ dependencies without invalidating the source index. While construction is pendin
 the input renders against one empty index and keeps accepting text; construction
 completion queries the latest controlled text. The accepted index stays in child
 state and is reused on reopening. Source replacement and removal cancel both
-operations and reject stale completions. Copying raw entry descriptors before
-yielding remains an explicit indivisible adoption cost.
+operations and reject stale completions. Its restartable producer maps tickets
+into bounded descriptor batches only when the construction effect consumes them.
+Each batch is fully owned before yielding. An `updateSource` domain message prepares
+an immutable append/replace/remove version through the same construction effect;
+unchanged search fields are reused, and late version completions are rejected.
+Successive `updateSource` messages preserve their ordered changes while construction
+is pending or the picker is closed. A whole-source `replace` supersedes that queued
+desired source. Reopening restarts its producer chain until a version is accepted.

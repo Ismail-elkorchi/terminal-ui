@@ -71,20 +71,21 @@ See [API stability](../guides/api-stability.md) for stability labels.
 ### @ismail-elkorchi/terminal-ui/text
 
 - [`BoundedEditHistory`](#text-boundededithistory), [`EditHistoryEntry`](#text-edithistoryentry), [`EditHistoryPolicy`](#text-edithistorypolicy), [`EditHistoryTransition`](#text-edithistorytransition), [`ExtractTextBufferSelectionInput`](#text-extracttextbufferselectioninput), [`ExtractTextDocumentSelectionInput`](#text-extracttextdocumentselectioninput), [`ExtractTextSelectionInput`](#text-extracttextselectioninput), [`GraphemeSegment`](#text-graphemesegment)
-- [`PadTextCellsOptions`](#text-padtextcellsoptions), [`QueryMatchMode`](#text-querymatchmode), [`RemovedControlSequence`](#text-removedcontrolsequence), [`RowOffsetMap`](#text-rowoffsetmap), [`SanitizeTerminalTextOptions`](#text-sanitizeterminaltextoptions), [`SanitizedTerminalText`](#text-sanitizedterminaltext), [`TerminalTextIndex`](#text-terminaltextindex), [`TextAffinity`](#text-textaffinity)
-- [`TextBoundaryOptions`](#text-textboundaryoptions), [`TextCaret`](#text-textcaret), [`TextCellAlignment`](#text-textcellalignment), [`TextCellMetrics`](#text-textcellmetrics), [`TextChangeSet`](#text-textchangeset), [`TextClipOptions`](#text-textclipoptions), [`TextClipResult`](#text-textclipresult), [`TextDocument`](#text-textdocument)
-- [`TextDocumentChange`](#text-textdocumentchange), [`TextDocumentEditResult`](#text-textdocumenteditresult), [`TextDocumentEditState`](#text-textdocumenteditstate), [`TextDocumentLine`](#text-textdocumentline), [`TextDocumentMutation`](#text-textdocumentmutation), [`TextDocumentSelection`](#text-textdocumentselection), [`TextEditBuffer`](#text-texteditbuffer), [`TextEditHistory`](#text-textedithistory)
-- [`TextEditHistoryGroup`](#text-textedithistorygroup), [`TextEditHistoryOperation`](#text-textedithistoryoperation), [`TextEditHistoryResult`](#text-textedithistoryresult), [`TextEditOperation`](#text-texteditoperation), [`TextHighlightMatch`](#text-texthighlightmatch), [`TextHighlightOptions`](#text-texthighlightoptions), [`TextIndexOptions`](#text-textindexoptions), [`TextLine`](#text-textline)
-- [`TextMeasurementOptions`](#text-textmeasurementoptions), [`TextPosition`](#text-textposition), [`TextSelection`](#text-textselection), [`TextWidthProfile`](#text-textwidthprofile), [`TextWrapOptions`](#text-textwrapoptions), [`applyTextChangeSet`](#text-applytextchangeset), [`applyTextEditWithHistory`](#text-applytexteditwithhistory), [`assertTextDocument`](#text-asserttextdocument)
-- [`breakTextEditHistoryGroup`](#text-breaktextedithistorygroup), [`clampTextOffset`](#text-clamptextoffset), [`clipTextCells`](#text-cliptextcells), [`createRowOffsetMap`](#text-createrowoffsetmap), [`createTerminalTextIndex`](#text-createterminaltextindex), [`createTextChangeSet`](#text-createtextchangeset), [`createTextDocument`](#text-createtextdocument), [`defaultEditHistoryPolicy`](#text-defaultedithistorypolicy)
-- [`defaultTextWidthProfile`](#text-defaulttextwidthprofile), [`defineTextWidthProfile`](#text-definetextwidthprofile), [`editTextBuffer`](#text-edittextbuffer), [`editTextDocument`](#text-edittextdocument), [`emptyTextChangeSet`](#text-emptytextchangeset), [`emptyTextEditHistory`](#text-emptytextedithistory), [`extractTextBufferSelection`](#text-extracttextbufferselection), [`extractTextDocumentSelection`](#text-extracttextdocumentselection)
-- [`extractTextSelection`](#text-extracttextselection), [`fillTextCells`](#text-filltextcells), [`findTextHighlightMatches`](#text-findtexthighlightmatches), [`indexQueryCandidate`](#text-indexquerycandidate), [`invertTextChangeSet`](#text-inverttextchangeset), [`isTextDocument`](#text-istextdocument), [`lineEndOffset`](#text-lineendoffset), [`lineOffsetByDelta`](#text-lineoffsetbydelta)
-- [`lineSelectionAt`](#text-lineselectionat), [`lineStartOffset`](#text-linestartoffset), [`matchCompiledCollectionQuery`](#text-matchcompiledcollectionquery), [`measureTerminalCellText`](#text-measureterminalcelltext), [`measureTextCells`](#text-measuretextcells), [`measuredGraphemes`](#text-measuredgraphemes), [`nextGraphemeBoundary`](#text-nextgraphemeboundary), [`nextWordBoundary`](#text-nextwordboundary)
-- [`normalizeTextCaret`](#text-normalizetextcaret), [`normalizeTextCursor`](#text-normalizetextcursor), [`normalizeTextDocumentOffset`](#text-normalizetextdocumentoffset), [`normalizeTextDocumentRange`](#text-normalizetextdocumentrange), [`normalizeTextDocumentSelection`](#text-normalizetextdocumentselection), [`normalizeTextPosition`](#text-normalizetextposition), [`normalizeTextSelection`](#text-normalizetextselection), [`oneCellGlyph`](#text-onecellglyph)
-- [`padTextCells`](#text-padtextcells), [`previousGraphemeBoundary`](#text-previousgraphemeboundary), [`previousWordBoundary`](#text-previouswordboundary), [`queryIndexedCandidates`](#text-queryindexedcandidates), [`replaceTextRange`](#text-replacetextrange), [`sanitizeTerminalCellText`](#text-sanitizeterminalcelltext), [`sanitizeTerminalControlText`](#text-sanitizeterminalcontroltext), [`sanitizeTerminalSingleLineText`](#text-sanitizeterminalsinglelinetext)
-- [`sanitizeTerminalText`](#text-sanitizeterminaltext), [`segmentGraphemes`](#text-segmentgraphemes), [`selectedText`](#text-selectedtext), [`terminalTextWidth`](#text-terminaltextwidth), [`textCaretAt`](#text-textcaretat), [`textDocumentBytes`](#text-textdocumentbytes), [`textDocumentEdit`](#text-textdocumentedit), [`textDocumentLength`](#text-textdocumentlength)
-- [`textDocumentLineAt`](#text-textdocumentlineat), [`textDocumentLineCount`](#text-textdocumentlinecount), [`textDocumentLineIndexAtOffset`](#text-textdocumentlineindexatoffset), [`textDocumentLines`](#text-textdocumentlines), [`textDocumentSelectionBetween`](#text-textdocumentselectionbetween), [`textDocumentSelectionRange`](#text-textdocumentselectionrange), [`textDocumentSlice`](#text-textdocumentslice), [`textDocumentText`](#text-textdocumenttext)
-- [`textPositionAt`](#text-textpositionat), [`textWidthProfileKey`](#text-textwidthprofilekey), [`wordSelectionAt`](#text-wordselectionat), [`wrapTextCells`](#text-wraptextcells)
+- [`PadTextCellsOptions`](#text-padtextcellsoptions), [`PreparedTextBuffer`](#text-preparedtextbuffer), [`PreparedTextDocumentLine`](#text-preparedtextdocumentline), [`PreparedTextRequest`](#text-preparedtextrequest), [`QueryMatchMode`](#text-querymatchmode), [`RemovedControlSequence`](#text-removedcontrolsequence), [`RowOffsetMap`](#text-rowoffsetmap), [`SanitizeTerminalTextOptions`](#text-sanitizeterminaltextoptions)
+- [`SanitizedTerminalText`](#text-sanitizedterminaltext), [`TerminalTextIndex`](#text-terminaltextindex), [`TextAffinity`](#text-textaffinity), [`TextBoundaryOptions`](#text-textboundaryoptions), [`TextCaret`](#text-textcaret), [`TextCellAlignment`](#text-textcellalignment), [`TextCellMetrics`](#text-textcellmetrics), [`TextChangeSet`](#text-textchangeset)
+- [`TextClipOptions`](#text-textclipoptions), [`TextClipResult`](#text-textclipresult), [`TextDocument`](#text-textdocument), [`TextDocumentChange`](#text-textdocumentchange), [`TextDocumentEditResult`](#text-textdocumenteditresult), [`TextDocumentEditState`](#text-textdocumenteditstate), [`TextDocumentLine`](#text-textdocumentline), [`TextDocumentMutation`](#text-textdocumentmutation)
+- [`TextDocumentSelection`](#text-textdocumentselection), [`TextEditBuffer`](#text-texteditbuffer), [`TextEditHistory`](#text-textedithistory), [`TextEditHistoryGroup`](#text-textedithistorygroup), [`TextEditHistoryOperation`](#text-textedithistoryoperation), [`TextEditHistoryResult`](#text-textedithistoryresult), [`TextEditOperation`](#text-texteditoperation), [`TextHighlightMatch`](#text-texthighlightmatch)
+- [`TextHighlightOptions`](#text-texthighlightoptions), [`TextIndexOptions`](#text-textindexoptions), [`TextLine`](#text-textline), [`TextMeasurementOptions`](#text-textmeasurementoptions), [`TextPosition`](#text-textposition), [`TextPreparationRequest`](#text-textpreparationrequest), [`TextSelection`](#text-textselection), [`TextWidthProfile`](#text-textwidthprofile)
+- [`TextWrapOptions`](#text-textwrapoptions), [`applyTextChangeSet`](#text-applytextchangeset), [`applyTextEditWithHistory`](#text-applytexteditwithhistory), [`assertTextDocument`](#text-asserttextdocument), [`breakTextEditHistoryGroup`](#text-breaktextedithistorygroup), [`clampTextOffset`](#text-clamptextoffset), [`clipTextCells`](#text-cliptextcells), [`createRowOffsetMap`](#text-createrowoffsetmap)
+- [`createTerminalTextIndex`](#text-createterminaltextindex), [`createTextChangeSet`](#text-createtextchangeset), [`createTextDocument`](#text-createtextdocument), [`defaultEditHistoryPolicy`](#text-defaultedithistorypolicy), [`defaultTextWidthProfile`](#text-defaulttextwidthprofile), [`defineTextWidthProfile`](#text-definetextwidthprofile), [`editTextBuffer`](#text-edittextbuffer), [`editTextDocument`](#text-edittextdocument)
+- [`emptyTextChangeSet`](#text-emptytextchangeset), [`emptyTextEditHistory`](#text-emptytextedithistory), [`extractTextBufferSelection`](#text-extracttextbufferselection), [`extractTextDocumentSelection`](#text-extracttextdocumentselection), [`extractTextSelection`](#text-extracttextselection), [`fillTextCells`](#text-filltextcells), [`findTextHighlightMatches`](#text-findtexthighlightmatches), [`indexQueryCandidate`](#text-indexquerycandidate)
+- [`invertTextChangeSet`](#text-inverttextchangeset), [`isTextDocument`](#text-istextdocument), [`lineEndOffset`](#text-lineendoffset), [`lineOffsetByDelta`](#text-lineoffsetbydelta), [`lineSelectionAt`](#text-lineselectionat), [`lineStartOffset`](#text-linestartoffset), [`matchCompiledCollectionQuery`](#text-matchcompiledcollectionquery), [`measureTerminalCellText`](#text-measureterminalcelltext)
+- [`measureTextCells`](#text-measuretextcells), [`measuredGraphemes`](#text-measuredgraphemes), [`nextGraphemeBoundary`](#text-nextgraphemeboundary), [`nextWordBoundary`](#text-nextwordboundary), [`normalizeTextCaret`](#text-normalizetextcaret), [`normalizeTextCursor`](#text-normalizetextcursor), [`normalizeTextDocumentOffset`](#text-normalizetextdocumentoffset), [`normalizeTextDocumentRange`](#text-normalizetextdocumentrange)
+- [`normalizeTextDocumentSelection`](#text-normalizetextdocumentselection), [`normalizeTextPosition`](#text-normalizetextposition), [`normalizeTextSelection`](#text-normalizetextselection), [`oneCellGlyph`](#text-onecellglyph), [`padTextCells`](#text-padtextcells), [`prepareTextBuffer`](#text-preparetextbuffer), [`prepareTextDocument`](#text-preparetextdocument), [`prepareTextDocumentLine`](#text-preparetextdocumentline)
+- [`previousGraphemeBoundary`](#text-previousgraphemeboundary), [`previousWordBoundary`](#text-previouswordboundary), [`queryIndexedCandidates`](#text-queryindexedcandidates), [`replaceTextRange`](#text-replacetextrange), [`sanitizeTerminalCellText`](#text-sanitizeterminalcelltext), [`sanitizeTerminalControlText`](#text-sanitizeterminalcontroltext), [`sanitizeTerminalSingleLineText`](#text-sanitizeterminalsinglelinetext), [`sanitizeTerminalText`](#text-sanitizeterminaltext)
+- [`segmentGraphemes`](#text-segmentgraphemes), [`selectedText`](#text-selectedtext), [`terminalTextWidth`](#text-terminaltextwidth), [`textCaretAt`](#text-textcaretat), [`textDocumentBytes`](#text-textdocumentbytes), [`textDocumentEdit`](#text-textdocumentedit), [`textDocumentLength`](#text-textdocumentlength), [`textDocumentLineAt`](#text-textdocumentlineat)
+- [`textDocumentLineCount`](#text-textdocumentlinecount), [`textDocumentLineIndexAtOffset`](#text-textdocumentlineindexatoffset), [`textDocumentLines`](#text-textdocumentlines), [`textDocumentSelectionBetween`](#text-textdocumentselectionbetween), [`textDocumentSelectionRange`](#text-textdocumentselectionrange), [`textDocumentSlice`](#text-textdocumentslice), [`textDocumentText`](#text-textdocumenttext), [`textPositionAt`](#text-textpositionat)
+- [`textWidthProfileKey`](#text-textwidthprofilekey), [`wordSelectionAt`](#text-wordselectionat), [`wrapTextCells`](#text-wraptextcells)
 
 ### @ismail-elkorchi/terminal-ui/theme
 
@@ -154,15 +155,15 @@ See [API stability](../guides/api-stability.md) for stability labels.
 - [`ColorSwatchPickerTransition`](#components-forms-colorswatchpickertransition), [`ComboboxCommitEvent`](#components-forms-comboboxcommitevent), [`ComboboxControlTransition`](#components-forms-comboboxcontroltransition), [`ComboboxOptions`](#components-forms-comboboxoptions), [`ComboboxState`](#components-forms-comboboxstate), [`ComboboxTransition`](#components-forms-comboboxtransition), [`CreateTextAreaDecorationsInput`](#components-forms-createtextareadecorationsinput), [`DisabledCalendarOptions`](#components-forms-disabledcalendaroptions)
 - [`DisabledCheckboxGroupOptions`](#components-forms-disabledcheckboxgroupoptions), [`DisabledCheckboxOptions`](#components-forms-disabledcheckboxoptions), [`DisabledColorSwatchPickerOptions`](#components-forms-disabledcolorswatchpickeroptions), [`DisabledComboboxOptions`](#components-forms-disabledcomboboxoptions), [`DisabledNumberInputOptions`](#components-forms-disablednumberinputoptions), [`DisabledRadioGroupOptions`](#components-forms-disabledradiogroupoptions), [`DisabledRangeSliderOptions`](#components-forms-disabledrangeslideroptions), [`DisabledSliderOptions`](#components-forms-disabledslideroptions)
 - [`DisabledSwitchOptions`](#components-forms-disabledswitchoptions), [`DisabledTextAreaOptions`](#components-forms-disabledtextareaoptions), [`DisabledTextInputOptions`](#components-forms-disabledtextinputoptions), [`FieldOptions`](#components-forms-fieldoptions), [`FormOptions`](#components-forms-formoptions), [`InertComboboxOptions`](#components-forms-inertcomboboxoptions), [`LabelOptions`](#components-forms-labeloptions), [`NumberInputControlTransition`](#components-forms-numberinputcontroltransition)
-- [`NumberInputOptions`](#components-forms-numberinputoptions), [`NumberInputTransition`](#components-forms-numberinputtransition), [`NumberInputValidity`](#components-forms-numberinputvalidity), [`NumericRange`](#components-forms-numericrange), [`PasswordInputOptions`](#components-forms-passwordinputoptions), [`PointerSelectionTransition`](#components-forms-pointerselectiontransition), [`RadioGroupOptions`](#components-forms-radiogroupoptions), [`RadioGroupTransition`](#components-forms-radiogrouptransition)
-- [`RangeSliderHandle`](#components-forms-rangesliderhandle), [`RangeSliderOptions`](#components-forms-rangeslideroptions), [`RangeSliderState`](#components-forms-rangesliderstate), [`RangeSliderStepDirection`](#components-forms-rangesliderstepdirection), [`RangeSliderTransition`](#components-forms-rangeslidertransition), [`RangeSliderValue`](#components-forms-rangeslidervalue), [`ScrollableComboboxOptions`](#components-forms-scrollablecomboboxoptions), [`ScrollableComboboxState`](#components-forms-scrollablecomboboxstate)
-- [`ScrollableTextAreaControlState`](#components-forms-scrollabletextareacontrolstate), [`ScrollableTextAreaOptions`](#components-forms-scrollabletextareaoptions), [`SliderOptions`](#components-forms-slideroptions), [`SliderTransition`](#components-forms-slidertransition), [`SwitchOptions`](#components-forms-switchoptions), [`SwitchTransition`](#components-forms-switchtransition), [`TextAreaConcealDecoration`](#components-forms-textareaconcealdecoration), [`TextAreaControlState`](#components-forms-textareacontrolstate)
-- [`TextAreaControlTransition`](#components-forms-textareacontroltransition), [`TextAreaDecoration`](#components-forms-textareadecoration), [`TextAreaDecorations`](#components-forms-textareadecorations), [`TextAreaKeyAction`](#components-forms-textareakeyaction), [`TextAreaLayoutSnapshot`](#components-forms-textarealayoutsnapshot), [`TextAreaOptions`](#components-forms-textareaoptions), [`TextAreaReplacementDecoration`](#components-forms-textareareplacementdecoration), [`TextAreaRowOffsetMapOptions`](#components-forms-textarearowoffsetmapoptions)
-- [`TextAreaStyleDecoration`](#components-forms-textareastyledecoration), [`TextAreaTransition`](#components-forms-textareatransition), [`TextEditingKeyAction`](#components-forms-texteditingkeyaction), [`TextInputKeyAction`](#components-forms-textinputkeyaction), [`TextInputOptions`](#components-forms-textinputoptions), [`TextInputTransition`](#components-forms-textinputtransition), [`TextPointerTransition`](#components-forms-textpointertransition), [`UnscrolledComboboxOptions`](#components-forms-unscrolledcomboboxoptions)
-- [`UnscrolledComboboxState`](#components-forms-unscrolledcomboboxstate), [`UnscrolledTextAreaControlState`](#components-forms-unscrolledtextareacontrolstate), [`UnscrolledTextAreaOptions`](#components-forms-unscrolledtextareaoptions), [`UpdateTextAreaDecorationsInput`](#components-forms-updatetextareadecorationsinput), [`button`](#components-forms-button), [`calendar`](#components-forms-calendar), [`checkbox`](#components-forms-checkbox), [`checkboxGroup`](#components-forms-checkboxgroup)
-- [`colorSwatchPicker`](#components-forms-colorswatchpicker), [`combobox`](#components-forms-combobox), [`createTextAreaDecorations`](#components-forms-createtextareadecorations), [`createTextAreaKeymap`](#components-forms-createtextareakeymap), [`createTextAreaRowOffsetMap`](#components-forms-createtextarearowoffsetmap), [`createTextInputKeymap`](#components-forms-createtextinputkeymap), [`field`](#components-forms-field), [`form`](#components-forms-form)
-- [`isValidationLevel`](#components-forms-isvalidationlevel), [`label`](#components-forms-label), [`numberInput`](#components-forms-numberinput), [`passwordInput`](#components-forms-passwordinput), [`radioGroup`](#components-forms-radiogroup), [`rangeSlider`](#components-forms-rangeslider), [`slider`](#components-forms-slider), [`switchControl`](#components-forms-switchcontrol)
-- [`textArea`](#components-forms-textarea), [`textInput`](#components-forms-textinput), [`updateTextAreaDecorations`](#components-forms-updatetextareadecorations)
+- [`NumberInputOptions`](#components-forms-numberinputoptions), [`NumberInputTransition`](#components-forms-numberinputtransition), [`NumberInputValidity`](#components-forms-numberinputvalidity), [`NumericRange`](#components-forms-numericrange), [`PasswordInputOptions`](#components-forms-passwordinputoptions), [`PointerSelectionTransition`](#components-forms-pointerselectiontransition), [`PreparedTextAreaLayout`](#components-forms-preparedtextarealayout), [`RadioGroupOptions`](#components-forms-radiogroupoptions)
+- [`RadioGroupTransition`](#components-forms-radiogrouptransition), [`RangeSliderHandle`](#components-forms-rangesliderhandle), [`RangeSliderOptions`](#components-forms-rangeslideroptions), [`RangeSliderState`](#components-forms-rangesliderstate), [`RangeSliderStepDirection`](#components-forms-rangesliderstepdirection), [`RangeSliderTransition`](#components-forms-rangeslidertransition), [`RangeSliderValue`](#components-forms-rangeslidervalue), [`ScrollableComboboxOptions`](#components-forms-scrollablecomboboxoptions)
+- [`ScrollableComboboxState`](#components-forms-scrollablecomboboxstate), [`ScrollableTextAreaControlState`](#components-forms-scrollabletextareacontrolstate), [`ScrollableTextAreaOptions`](#components-forms-scrollabletextareaoptions), [`SliderOptions`](#components-forms-slideroptions), [`SliderTransition`](#components-forms-slidertransition), [`SwitchOptions`](#components-forms-switchoptions), [`SwitchTransition`](#components-forms-switchtransition), [`TextAreaConcealDecoration`](#components-forms-textareaconcealdecoration)
+- [`TextAreaControlState`](#components-forms-textareacontrolstate), [`TextAreaControlTransition`](#components-forms-textareacontroltransition), [`TextAreaDecoration`](#components-forms-textareadecoration), [`TextAreaDecorations`](#components-forms-textareadecorations), [`TextAreaKeyAction`](#components-forms-textareakeyaction), [`TextAreaLayoutRequest`](#components-forms-textarealayoutrequest), [`TextAreaLayoutSnapshot`](#components-forms-textarealayoutsnapshot), [`TextAreaOptions`](#components-forms-textareaoptions)
+- [`TextAreaReplacementDecoration`](#components-forms-textareareplacementdecoration), [`TextAreaRowOffsetMapOptions`](#components-forms-textarearowoffsetmapoptions), [`TextAreaStyleDecoration`](#components-forms-textareastyledecoration), [`TextAreaTransition`](#components-forms-textareatransition), [`TextEditingKeyAction`](#components-forms-texteditingkeyaction), [`TextInputKeyAction`](#components-forms-textinputkeyaction), [`TextInputOptions`](#components-forms-textinputoptions), [`TextInputTransition`](#components-forms-textinputtransition)
+- [`TextPointerTransition`](#components-forms-textpointertransition), [`UnscrolledComboboxOptions`](#components-forms-unscrolledcomboboxoptions), [`UnscrolledComboboxState`](#components-forms-unscrolledcomboboxstate), [`UnscrolledTextAreaControlState`](#components-forms-unscrolledtextareacontrolstate), [`UnscrolledTextAreaOptions`](#components-forms-unscrolledtextareaoptions), [`UpdateTextAreaDecorationsInput`](#components-forms-updatetextareadecorationsinput), [`button`](#components-forms-button), [`calendar`](#components-forms-calendar)
+- [`checkbox`](#components-forms-checkbox), [`checkboxGroup`](#components-forms-checkboxgroup), [`colorSwatchPicker`](#components-forms-colorswatchpicker), [`combobox`](#components-forms-combobox), [`createTextAreaDecorations`](#components-forms-createtextareadecorations), [`createTextAreaKeymap`](#components-forms-createtextareakeymap), [`createTextAreaRowOffsetMap`](#components-forms-createtextarearowoffsetmap), [`createTextInputKeymap`](#components-forms-createtextinputkeymap)
+- [`field`](#components-forms-field), [`form`](#components-forms-form), [`isValidationLevel`](#components-forms-isvalidationlevel), [`label`](#components-forms-label), [`numberInput`](#components-forms-numberinput), [`passwordInput`](#components-forms-passwordinput), [`prepareTextAreaLayout`](#components-forms-preparetextarealayout), [`radioGroup`](#components-forms-radiogroup)
+- [`rangeSlider`](#components-forms-rangeslider), [`slider`](#components-forms-slider), [`switchControl`](#components-forms-switchcontrol), [`textArea`](#components-forms-textarea), [`textInput`](#components-forms-textinput), [`updateTextAreaDecorations`](#components-forms-updatetextareadecorations)
 
 ### @ismail-elkorchi/terminal-ui/components/collections
 
@@ -250,25 +251,25 @@ See [API stability](../guides/api-stability.md) for stability labels.
 - [`NumberInputView`](#behavior-numberinputview), [`PaginationReducerOptions`](#behavior-paginationreduceroptions), [`PaginationState`](#behavior-paginationstate), [`PaginationView`](#behavior-paginationview), [`PaginationWindow`](#behavior-paginationwindow), [`PaginationWindowInput`](#behavior-paginationwindowinput), [`ProgressFrame`](#behavior-progressframe), [`ProgressFrameCell`](#behavior-progressframecell)
 - [`ProgressValueStatus`](#behavior-progressvaluestatus), [`RadioGroupState`](#behavior-radiogroupstate), [`RangeSliderReducerOptions`](#behavior-rangesliderreduceroptions), [`ScrollPolicy`](#behavior-scrollpolicy), [`ScrollRequest`](#behavior-scrollrequest), [`ScrollRequestSource`](#behavior-scrollrequestsource), [`ScrollRequestTarget`](#behavior-scrollrequesttarget), [`ScrollState`](#behavior-scrollstate)
 - [`ScrollTransition`](#behavior-scrolltransition), [`ScrollVisibleWindow`](#behavior-scrollvisiblewindow), [`ScrollWheelPolicy`](#behavior-scrollwheelpolicy), [`ScrollWheelUnit`](#behavior-scrollwheelunit), [`ScrollableAutocompleteComboboxView`](#behavior-scrollableautocompletecomboboxview), [`ScrollableLogViewerState`](#behavior-scrollablelogviewerstate), [`ScrollableSearchPickerState`](#behavior-scrollablesearchpickerstate), [`SearchPickerActiveInput`](#behavior-searchpickeractiveinput)
-- [`SearchPickerIndex`](#behavior-searchpickerindex), [`SearchPickerQueryResult`](#behavior-searchpickerqueryresult), [`SearchPickerReducerOptions`](#behavior-searchpickerreduceroptions), [`SearchPickerState`](#behavior-searchpickerstate), [`SearchPickerWindow`](#behavior-searchpickerwindow), [`SearchPickerWindowInput`](#behavior-searchpickerwindowinput), [`SplitPaneConstraint`](#behavior-splitpaneconstraint), [`SplitPaneDragState`](#behavior-splitpanedragstate)
-- [`SplitPaneLayout`](#behavior-splitpanelayout), [`SplitPaneReducerOptions`](#behavior-splitpanereduceroptions), [`SplitPaneState`](#behavior-splitpanestate), [`SplitPaneTransition`](#behavior-splitpanetransition), [`TabBehaviorItem`](#behavior-tabbehavioritem), [`TableCellValueGetter`](#behavior-tablecellvaluegetter), [`TabsReducerOptions`](#behavior-tabsreduceroptions), [`TextAreaEditHistory`](#behavior-textareaedithistory)
-- [`TextAreaEditPoint`](#behavior-textareaeditpoint), [`TextAreaEditRecord`](#behavior-textareaeditrecord), [`TextAreaHistoryRejection`](#behavior-textareahistoryrejection), [`TextAreaReduction`](#behavior-textareareduction), [`TextAreaState`](#behavior-textareastate), [`TreeReducerOptions`](#behavior-treereduceroptions), [`UnscrolledAutocompleteComboboxView`](#behavior-unscrolledautocompletecomboboxview), [`UnscrolledLogViewerState`](#behavior-unscrolledlogviewerstate)
-- [`UnscrolledSearchPickerState`](#behavior-unscrolledsearchpickerstate), [`VisibleRowSlice`](#behavior-visiblerowslice), [`VisibleRowWindow`](#behavior-visiblerowwindow), [`VisibleRowWindowInput`](#behavior-visiblerowwindowinput), [`VisualizationReducerOptions`](#behavior-visualizationreduceroptions), [`WindowedListboxCollection`](#behavior-windowedlistboxcollection), [`WindowedTreeCollection`](#behavior-windowedtreecollection), [`activeNavigationEntry`](#behavior-activenavigationentry)
-- [`activeNotificationItems`](#behavior-activenotificationitems), [`activeSearchPickerEntry`](#behavior-activesearchpickerentry), [`addDays`](#behavior-adddays), [`addMonths`](#behavior-addmonths), [`adjacentItemId`](#behavior-adjacentitemid), [`appendLogHistory`](#behavior-appendloghistory), [`applyScrollRequest`](#behavior-applyscrollrequest), [`applyTextPointerTransition`](#behavior-applytextpointertransition)
-- [`autocompleteComboboxReducer`](#behavior-autocompletecomboboxreducer), [`autocompleteComboboxView`](#behavior-autocompletecomboboxview), [`barChartReducer`](#behavior-barchartreducer), [`calendarDateId`](#behavior-calendardateid), [`calendarReducer`](#behavior-calendarreducer), [`calendarView`](#behavior-calendarview), [`chartReducer`](#behavior-chartreducer), [`checkboxGroupReducer`](#behavior-checkboxgroupreducer)
-- [`colorSwatchPickerReducer`](#behavior-colorswatchpickerreducer), [`comboboxReducer`](#behavior-comboboxreducer), [`commandInputReducer`](#behavior-commandinputreducer), [`commandInputView`](#behavior-commandinputview), [`commitAutocompleteCombobox`](#behavior-commitautocompletecombobox), [`commitCombobox`](#behavior-commitcombobox), [`compareDates`](#behavior-comparedates), [`contextMenuReducer`](#behavior-contextmenureducer)
-- [`contextMenuView`](#behavior-contextmenuview), [`createAutocompleteComboboxState`](#behavior-createautocompletecomboboxstate), [`createCommandInputState`](#behavior-createcommandinputstate), [`createListboxCollection`](#behavior-createlistboxcollection), [`createLogHistory`](#behavior-createloghistory), [`createLogViewerView`](#behavior-createlogviewerview), [`createNotificationState`](#behavior-createnotificationstate), [`createNumberInputConfiguration`](#behavior-createnumberinputconfiguration)
-- [`createNumberInputState`](#behavior-createnumberinputstate), [`createScrollState`](#behavior-createscrollstate), [`createSearchPickerIndex`](#behavior-createsearchpickerindex), [`createSearchPickerState`](#behavior-createsearchpickerstate), [`createSplitPaneState`](#behavior-createsplitpanestate), [`createTableCollection`](#behavior-createtablecollection), [`createTextAreaState`](#behavior-createtextareastate), [`createTreeCollection`](#behavior-createtreecollection)
-- [`createTreeCollectionFromRows`](#behavior-createtreecollectionfromrows), [`createTreeSource`](#behavior-createtreesource), [`createTreeView`](#behavior-createtreeview), [`dataGridReducer`](#behavior-datagridreducer), [`defaultCalendarFocusSearchLimitDays`](#behavior-defaultcalendarfocussearchlimitdays), [`defaultNavigationPolicy`](#behavior-defaultnavigationpolicy), [`defaultNumberInputConfiguration`](#behavior-defaultnumberinputconfiguration), [`extractLogViewerSelectionText`](#behavior-extractlogviewerselectiontext)
-- [`followTailScrollState`](#behavior-followtailscrollstate), [`heatmapReducer`](#behavior-heatmapreducer), [`indeterminateProgressFrame`](#behavior-indeterminateprogressframe), [`isTreeView`](#behavior-istreeview), [`listViewReducer`](#behavior-listviewreducer), [`listboxReducer`](#behavior-listboxreducer), [`logHistoryEntries`](#behavior-loghistoryentries), [`logHistoryEntryAt`](#behavior-loghistoryentryat)
-- [`logHistoryRecordById`](#behavior-loghistoryrecordbyid), [`logHistoryRecordMatches`](#behavior-loghistoryrecordmatches), [`logViewerReducer`](#behavior-logviewerreducer), [`matchingLogViewerView`](#behavior-matchinglogviewerview), [`matchingSearchPickerQuery`](#behavior-matchingsearchpickerquery), [`matchingTreeView`](#behavior-matchingtreeview), [`menuBarReducer`](#behavior-menubarreducer), [`menuBarView`](#behavior-menubarview)
-- [`menuReducer`](#behavior-menureducer), [`menuTriggerReducer`](#behavior-menutriggerreducer), [`menuTriggerView`](#behavior-menutriggerview), [`menuView`](#behavior-menuview), [`navigationStackReducer`](#behavior-navigationstackreducer), [`nextLogViewerMatch`](#behavior-nextlogviewermatch), [`nextNotificationExpiry`](#behavior-nextnotificationexpiry), [`normalizeCheckboxGroupState`](#behavior-normalizecheckboxgroupstate)
-- [`normalizeColorSwatchPickerState`](#behavior-normalizecolorswatchpickerstate), [`normalizeRadioGroupState`](#behavior-normalizeradiogroupstate), [`normalizeScrollState`](#behavior-normalizescrollstate), [`notificationHistoryItems`](#behavior-notificationhistoryitems), [`notificationReducer`](#behavior-notificationreducer), [`notificationTransitionFromHistory`](#behavior-notificationtransitionfromhistory), [`numberInputAnalysis`](#behavior-numberinputanalysis), [`numberInputReducer`](#behavior-numberinputreducer)
-- [`numberInputView`](#behavior-numberinputview), [`paginationReducer`](#behavior-paginationreducer), [`paginationView`](#behavior-paginationview), [`paginationWindow`](#behavior-paginationwindow), [`prepareAppendLogHistory`](#behavior-prepareappendloghistory), [`prepareLogHistory`](#behavior-prepareloghistory), [`prepareLogViewerView`](#behavior-preparelogviewerview), [`prepareSearchPickerIndex`](#behavior-preparesearchpickerindex)
-- [`prepareSearchPickerQuery`](#behavior-preparesearchpickerquery), [`prepareTreeSource`](#behavior-preparetreesource), [`prepareTreeView`](#behavior-preparetreeview), [`progressValueStatus`](#behavior-progressvaluestatus), [`querySearchPickerIndex`](#behavior-querysearchpickerindex), [`radioGroupReducer`](#behavior-radiogroupreducer), [`rangeSliderReducer`](#behavior-rangesliderreducer), [`scrollReducer`](#behavior-scrollreducer)
-- [`searchPickerEntryById`](#behavior-searchpickerentrybyid), [`searchPickerQueryPosition`](#behavior-searchpickerqueryposition), [`searchPickerReducer`](#behavior-searchpickerreducer), [`searchPickerView`](#behavior-searchpickerview), [`searchPickerWindow`](#behavior-searchpickerwindow), [`selectableTreeRows`](#behavior-selectabletreerows), [`selectionFromTextPointerTransition`](#behavior-selectionfromtextpointertransition), [`sliceVisibleRows`](#behavior-slicevisiblerows)
-- [`sortTableRows`](#behavior-sorttablerows), [`splitPaneLayout`](#behavior-splitpanelayout), [`splitPaneReducer`](#behavior-splitpanereducer), [`tabsReducer`](#behavior-tabsreducer), [`textAreaReducer`](#behavior-textareareducer), [`textInputReducer`](#behavior-textinputreducer), [`treeDisclosureTransition`](#behavior-treedisclosuretransition), [`treeNodeMatches`](#behavior-treenodematches)
-- [`treeReducer`](#behavior-treereducer), [`visibleListboxEntries`](#behavior-visiblelistboxentries), [`visibleRowWindow`](#behavior-visiblerowwindow), [`visibleTreeRows`](#behavior-visibletreerows), [`visibleWindowFromScroll`](#behavior-visiblewindowfromscroll)
+- [`SearchPickerIndex`](#behavior-searchpickerindex), [`SearchPickerIndexChange`](#behavior-searchpickerindexchange), [`SearchPickerQueryResult`](#behavior-searchpickerqueryresult), [`SearchPickerReducerOptions`](#behavior-searchpickerreduceroptions), [`SearchPickerState`](#behavior-searchpickerstate), [`SearchPickerWindow`](#behavior-searchpickerwindow), [`SearchPickerWindowInput`](#behavior-searchpickerwindowinput), [`SplitPaneConstraint`](#behavior-splitpaneconstraint)
+- [`SplitPaneDragState`](#behavior-splitpanedragstate), [`SplitPaneLayout`](#behavior-splitpanelayout), [`SplitPaneReducerOptions`](#behavior-splitpanereduceroptions), [`SplitPaneState`](#behavior-splitpanestate), [`SplitPaneTransition`](#behavior-splitpanetransition), [`TabBehaviorItem`](#behavior-tabbehavioritem), [`TableCellValueGetter`](#behavior-tablecellvaluegetter), [`TabsReducerOptions`](#behavior-tabsreduceroptions)
+- [`TextAreaEditHistory`](#behavior-textareaedithistory), [`TextAreaEditPoint`](#behavior-textareaeditpoint), [`TextAreaEditRecord`](#behavior-textareaeditrecord), [`TextAreaHistoryRejection`](#behavior-textareahistoryrejection), [`TextAreaReduction`](#behavior-textareareduction), [`TextAreaState`](#behavior-textareastate), [`TreeReducerOptions`](#behavior-treereduceroptions), [`UnscrolledAutocompleteComboboxView`](#behavior-unscrolledautocompletecomboboxview)
+- [`UnscrolledLogViewerState`](#behavior-unscrolledlogviewerstate), [`UnscrolledSearchPickerState`](#behavior-unscrolledsearchpickerstate), [`VisibleRowSlice`](#behavior-visiblerowslice), [`VisibleRowWindow`](#behavior-visiblerowwindow), [`VisibleRowWindowInput`](#behavior-visiblerowwindowinput), [`VisualizationReducerOptions`](#behavior-visualizationreduceroptions), [`WindowedListboxCollection`](#behavior-windowedlistboxcollection), [`WindowedTreeCollection`](#behavior-windowedtreecollection)
+- [`activeNavigationEntry`](#behavior-activenavigationentry), [`activeNotificationItems`](#behavior-activenotificationitems), [`activeSearchPickerEntry`](#behavior-activesearchpickerentry), [`addDays`](#behavior-adddays), [`addMonths`](#behavior-addmonths), [`adjacentItemId`](#behavior-adjacentitemid), [`appendLogHistory`](#behavior-appendloghistory), [`applyScrollRequest`](#behavior-applyscrollrequest)
+- [`applyTextPointerTransition`](#behavior-applytextpointertransition), [`autocompleteComboboxReducer`](#behavior-autocompletecomboboxreducer), [`autocompleteComboboxView`](#behavior-autocompletecomboboxview), [`barChartReducer`](#behavior-barchartreducer), [`calendarDateId`](#behavior-calendardateid), [`calendarReducer`](#behavior-calendarreducer), [`calendarView`](#behavior-calendarview), [`chartReducer`](#behavior-chartreducer)
+- [`checkboxGroupReducer`](#behavior-checkboxgroupreducer), [`colorSwatchPickerReducer`](#behavior-colorswatchpickerreducer), [`comboboxReducer`](#behavior-comboboxreducer), [`commandInputReducer`](#behavior-commandinputreducer), [`commandInputView`](#behavior-commandinputview), [`commitAutocompleteCombobox`](#behavior-commitautocompletecombobox), [`commitCombobox`](#behavior-commitcombobox), [`compareDates`](#behavior-comparedates)
+- [`contextMenuReducer`](#behavior-contextmenureducer), [`contextMenuView`](#behavior-contextmenuview), [`createAutocompleteComboboxState`](#behavior-createautocompletecomboboxstate), [`createCommandInputState`](#behavior-createcommandinputstate), [`createListboxCollection`](#behavior-createlistboxcollection), [`createLogHistory`](#behavior-createloghistory), [`createLogViewerView`](#behavior-createlogviewerview), [`createNotificationState`](#behavior-createnotificationstate)
+- [`createNumberInputConfiguration`](#behavior-createnumberinputconfiguration), [`createNumberInputState`](#behavior-createnumberinputstate), [`createScrollState`](#behavior-createscrollstate), [`createSearchPickerIndex`](#behavior-createsearchpickerindex), [`createSearchPickerState`](#behavior-createsearchpickerstate), [`createSplitPaneState`](#behavior-createsplitpanestate), [`createTableCollection`](#behavior-createtablecollection), [`createTextAreaState`](#behavior-createtextareastate)
+- [`createTreeCollection`](#behavior-createtreecollection), [`createTreeCollectionFromRows`](#behavior-createtreecollectionfromrows), [`createTreeSource`](#behavior-createtreesource), [`createTreeView`](#behavior-createtreeview), [`dataGridReducer`](#behavior-datagridreducer), [`defaultCalendarFocusSearchLimitDays`](#behavior-defaultcalendarfocussearchlimitdays), [`defaultNavigationPolicy`](#behavior-defaultnavigationpolicy), [`defaultNumberInputConfiguration`](#behavior-defaultnumberinputconfiguration)
+- [`extractLogViewerSelectionText`](#behavior-extractlogviewerselectiontext), [`followTailScrollState`](#behavior-followtailscrollstate), [`heatmapReducer`](#behavior-heatmapreducer), [`indeterminateProgressFrame`](#behavior-indeterminateprogressframe), [`isTreeView`](#behavior-istreeview), [`listViewReducer`](#behavior-listviewreducer), [`listboxReducer`](#behavior-listboxreducer), [`logHistoryEntries`](#behavior-loghistoryentries)
+- [`logHistoryEntryAt`](#behavior-loghistoryentryat), [`logHistoryRecordById`](#behavior-loghistoryrecordbyid), [`logHistoryRecordMatches`](#behavior-loghistoryrecordmatches), [`logViewerReducer`](#behavior-logviewerreducer), [`matchingLogViewerView`](#behavior-matchinglogviewerview), [`matchingSearchPickerQuery`](#behavior-matchingsearchpickerquery), [`matchingTreeView`](#behavior-matchingtreeview), [`menuBarReducer`](#behavior-menubarreducer)
+- [`menuBarView`](#behavior-menubarview), [`menuReducer`](#behavior-menureducer), [`menuTriggerReducer`](#behavior-menutriggerreducer), [`menuTriggerView`](#behavior-menutriggerview), [`menuView`](#behavior-menuview), [`navigationStackReducer`](#behavior-navigationstackreducer), [`nextLogViewerMatch`](#behavior-nextlogviewermatch), [`nextNotificationExpiry`](#behavior-nextnotificationexpiry)
+- [`normalizeCheckboxGroupState`](#behavior-normalizecheckboxgroupstate), [`normalizeColorSwatchPickerState`](#behavior-normalizecolorswatchpickerstate), [`normalizeRadioGroupState`](#behavior-normalizeradiogroupstate), [`normalizeScrollState`](#behavior-normalizescrollstate), [`notificationHistoryItems`](#behavior-notificationhistoryitems), [`notificationReducer`](#behavior-notificationreducer), [`notificationTransitionFromHistory`](#behavior-notificationtransitionfromhistory), [`numberInputAnalysis`](#behavior-numberinputanalysis)
+- [`numberInputReducer`](#behavior-numberinputreducer), [`numberInputView`](#behavior-numberinputview), [`paginationReducer`](#behavior-paginationreducer), [`paginationView`](#behavior-paginationview), [`paginationWindow`](#behavior-paginationwindow), [`prepareAppendLogHistory`](#behavior-prepareappendloghistory), [`prepareLogHistory`](#behavior-prepareloghistory), [`prepareLogViewerView`](#behavior-preparelogviewerview)
+- [`prepareSearchPickerIndex`](#behavior-preparesearchpickerindex), [`prepareSearchPickerIndexUpdate`](#behavior-preparesearchpickerindexupdate), [`prepareSearchPickerQuery`](#behavior-preparesearchpickerquery), [`prepareTreeSource`](#behavior-preparetreesource), [`prepareTreeView`](#behavior-preparetreeview), [`progressValueStatus`](#behavior-progressvaluestatus), [`querySearchPickerIndex`](#behavior-querysearchpickerindex), [`radioGroupReducer`](#behavior-radiogroupreducer)
+- [`rangeSliderReducer`](#behavior-rangesliderreducer), [`scrollReducer`](#behavior-scrollreducer), [`searchPickerEntryById`](#behavior-searchpickerentrybyid), [`searchPickerQueryPosition`](#behavior-searchpickerqueryposition), [`searchPickerReducer`](#behavior-searchpickerreducer), [`searchPickerView`](#behavior-searchpickerview), [`searchPickerWindow`](#behavior-searchpickerwindow), [`selectableTreeRows`](#behavior-selectabletreerows)
+- [`selectionFromTextPointerTransition`](#behavior-selectionfromtextpointertransition), [`sliceVisibleRows`](#behavior-slicevisiblerows), [`sortTableRows`](#behavior-sorttablerows), [`splitPaneLayout`](#behavior-splitpanelayout), [`splitPaneReducer`](#behavior-splitpanereducer), [`tabsReducer`](#behavior-tabsreducer), [`textAreaReducer`](#behavior-textareareducer), [`textInputReducer`](#behavior-textinputreducer)
+- [`treeDisclosureTransition`](#behavior-treedisclosuretransition), [`treeNodeMatches`](#behavior-treenodematches), [`treeReducer`](#behavior-treereducer), [`updateSearchPickerIndex`](#behavior-updatesearchpickerindex), [`visibleListboxEntries`](#behavior-visiblelistboxentries), [`visibleRowWindow`](#behavior-visiblerowwindow), [`visibleTreeRows`](#behavior-visibletreerows), [`visibleWindowFromScroll`](#behavior-visiblewindowfromscroll)
 
 ### @ismail-elkorchi/terminal-ui/renderer
 
@@ -655,8 +656,8 @@ export type { ProgressFrame, ProgressFrameCell, ProgressValueStatus } from './pr
 export { rangeSliderReducer } from './range-slider-operations.ts';
 export type { NumericRange, RangeSliderHandle, RangeSliderReducerOptions, RangeSliderState, RangeSliderStepDirection, RangeSliderTransition, RangeSliderValue, } from './range-slider.ts';
 export { applyScrollRequest, createScrollState, normalizeScrollState, scrollReducer, visibleWindowFromScroll, } from './scroll.ts';
-export { createSearchPickerIndex, prepareSearchPickerIndex, querySearchPickerIndex, prepareSearchPickerQuery, matchingSearchPickerQuery, searchPickerEntryById, searchPickerQueryPosition } from './search-picker-index.ts';
-export type { SearchPickerIndex, SearchPickerQueryResult } from './search-picker-index.ts';
+export { createSearchPickerIndex, prepareSearchPickerIndex, updateSearchPickerIndex, prepareSearchPickerIndexUpdate, querySearchPickerIndex, prepareSearchPickerQuery, matchingSearchPickerQuery, searchPickerEntryById, searchPickerQueryPosition } from './search-picker-index.ts';
+export type { SearchPickerIndex, SearchPickerQueryResult, SearchPickerIndexChange } from './search-picker-index.ts';
 export { activeSearchPickerEntry, createSearchPickerState, searchPickerReducer, searchPickerView, searchPickerWindow, } from './search-picker-operations.ts';
 export type { CreateSearchPickerStateInput, ScrollableSearchPickerState, SearchPickerActiveInput, SearchPickerReducerOptions, SearchPickerState, SearchPickerWindow, SearchPickerWindowInput, UnscrolledSearchPickerState, } from './search-picker-operations.ts';
 export type { ScrollableSearchPickerView, SearchPickerAcceptEvent, SearchPickerControlTransition, SearchPickerTransition, SearchPickerView, UnscrolledSearchPickerView, } from './search-picker.ts';
@@ -1996,7 +1997,7 @@ Related types: [`MenuState`](#behavior-menustate), [`menu`](#components-overlays
 
 interface · beta · [source](../../src/foundation/cooperative-work.ts)
 
-Import from: `@ismail-elkorchi/terminal-ui/behavior` (type only)
+Import from: `@ismail-elkorchi/terminal-ui/behavior` (type only), `@ismail-elkorchi/terminal-ui/text` (type only)
 
 Caller-owned cancellation and scheduling for bounded collection work.
 
@@ -3955,6 +3956,27 @@ readonly kind: 'search-picker-index';
 readonly size: number;
 ```
 
+<a id="behavior-searchpickerindexchange"></a>
+### SearchPickerIndexChange
+
+type · beta · [source](../../src/behavior/search-picker-index.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior` (type only)
+
+A version update preserves unaffected owned entries and their prepared search fields.
+
+```ts
+export type SearchPickerIndexChange<TValue = string> = {
+    readonly kind: 'append' | 'replace';
+    readonly entry: SearchEntry<TValue>;
+} | {
+    readonly kind: 'remove';
+    readonly id: string;
+};
+```
+
+Related types: [`SearchEntry`](#collection-searchentry)
+
 <a id="behavior-searchpickerqueryresult"></a>
 ### SearchPickerQueryResult
 
@@ -3996,6 +4018,8 @@ readonly entries: readonly SearchEntry<TValue>[];
 
 <a id="behavior-searchpickerqueryresult-matches"></a>
 #### matches
+
+Ranked highlights for nonempty queries; empty queries reuse source order without match records.
 
 ```ts
 readonly matches: readonly QueryMatch[];
@@ -6349,18 +6373,43 @@ function · beta · [source](../../src/behavior/search-picker-index.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/behavior`
 
-Build an owned index cooperatively. Mapper callbacks and input adoption cannot be preempted.
+Read one bounded batch at a time. Each batch is validated and copied before any
+yield; later batches are snapshots when consumed, not at this function call.
+Batches contain at most 256 entries and 1024 keyword references in total.
+Immutable strings have no length limit and are normalized/indexed cooperatively.
+Producer callbacks and a single native string/grapheme operation are indivisible.
 
 ```ts
 export declare function prepareSearchPickerIndex<
   TValue
 >(
-  entries: readonly SearchEntry<TValue>[],
+  batches: Iterable<readonly SearchEntry<TValue>[]>,
   context: CooperativeWorkContext
 ): Promise<SearchPickerIndex<TValue>>;
 ```
 
 Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`SearchPickerIndex`](#behavior-searchpickerindex), [`SearchEntry`](#collection-searchentry)
+
+<a id="behavior-preparesearchpickerindexupdate"></a>
+### prepareSearchPickerIndexUpdate
+
+function · beta · [source](../../src/behavior/search-picker-index.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+Same immutable-version computation, with per-batch ownership and cancellation.
+
+```ts
+export declare function prepareSearchPickerIndexUpdate<
+  TValue
+>(
+  index: SearchPickerIndex<TValue>,
+  batches: Iterable<readonly SearchPickerIndexChange<TValue>[]>,
+  context: CooperativeWorkContext
+): Promise<SearchPickerIndex<TValue>>;
+```
+
+Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`SearchPickerIndex`](#behavior-searchpickerindex), [`SearchPickerIndexChange`](#behavior-searchpickerindexchange)
 
 <a id="behavior-preparesearchpickerquery"></a>
 ### prepareSearchPickerQuery
@@ -6817,6 +6866,24 @@ export declare function treeReducer<
 ```
 
 Related types: [`TreeReducerOptions`](#behavior-treereduceroptions), [`ScrollableTreeState`](#components-collections-scrollabletreestate), [`TreeControlTransition`](#components-collections-treecontroltransition), [`TreeTransition`](#components-collections-treetransition), [`UnscrolledTreeState`](#components-collections-unscrolledtreestate)
+
+<a id="behavior-updatesearchpickerindex"></a>
+### updateSearchPickerIndex
+
+function · beta · [source](../../src/behavior/search-picker-index.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+```ts
+export declare function updateSearchPickerIndex<
+  TValue
+>(
+  index: SearchPickerIndex<TValue>,
+  changes: readonly SearchPickerIndexChange<TValue>[]
+): SearchPickerIndex<TValue>;
+```
+
+Related types: [`SearchPickerIndex`](#behavior-searchpickerindex), [`SearchPickerIndexChange`](#behavior-searchpickerindexchange)
 
 <a id="behavior-visiblelistboxentries"></a>
 ### visibleListboxEntries
@@ -15240,6 +15307,69 @@ export type PointerSelectionTransition<TCoordinate> = {
 };
 ```
 
+<a id="components-forms-preparedtextarealayout"></a>
+### PreparedTextAreaLayout
+
+interface · beta · [source](../../src/components/text-area/contracts.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
+
+Opaque, completed layout for one document and actual component allocation.
+Admit through the application's ordinary update messages before rendering.
+
+```ts
+export interface PreparedTextAreaLayout { … }
+```
+
+<a id="components-forms-preparedtextarealayout--preparedtextarealayoutbrand-"></a>
+#### [preparedTextAreaLayoutBrand]
+
+```ts
+readonly [preparedTextAreaLayoutBrand]: true;
+```
+
+<a id="components-forms-preparedtextarealayout-document"></a>
+#### document
+
+```ts
+readonly document: TextDocument;
+```
+
+<a id="components-forms-preparedtextarealayout-width"></a>
+#### width
+
+```ts
+readonly width: number;
+```
+
+<a id="components-forms-preparedtextarealayout-height"></a>
+#### height
+
+```ts
+readonly height: number;
+```
+
+<a id="components-forms-preparedtextarealayout-wrap"></a>
+#### wrap
+
+```ts
+readonly wrap: boolean;
+```
+
+<a id="components-forms-preparedtextarealayout-widthprofile"></a>
+#### widthProfile
+
+```ts
+readonly widthProfile: TextWidthProfile;
+```
+
+<a id="components-forms-preparedtextarealayout-theme"></a>
+#### theme
+
+```ts
+readonly theme: TerminalTheme;
+```
+
 <a id="components-forms-radiogroupoptions"></a>
 ### RadioGroupOptions
 
@@ -15651,6 +15781,76 @@ export type TextAreaKeyAction = TextEditingKeyAction | 'moveLineUp' | 'moveLineD
 ```
 
 Related types: [`TextEditingKeyAction`](#components-forms-texteditingkeyaction)
+
+<a id="components-forms-textarealayoutrequest"></a>
+### TextAreaLayoutRequest
+
+interface · beta · [source](../../src/components/text-area/contracts.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
+
+Actual measurement queries and allocation from an accepted pending frame.
+Prepare this opaque request in an application effect, then admit its result.
+
+```ts
+export interface TextAreaLayoutRequest { … }
+```
+
+<a id="components-forms-textarealayoutrequest--textarealayoutrequestbrand-"></a>
+#### [textAreaLayoutRequestBrand]
+
+```ts
+readonly [textAreaLayoutRequestBrand]: true;
+```
+
+<a id="components-forms-textarealayoutrequest-document"></a>
+#### document
+
+```ts
+readonly document: TextDocument;
+```
+
+<a id="components-forms-textarealayoutrequest-layoutrevision"></a>
+#### layoutRevision
+
+```ts
+readonly layoutRevision: string;
+```
+
+<a id="components-forms-textarealayoutrequest-width"></a>
+#### width
+
+```ts
+readonly width: number;
+```
+
+<a id="components-forms-textarealayoutrequest-height"></a>
+#### height
+
+```ts
+readonly height: number;
+```
+
+<a id="components-forms-textarealayoutrequest-theme"></a>
+#### theme
+
+```ts
+readonly theme: TerminalTheme;
+```
+
+<a id="components-forms-textarealayoutrequest-widthprofile"></a>
+#### widthProfile
+
+```ts
+readonly widthProfile: TextWidthProfile;
+```
+
+<a id="components-forms-textarealayoutrequest-measurementwidths"></a>
+#### measurementWidths
+
+```ts
+readonly measurementWidths: readonly number[];
+```
 
 <a id="components-forms-textarealayoutsnapshot"></a>
 ### TextAreaLayoutSnapshot
@@ -16285,6 +16485,26 @@ export declare function passwordInput<
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`PasswordInputOptions`](#components-forms-passwordinputoptions)
+
+<a id="components-forms-preparetextarealayout"></a>
+### prepareTextAreaLayout
+
+function · beta · [source](../../src/components/text-area/preparation.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
+
+Complete actual measurement/allocation work requested by an accepted pending
+frame. Admit the result through an ordinary application update message.
+Native projection callbacks and an indivisible grapheme cannot be preempted.
+
+```ts
+export declare function prepareTextAreaLayout(
+  request: TextAreaLayoutRequest,
+  context: CooperativeWorkContext
+): Promise<PreparedTextAreaLayout>;
+```
+
+Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`PreparedTextAreaLayout`](#components-forms-preparedtextarealayout), [`TextAreaLayoutRequest`](#components-forms-textarealayoutrequest)
 
 <a id="components-forms-radiogroup"></a>
 ### radioGroup
@@ -32363,7 +32583,7 @@ type · beta · [source](../../src/renderer/contracts.ts)
 Import from: `@ismail-elkorchi/terminal-ui/renderer` (type only)
 
 ```ts
-export type RenderWorkKind = 'normalized_records' | 'query_candidates' | 'layout_nodes' | 'unique_nodes' | 'measurement_calls' | 'measurement_misses' | 'render_hooks' | 'focus_target_visits' | 'region_target_visits' | 'target_index_entries' | 'frame_index_builds' | 'buffer_segmentations' | 'buffer_segmented_code_units' | 'region_allocations' | 'interval_operations' | 'cell_transfer_calls' | 'accessibility_hooks' | 'region_cells' | 'snapshot_rows' | 'snapshot_cells' | 'diff_output_cells' | 'hit_targets' | 'diff_rows' | 'cell_comparisons' | 'diff_operations' | 'encoded_bytes';
+export type RenderWorkKind = 'normalized_records' | 'query_candidates' | 'layout_nodes' | 'unique_nodes' | 'measurement_calls' | 'measurement_misses' | 'render_hooks' | 'focus_target_visits' | 'region_target_visits' | 'target_index_entries' | 'frame_index_builds' | 'buffer_segmentations' | 'buffer_segmented_code_units' | 'region_allocations' | 'interval_operations' | 'cell_transfer_calls' | 'accessibility_hooks' | 'region_cells' | 'snapshot_rows' | 'snapshot_cells' | 'snapshot_materializations' | 'snapshot_materialized_cells' | 'diff_output_cells' | 'hit_targets' | 'diff_rows' | 'cell_comparisons' | 'diff_operations' | 'encoded_bytes';
 ```
 
 <a id="renderer-renderworkmeasurement"></a>
@@ -34777,6 +34997,127 @@ export interface PadTextCellsOptions extends TextMeasurementOptions { … }
 readonly align?: TextCellAlignment;
 ```
 
+<a id="text-preparedtextbuffer"></a>
+### PreparedTextBuffer
+
+interface · beta · [source](../../src/text/preparation.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/text` (type only)
+
+```ts
+export interface PreparedTextBuffer { … }
+```
+
+<a id="text-preparedtextbuffer-buffer"></a>
+#### buffer
+
+Exact adopted source, for ordinary update-message revision admission.
+
+```ts
+readonly buffer: TextEditBuffer;
+```
+
+<a id="text-preparedtextbuffer-text"></a>
+#### text
+
+```ts
+readonly text: string;
+```
+
+<a id="text-preparedtextbuffer-request"></a>
+#### request
+
+```ts
+readonly request: PreparedTextRequest;
+```
+
+<a id="text-preparedtextdocumentline"></a>
+### PreparedTextDocumentLine
+
+interface · beta · [source](../../src/text/preparation.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/text` (type only)
+
+```ts
+export interface PreparedTextDocumentLine { … }
+```
+
+<a id="text-preparedtextdocumentline-document"></a>
+#### document
+
+Immutable document identity; do not apply completion to a newer revision.
+
+```ts
+readonly document: TextDocument;
+```
+
+<a id="text-preparedtextdocumentline-lineindex"></a>
+#### lineIndex
+
+```ts
+readonly lineIndex: number;
+```
+
+<a id="text-preparedtextdocumentline-request"></a>
+#### request
+
+```ts
+readonly request: PreparedTextRequest;
+```
+
+<a id="text-preparedtextrequest"></a>
+### PreparedTextRequest
+
+interface · beta · [source](../../src/text/preparation.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/text` (type only)
+
+```ts
+export interface PreparedTextRequest { … }
+```
+
+<a id="text-preparedtextrequest-throughoffset"></a>
+#### throughOffset
+
+```ts
+readonly throughOffset: number;
+```
+
+<a id="text-preparedtextrequest-throughcolumncells"></a>
+#### throughColumnCells
+
+```ts
+readonly throughColumnCells?: number;
+```
+
+<a id="text-preparedtextrequest-geometry"></a>
+#### geometry
+
+```ts
+readonly geometry: boolean;
+```
+
+<a id="text-preparedtextrequest-words"></a>
+#### words
+
+```ts
+readonly words: boolean;
+```
+
+<a id="text-preparedtextrequest-locale"></a>
+#### locale
+
+```ts
+readonly locale: string;
+```
+
+<a id="text-preparedtextrequest-widthprofile"></a>
+#### widthProfile
+
+```ts
+readonly widthProfile: TextWidthProfile;
+```
+
 <a id="text-querymatchmode"></a>
 ### QueryMatchMode
 
@@ -35715,6 +36056,49 @@ readonly offset: number;
 readonly affinity: TextAffinity;
 ```
 
+<a id="text-textpreparationrequest"></a>
+### TextPreparationRequest
+
+interface · beta · [source](../../src/text/preparation.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/text` (type only)
+
+Offsets are UTF-16 units relative to the buffer or requested document line.
+A missing offset prepares the full source, or only the requested column when
+throughColumnCells is supplied. Geometry and word data are opt-in.
+
+```ts
+export interface TextPreparationRequest extends TextIndexOptions { … }
+```
+
+<a id="text-textpreparationrequest-throughoffset"></a>
+#### throughOffset
+
+```ts
+readonly throughOffset?: number;
+```
+
+<a id="text-textpreparationrequest-throughcolumncells"></a>
+#### throughColumnCells
+
+```ts
+readonly throughColumnCells?: number;
+```
+
+<a id="text-textpreparationrequest-geometry"></a>
+#### geometry
+
+```ts
+readonly geometry?: boolean;
+```
+
+<a id="text-textpreparationrequest-words"></a>
+#### words
+
+```ts
+readonly words?: boolean;
+```
+
 <a id="text-textselection"></a>
 ### TextSelection
 
@@ -36378,6 +36762,62 @@ export declare function padTextCells(text: string, targetCells: number, options?
 ```
 
 Related types: [`text`](#components-foundations-text), [`PadTextCellsOptions`](#text-padtextcellsoptions)
+
+<a id="text-preparetextbuffer"></a>
+### prepareTextBuffer
+
+function · beta · [source](../../src/text/preparation.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/text`
+
+Prepare data only. The normal update path remains responsible for ordered edits.
+
+```ts
+export declare function prepareTextBuffer(
+  buffer: TextEditBuffer,
+  request: TextPreparationRequest,
+  context: CooperativeWorkContext
+): Promise<PreparedTextBuffer>;
+```
+
+Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`PreparedTextBuffer`](#text-preparedtextbuffer), [`TextEditBuffer`](#text-texteditbuffer), [`TextPreparationRequest`](#text-textpreparationrequest)
+
+<a id="text-preparetextdocument"></a>
+### prepareTextDocument
+
+function · beta · [source](../../src/text/preparation.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/text`
+
+Construct an immutable document cooperatively for large-file activation.
+
+```ts
+export declare function prepareTextDocument(text: string, context: CooperativeWorkContext): Promise<TextDocument>;
+```
+
+Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`text`](#components-foundations-text), [`TextDocument`](#text-textdocument)
+
+<a id="text-preparetextdocumentline"></a>
+### prepareTextDocumentLine
+
+function · beta · [source](../../src/text/preparation.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/text`
+
+Cold boundaries, words and prefix geometry share the synchronous owner's work.
+Locale-word native setup needs the entire line; native callbacks and a single
+enormous grapheme cannot be preempted. Checkpoints bound the surrounding work.
+
+```ts
+export declare function prepareTextDocumentLine(
+  document: TextDocument,
+  lineIndex: number,
+  request: TextPreparationRequest,
+  context: CooperativeWorkContext
+): Promise<PreparedTextDocumentLine>;
+```
+
+Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`PreparedTextDocumentLine`](#text-preparedtextdocumentline), [`TextDocument`](#text-textdocument), [`TextPreparationRequest`](#text-textpreparationrequest)
 
 <a id="text-previousgraphemeboundary"></a>
 ### previousGraphemeBoundary

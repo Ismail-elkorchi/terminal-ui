@@ -236,6 +236,8 @@ export type RenderWorkKind =
   | 'region_cells'
   | 'snapshot_rows'
   | 'snapshot_cells'
+  | 'snapshot_materializations'
+  | 'snapshot_materialized_cells'
   | 'diff_output_cells'
   | 'hit_targets'
   | 'diff_rows'

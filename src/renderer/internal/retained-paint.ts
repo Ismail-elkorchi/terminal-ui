@@ -1,26 +1,16 @@
+import { sameModelDependencies } from '../../visual/model-dependencies.ts';
 import { sameRect } from '../../geometry/rect.ts';
 import type { Rect } from '../../geometry/types.ts';
-import type { GraphicPlacementInput } from '../../graphics/types.ts';
 import type { FocusPath } from '../../interaction/focus.ts';
-import type { FrameCell, RenderTarget } from '../contracts.ts';
-import type { FrameBufferSpan } from '../frame-buffer.ts';
-import {
-  recordTargetSegmentation,
-  registerSpanTarget,
-  transferFrameBufferSpans,
-  transferFrameCell,
-} from '../frame-buffer.ts';
+import type { RenderTarget } from '../contracts.ts';
+import type { RetainedFramePaint } from '../frame-buffer.ts';
+import { captureFramePaint, restoreFramePaint } from '../frame-buffer.ts';
 import type { RenderRegion } from './render-regions.ts';
 import { hitTargetOwnerIdentity } from './render-regions.ts';
 import type { RenderNode, RenderNodeRenderInput } from './render-tree/types.ts';
 
-type PaintOperation =
-  | { readonly kind: 'spans'; readonly row: number; readonly column: number; readonly spans: readonly FrameBufferSpan[] }
-  | { readonly kind: 'cell'; readonly cell: FrameCell }
-  | { readonly kind: 'clear'; readonly rect?: Rect }
-  | { readonly kind: 'graphic'; readonly placement: GraphicPlacementInput };
-// Only fixed renderer-owned descriptors are compared by value. Component models,
-// styles and theme resources are opaque immutable identities, never object graphs.
+// Only explicitly owned visual descriptors are compared by value. Custom models
+// and theme resources remain opaque immutable identities, never object graphs.
 interface PaintDependencies {
   readonly definition: unknown;
   readonly id: string | undefined;
@@ -43,8 +33,8 @@ interface PaintDependencies {
 }
 
 function sameDependencies(a: PaintDependencies, b: PaintDependencies): boolean {
-  return a.definition === b.definition && a.id === b.id && Object.is(a.model, b.model)
-    && a.accessibleName === b.accessibleName && a.styles === b.styles && a.theme === b.theme
+  return a.definition === b.definition && a.id === b.id && sameModelDependencies(a.model, b.model, 'paint')
+    && a.accessibleName === b.accessibleName && sameModelDependencies(a.styles, b.styles, 'paint') && a.theme === b.theme
     && sameRect(a.bounds, b.bounds) && sameRect(a.viewport, b.viewport)
     && a.disabled === b.disabled && a.busy === b.busy && a.readOnly === b.readOnly && a.inert === b.inert
     && a.emoji === b.emoji && a.ambiguous === b.ambiguous && a.focus === b.focus
@@ -53,7 +43,7 @@ function sameDependencies(a: PaintDependencies, b: PaintDependencies): boolean {
 }
 interface PaintRecord {
   readonly dependencies: PaintDependencies;
-  readonly operations: readonly PaintOperation[];
+  readonly storage: RetainedFramePaint;
 }
 const caches = new WeakMap<readonly RenderRegion[], ReadonlyMap<string, PaintRecord>>();
 
@@ -87,44 +77,15 @@ export function createPaintRetention(previous?: readonly RenderRegion[]) {
       };
       const key = hitTargetOwnerIdentity(path, input.layoutNode.identity);
       let record = prior?.get(key);
-      if (record !== undefined && sameDependencies(record.dependencies, dependencies)) {
-        for (const operation of record.operations) replay(input.buffer, operation);
-      } else {
-        const operations: PaintOperation[] = [];
-        render(recordingTarget(input.buffer, operations));
-        record = { dependencies, operations };
+      if (record === undefined || !sameDependencies(record.dependencies, dependencies)
+        || !restoreFramePaint(input.buffer, record.storage)) {
+        const storage = captureFramePaint(input.buffer, () => { render(input.buffer); });
+        if (storage === undefined) return true;
+        record = { dependencies, storage };
       }
       next.set(key, record);
       return true;
     },
     commit(regions: readonly RenderRegion[]): void { caches.set(regions, next); },
   };
-}
-
-function replay(target: RenderTarget, operation: PaintOperation): void {
-  switch (operation.kind) {
-    case 'spans': transferFrameBufferSpans(target, operation.row, operation.column, operation.spans); break;
-    case 'cell': transferFrameCell(target, operation.cell); break;
-    case 'clear': target.clear(operation.rect); break;
-    case 'graphic': target.placeGraphic(operation.placement); break;
-  }
-}
-
-/** Record admitted drawing commands during the real paint: no extra buffers or snapshots. */
-function recordingTarget(target: RenderTarget, operations: PaintOperation[]): RenderTarget {
-  const record = (operation: PaintOperation): void => { operations.push(operation); replay(target, operation); };
-  return registerSpanTarget({
-    ...(target.coordinateSpace === undefined ? {} : { coordinateSpace: target.coordinateSpace }),
-    width: target.width, height: target.height, widthProfile: target.widthProfile,
-    write(row, column, spans) { target.write(row, column, spans); },
-    writeLine(row, column, line) { target.writeLine(row, column, line); },
-    writeBlock(row, column, block) { target.writeBlock(row, column, block); },
-    writeCell(cell) { target.writeCell(cell); },
-    clear(rect) { record({ kind: 'clear', ...(rect === undefined ? {} : { rect: Object.freeze({ ...rect }) }) }); },
-    placeGraphic(placement) { record({ kind: 'graphic', placement }); },
-  }, {
-    transfer(row, column, spans) { record({ kind: 'spans', row, column, spans }); },
-    cell(cell) { record({ kind: 'cell', cell }); },
-    segmented(codeUnits) { recordTargetSegmentation(target, codeUnits); },
-  });
 }

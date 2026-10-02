@@ -1,20 +1,32 @@
+import { finishWork } from '../foundation/cooperative-work.ts';
 import type { RowOffsetMap } from './types.ts';
 
 export function createRowOffsetMap(
   rowSourceOffsets: readonly number[]
 ): RowOffsetMap {
+  return finishWork(createRowOffsetMapWork(rowSourceOffsets));
+}
+
+/** Shared validation and ownership for large cooperative layout observations. */
+export function* createRowOffsetMapWork(rowSourceOffsets: readonly number[]): Generator<void, RowOffsetMap> {
   if (!Array.isArray(rowSourceOffsets)) {
     throw new TypeError('Row source offsets must be an array.');
   }
-  const offsets: readonly number[] = Object.freeze(rowSourceOffsets.map((offset: number, row: number) => {
+  const source: readonly number[] = rowSourceOffsets;
+  const offsets: number[] = [];
+  for (let row = 0; row < source.length; row += 1) {
+    const offset = source[row];
+    if (offset === undefined) throw new RangeError(`Row source offset ${String(row)} must be a non-negative safe integer.`);
     if (!Number.isSafeInteger(offset) || offset < 0) {
       throw new RangeError(`Row source offset ${String(row)} must be a non-negative safe integer.`);
     }
     if (row > 0 && offset < (rowSourceOffsets[row - 1] ?? 0)) {
       throw new RangeError('Row source offsets must be monotonically ordered.');
     }
-    return offset;
-  }));
+    offsets.push(offset);
+    if (offsets.length % 128 === 0) yield;
+  }
+  Object.freeze(offsets);
   return Object.freeze({
     rowCount: offsets.length,
     sourceOffsetAtRow(row: number): number {

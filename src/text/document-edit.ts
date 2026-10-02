@@ -11,7 +11,7 @@ import {
   textDocumentLineIndexAtOffset,
   textDocumentSelectionRange,
 } from './document.ts';
-import { createSourceTextIndex } from './terminal-text-index.ts';
+import { sourceGeometry } from './source-geometry.ts';
 import { nextSourceBoundary, previousSourceBoundary } from './text-range.ts';
 import type {
   TextCaret,
@@ -20,12 +20,7 @@ import type {
   TextIndexOptions,
   TextPosition,
 } from './types.ts';
-import { textWidthProfileKey } from './width-profile.ts';
-import { standaloneWordBoundaryIndex } from './word-boundaries.ts';
-
-const lineIndexCacheLimit = 33_554_432;
-const lineIndexCache = new Map<string, ReturnType<typeof createSourceTextIndex>>();
-let lineIndexCacheBytes = 0;
+import { ownedWordBoundaryIndex } from './word-boundaries.ts';
 
 export interface TextDocumentEditState {
   readonly document: TextDocument;
@@ -227,18 +222,16 @@ function moveByLine(
   options: TextIndexOptions
 ): TextDocumentEditResult {
   const current = lineContaining(state.document, caret.position.offset);
-  const currentIndex = textIndexForLine(state.document, current, options);
-  const local = Math.max(0, Math.min(current.text.length, caret.position.offset - current.startOffset));
+  const local = caret.position.offset - current.startOffset;
   const preferred = caret.preferredColumnCells
-    ?? currentIndex.graphemeIndexToVisualColumn(currentIndex.codeUnitOffsetToGraphemeIndex(local));
+    ?? sourceGeometry(textDocumentLineBoundaries(state.document, current), options).columnAt(local);
   const targetIndex = Math.max(
     0,
     Math.min(textDocumentLineCount(state.document) - 1, current.lineIndex + delta)
   );
   const target = textDocumentLineAt(state.document, targetIndex) ?? current;
-  const targetText = textIndexForLine(state.document, target, options);
-  const grapheme = targetText.visualColumnToGraphemeIndex(preferred);
-  const offset = target.startOffset + targetText.graphemeIndexToCodeUnitOffset(grapheme);
+  const offset = target.startOffset
+    + sourceGeometry(textDocumentLineBoundaries(state.document, target), options).offsetAt(preferred);
   return move(state, caret, selection, offset, 'downstream', selecting, preferred);
 }
 
@@ -284,7 +277,7 @@ function previousWordOffset(
   if (offset === line.startOffset && line.lineIndex > 0) {
     return textDocumentLineAt(document, line.lineIndex - 1)?.endOffsetExclusive ?? offset;
   }
-  return line.startOffset + standaloneWordBoundaryIndex(line.text, options).previous(
+  return line.startOffset + ownedWordBoundaryIndex(textDocumentLineBoundaries(document, line), options).previous(
     offset - line.startOffset
   );
 }
@@ -299,38 +292,9 @@ function nextWordOffset(
     && line.lineIndex < textDocumentLineCount(document) - 1) {
     return textDocumentLineAt(document, line.lineIndex + 1)?.startOffset ?? offset;
   }
-  return line.startOffset + standaloneWordBoundaryIndex(line.text, options).next(
+  return line.startOffset + ownedWordBoundaryIndex(textDocumentLineBoundaries(document, line), options).next(
     offset - line.startOffset
   );
-}
-
-function textIndexForLine(
-  document: TextDocument,
-  line: NonNullable<ReturnType<typeof textDocumentLineAt>>,
-  options: TextIndexOptions = {}
-): ReturnType<typeof createSourceTextIndex> {
-  const key = `${options.locale ?? 'en'}\u0000${textWidthProfileKey(options.widthProfile)}\u0000${line.text}`;
-  const cached = lineIndexCache.get(key);
-  if (cached !== undefined) {
-    lineIndexCache.delete(key);
-    lineIndexCache.set(key, cached);
-    return cached;
-  }
-  const index = createSourceTextIndex(line.text, options, textDocumentLineBoundaries(document, line));
-  // Grapheme objects and offsets dominate retained memory. Reject an oversized
-  // line rather than letting one entry defeat the global revision budget.
-  const weight = key.length * 2 + index.graphemes.length * 160;
-  if (weight <= lineIndexCacheLimit / 2) {
-    lineIndexCache.set(key, index);
-    lineIndexCacheBytes += weight;
-    while (lineIndexCacheBytes > lineIndexCacheLimit) {
-      const oldest = lineIndexCache.entries().next().value;
-      if (oldest === undefined) break;
-      lineIndexCache.delete(oldest[0]);
-      lineIndexCacheBytes -= oldest[0].length * 2 + oldest[1].graphemes.length * 160;
-    }
-  }
-  return index;
 }
 
 function lineContaining(document: TextDocument, offset: number): NonNullable<ReturnType<typeof textDocumentLineAt>> {

@@ -1,11 +1,13 @@
+import { isNonArrayObject } from '../foundation/validation.ts';
 import { finishWork, stableSortWork } from '../foundation/cooperative-work.ts';
 import { sanitizeTerminalTextWork } from './sanitize.ts';
-import type { CompiledTextSearchQuery, TextSearchIndex } from './search-index.ts';
+import type { CompiledTextSearchQuery, TextSearchIndex, TextSearchTokens } from './search-index.ts';
 import {
   compileTextSearchQueryWork,
   createTextSearchIndexWork,
   textSearchOffset,
-  textMatchEvents,
+  textTokenMatchEvents,
+  foldTextSearchTokensWork,
 } from './search-index.ts';
 
 export type QueryMatchMode = 'contains' | 'prefix' | 'exact' | 'fuzzy';
@@ -50,14 +52,14 @@ export interface QueryMatchRange {
   readonly end: number;
 }
 
-interface IndexedQueryField {
-  readonly text: string;
-  readonly original: TextSearchIndex;
-  folded?: TextSearchIndex;
+interface QueryIndexOwner {
+  readonly id: string;
+  readonly group?: string;
 }
 
 interface QueryCandidateIndex {
-  readonly fields: readonly IndexedQueryField[];
+  readonly fields: readonly TextSearchIndex[];
+  readonly folded: (TextSearchTokens | undefined)[];
   readonly boundedAscii: boolean;
 }
 
@@ -69,10 +71,6 @@ const queryCandidateIndexes = new WeakMap<object, QueryCandidateIndex>();
 const canonicalQueries = new Map<string, CompiledCollectionQuery>();
 let canonicalQueryWeight = 0;
 const compiledQueries = new WeakMap<object, CompiledQueryData>();
-
-function isNonArrayObject(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 /** Compare owned request descriptors without compiling or walking source content. */
 export function sameCollectionQueryRequest(left: CollectionQuery | undefined, right: CollectionQuery | undefined): boolean {
@@ -96,23 +94,27 @@ export function* compileCollectionQueryWork(query: unknown): Generator<void, Com
   const key = `${mode}:${sensitive ? '1' : '0'}:${normalizedText}`;
   const cached = canonicalQueries.get(key);
   if (cached !== undefined) return cached;
+  const search = yield* compileTextSearchQueryWork(normalizedText, { caseSensitive: sensitive });
+  // Another preparer or synchronous reader can admit this key while we yield.
+  // Reuse its canonical owner instead of counting replacement storage twice.
+  const admitted = canonicalQueries.get(key);
+  if (admitted !== undefined) return admitted;
   const indexed = Object.freeze({
     kind: 'compiled-collection-query' as const,
     text: normalizedText,
     mode,
     caseSensitive: sensitive
   });
-  compiledQueries.set(indexed, Object.freeze({
-    search: yield* compileTextSearchQueryWork(normalizedText, { caseSensitive: sensitive })
-  }));
+  compiledQueries.set(indexed, Object.freeze({ search }));
   if (key.length <= 4096) {
     canonicalQueries.set(key, indexed);
-    canonicalQueryWeight += key.length;
+    canonicalQueryWeight += key.length * 2 + collectionQueryStorageBytes(indexed);
     while (canonicalQueries.size > 256 || canonicalQueryWeight > 65536) {
       const oldest = canonicalQueries.keys().next().value;
       if (oldest === undefined) break;
+      const removed = canonicalQueries.get(oldest);
       canonicalQueries.delete(oldest);
-      canonicalQueryWeight -= oldest.length;
+      canonicalQueryWeight -= oldest.length * 2 + (removed === undefined ? 0 : collectionQueryStorageBytes(removed));
     }
   }
   return indexed;
@@ -140,6 +142,14 @@ export function collectionQuerySearch(query: CompiledCollectionQuery): CompiledT
   return data.search;
 }
 
+/** Conservative retained storage units, including compiled tokens and failure indexes. */
+export function collectionQueryStorageBytes(query: CompiledCollectionQuery): number {
+  const search = collectionQuerySearch(query);
+  // Three UTF-16 units per source unit also covers expanding lowercase mappings.
+  // Charge token slots conservatively even when the compact ASCII string is used.
+  return 64 + query.text.length * 8 + search.graphemes.length * 8 + search.failure.byteLength;
+}
+
 export function indexQueryCandidate(candidate: QueryCandidate): IndexedQueryCandidate;
 export function indexQueryCandidate(candidate: unknown): IndexedQueryCandidate {
   return finishWork(indexQueryCandidateWork(candidate));
@@ -154,15 +164,23 @@ export function* indexQueryCandidateWork(candidate: unknown): Generator<void, In
     ...(secondary === undefined ? {} : { secondary }),
     ...(candidate.group === undefined ? {} : { group: candidate.group }),
   });
-  const fields: IndexedQueryField[] = [];
-  for (const text of [indexed.primary, ...(indexed.secondary ?? [])]) {
-    fields.push({ text, original: yield* createTextSearchIndexWork(text, { caseSensitive: true }) });
-    if (fields.length % 256 === 0) yield;
-  }
-  queryCandidateIndexes.set(indexed, Object.freeze({ fields: Object.freeze(fields),
-    boundedAscii: fields.length <= 8 && fields.every(field => typeof field.original.graphemes === 'string' && field.text.length <= 256),
-  }));
+  yield* indexQueryFieldsWork(indexed, [indexed.primary, ...(indexed.secondary ?? [])]);
   return indexed;
+}
+
+/** Register fields on the existing domain owner, without a second candidate descriptor. */
+export function* indexQueryFieldsWork(owner: QueryIndexOwner, fields: Iterable<string>): Generator<void, void> {
+  const indexes: TextSearchIndex[] = [];
+  let boundedAscii = true;
+  for (const text of fields) {
+    if (typeof text !== 'string') throw new TypeError('query candidate fields must be strings.');
+    const index = yield* createTextSearchIndexWork(text, { caseSensitive: true });
+    indexes.push(index);
+    boundedAscii &&= typeof index.graphemes === 'string' && text.length <= 256;
+    if (indexes.length % 256 === 0) yield;
+  }
+  queryCandidateIndexes.set(owner, { fields: Object.freeze(indexes), folded: [],
+    boundedAscii: boundedAscii && indexes.length <= 8 });
 }
 
 export function matchCollectionQuery(
@@ -183,7 +201,7 @@ export function matchCompiledCollectionQuery(
 }
 
 export function* matchCompiledCollectionQueryWork(
-  candidate: IndexedQueryCandidate, query: CompiledCollectionQuery,
+  candidate: QueryIndexOwner, query: CompiledCollectionQuery,
 ): Generator<void, QueryMatch | undefined> {
   const candidateData = queryCandidateIndexes.get(candidate);
   if (candidateData === undefined) throw new TypeError('candidate must be created by indexQueryCandidate().');
@@ -198,11 +216,11 @@ export function* matchCompiledCollectionQueryWork(
       : 400 - Math.max(0, queryData.search.graphemes.length - 1);
   let best: { readonly score: number; readonly indexes: readonly number[]; readonly fieldIndex: number } | undefined;
   for (const [fieldIndex, field] of candidateData.fields.entries()) {
-    const haystack = query.caseSensitive ? field.original
-      : field.folded ??= yield* createTextSearchIndexWork(field.text);
-    const match = typeof haystack.graphemes === 'string' && typeof queryData.search.graphemes === 'string'
-      && haystack.graphemes.length <= 2048 && queryData.search.graphemes.length <= 32
-      ? matchBoundedAscii(haystack.graphemes, queryData.search.graphemes, query.mode)
+    const haystack = query.caseSensitive ? field.graphemes
+      : candidateData.folded[fieldIndex] ??= yield* foldTextSearchTokensWork(field);
+    const match = typeof haystack === 'string' && typeof queryData.search.graphemes === 'string'
+      && haystack.length <= 2048 && queryData.search.graphemes.length <= 32
+      ? matchBoundedAscii(haystack, queryData.search.graphemes, query.mode)
       : yield* matchGraphemesWork(haystack, queryData.search, query.mode);
     if (match !== undefined && (best === undefined || match.score > best.score)) {
       best = { ...match, fieldIndex };
@@ -241,7 +259,7 @@ export function queryIndexedCandidates(
 
 /** Cooperative scan and stable merge sort; no full-result native sort. */
 export function* queryIndexedCandidatesWork(
-  candidates: readonly IndexedQueryCandidate[],
+  candidates: readonly QueryIndexOwner[],
   query: CompiledCollectionQuery,
 ): Generator<void, readonly QueryMatch[]> {
   const matches: QueryMatch[] = [];
@@ -324,7 +342,7 @@ function assertQueryCandidate(candidate: unknown, index?: number): asserts candi
 }
 
 const unboundedMatch = Symbol('unbounded-match');
-function boundedCandidateMatch(candidate: IndexedQueryCandidate, data: QueryCandidateIndex,
+function boundedCandidateMatch(candidate: QueryIndexOwner, data: QueryCandidateIndex,
   query: CompiledCollectionQuery, search: CompiledTextSearchQuery): QueryMatch | undefined | typeof unboundedMatch {
   if (!data.boundedAscii || typeof search.graphemes !== 'string' || search.graphemes.length > 32) return unboundedMatch;
   if (search.graphemes.length === 0) return queryMatch(candidate, 0, []);
@@ -334,8 +352,8 @@ function boundedCandidateMatch(candidate: IndexedQueryCandidate, data: QueryCand
   for (let fieldIndex = 0; fieldIndex < data.fields.length; fieldIndex += 1) {
     const field = data.fields[fieldIndex];
     if (field === undefined) continue;
-    const text = query.caseSensitive ? field.original : field.folded ??= Object.freeze({ graphemes: field.text.toLowerCase() });
-    const match = matchBoundedAscii(text.graphemes as string, search.graphemes, query.mode);
+    const text = query.caseSensitive ? field.graphemes : data.folded[fieldIndex] ??= (field.graphemes as string).toLowerCase();
+    const match = matchBoundedAscii(text as string, search.graphemes, query.mode);
     if (match !== undefined && (best === undefined || match.score > best.score)) {
       best = { ...match, fieldIndex };
       if (best.score >= maximum) break;
@@ -367,15 +385,13 @@ function matchBoundedAscii(text: string, needle: string, mode: QueryMatchMode): 
 }
 
 function* matchGraphemesWork(
-  index: TextSearchIndex, query: CompiledTextSearchQuery, mode: QueryMatchMode,
+  text: TextSearchTokens, query: CompiledTextSearchQuery, mode: QueryMatchMode,
 ): Generator<void, { readonly score: number; readonly indexes: readonly number[] } | undefined> {
-  const text = index.graphemes;
   const needle = query.graphemes;
   const indexes: number[] = [];
   let operations = 0;
-  if (mode === 'exact' && text.length !== needle.length) return undefined;
+  if (needle.length > text.length || (mode === 'exact' && text.length !== needle.length)) return undefined;
   if (mode === 'exact' || mode === 'prefix') {
-    if (needle.length > text.length) return undefined;
     for (let i = 0; i < needle.length; i += 1) {
       if (text[i] !== needle[i]) return undefined;
       indexes.push(i);
@@ -384,7 +400,7 @@ function* matchGraphemesWork(
     return { score: mode === 'exact' ? 1000 : 800 - text.length, indexes };
   }
   if (mode === 'contains') {
-    for (const start of textMatchEvents(index, query)) {
+    for (const start of textTokenMatchEvents(text, query)) {
       if (start === undefined) { yield; continue; }
       for (let n = 0; n < needle.length; n += 1) {
         indexes.push(start + n);
@@ -415,7 +431,7 @@ function* matchGraphemesWork(
 }
 
 function* rangesForIndexesWork(
-  field: IndexedQueryField | undefined,
+  field: TextSearchIndex | undefined,
   fieldIndex: number,
   indexes: readonly number[]
 ): Generator<void, readonly QueryMatchRange[]> {
@@ -430,9 +446,9 @@ function* rangesForIndexesWork(
       previous = current;
       continue;
     }
-    const first = textSearchOffset(field.original, runStart);
-    const last = textSearchOffset(field.original, previous + 1);
-    if (runStart < field.original.graphemes.length) {
+    const first = textSearchOffset(field, runStart);
+    const last = textSearchOffset(field, previous + 1);
+    if (runStart < field.graphemes.length) {
       ranges.push(Object.freeze({
         field: fieldIndex === 0 ? 'primary' : 'secondary',
         fieldIndex: fieldIndex === 0 ? 0 : fieldIndex - 1,
@@ -449,7 +465,7 @@ function* rangesForIndexesWork(
 }
 
 function queryMatch(
-  candidate: IndexedQueryCandidate,
+  candidate: QueryIndexOwner,
   score: number,
   ranges: readonly QueryMatchRange[]
 ): QueryMatch {

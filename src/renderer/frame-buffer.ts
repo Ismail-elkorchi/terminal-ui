@@ -1,5 +1,6 @@
 import { createAccessibleSnapshot } from '../accessibility/snapshot.ts';
 import type { AccessibleSnapshot } from '../accessibility/types.ts';
+import { intersectRects, sameRect } from '../geometry/rect.ts';
 import type { Rect } from '../geometry/types.ts';
 import { isRasterImage } from '../graphics/raster-image.ts';
 import type { GraphicPlacement, GraphicPlacementInput } from '../graphics/types.ts';
@@ -38,7 +39,7 @@ import { DirtyCoverageAccumulator } from './internal/dirty-coverage.ts';
 import { sameFrameCell } from './internal/frame-cell-equality.ts';
 import { assertFrameDimensions } from './internal/frame-limits.ts';
 import type { FrameRowFingerprint, FrameSnapshotRowIndex } from './internal/frame-snapshot.ts';
-import { frameSnapshotMetadata, registerFrameSnapshotMetadata } from './internal/frame-snapshot.ts';
+import { registerFrameSnapshotMetadata } from './internal/frame-snapshot.ts';
 
 const snapshotWork = new WeakMap<Frame, { readonly rows: number; readonly cells: number }>();
 export function frameSnapshotWork(frame: Frame): { readonly rows: number; readonly cells: number } {
@@ -103,6 +104,87 @@ export function createCompositingFrameBuffer(
     true,
     options.instrumentation,
   );
+}
+
+/** Region storage stays in terminal coordinates; no translated snapshot or cell graph. */
+export function createRegionFrameBuffer(
+  width: number, height: number, bounds: Rect, options: FrameBufferOptions = {},
+): FrameBuffer {
+  return new CellFrameBuffer(width, height,
+    defineTextWidthProfile(options.widthProfile ?? defaultTextWidthProfile), true,
+    options.instrumentation, bounds);
+}
+
+type StoredRow = ReadonlyMap<number, FrameCell>;
+const snapshotsByRow = new WeakMap<StoredRow, Map<TerminalStyle | undefined, FrameSnapshotRowIndex>>();
+const mergeableByRow = new WeakMap<StoredRow, readonly FrameCell[]>();
+interface FrameStorage {
+  readonly rows: ReadonlyMap<number, StoredRow>;
+  readonly graphics: ReadonlyMap<string, GraphicPlacement>;
+  readonly canvasStyleOverride: TerminalStyle | undefined;
+}
+interface PaintRowPatch {
+  readonly row: number;
+  readonly before: StoredRow | undefined;
+  readonly after: StoredRow | undefined;
+  readonly intervals: readonly Rect[];
+}
+/** Private admitted drawing state, published only after a complete successful paint. */
+export interface RetainedFramePaint {
+  readonly context: {
+    readonly width: number;
+    readonly height: number;
+    readonly widthProfile: TextWidthProfile;
+    readonly bounds: Rect | undefined;
+    readonly inheritBackground: boolean;
+  };
+  readonly rows: readonly PaintRowPatch[];
+  readonly graphicsBefore: ReadonlyMap<string, GraphicPlacement>;
+  readonly graphicsAfter: ReadonlyMap<string, GraphicPlacement>;
+  readonly written: DirtyRegionSet;
+  readonly cleared: DirtyRegionSet;
+}
+interface PaintCapture {
+  readonly before: Map<number, StoredRow | undefined>;
+  readonly written: DirtyCoverageAccumulator;
+  readonly cleared: DirtyCoverageAccumulator;
+  readonly read: DirtyCoverageAccumulator;
+}
+export interface FrameBufferCheckpoint {
+  readonly width: number;
+  readonly height: number;
+  readonly widthProfile: TextWidthProfile;
+}
+const storageByFrame = new WeakMap<Frame | FrameBufferCheckpoint, FrameStorage>();
+const storageOwners = new WeakMap<RenderTarget, CellFrameBuffer>();
+
+/** Bounded aliases share the existing region owner, never another renderer. */
+export function registerFrameBufferAlias<T extends RenderTarget>(target: T, owner: RenderTarget): T {
+  const storage = storageOwners.get(owner);
+  if (storage !== undefined) storageOwners.set(target, storage);
+  return target;
+}
+export function captureFramePaint(target: RenderTarget, paint: () => void): RetainedFramePaint | undefined {
+  const owner = storageOwners.get(target);
+  if (owner === undefined) { paint(); return undefined; }
+  return owner[capturePaint](paint);
+}
+export function restoreFramePaint(target: RenderTarget, patch: RetainedFramePaint): boolean {
+  return storageOwners.get(target)?.[restorePaint](patch) ?? false;
+}
+/** Forks immutable committed storage. The first write copies only its touched row. */
+export function checkpointFrameBuffer(buffer: FrameBuffer): FrameBufferCheckpoint {
+  if (!(buffer instanceof CellFrameBuffer)) throw new TypeError('Only framework-owned frame storage can be retained.');
+  return buffer[checkpointStorage]();
+}
+export function restoreFrameBufferStorage(buffer: FrameBuffer, previous: Frame | FrameBufferCheckpoint): boolean {
+  const storage = storageByFrame.get(previous);
+  if (!(buffer instanceof CellFrameBuffer) || storage === undefined
+    || buffer.width !== previous.width || buffer.height !== previous.height
+    || buffer.widthProfile.emoji !== previous.widthProfile.emoji
+    || buffer.widthProfile.ambiguous !== previous.widthProfile.ambiguous) return false;
+  buffer[restoreStorage](storage);
+  return true;
 }
 
 export function blitFrameCell(buffer: RenderTarget, cell: FrameCell): void {
@@ -176,6 +258,11 @@ export function applyImplicitCanvasBackdrop(
   return buffer instanceof CellFrameBuffer && buffer[applyBackdrop](bounds, style);
 }
 
+/** Reapplies an unchanged implicit canvas backdrop only within recomposed damage. */
+export function applyRetainedCanvasBackdrop(buffer: FrameBuffer, bounds: Rect, style: TerminalStyle): void {
+  if (buffer instanceof CellFrameBuffer) buffer[applyBackdrop](bounds, style, true);
+}
+
 export function mergeableFrameCells(buffer: FrameBuffer): readonly FrameCell[] {
   if (buffer instanceof CellFrameBuffer) return buffer[mergeableCells]();
   return buffer.snapshot().cells.filter(isMergeableFrameCell);
@@ -188,16 +275,14 @@ export function captureFrameBufferDamage(buffer: FrameBuffer, operation: () => v
   return buffer[captureDamage](operation);
 }
 
-/** Supplies immutable row metadata for structural sharing on the next snapshot. */
-export function retainFrameBufferRows(buffer: FrameBuffer, previous: Frame): void {
-  if (buffer instanceof CellFrameBuffer && buffer.width === previous.width && buffer.height === previous.height) {
-    seedFrameBufferRows(buffer, frameSnapshotMetadata(previous)?.rowIndexes ?? []);
-  }
-}
 export function seedFrameBufferRows(buffer: FrameBuffer, rows: readonly FrameSnapshotRowIndex[]): void {
   if (buffer instanceof CellFrameBuffer) buffer[retainRows](rows);
 }
 const retainRows = Symbol('terminal-ui.retain-frame-rows');
+const capturePaint = Symbol('terminal-ui.capture-frame-paint');
+const restorePaint = Symbol('terminal-ui.restore-frame-paint');
+const restoreStorage = Symbol('terminal-ui.restore-frame-storage');
+const checkpointStorage = Symbol('terminal-ui.checkpoint-frame-storage');
 
 const blitCell = Symbol('terminal-ui.blit-frame-cell');
 const transferCell = Symbol('terminal-ui.transfer-frame-cell');
@@ -212,16 +297,20 @@ class CellFrameBuffer implements FrameBuffer {
   readonly height: number;
   readonly widthProfile: TextWidthProfile;
 
-  private readonly rows = new Map<number, Map<number, FrameCell>>();
-  private readonly graphics = new Map<string, GraphicPlacement>();
+  private readonly rows = new Map<number, StoredRow>();
+  private readonly mutableRows = new Set<number>();
+  private readonly paintScopes: PaintCapture[] = [];
+  private readonly storageBounds: Rect | undefined;
+  private graphics: ReadonlyMap<string, GraphicPlacement> = new Map();
   private readonly inheritBackground: boolean;
-  private readonly mergeableCellValues = new Set<FrameCell>();
+
   private readonly writtenCoverage = new DirtyCoverageAccumulator();
   private readonly clearedCoverage = new DirtyCoverageAccumulator();
   private readonly damageScopes: DirtyCoverageAccumulator[] = [];
   private previousRows = new Map<number, FrameSnapshotRowIndex>();
   private canvasStyleOverride: TerminalStyle | undefined;
   private readonly onSegmentation?: (codeUnits: number) => void;
+  private readonly instrumentation: Pick<RenderInstrumentation, 'recordWork'> | undefined;
 
   constructor(
     width: number,
@@ -229,12 +318,16 @@ class CellFrameBuffer implements FrameBuffer {
     widthProfile: TextWidthProfile,
     inheritBackground: boolean,
     instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
+    storageBounds?: Rect,
   ) {
     assertFrameDimensions(width, height);
     this.width = width;
     this.height = height;
     this.widthProfile = widthProfile;
+    this.instrumentation = instrumentation;
     this.inheritBackground = inheritBackground;
+    this.storageBounds = storageBounds === undefined ? undefined : Object.freeze({ ...storageBounds });
+    storageOwners.set(this, this);
     registerSpanTarget(this, {
       cell: cell => { this[transferCell](cell); },
       transfer: (row, column, spans) => { this[transferSpans](row, column, spans); },
@@ -267,7 +360,7 @@ class CellFrameBuffer implements FrameBuffer {
           this.appendCombining(row, nextColumn, segment.text);
           continue;
         }
-        if (nextColumn >= 1 && nextColumn + segment.cells - 1 <= this.width) {
+        if (this.containsCell(row, nextColumn) && this.containsCell(row, nextColumn + segment.cells - 1)) {
           this.writeGrapheme(row, nextColumn, {
             text: segment.text,
             width: segment.cells,
@@ -317,16 +410,18 @@ class CellFrameBuffer implements FrameBuffer {
       : decodeGraphicRect(input.clip, 'clip');
     const clip = this.clipRectIntersection(bounds, requestedClip);
     if (clip === undefined) {
-      this.graphics.delete(input.id);
+      this.removeGraphic(input.id);
       return;
     }
-    this.graphics.set(input.id, Object.freeze({
+    const graphics = new Map(this.graphics);
+    graphics.set(input.id, Object.freeze({
       id: input.id,
       image: input.image,
       bounds: Object.freeze(bounds),
       fit,
       clip: Object.freeze(clip),
     }));
+    this.graphics = graphics;
     this.recordWrite(clip);
   }
 
@@ -352,8 +447,8 @@ class CellFrameBuffer implements FrameBuffer {
     this.recordClear(clipped);
     if (clipped.row === 1 && clipped.column === 1 && clipped.width === this.width && clipped.height === this.height) {
       this.rows.clear();
-      this.graphics.clear();
-      this.mergeableCellValues.clear();
+      this.graphics = new Map();
+      this.mutableRows.clear();
       return;
     }
     this.occludeGraphics(clipped);
@@ -371,22 +466,29 @@ class CellFrameBuffer implements FrameBuffer {
     if (this.graphics.size === 0) return;
     const clipped = this.clipRect(rect);
     if (clipped === undefined) return;
-    for (const [id, placement] of [...this.graphics]) {
+    const graphics = new Map(this.graphics);
+    for (const [id, placement] of this.graphics) {
       if (!rectsOverlap(placement.clip, clipped)) continue;
-      this.graphics.delete(id);
+      graphics.delete(id);
       for (const fragment of subtractRect(placement.clip, clipped)) {
         const fragmentId = `${placement.id}#${String(fragment.row)}:${String(fragment.column)}:${String(fragment.width)}:${String(fragment.height)}`;
-        this.graphics.set(fragmentId, Object.freeze({
+        graphics.set(fragmentId, Object.freeze({
           ...placement,
           id: fragmentId,
           clip: Object.freeze(fragment),
         }));
       }
     }
+    this.graphics = graphics;
   }
 
   removeGraphic(id: string): void {
-    this.graphics.delete(id);
+    const previous = this.graphics.get(id);
+    if (previous === undefined) return;
+    this.recordClear(previous.clip);
+    const graphics = new Map(this.graphics);
+    graphics.delete(id);
+    this.graphics = graphics;
   }
 
   snapshot(options: FrameBufferSnapshotOptions = {}): FrameBufferSnapshot {
@@ -415,13 +517,15 @@ class CellFrameBuffer implements FrameBuffer {
       height: this.height,
       widthProfile: this.widthProfile,
       ...(canvasStyle === undefined ? {} : { canvasStyle }),
-      cells,
+      get cells() { return cells(); },
       graphics: Object.freeze([...this.graphics.values()]),
       accessibility,
       ...(options.hitTargets === undefined ? {} : { hitTargets: immutableHitTargets(options.hitTargets) }),
       ...(cursor === undefined ? {} : { cursor }),
       ...(options.focusPath === undefined ? {} : { focusPath: Object.freeze([...options.focusPath]) })
     }) as FrameBufferSnapshot;
+    this.mutableRows.clear();
+    storageByFrame.set(frame, { rows: new Map(this.rows), graphics: this.graphics, canvasStyleOverride: this.canvasStyleOverride });
     snapshotWork.set(frame, work);
     return registerFrameSnapshotMetadata(frame, Object.freeze({
       writtenBounds: this.writtenCoverage.toDirtyRegionSet(),
@@ -435,7 +539,7 @@ class CellFrameBuffer implements FrameBuffer {
 
   [blitCell](cell: FrameCell): void {
     if (cell.continuation === true || !this.containsCell(cell.row, cell.column)) return;
-    if (cell.width < 1 || cell.column + cell.width - 1 > this.width) return;
+    if (cell.width < 1 || !this.containsCell(cell.row, cell.column + cell.width - 1)) return;
     const text = sanitizeTerminalCellText(cell.text, { widthProfile: this.widthProfile }).text;
     if (text.length === 0) return;
     const measured = measureTextCells(text, { widthProfile: this.widthProfile }, this.onSegmentation);
@@ -455,7 +559,7 @@ class CellFrameBuffer implements FrameBuffer {
 
   [transferCell](cell: FrameCell): void {
     if (cell.continuation === true || !this.containsCell(cell.row, cell.column)) return;
-    if (cell.width < 1 || cell.column + cell.width - 1 > this.width) return;
+    if (cell.width < 1 || !this.containsCell(cell.row, cell.column + cell.width - 1)) return;
     if (cell.width === 1 && this.cellAt(cell.row, cell.column) === undefined) {
       if (this.graphics.size > 0) this.occludeGraphics({ row: cell.row, column: cell.column, width: 1, height: 1 });
       this.recordWriteSpan(cell.row, cell.column, 1);
@@ -484,7 +588,7 @@ class CellFrameBuffer implements FrameBuffer {
           this.appendCombining(row, nextColumn, grapheme.text);
           continue;
         }
-        if (nextColumn >= 1 && nextColumn + grapheme.cells - 1 <= this.width) {
+        if (this.containsCell(row, nextColumn) && this.containsCell(row, nextColumn + grapheme.cells - 1)) {
           this.writeGrapheme(row, nextColumn, {
             text: grapheme.text,
             width: grapheme.cells,
@@ -501,14 +605,14 @@ class CellFrameBuffer implements FrameBuffer {
   /** Admit an unobstructed run once, reusing immutable cells before allocating replacements. */
   private writeSimpleSpan(row: number, column: number, span: FrameBufferSpan): boolean {
     const width = span.graphemes.length;
-    if (width === 0 || column < 1 || column + width - 1 > this.width) return false;
-    const cells = this.rows.get(row) ?? new Map<number, FrameCell>();
+    if (width === 0 || !this.containsCell(row, column) || !this.containsCell(row, column + width - 1)) return false;
+    const stored = this.rows.get(row);
     for (let offset = 0; offset < width; offset += 1) {
-      if (span.graphemes[offset]?.cells !== 1 || cells.has(column + offset)) return false;
+      if (span.graphemes[offset]?.cells !== 1 || stored?.has(column + offset) === true) return false;
     }
     this.occludeGraphics({ row, column, width, height: 1 });
     this.recordWriteSpan(row, column, width);
-    this.rows.set(row, cells);
+    const cells = this.mutableRow(row);
     const previous = this.previousRows.get(row)?.cells;
     for (const [offset, grapheme] of span.graphemes.entries()) {
       const position = column + offset;
@@ -523,23 +627,25 @@ class CellFrameBuffer implements FrameBuffer {
             ...(span.source === undefined ? {} : { source: span.source }),
           });
       cells.set(position, cell);
-      if (isMergeableFrameCell(cell)) this.mergeableCellValues.add(cell);
+
     }
     return true;
   }
 
-  [applyBackdrop](bounds: Rect, style: TerminalStyle): boolean {
+  [applyBackdrop](bounds: Rect, style: TerminalStyle, retained = false): boolean {
     const clipped = this.clipRect(bounds);
-    if (clipped?.row !== 1
+    if (clipped === undefined || !retained && (clipped.row !== 1
       || clipped.column !== 1
       || clipped.width !== this.width
-      || clipped.height !== this.height) return false;
+      || clipped.height !== this.height)) return false;
     const backdrop = decodeTerminalStyle(style, 'Frame canvas backdrop style');
-    this.canvasStyleOverride = this.canvasStyleOverride === undefined
+    if (!retained) this.canvasStyleOverride = this.canvasStyleOverride === undefined
       ? backdrop
       : effectiveCellStyle(this.canvasStyleOverride, backdrop);
     for (const [row, cells] of this.rows) {
+      if (row < clipped.row || row >= clipped.row + clipped.height) continue;
       for (const cell of [...cells.values()]) {
+        if (cell.column < clipped.column || cell.column >= clipped.column + clipped.width) continue;
         const style = cell.style === undefined ? backdrop : effectiveCellStyle(cell.style, backdrop);
         if (style === cell.style && cell.link === undefined) continue;
         const unlinked = { ...cell };
@@ -554,8 +660,12 @@ class CellFrameBuffer implements FrameBuffer {
   }
 
   [mergeableCells](): readonly FrameCell[] {
-    return Object.freeze([...this.mergeableCellValues]
-      .toSorted((left, right) => left.row - right.row || left.column - right.column));
+    this.mutableRows.clear();
+    return Object.freeze([...this.rows.values()].flatMap(row => {
+      let cells = mergeableByRow.get(row);
+      if (cells === undefined) { cells = Object.freeze([...row.values()].filter(isMergeableFrameCell)); mergeableByRow.set(row, cells); }
+      return cells;
+    }).toSorted((left, right) => left.row - right.row || left.column - right.column));
   }
 
   [captureDamage](operation: () => void): DirtyRegionSet {
@@ -573,12 +683,118 @@ class CellFrameBuffer implements FrameBuffer {
     this.previousRows = new Map(rows.map(row => [row.row, row]));
   }
 
+  [checkpointStorage](): FrameBufferCheckpoint {
+    this.mutableRows.clear();
+    const checkpoint = Object.freeze({ width: this.width, height: this.height, widthProfile: this.widthProfile });
+    storageByFrame.set(checkpoint, { rows: new Map(this.rows), graphics: this.graphics, canvasStyleOverride: this.canvasStyleOverride });
+    return checkpoint;
+  }
+
+  [restoreStorage](storage: FrameStorage): void {
+    this.rows.clear();
+    for (const [row, cells] of storage.rows) this.rows.set(row, cells);
+    this.mutableRows.clear();
+    this.graphics = storage.graphics;
+    this.canvasStyleOverride = storage.canvasStyleOverride;
+  }
+
+  [capturePaint](paint: () => void): RetainedFramePaint {
+    this.mutableRows.clear();
+    const graphicsBefore = this.graphics;
+    const scope: PaintCapture = { before: new Map(), written: new DirtyCoverageAccumulator(), cleared: new DirtyCoverageAccumulator(), read: new DirtyCoverageAccumulator() };
+    this.paintScopes.push(scope);
+    try {
+      paint();
+      this.mutableRows.clear();
+      const written = scope.written.toDirtyRegionSet();
+      const cleared = scope.cleared.toDirtyRegionSet();
+      const coverage = written.union(cleared).union(scope.read.toDirtyRegionSet());
+      return Object.freeze({
+        context: Object.freeze({ width: this.width, height: this.height, widthProfile: this.widthProfile, bounds: this.storageBounds, inheritBackground: this.inheritBackground }),
+        rows: Object.freeze([...scope.before].map(([row, before]) => Object.freeze({
+          row, before, after: this.rows.get(row),
+          intervals: coverage.rects.filter(rect => row >= rect.row && row < rect.row + rect.height),
+        }))),
+        graphicsBefore, graphicsAfter: this.graphics, written, cleared,
+      });
+    } finally {
+      this.paintScopes.pop();
+    }
+  }
+
+  [restorePaint](patch: RetainedFramePaint): boolean {
+    if (!this.samePaintContext(patch.context) || !sameGraphics(this.graphics, patch.graphicsBefore)) return false;
+    // An earlier overlapping paint may change inherited backgrounds or wide-cell occupancy.
+    // Validate every input witness before adopting anything, so a miss is atomic.
+    for (const entry of patch.rows) {
+      const current = this.rows.get(entry.row);
+      if (current === entry.before) continue;
+      for (const rect of entry.intervals) {
+        for (let column = rect.column; column < rect.column + rect.width; column += 1) {
+          if (!sameFrameCell(current?.get(column), entry.before?.get(column))) return false;
+        }
+      }
+    }
+    for (const entry of patch.rows) {
+      this.captureRow(entry.row);
+      for (const scope of this.paintScopes) for (const rect of entry.intervals) {
+        scope.read.addSpan(entry.row, rect.column, rect.width);
+      }
+    }
+    for (const rect of patch.written.rects) this.recordWrite(rect);
+    for (const rect of patch.cleared.rects) this.recordClear(rect);
+    for (const entry of patch.rows) {
+      const current = this.rows.get(entry.row);
+      if (current === entry.before || sameStoredRow(current, entry.before)) {
+        if (entry.after === undefined) this.rows.delete(entry.row);
+        else this.rows.set(entry.row, entry.after);
+        this.mutableRows.delete(entry.row);
+      } else {
+        const cells = this.mutableRow(entry.row);
+        for (const rect of entry.intervals) {
+          for (let column = rect.column; column < rect.column + rect.width; column += 1) {
+            const cell = entry.after?.get(column);
+            if (cell === undefined) cells.delete(column);
+            else cells.set(column, cell);
+          }
+        }
+        if (cells.size === 0) this.rows.delete(entry.row);
+      }
+    }
+    this.graphics = patch.graphicsAfter;
+    return true;
+  }
+
+  private samePaintContext(context: RetainedFramePaint['context']): boolean {
+    return context.width === this.width && context.height === this.height
+      && context.widthProfile.emoji === this.widthProfile.emoji && context.widthProfile.ambiguous === this.widthProfile.ambiguous
+      && context.inheritBackground === this.inheritBackground && sameOptionalBounds(context.bounds, this.storageBounds);
+  }
+
+  private captureRow(row: number): void {
+    for (const scope of this.paintScopes) {
+      if (!scope.before.has(row)) scope.before.set(row, this.rows.get(row));
+    }
+  }
+
+  private mutableRow(row: number): Map<number, FrameCell> {
+    this.captureRow(row);
+    const current = this.rows.get(row);
+    if (current !== undefined && this.mutableRows.has(row)) return current as Map<number, FrameCell>;
+    const cells = new Map(current);
+    this.rows.set(row, cells);
+    this.mutableRows.add(row);
+    return cells;
+  }
+
   private containsRow(row: number): boolean {
-    return Number.isInteger(row) && row >= 1 && row <= this.height;
+    return Number.isInteger(row) && row >= 1 && row <= this.height
+      && (this.storageBounds === undefined || row >= this.storageBounds.row && row < this.storageBounds.row + this.storageBounds.height);
   }
 
   private containsCell(row: number, column: number): boolean {
-    return this.containsRow(row) && Number.isInteger(column) && column >= 1 && column <= this.width;
+    return this.containsRow(row) && Number.isInteger(column) && column >= 1 && column <= this.width
+      && (this.storageBounds === undefined || column >= this.storageBounds.column && column < this.storageBounds.column + this.storageBounds.width);
   }
 
   private clipRect(rect: Rect): Rect | undefined {
@@ -588,61 +804,59 @@ class CellFrameBuffer implements FrameBuffer {
     const right = Math.min(this.width + 1, Math.floor(rect.column) + Math.max(0, Math.floor(rect.width)));
     const width = Math.max(0, right - column);
     const height = Math.max(0, bottom - row);
-    return width === 0 || height === 0 ? undefined : { row, column, width, height };
+    const result = width === 0 || height === 0 ? undefined : { row, column, width, height };
+    return result === undefined || this.storageBounds === undefined ? result : intersectRects(result, this.storageBounds);
   }
 
   private snapshotCellsAndFingerprints(canvasStyle?: TerminalStyle): {
-    readonly cells: readonly FrameCell[];
+    readonly cells: () => readonly FrameCell[];
     readonly rowFingerprints: readonly FrameRowFingerprint[];
     readonly rowIndexes: readonly FrameSnapshotRowIndex[];
     readonly work: { readonly rows: number; readonly cells: number };
   } {
+    // Cache only sealed rows, including when later cursor/options validation fails.
+    this.mutableRows.clear();
     const work = { rows: 0, cells: 0 };
-    const output: FrameCell[] = [];
     const rowFingerprints: FrameRowFingerprint[] = [];
     const rowIndexes: FrameSnapshotRowIndex[] = [];
-    for (let row = 1; row <= this.height; row += 1) {
-      let rowHash = fnvOffset;
-      let terminalRowHash = fnvOffset;
-      const cells = this.rows.get(row);
+    for (const [row, cells] of [...this.rows].sort(([left], [right]) => left - right)) {
+      const cached = snapshotsByRow.get(cells)?.get(canvasStyle);
       const previous = this.previousRows.get(row);
-      if (previous !== undefined && cells?.size === previous.cells.size
+      let snapshot = cached;
+      if (snapshot === undefined && cells.size === previous?.cells.size
         && [...cells.values()].every(cell => sameFrameCell(previous.cells.get(cell.column), effectiveCanvasCell(cell, canvasStyle)))) {
-        output.push(...previous.cells.values());
-        rowFingerprints.push({ row, fingerprint: previous.fingerprint, terminalFingerprint: previous.terminalFingerprint });
-        rowIndexes.push(previous);
-        continue;
+        snapshot = previous;
+        if (canvasStyle === undefined) this.rows.set(row, previous.cells);
       }
-      work.rows += 1;
-      work.cells += cells?.size ?? 0;
-      const indexedCells = new Map<number, FrameCell>();
-      const renderable: FrameCell[] = [];
-      for (const storedCell of cells === undefined
-        ? []
-        : [...cells.values()].toSorted((left, right) => left.column - right.column)) {
-        const cell = effectiveCanvasCell(storedCell, canvasStyle);
-        output.push(cell);
-        indexedCells.set(cell.column, cell);
-        if (cell.continuation !== true) renderable.push(cell);
-        rowHash = hashFrameCell(rowHash, cell);
-        terminalRowHash = hashTerminalFrameCell(terminalRowHash, cell);
+      if (snapshot === undefined) {
+        work.rows += 1;
+        work.cells += cells.size;
+        let rowHash = fnvOffset;
+        let terminalRowHash = fnvOffset;
+        const indexedCells = new Map<number, FrameCell>();
+        const renderable: FrameCell[] = [];
+        for (const storedCell of [...cells.values()].sort((left, right) => left.column - right.column)) {
+          const cell = effectiveCanvasCell(storedCell, canvasStyle);
+          indexedCells.set(cell.column, cell);
+          if (cell.continuation !== true) renderable.push(cell);
+          rowHash = hashFrameCell(rowHash, cell);
+          terminalRowHash = hashTerminalFrameCell(terminalRowHash, cell);
+        }
+        snapshot = Object.freeze({ row, cells: indexedCells, renderable: Object.freeze(renderable),
+          fingerprint: hashToString(rowHash), terminalFingerprint: hashToString(terminalRowHash) });
       }
-      const fingerprint = hashToString(rowHash);
-      const terminalFingerprint = hashToString(terminalRowHash);
-      rowFingerprints.push(Object.freeze({ row, fingerprint, terminalFingerprint }));
-      if (indexedCells.size > 0) {
-        rowIndexes.push(Object.freeze({
-          row,
-          cells: indexedCells,
-          renderable: Object.freeze(renderable),
-          fingerprint,
-          terminalFingerprint,
-        }));
-      }
+      let byStyle = snapshotsByRow.get(cells);
+      if (byStyle === undefined) { byStyle = new Map(); snapshotsByRow.set(cells, byStyle); }
+      byStyle.set(canvasStyle, snapshot);
+      // A retained row may outlive many theme changes. Keep only the current pair
+      // of raw/projected views rather than every historical canvas-style graph.
+      while (byStyle.size > 2) byStyle.delete(byStyle.keys().next().value);
+      rowFingerprints.push(snapshot);
+      rowIndexes.push(snapshot);
     }
     return {
       work,
-      cells: Object.freeze(output),
+      cells: snapshotCellMaterializer(rowIndexes, this.instrumentation),
       rowFingerprints: Object.freeze(rowFingerprints),
       rowIndexes: Object.freeze(rowIndexes)
     };
@@ -693,6 +907,10 @@ class CellFrameBuffer implements FrameBuffer {
   private appendCombining(row: number, nextColumn: number, text: string): void {
     const targetColumn = nextColumn - 1;
     if (!this.containsCell(row, targetColumn)) return;
+    // Even an absent/continuation target is an input dependency: a later lower
+    // paint can make this formerly no-op combining write produce visible text.
+    this.captureRow(row);
+    for (const scope of this.paintScopes) scope.read.addSpan(row, targetColumn, 1);
     const target = this.cellAt(row, targetColumn);
     if (target === undefined || target.continuation === true) return;
     this.markWritten(target.row, target.column, Math.max(1, target.width));
@@ -731,6 +949,7 @@ class CellFrameBuffer implements FrameBuffer {
   private deleteCellSpan(cell: FrameCell, coverage: 'write' | 'none'): void {
     const width = Math.max(1, cell.width);
     if (coverage === 'write') this.markWritten(cell.row, cell.column, width);
+    else this.recordClear({ row: cell.row, column: cell.column, width, height: 1 });
     for (let offset = 0; offset < width; offset += 1) {
       this.deleteCell(cell.row, cell.column + offset);
     }
@@ -743,23 +962,15 @@ class CellFrameBuffer implements FrameBuffer {
 
   private setCell(row: number, column: number, cell: FrameCell): void {
     if (!this.containsCell(row, column)) return;
-    const cells = this.rows.get(row) ?? new Map<number, FrameCell>();
-    this.rows.set(row, cells);
-    const previous = cells.get(column);
-    if (previous !== undefined) this.mergeableCellValues.delete(previous);
-    const immutable = Object.freeze(cell);
-    cells.set(column, immutable);
-    if (isMergeableFrameCell(immutable)) this.mergeableCellValues.add(immutable);
+    if (sameFrameCell(this.rows.get(row)?.get(column), cell)) return;
+    this.mutableRow(row).set(column, Object.freeze(cell));
   }
 
   private deleteCell(row: number, column: number): void {
-    if (!this.containsCell(row, column)) return;
-    const cells = this.rows.get(row);
-    const previous = cells?.get(column);
-    if (previous === undefined) return;
-    cells?.delete(column);
-    this.mergeableCellValues.delete(previous);
-    if (cells?.size === 0) this.rows.delete(row);
+    if (!this.containsCell(row, column) || this.rows.get(row)?.has(column) !== true) return;
+    const cells = this.mutableRow(row);
+    cells.delete(column);
+    if (cells.size === 0) this.rows.delete(row);
   }
 
   private markWritten(row: number, column: number, width: number): void {
@@ -771,16 +982,22 @@ class CellFrameBuffer implements FrameBuffer {
 
   private recordWrite(rect: Rect): void {
     this.writtenCoverage.add(rect);
+    for (let row = rect.row; row < rect.row + rect.height; row += 1) this.captureRow(row);
+    for (const scope of this.paintScopes) scope.written.add(rect);
     for (const damage of this.damageScopes) damage.add(rect);
   }
 
   private recordWriteSpan(row: number, column: number, width: number): void {
+    this.captureRow(row);
     this.writtenCoverage.addSpan(row, column, width);
+    for (const scope of this.paintScopes) scope.written.addSpan(row, column, width);
     for (const damage of this.damageScopes) damage.addSpan(row, column, width);
   }
 
   private recordClear(rect: Rect): void {
     this.clearedCoverage.add(rect);
+    for (let row = rect.row; row < rect.row + rect.height; row += 1) this.captureRow(row);
+    for (const scope of this.paintScopes) scope.cleared.add(rect);
     for (const damage of this.damageScopes) damage.add(rect);
   }
 }
@@ -1052,4 +1269,35 @@ function hashCodeUnit(hash: number, value: number): number {
 
 function hashToString(hash: number): string {
   return hash.toString(16).padStart(8, '0');
+}
+
+function sameStoredRow(left: StoredRow | undefined, right: StoredRow | undefined): boolean {
+  if (left === right) return true;
+  if ((left?.size ?? 0) !== (right?.size ?? 0)) return false;
+  for (const [column, cell] of left ?? []) if (!sameFrameCell(cell, right?.get(column))) return false;
+  return true;
+}
+
+function sameGraphics(left: ReadonlyMap<string, GraphicPlacement>, right: ReadonlyMap<string, GraphicPlacement>): boolean {
+  if (left === right) return true;
+  if (left.size !== right.size) return false;
+  for (const [id, placement] of left) if (right.get(id) !== placement) return false;
+  return true;
+}
+
+function sameOptionalBounds(left: Rect | undefined, right: Rect | undefined): boolean {
+  return left === undefined || right === undefined ? left === right : sameRect(left, right);
+}
+
+function snapshotCellMaterializer(
+  rows: readonly FrameSnapshotRowIndex[], instrumentation: Pick<RenderInstrumentation, 'recordWork'> | undefined,
+): () => readonly FrameCell[] {
+  let output: readonly FrameCell[] | undefined;
+  return () => {
+    if (output !== undefined) return output;
+    output = Object.freeze(rows.flatMap(row => [...row.cells.values()]));
+    instrumentation?.recordWork?.({ kind: 'snapshot_materializations', count: 1 });
+    instrumentation?.recordWork?.({ kind: 'snapshot_materialized_cells', count: output.length });
+    return output;
+  };
 }

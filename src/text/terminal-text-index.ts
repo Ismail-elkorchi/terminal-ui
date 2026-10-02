@@ -1,101 +1,63 @@
 import { sourceBoundaries } from './source-boundaries.ts';
 import type { SourceBoundaryIndex } from './source-boundaries.ts';
 import { segmentGraphemesForMeasurement } from './graphemes.ts';
-import { selectedText } from './text-range.ts';
-import type { TerminalTextIndex, TextIndexOptions, TextSelection } from './types.ts';
-import { createWordBoundaryIndex, lineSelectionAt } from './word-boundaries.ts';
+import { sourceGeometry } from './source-geometry.ts';
+import { clampTextOffset } from './text-range.ts';
+import type { GraphemeSegment, TerminalTextIndex, TextIndexOptions, TextSelection } from './types.ts';
+import { defineTextWidthProfile } from './width-profile.ts';
+import { ownedWordBoundaryIndex, lineSelectionAt } from './word-boundaries.ts';
 
 const encoder = new TextEncoder();
 
-export function createTerminalTextIndex(
-  text: string,
-  options: TextIndexOptions = {}
-): TerminalTextIndex {
-  return createSourceTextIndex(text, options, sourceBoundaries(text));
+export function createTerminalTextIndex(text: string, options: TextIndexOptions = {}): TerminalTextIndex {
+  return ownedTerminalTextIndex(sourceBoundaries(text), options);
 }
 
-export function createSourceTextIndex(text: string, options: TextIndexOptions, source: SourceBoundaryIndex): TerminalTextIndex {
-  const graphemes = segmentGraphemesForMeasurement(text, options, undefined, source);
-  const codeUnitOffsets = graphemeCodeUnitOffsets(graphemes, text.length);
-  const visualOffsets = visualColumnOffsets(graphemes);
+/** Internal adapter for revision-owned component geometry. Explicit grapheme and
+ * byte array requests may materialize; prefix/column operations never do. */
+export function ownedTerminalTextIndex(source: SourceBoundaryIndex, options: TextIndexOptions = {}): TerminalTextIndex {
+  const adopted = { ...options, widthProfile: defineTextWidthProfile(options.widthProfile) };
+  const geometry = sourceGeometry(source, adopted);
+  let materializedText: string | undefined;
+  const text = (): string => materializedText ??= source.source.slice(0);
+  let graphemes: readonly GraphemeSegment[] | undefined;
+  const measured = (): readonly GraphemeSegment[] => graphemes ??= segmentGraphemesForMeasurement(text(), adopted, undefined, source);
   let retainedByteOffsets: readonly number[] | undefined;
-  const byteOffsets = (): readonly number[] => {
-    retainedByteOffsets ??= utf8ByteOffsets(graphemes);
-    return retainedByteOffsets;
-  };
-  let words: ReturnType<typeof createWordBoundaryIndex> | undefined;
-  const wordIndex = (): ReturnType<typeof createWordBoundaryIndex> => {
-    words ??= createWordBoundaryIndex(text, codeUnitOffsets, options);
-    return words;
-  };
-
+  const byteOffsets = (): readonly number[] => retainedByteOffsets ??= utf8ByteOffsets(measured());
+  const wordIndex = () => ownedWordBoundaryIndex(source, adopted);
   return {
-    text,
-    graphemes,
-    cells: visualOffsets[visualOffsets.length - 1] ?? 0,
-    codeUnits: text.length,
-    get bytes() {
-      const offsets = byteOffsets();
-      return offsets[offsets.length - 1] ?? 0;
-    },
-    graphemeIndexToCodeUnitOffset(index) {
-      const bounded = clampIndex(index, graphemes.length);
-      return graphemes[bounded]?.startOffset ?? text.length;
-    },
-    codeUnitOffsetToGraphemeIndex(offset) {
-      return offsetToGraphemeIndex(offset, codeUnitOffsets, text.length);
-    },
-    graphemeIndexToVisualColumn(index) {
-      return visualOffsets[clampIndex(index, graphemes.length)] ?? 0;
-    },
-    visualColumnToGraphemeIndex(column) {
-      return offsetToGraphemeIndex(column, visualOffsets, visualOffsets[visualOffsets.length - 1] ?? 0);
-    },
+    get text() { return text(); },
+    get graphemes() { return measured(); },
+    get cells() { return geometry.columnAt(source.source.length); },
+    codeUnits: source.source.length,
+    get bytes() { return byteOffsets().at(-1) ?? 0; },
+    graphemeIndexToCodeUnitOffset(index) { return source.offsetAtIndex(index); },
+    codeUnitOffsetToGraphemeIndex(offset) { return source.indexAtOffset(offset); },
+    graphemeIndexToVisualColumn(index) { return geometry.columnAt(source.offsetAtIndex(index)); },
+    visualColumnToGraphemeIndex(column) { return source.indexAtOffset(geometry.offsetAt(column)); },
     graphemeIndexToByteOffset(index) {
-      return byteOffsets()[clampIndex(index, graphemes.length)] ?? 0;
+      const offsets = byteOffsets();
+      return offsets[clampIndex(index, offsets.length - 1)] ?? 0;
     },
     byteOffsetToGraphemeIndex(offset) {
       const offsets = byteOffsets();
-      return offsetToGraphemeIndex(offset, offsets, offsets[offsets.length - 1] ?? 0);
+      return offsetToGraphemeIndex(offset, offsets, offsets.at(-1) ?? 0);
     },
-    previousWordBoundary(offset) {
-      return wordIndex().previous(offset);
-    },
-    nextWordBoundary(offset) {
-      return wordIndex().next(offset);
-    },
-    wordSelectionAt(offset) {
-      return wordIndex().selectionAt(offset);
-    },
-    lineSelectionAt(offset) {
-      return lineSelectionAt(text, offset);
-    },
+    previousWordBoundary(offset) { return wordIndex().previous(offset); },
+    nextWordBoundary(offset) { return wordIndex().next(offset); },
+    wordSelectionAt(offset) { return wordIndex().selectionAt(offset); },
+    lineSelectionAt(offset) { return lineSelectionAt(text(), offset); },
     selectedText(selection: TextSelection) {
-      return selectedText(text, selection);
-    }
+      const start = clampTextOffset(Math.min(selection.startOffset, selection.endOffsetExclusive), source.source.length);
+      const end = clampTextOffset(Math.max(selection.startOffset, selection.endOffsetExclusive), source.source.length);
+      return source.source.slice(start, end);
+    },
   };
-}
-
-function visualColumnOffsets(graphemes: readonly { readonly cells: number }[]): readonly number[] {
-  const offsets = [0];
-  for (const segment of graphemes) {
-    offsets.push((offsets[offsets.length - 1] ?? 0) + segment.cells);
-  }
-  return offsets;
-}
-
-function graphemeCodeUnitOffsets(
-  graphemes: readonly { readonly startOffset: number }[],
-  textLength: number
-): readonly number[] {
-  return [...graphemes.map((segment) => segment.startOffset), textLength];
 }
 
 function utf8ByteOffsets(graphemes: readonly { readonly text: string }[]): readonly number[] {
   const offsets = [0];
-  for (const segment of graphemes) {
-    offsets.push((offsets[offsets.length - 1] ?? 0) + encoder.encode(segment.text).byteLength);
-  }
+  for (const segment of graphemes) offsets.push((offsets.at(-1) ?? 0) + encoder.encode(segment.text).byteLength);
   return offsets;
 }
 

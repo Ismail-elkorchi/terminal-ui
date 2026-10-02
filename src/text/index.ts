@@ -141,3 +141,7 @@ export {
   wordSelectionAt,
 } from './word-boundaries.ts';
 export { wrapTextCells } from './wrap.ts';
+
+export { prepareTextBuffer, prepareTextDocument, prepareTextDocumentLine } from './preparation.ts';
+export type { PreparedTextBuffer, PreparedTextDocumentLine, PreparedTextRequest, TextPreparationRequest } from './preparation.ts';
+export type { CooperativeWorkContext } from '../foundation/cooperative-work.ts';

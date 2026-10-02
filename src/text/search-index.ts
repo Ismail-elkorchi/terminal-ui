@@ -14,8 +14,10 @@ export interface TextHighlightOptions extends TextMeasurementOptions {
 }
 
 /** ASCII tokens are represented by the string itself. Unicode keeps original boundaries. */
+export type TextSearchTokens = string | readonly string[];
+
 export interface TextSearchIndex {
-  readonly graphemes: string | readonly string[];
+  readonly graphemes: TextSearchTokens;
   readonly offsets?: Uint32Array;
 }
 
@@ -70,6 +72,28 @@ export function* createTextSearchIndexWork(
   return Object.freeze({ graphemes: Object.freeze(tokens), offsets: ownedOffsets });
 }
 
+/** Fold the original tokens without resegmenting or allocating another offset table. */
+export function* foldTextSearchTokensWork(index: TextSearchIndex): Generator<void, TextSearchTokens> {
+  const original = index.graphemes;
+  if (typeof original === 'string') {
+    if (original.length <= 2048) return original.toLowerCase();
+    const pieces: string[] = [];
+    for (let start = 0; start < original.length; start += 2048) {
+      pieces.push(original.slice(start, start + 2048).toLowerCase());
+      yield;
+    }
+    return pieces.join('');
+  }
+  const folded: string[] = [];
+  let work = 0;
+  for (const token of original) {
+    folded.push(token.toLowerCase());
+    work += token.length + 1;
+    if (work >= 2048) { work = 0; yield; }
+  }
+  return Object.freeze(folded);
+}
+
 export function textSearchOffset(index: TextSearchIndex, position: number): number {
   return index.offsets?.[position] ?? position;
 }
@@ -107,7 +131,12 @@ export function* textMatchStarts(
 export function* textMatchEvents(
   index: TextSearchIndex, query: CompiledTextSearchQuery,
 ): Generator<number | undefined, void> {
-  const text = index.graphemes;
+  yield* textTokenMatchEvents(index.graphemes, query);
+}
+
+export function* textTokenMatchEvents(
+  text: TextSearchTokens, query: CompiledTextSearchQuery,
+): Generator<number | undefined, void> {
   const needle = query.graphemes;
   if (needle.length === 0) return;
   if (typeof text === 'string' && typeof needle === 'string' && text.length <= 2048 && needle.length <= 2048) {

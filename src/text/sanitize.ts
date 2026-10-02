@@ -48,8 +48,15 @@ export function sanitizeTerminalControlText(text: string): SanitizedTerminalText
 }
 
 /** Cooperative form of the same sanitizer used by direct text operations. */
-export function* sanitizeTerminalTextWork(text: string): Generator<void, SanitizedTerminalText> {
-  const result = sanitization(text, {}, 'multiline');
+export function* sanitizeTerminalTextWork(text: string, options: SanitizeTerminalTextOptions = {}): Generator<void, SanitizedTerminalText> {
+  const adopted = { ...options, ...(options.widthProfile === undefined ? {} : { widthProfile: { ...options.widthProfile } }) };
+  const result = sanitization(text, adopted, 'multiline');
+  return 'text' in result ? result : yield* result;
+}
+
+/** Cooperative source-preserving control stripping for projected editors. */
+export function* sanitizeTerminalControlTextWork(text: string): Generator<void, SanitizedTerminalText> {
+  const result = sanitization(text, {}, 'control');
   return 'text' in result ? result : yield* result;
 }
 

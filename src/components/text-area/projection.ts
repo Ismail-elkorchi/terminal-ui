@@ -1,13 +1,15 @@
-import type { TextDocument } from '../../text/document.ts';
+import { finishWork, stableSortWork } from '../../foundation/cooperative-work.ts';
+import type { TextDocument, TextDocumentLine } from '../../text/document.ts';
 import {
-  createTextDocument,
+  createTextDocumentWork,
   normalizeTextDocumentOffset,
-  textDocumentApplyChangesExact,
+  textDocumentApplyChangesExactWork,
   textDocumentCanProjectLines,
   textDocumentCanRenderDirectly,
-  textDocumentEditExact,
+  textDocumentEditExactWork,
   textDocumentLength,
   textDocumentLineAt,
+  textDocumentLineBoundaries,
   textDocumentLineCount,
   textDocumentLineIndexAtOffset,
   textDocumentLines,
@@ -15,15 +17,18 @@ import {
   textDocumentSlice,
   textDocumentText,
 } from '../../text/document.ts';
-import { segmentGraphemesForMeasurement } from '../../text/graphemes.ts';
-import { sanitizeTerminalControlText, sanitizeTerminalText } from '../../text/sanitize.ts';
-import { expandTerminalTabs, terminalTabCells } from '../../text/tabs.ts';
+import { measureGraphemeCells } from '../../text/graphemes.ts';
+import type { SourceBoundaryIndex, SourceRevisionData } from '../../text/source-boundaries.ts';
+import { sourceBoundaries } from '../../text/source-boundaries.ts';
+import { sanitizeTerminalControlTextWork, sanitizeTerminalTextWork } from '../../text/sanitize.ts';
+import { expandTerminalTabsWork, terminalTabCells } from '../../text/tabs.ts';
 import type { TextWidthProfile } from '../../text/types.ts';
 import { textWidthProfileKey } from '../../text/width-profile.ts';
 import type { TerminalStyle } from '../../visual/render-content.ts';
 import type { TextAreaDecorationModel, TextAreaReplacementDecorationModel } from './decorations.ts';
 import { textAreaDecorationMapping } from './decorations.ts';
 import { textDocumentChangedLineRanges } from './document-change-ranges.ts';
+import type { TextDocumentChangedLineRange } from './document-change-ranges.ts';
 
 type TextAreaContentDecorationModel =
   | TextAreaReplacementDecorationModel
@@ -121,6 +126,8 @@ const recentDisplayProjections = new WeakMap<
   Map<string, WeakRef<TextAreaProjection>>
 >();
 const lineProjectableProjections = new WeakSet<TextAreaProjection>();
+const preparedLineProjectionMaps = new WeakMap<TextAreaProjection, ReadonlyMap<number, OffsetProjection>>();
+const maximumLazyLineLength = 4_096;
 const retainedProjectionData = new WeakMap<TextAreaProjection, RetainedProjectionData>();
 const CACHE_LIMIT = 8;
 const terminalStyleFields: readonly TerminalStyleField[] = Object.freeze([
@@ -132,33 +139,38 @@ export function createTextAreaProjection(
   decorations: readonly TextAreaDecorationModel[],
   widthProfile: TextWidthProfile
 ): TextAreaProjection {
+  return finishWork(createTextAreaProjectionWork(document, decorations, widthProfile));
+}
+
+/** Shared projection computation. Native string operations and single grapheme
+ * measurements are indivisible; framework-owned scans checkpoint throughout. */
+export function* createTextAreaProjectionWork(
+  document: TextDocument,
+  decorations: readonly TextAreaDecorationModel[],
+  widthProfile: TextWidthProfile,
+): Generator<void, TextAreaProjection> {
   const profileKey = textWidthProfileKey(widthProfile);
   const existing = projectionCache.get(document)?.get(decorations)?.get(profileKey);
   if (existing !== undefined) return existing;
 
-  if (
-    decorations.every((decoration) => decoration.kind === 'style')
-    && textDocumentCanRenderDirectly(document)
-  ) {
+  const stylesOnly = yield* onlyStyleDecorationsWork(decorations);
+  if (stylesOnly && textDocumentCanRenderDirectly(document)) {
     return retainProjection(
       document,
       decorations,
       profileKey,
-      directProjection(document, decorations, profileKey),
+      yield* directProjectionWork(document, decorations, profileKey),
     );
   }
-  if (
-    decorations.every((decoration) => decoration.kind === 'style')
-    && textDocumentCanProjectLines(document)
-  ) {
+  if (stylesOnly && textDocumentCanProjectLines(document)) {
     return retainProjection(
       document,
       decorations,
       profileKey,
-      lineProjection(document, decorations, widthProfile, profileKey),
+      yield* lineProjectionWork(document, decorations, widthProfile, profileKey),
     );
   }
-  const updated = incrementalMaterializedProjection(
+  const updated = yield* incrementalMaterializedProjectionWork(
     document,
     decorations,
     widthProfile,
@@ -168,9 +180,9 @@ export function createTextAreaProjection(
     return retainProjection(document, decorations, profileKey, updated);
   }
   const source = textDocumentText(document);
-  const built = buildMaterializedProjection(source, decorations, widthProfile);
-  const displayDocument = createTextDocument(built.text);
-  const accessibilityDocument = createTextDocument(built.accessibilityText);
+  const built = yield* buildMaterializedProjectionWork(source, decorations, widthProfile);
+  const displayDocument = yield* createTextDocumentWork(built.text);
+  const accessibilityDocument = yield* createTextDocumentWork(built.accessibilityText);
   const created: TextAreaProjection = Object.freeze({
     widthProfileKey: profileKey,
     document: displayDocument,
@@ -211,6 +223,25 @@ export function createTextAreaProjection(
   return retainProjection(document, decorations, profileKey, created);
 }
 
+function* onlyStyleDecorationsWork(decorations: readonly TextAreaDecorationModel[]): Generator<void, boolean> {
+  let operations = 0;
+  for (const decoration of decorations) {
+    if (decoration.kind !== 'style') return false;
+    if (++operations % 256 === 0) yield;
+  }
+  return true;
+}
+
+function* styleDecorationsWork(decorations: readonly TextAreaDecorationModel[]): Generator<void, readonly TextAreaDecorationModel[]> {
+  const result: TextAreaDecorationModel[] = [];
+  let operations = 0;
+  for (const decoration of decorations) {
+    if (decoration.kind === 'style') result.push(decoration);
+    if (++operations % 256 === 0) yield;
+  }
+  return result;
+}
+
 interface BuiltMaterializedProjection {
   readonly text: string;
   readonly accessibilityText: string;
@@ -219,12 +250,17 @@ interface BuiltMaterializedProjection {
   readonly styleRanges: readonly ProjectedTextStyleRange[];
 }
 
-function buildMaterializedProjection(
+function* buildMaterializedProjectionWork(
   source: string,
   decorations: readonly TextAreaDecorationModel[],
   widthProfile: TextWidthProfile,
-): BuiltMaterializedProjection {
-  const sanitizedSource = sanitizeTerminalText(source, { widthProfile });
+): Generator<void, BuiltMaterializedProjection> {
+  const sanitizedSource = yield* sanitizeTerminalTextWork(source, { widthProfile });
+  const removedSourceRanges: RemovedRange[] = [];
+  for (const entry of sanitizedSource.removedControlSequences) {
+    removedSourceRanges.push({ start: entry.codeUnitOffset, end: entry.codeUnitOffset + entry.sequence.length });
+    if (removedSourceRanges.length % 256 === 0) yield;
+  }
   const builder: ProjectionBuilder = {
     widthProfile,
     textParts: [],
@@ -232,23 +268,20 @@ function buildMaterializedProjection(
     displayMappings: [],
     accessibilityMappings: [],
     styleRanges: [],
-    removedSourceRanges: sanitizedSource.removedControlSequences.map((entry) => ({
-      start: entry.codeUnitOffset,
-      end: entry.codeUnitOffset + entry.sequence.length,
-    })),
+    removedSourceRanges,
     removedSourceIndex: 0,
     displayLength: 0,
     accessibilityLength: 0,
     column: 0,
   };
-  projectSource(builder, source, decorations);
+  yield* projectSourceWork(builder, source, decorations);
   const text = builder.textParts.join('');
   const accessibilityText = builder.accessibilityParts.join('');
   return Object.freeze({
     text,
     accessibilityText,
-    displayOffsets: createOffsetProjection(source.length, text.length, builder.displayMappings),
-    accessibilityOffsets: createOffsetProjection(
+    displayOffsets: yield* createOffsetProjectionWork(source.length, text.length, builder.displayMappings),
+    accessibilityOffsets: yield* createOffsetProjectionWork(
       source.length,
       accessibilityText.length,
       builder.accessibilityMappings,
@@ -257,12 +290,12 @@ function buildMaterializedProjection(
   });
 }
 
-function incrementalMaterializedProjection(
+function* incrementalMaterializedProjectionWork(
   document: TextDocument,
   decorations: readonly TextAreaDecorationModel[],
   widthProfile: TextWidthProfile,
   profileKey: string,
-): TextAreaProjection | undefined {
+): Generator<void, TextAreaProjection | undefined> {
   if (!textDocumentCanProjectLines(document)) return undefined;
   const mutation = textDocumentPreviousMutation(document);
   const decorationMapping = textAreaDecorationMapping(decorations);
@@ -279,17 +312,19 @@ function incrementalMaterializedProjection(
     previous?.sourceDocument !== mutation.document
     || previous.decorations !== decorationMapping.previous
   ) return undefined;
-  const sourceDelta = mutation.changes.reduce((total, change) => (
-    total + change.insertedText.length
-      - (change.endOffsetExclusive - change.startOffset)
-  ), 0);
-  const previousRange = completeMaterializedSourceRange(
+  let sourceDelta = 0;
+  let operations = 0;
+  for (const change of mutation.changes) {
+    sourceDelta += change.insertedText.length - (change.endOffsetExclusive - change.startOffset);
+    if (++operations % 256 === 0) yield;
+  }
+  const previousRange = yield* completeMaterializedSourceRangeWork(
     mutation.document,
     decorationMapping.previousAffectedRange.startOffset,
     decorationMapping.previousAffectedRange.endOffsetExclusive,
     decorationMapping.previous,
   );
-  const nextRange = completeMaterializedSourceRange(
+  const nextRange = yield* completeMaterializedSourceRangeWork(
     document,
     decorationMapping.nextAffectedRange.startOffset,
     decorationMapping.nextAffectedRange.endOffsetExclusive,
@@ -303,13 +338,13 @@ function incrementalMaterializedProjection(
     previousSourceStart !== nextSourceStart
     || nextSourceEnd - previousSourceEnd !== sourceDelta
   ) return undefined;
-  const localDecorations = decorationsWithinRange(
+  const localDecorations = yield* decorationsWithinRangeWork(
     decorations,
     nextSourceStart,
     nextSourceEnd,
     textDocumentLength(document),
   );
-  const local = buildMaterializedProjection(
+  const local = yield* buildMaterializedProjectionWork(
     textDocumentSlice(document, nextSourceStart, nextSourceEnd),
     localDecorations,
     widthProfile,
@@ -335,19 +370,19 @@ function incrementalMaterializedProjection(
     previousSourceEnd,
     'upstream',
   );
-  const displayDocument = textDocumentEditExact(
+  const displayDocument = (yield* textDocumentEditExactWork(
     previous.displayDocument,
     previousDisplayStart,
     previousDisplayEnd,
     local.text,
-  ).document;
-  const accessibilityDocument = textDocumentEditExact(
+  )).document;
+  const accessibilityDocument = (yield* textDocumentEditExactWork(
     previous.accessibilityDocument,
     previousAccessibilityStart,
     previousAccessibilityEnd,
     local.accessibilityText,
-  ).document;
-  const displayOffsets = replaceOffsetRange({
+  )).document;
+  const displayOffsets = yield* replaceOffsetRangeWork({
     previous: previous.displayOffsets,
     local: local.displayOffsets,
     previousSourceStart,
@@ -356,7 +391,7 @@ function incrementalMaterializedProjection(
     previousTargetStart: previousDisplayStart,
     previousTargetEnd: previousDisplayEnd,
   });
-  const accessibilityOffsets = replaceOffsetRange({
+  const accessibilityOffsets = yield* replaceOffsetRangeWork({
     previous: previous.accessibilityOffsets,
     local: local.accessibilityOffsets,
     previousSourceStart,
@@ -365,8 +400,8 @@ function incrementalMaterializedProjection(
     previousTargetStart: previousAccessibilityStart,
     previousTargetEnd: previousAccessibilityEnd,
   });
-  const styleRanges = directStyleRanges(
-    decorations.filter((decoration) => decoration.kind === 'style'),
+  const styleRanges = yield* directStyleRangesWork(
+    yield* styleDecorationsWork(decorations),
     textDocumentLength(document),
     (offset, affinity = 'downstream') => projectSourceOffset(displayOffsets, offset, affinity),
   );
@@ -410,12 +445,13 @@ function incrementalMaterializedProjection(
   return result;
 }
 
-function completeMaterializedSourceRange(
+function* completeMaterializedSourceRangeWork(
   document: TextDocument,
   changedStart: number,
   changedEnd: number,
   decorations: readonly TextAreaDecorationModel[],
-): { readonly startOffset: number; readonly endOffsetExclusive: number } {
+): Generator<void, { readonly startOffset: number; readonly endOffsetExclusive: number }> {
+  let operations = 0;
   let startOffset = changedStart;
   let endOffsetExclusive = changedEnd;
   let expanded = true;
@@ -432,6 +468,7 @@ function completeMaterializedSourceRange(
     startOffset = lineStart;
     endOffsetExclusive = lineEnd;
     for (const decoration of decorations) {
+      if (++operations % 256 === 0) yield;
       if (decoration.kind === 'style') continue;
       const point = decoration.startOffset === decoration.endOffsetExclusive;
       const overlaps = point
@@ -450,13 +487,16 @@ function completeMaterializedSourceRange(
   return Object.freeze({ startOffset, endOffsetExclusive });
 }
 
-function decorationsWithinRange(
+function* decorationsWithinRangeWork(
   decorations: readonly TextAreaDecorationModel[],
   startOffset: number,
   endOffsetExclusive: number,
   documentLength: number,
-): readonly TextAreaDecorationModel[] {
-  return Object.freeze(decorations.flatMap((decoration) => {
+): Generator<void, readonly TextAreaDecorationModel[]> {
+  const result: TextAreaDecorationModel[] = [];
+  let operations = 0;
+  for (const decoration of decorations) {
+    if (++operations % 256 === 0) yield;
     const point = decoration.startOffset === decoration.endOffsetExclusive;
     const inside = point
       ? decoration.startOffset >= startOffset
@@ -464,14 +504,13 @@ function decorationsWithinRange(
           || endOffsetExclusive === documentLength && decoration.startOffset === endOffsetExclusive)
       : decoration.startOffset >= startOffset
         && decoration.endOffsetExclusive <= endOffsetExclusive;
-    return inside
-      ? [Object.freeze({
-          ...decoration,
-          startOffset: decoration.startOffset - startOffset,
-          endOffsetExclusive: decoration.endOffsetExclusive - startOffset,
-        })]
-      : [];
-  }));
+    if (inside) result.push(Object.freeze({
+      ...decoration,
+      startOffset: decoration.startOffset - startOffset,
+      endOffsetExclusive: decoration.endOffsetExclusive - startOffset,
+    }));
+  }
+  return Object.freeze(result);
 }
 
 interface ReplaceOffsetRangeInput {
@@ -484,12 +523,14 @@ interface ReplaceOffsetRangeInput {
   readonly previousTargetEnd: number;
 }
 
-function replaceOffsetRange(input: ReplaceOffsetRangeInput): OffsetProjection {
+function* replaceOffsetRangeWork(input: ReplaceOffsetRangeInput): Generator<void, OffsetProjection> {
+  let operations = 0;
   const sourceDelta = input.nextSourceEnd - input.previousSourceEnd;
   const targetDelta = input.local.targetLength
     - (input.previousTargetEnd - input.previousTargetStart);
   const mappings: MappingSegment[] = [];
   for (const segment of input.previous.segments) {
+    if (++operations % 256 === 0) yield;
     if (segment.sourceStart < input.previousSourceStart) {
       const sourceEnd = Math.min(segment.sourceEnd, input.previousSourceStart);
       const targetEnd = segment.linear
@@ -499,6 +540,7 @@ function replaceOffsetRange(input: ReplaceOffsetRangeInput): OffsetProjection {
     }
   }
   for (const segment of input.local.segments) {
+    if (++operations % 256 === 0) yield;
     appendMapping(mappings, {
       ...segment,
       sourceStart: segment.sourceStart + input.previousSourceStart,
@@ -508,6 +550,7 @@ function replaceOffsetRange(input: ReplaceOffsetRangeInput): OffsetProjection {
     });
   }
   for (const segment of input.previous.segments) {
+    if (++operations % 256 === 0) yield;
     if (
       segment.sourceEnd < input.previousSourceEnd
       || segment.sourceEnd === input.previousSourceEnd
@@ -525,7 +568,7 @@ function replaceOffsetRange(input: ReplaceOffsetRangeInput): OffsetProjection {
       targetEnd: segment.targetEnd + targetDelta,
     });
   }
-  return createOffsetProjection(
+  return yield* createOffsetProjectionWork(
     input.previous.sourceLength + sourceDelta,
     input.previous.targetLength + targetDelta,
     mappings,
@@ -562,20 +605,37 @@ function retainProjection(
   return projection;
 }
 
-function lineProjection(
+/** Completed line maps follow the same immutable source revisions as boundaries. */
+class RetainedLineOffsets implements SourceRevisionData {
+  readonly reservedBytes: number;
+  projection: OffsetProjection | undefined;
+
+  constructor(length: number, projection?: OffsetProjection) {
+    this.reservedBytes = length * 80 + 128;
+    this.projection = projection;
+  }
+
+  forRevision(source: SourceBoundaryIndex): RetainedLineOffsets {
+    return new RetainedLineOffsets(source.source.length,
+      source.unchangedFromPrevious ? this.projection : undefined);
+  }
+}
+
+function* lineProjectionWork(
   sourceDocument: TextDocument,
   decorations: readonly TextAreaDecorationModel[],
   widthProfile: TextWidthProfile,
   profileKey: string,
-): TextAreaProjection {
-  const displayDocument = lineProjectedDocument(sourceDocument, widthProfile, profileKey);
+): Generator<void, TextAreaProjection> {
+  const preparedLineMaps = new Map<number, OffsetProjection>();
+  const displayDocument = yield* lineProjectedDocumentWork(sourceDocument, widthProfile, profileKey, preparedLineMaps);
   const lineMaps = new Map<number, OffsetProjection>();
   const mapForLine = (lineIndex: number): OffsetProjection => {
-    const existing = lineMaps.get(lineIndex);
+    const existing = preparedLineMaps.get(lineIndex) ?? lineMaps.get(lineIndex);
     if (existing !== undefined) return existing;
     const sourceLine = textDocumentLineAt(sourceDocument, lineIndex);
     const displayLine = textDocumentLineAt(displayDocument, lineIndex);
-    const created = lineOffsetProjection(sourceLine?.text ?? '', displayLine?.text ?? '', widthProfile);
+    const created = finishWork(lineOffsetProjectionWork(sourceLine?.text ?? '', displayLine?.text ?? '', widthProfile));
     lineMaps.set(lineIndex, created);
     return created;
   };
@@ -628,7 +688,7 @@ function lineProjection(
   const result = Object.freeze({
     widthProfileKey: profileKey,
     document: displayDocument,
-    styleRanges: directStyleRanges(
+    styleRanges: yield* directStyleRangesWork(
       decorations,
       textDocumentLength(sourceDocument),
       displayOffsetAtSourceOffset,
@@ -643,15 +703,17 @@ function lineProjection(
     sourceOffsetAtDisplayOffset,
     accessibilityOffsetAtSourceOffset: displayOffsetAtSourceOffset,
   });
+  preparedLineProjectionMaps.set(result, preparedLineMaps);
   lineProjectableProjections.add(result);
   return result;
 }
 
-function lineProjectedDocument(
+function* lineProjectedDocumentWork(
   sourceDocument: TextDocument,
   widthProfile: TextWidthProfile,
   profileKey: string,
-): TextDocument {
+  lineMaps: Map<number, OffsetProjection>,
+): Generator<void, TextDocument> {
   const mutation = textDocumentPreviousMutation(sourceDocument);
   const previousProjection = mutation === undefined
     ? undefined
@@ -661,11 +723,13 @@ function lineProjectedDocument(
     || previousProjection === undefined
     || !lineProjectableProjections.has(previousProjection)
   ) {
-    return createTextDocument(projectLineRange(
+    return yield* createTextDocumentWork(yield* projectLineRangeWork(
       sourceDocument,
       0,
       textDocumentLineCount(sourceDocument),
       widthProfile,
+      profileKey,
+      lineMaps,
     ));
   }
   const ranges = textDocumentChangedLineRanges(
@@ -673,9 +737,17 @@ function lineProjectedDocument(
     sourceDocument,
     mutation.changes,
   );
-  return textDocumentApplyChangesExact(
-    previousProjection.document,
-    ranges.map((range) => Object.freeze({
+  let operations = 0;
+  // Retain completed expensive maps by logical-line identity. No old line text
+  // is read here, and tiny lines remain bounded lazy queries.
+  for (const [lineIndex, projection] of preparedLineProjectionMaps.get(previousProjection) ?? []) {
+    const nextIndex = unchangedLineIndex(lineIndex, ranges);
+    if (nextIndex !== undefined) lineMaps.set(nextIndex, projection);
+    if (++operations % 256 === 0) yield;
+  }
+  const changes = [];
+  for (const range of ranges) {
+    changes.push(Object.freeze({
       startOffset: textDocumentLineAt(
         previousProjection.document,
         range.previousStart,
@@ -684,51 +756,97 @@ function lineProjectedDocument(
         previousProjection.document,
         range.previousEndExclusive,
       )?.startOffset ?? textDocumentLength(previousProjection.document),
-      insertedText: projectLineRange(
+      insertedText: yield* projectLineRangeWork(
         sourceDocument,
         range.nextStart,
         range.nextEndExclusive,
         widthProfile,
+        profileKey,
+        lineMaps,
       ),
-    })),
-  );
+    }));
+    if (changes.length % 256 === 0) yield;
+  }
+  return yield* textDocumentApplyChangesExactWork(previousProjection.document, changes);
 }
 
-function projectLineRange(
+function* projectLineRangeWork(
   document: TextDocument,
   startLine: number,
   endLineExclusive: number,
   widthProfile: TextWidthProfile,
-): string {
+  profileKey: string,
+  lineMaps: Map<number, OffsetProjection>,
+): Generator<void, string> {
+  let operations = 0;
   const lineCount = textDocumentLineCount(document);
   const parts: string[] = [];
   if (startLine === 0 && endLineExclusive >= lineCount) {
     for (const line of textDocumentLines(document)) {
-      parts.push(projectEditableLine(line.text, widthProfile));
+      if (++operations % 256 === 0) yield;
+      parts.push(yield* projectEditableLineWork(document, line, widthProfile, profileKey, lineMaps));
       if (line.lineIndex + 1 < lineCount) parts.push('\n');
     }
     return parts.join('');
   }
   for (let lineIndex = startLine; lineIndex < Math.min(lineCount, endLineExclusive); lineIndex += 1) {
+    if (++operations % 256 === 0) yield;
     const line = textDocumentLineAt(document, lineIndex);
     if (line === undefined) continue;
-    parts.push(projectEditableLine(line.text, widthProfile));
+    parts.push(yield* projectEditableLineWork(document, line, widthProfile, profileKey, lineMaps));
     if (lineIndex + 1 < lineCount) parts.push('\n');
   }
   return parts.join('');
 }
 
-function projectEditableLine(text: string, widthProfile: TextWidthProfile): string {
-  return expandTerminalTabs(text, { widthProfile });
+function unchangedLineIndex(index: number, ranges: readonly TextDocumentChangedLineRange[]): number | undefined {
+  let low = 0;
+  let high = ranges.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if ((ranges[middle]?.previousStart ?? Number.POSITIVE_INFINITY) <= index) low = middle + 1;
+    else high = middle;
+  }
+  const previous = ranges[low - 1];
+  if (previous === undefined) return index;
+  if (index < previous.previousEndExclusive) return undefined;
+  return index + previous.nextEndExclusive - previous.previousEndExclusive;
 }
 
-function lineOffsetProjection(
+function* projectEditableLineWork(
+  document: TextDocument,
+  line: TextDocumentLine,
+  widthProfile: TextWidthProfile,
+  profileKey: string,
+  lineMaps: Map<number, OffsetProjection>,
+): Generator<void, string> {
+  const text = line.text;
+  const display = yield* expandTerminalTabsWork(text, { widthProfile });
+  if (text.length <= maximumLazyLineLength || !text.includes('\t')) return display;
+  const source = textDocumentLineBoundaries(document, line);
+  const key = `text-area-projection:${profileKey}`;
+  let retained = source.derivedData(key) as RetainedLineOffsets | undefined;
+  if (retained === undefined) {
+    retained = new RetainedLineOffsets(source.source.length);
+    source.retainDerivedData(key, retained);
+  }
+  if (retained.projection === undefined) {
+    const projection = yield* lineOffsetProjectionWork(text, display, widthProfile, source);
+    // Publish only complete mappings. An overlapping preparer can safely win.
+    retained.projection ??= projection;
+  }
+  lineMaps.set(line.lineIndex, retained.projection);
+  return display;
+}
+
+function* lineOffsetProjectionWork(
   source: string,
   display: string,
   widthProfile: TextWidthProfile,
-): OffsetProjection {
+  ownedSource?: SourceBoundaryIndex,
+): Generator<void, OffsetProjection> {
   if (!source.includes('\t')) {
-    return createOffsetProjection(source.length, display.length, [{
+    return yield* createOffsetProjectionWork(source.length, display.length, [{
       sourceStart: 0,
       sourceEnd: source.length,
       targetStart: 0,
@@ -739,28 +857,38 @@ function lineOffsetProjection(
   const mappings: MappingSegment[] = [];
   let targetOffset = 0;
   let column = 0;
-  for (const grapheme of segmentGraphemesForMeasurement(source, { widthProfile })) {
-    const targetLength = grapheme.text === '\t'
+  const boundaries = ownedSource ?? sourceBoundaries(source);
+  let offset = 0;
+  let measured = 0;
+  while (offset < source.length) {
+    yield* boundaries.prepareThroughWork(offset);
+    const endOffsetExclusive = boundaries.at(offset)?.endOffsetExclusive ?? source.length;
+    const text = source.slice(offset, endOffsetExclusive);
+    const startOffset = offset;
+    const cells = measureGraphemeCells(text, { widthProfile });
+    offset = endOffsetExclusive;
+    if (++measured % 256 === 0) yield;
+    const targetLength = text === '\t'
       ? terminalTabCells(column)
-      : grapheme.text.length;
+      : text.length;
     appendMapping(mappings, {
-      sourceStart: grapheme.startOffset,
-      sourceEnd: grapheme.endOffsetExclusive,
+      sourceStart: startOffset,
+      sourceEnd: endOffsetExclusive,
       targetStart: targetOffset,
       targetEnd: targetOffset + targetLength,
-      linear: grapheme.text !== '\t',
+      linear: text !== '\t',
     });
     targetOffset += targetLength;
-    column += grapheme.text === '\t' ? targetLength : grapheme.cells;
+    column += text === '\t' ? targetLength : cells;
   }
-  return createOffsetProjection(source.length, display.length, mappings);
+  return yield* createOffsetProjectionWork(source.length, display.length, mappings);
 }
 
-function directProjection(
+function* directProjectionWork(
   document: TextDocument,
   decorations: readonly TextAreaDecorationModel[],
   profileKey: string,
-): TextAreaProjection {
+): Generator<void, TextAreaProjection> {
   const sourceLength = textDocumentLength(document);
   const segment: MappingSegment = Object.freeze({
     sourceStart: 0,
@@ -769,11 +897,11 @@ function directProjection(
     targetEnd: sourceLength,
     linear: true,
   });
-  const projection = createOffsetProjection(sourceLength, sourceLength, [segment]);
+  const projection = yield* createOffsetProjectionWork(sourceLength, sourceLength, [segment]);
   const result = Object.freeze({
     widthProfileKey: profileKey,
     document,
-    styleRanges: directStyleRanges(decorations, sourceLength),
+    styleRanges: yield* directStyleRangesWork(decorations, sourceLength),
     accessibilityWindow: (centerOffset: number, maximumCodeUnits: number) => (
       accessibilityWindow(document, centerOffset, maximumCodeUnits)
     ),
@@ -825,34 +953,43 @@ function accessibilityWindow(
   });
 }
 
-function directStyleRanges(
+function* directStyleRangesWork(
   decorations: readonly TextAreaDecorationModel[],
   sourceLength: number,
   displayOffsetAtSourceOffset: (
     offset: number,
     affinity?: 'upstream' | 'downstream',
   ) => number = (offset) => offset,
-): readonly ProjectedTextStyleRange[] {
+): Generator<void, readonly ProjectedTextStyleRange[]> {
+  let operations = 0;
   if (decorations.length === 0) return Object.freeze([]);
   const starts = new Map<number, TextAreaDecorationModel[]>();
   const ends = new Map<number, TextAreaDecorationModel[]>();
   const boundaries = new Set<number>([0, sourceLength]);
   for (const decoration of decorations) {
+    if (++operations % 256 === 0) yield;
     boundaries.add(decoration.startOffset);
     boundaries.add(decoration.endOffsetExclusive);
     appendEvent(starts, decoration.startOffset, decoration);
     appendEvent(ends, decoration.endOffsetExclusive, decoration);
   }
-  const ordered = [...boundaries].toSorted((left, right) => left - right);
+  const ordered = yield* stableSortWork(boundaries, (left, right) => left - right);
   const active = new ActiveDecorationStyles();
   const ranges: ProjectedTextStyleRange[] = [];
   for (let index = 0; index < ordered.length - 1; index += 1) {
+    if (++operations % 256 === 0) yield;
     const start = ordered[index];
     const end = ordered[index + 1];
     if (start === undefined || end === undefined || end <= start) continue;
-    for (const decoration of ends.get(start) ?? []) active.remove(decoration);
-    for (const decoration of starts.get(start) ?? []) active.add(decoration);
-    const resolved = active.resolve();
+    for (const decoration of ends.get(start) ?? []) {
+      active.remove(decoration);
+      if (++operations % 256 === 0) yield;
+    }
+    for (const decoration of starts.get(start) ?? []) {
+      active.add(decoration);
+      if (++operations % 256 === 0) yield;
+    }
+    const resolved = yield* active.resolveWork();
     if (!resolved.decorated) continue;
     const range: ProjectedTextStyleRange = Object.freeze({
       startOffset: displayOffsetAtSourceOffset(start, 'downstream'),
@@ -875,17 +1012,19 @@ function directStyleRanges(
   return Object.freeze(ranges);
 }
 
-function projectSource(
+function* projectSourceWork(
   builder: ProjectionBuilder,
   source: string,
   decorations: readonly TextAreaDecorationModel[]
-): void {
+): Generator<void, void> {
+  let operations = 0;
   const boundaries = new Set<number>([0, source.length]);
   const starts = new Map<number, TextAreaDecorationModel[]>();
   const ends = new Map<number, TextAreaDecorationModel[]>();
   const replacements = new Map<number, TextAreaContentDecorationModel>();
   const virtual = new Map<number, TextAreaReplacementDecorationModel[]>();
   for (const decoration of decorations) {
+    if (++operations % 256 === 0) yield;
     boundaries.add(decoration.startOffset);
     boundaries.add(decoration.endOffsetExclusive);
     if (decoration.kind !== 'style') {
@@ -900,42 +1039,50 @@ function projectSource(
     appendEvent(ends, decoration.endOffsetExclusive, decoration);
   }
 
-  const ordered = [...boundaries].toSorted((left, right) => left - right);
+  const ordered = yield* stableSortWork(boundaries, (left, right) => left - right);
   const active = new ActiveDecorationStyles();
   let consumedSource = 0;
   for (let index = 0; index < ordered.length; index += 1) {
+    if (++operations % 256 === 0) yield;
     const boundary = ordered[index];
     if (boundary === undefined) continue;
-    for (const decoration of ends.get(boundary) ?? []) active.remove(decoration);
-    for (const decoration of starts.get(boundary) ?? []) active.add(decoration);
+    for (const decoration of ends.get(boundary) ?? []) {
+      active.remove(decoration);
+      if (++operations % 256 === 0) yield;
+    }
+    for (const decoration of starts.get(boundary) ?? []) {
+      active.add(decoration);
+      if (++operations % 256 === 0) yield;
+    }
     if (boundary < consumedSource) continue;
 
     for (const decoration of virtual.get(boundary) ?? []) {
-      appendResolvedReplacement(builder, decoration, active);
+    if (++operations % 256 === 0) yield;
+      yield* appendResolvedReplacementWork(builder, decoration, active);
     }
     const replacement = replacements.get(boundary);
     if (replacement !== undefined) {
-      appendResolvedReplacement(builder, replacement, active);
+      yield* appendResolvedReplacementWork(builder, replacement, active);
       consumedSource = replacement.endOffsetExclusive;
       continue;
     }
     if (boundary !== consumedSource) continue;
     const next = ordered[index + 1] ?? source.length;
     if (next <= boundary) continue;
-    appendSourcePiece(builder, source, boundary, next, active.resolve());
+    yield* appendSourcePieceWork(builder, source, boundary, next, yield* active.resolveWork());
     consumedSource = next;
   }
 }
 
-function appendResolvedReplacement(
+function* appendResolvedReplacementWork(
   builder: ProjectionBuilder,
   decoration: TextAreaContentDecorationModel,
   active: ActiveDecorationStyles,
-): void {
+): Generator<void, void> {
   active.add(decoration);
-  const resolved = active.resolve();
+  const resolved = yield* active.resolveWork();
   active.remove(decoration);
-  appendReplacement(builder, decoration, resolved);
+  yield* appendReplacementWork(builder, decoration, resolved);
 }
 
 function appendEvent(
@@ -969,12 +1116,12 @@ class ActiveDecorationStyles {
     this.#active.delete(decoration.order);
   }
 
-  resolve(): ResolvedDecoration {
-    const label = heapValue(this.#labels, this.#active);
+  *resolveWork(): Generator<void, ResolvedDecoration> {
+    const label = yield* heapValueWork(this.#labels, this.#active);
     if (label === undefined) return { decorated: false, label: 'decoration' };
     const style: Partial<Record<TerminalStyleField, TerminalStyle[TerminalStyleField]>> = {};
     for (const field of terminalStyleFields) {
-      const value = heapValue(this.#fields.get(field), this.#active);
+      const value = yield* heapValueWork(this.#fields.get(field), this.#active);
       if (value !== undefined) style[field] = value;
     }
     return {
@@ -998,12 +1145,16 @@ function heapPush<TValue>(heap: HeapEntry<TValue>[], entry: HeapEntry<TValue>): 
   heap[index] = entry;
 }
 
-function heapValue<TValue>(
+function* heapValueWork<TValue>(
   heap: HeapEntry<TValue>[] | undefined,
   active: ReadonlySet<number>
-): TValue | undefined {
+): Generator<void, TValue | undefined> {
   if (heap === undefined) return undefined;
-  while (heap.length > 0 && !active.has(heap[0]?.order ?? -1)) heapPop(heap);
+  let operations = 0;
+  while (heap.length > 0 && !active.has(heap[0]?.order ?? -1)) {
+    heapPop(heap);
+    if (++operations % 256 === 0) yield;
+  }
   return heap[0]?.value;
 }
 
@@ -1027,17 +1178,19 @@ function heapPop<TValue>(heap: HeapEntry<TValue>[]): void {
   heap[index] = last;
 }
 
-function appendSourcePiece(
+function* appendSourcePieceWork(
   builder: ProjectionBuilder,
   source: string,
   start: number,
   end: number,
   decoration: ResolvedDecoration
-): void {
+): Generator<void, void> {
+  let operations = 0;
   const rawText = source.slice(start, end);
   while ((builder.removedSourceRanges[builder.removedSourceIndex]?.end
     ?? Number.POSITIVE_INFINITY) <= start) {
     builder.removedSourceIndex += 1;
+    if (++operations % 256 === 0) yield;
   }
   const removed = builder.removedSourceRanges[builder.removedSourceIndex];
   if (
@@ -1051,22 +1204,31 @@ function appendSourcePiece(
     appendProjection(builder, rawText, rawText, start, end, true, true, decoration);
     return;
   }
-  for (const grapheme of segmentGraphemesForMeasurement(rawText, {
-    widthProfile: builder.widthProfile
-  })) {
-    const sourceStart = start + grapheme.startOffset;
-    const sourceEnd = start + grapheme.endOffsetExclusive;
+  const boundaries = sourceBoundaries(rawText);
+  let offset = 0;
+  let measured = 0;
+  while (offset < rawText.length) {
+    yield* boundaries.prepareThroughWork(offset);
+    const endOffsetExclusive = boundaries.at(offset)?.endOffsetExclusive ?? rawText.length;
+    const text = rawText.slice(offset, endOffsetExclusive);
+    const startOffset = offset;
+    const cells = measureGraphemeCells(text, { widthProfile: builder.widthProfile });
+    offset = endOffsetExclusive;
+    if (++measured % 256 === 0) yield;
+    const sourceStart = start + startOffset;
+    const sourceEnd = start + endOffsetExclusive;
     while ((builder.removedSourceRanges[builder.removedSourceIndex]?.end
       ?? Number.POSITIVE_INFINITY) <= sourceStart) {
       builder.removedSourceIndex += 1;
+      if (++operations % 256 === 0) yield;
     }
     const removed = builder.removedSourceRanges[builder.removedSourceIndex];
     if (removed !== undefined && sourceStart >= removed.start && sourceStart < removed.end) {
       appendProjection(builder, '', '', sourceStart, sourceEnd, false, false, decoration);
       continue;
     }
-    const projected = projectedGrapheme(builder, grapheme.text, grapheme.cells);
-    const linear = projected === grapheme.text;
+    const projected = projectedGrapheme(builder, text, cells);
+    const linear = projected === text;
     appendProjection(
       builder,
       projected,
@@ -1080,19 +1242,19 @@ function appendSourcePiece(
   }
 }
 
-function appendReplacement(
+function* appendReplacementWork(
   builder: ProjectionBuilder,
   decoration: TextAreaContentDecorationModel,
   resolved: ResolvedDecoration,
-): void {
+): Generator<void, void> {
   const displayText = decoration.kind === 'conceal'
     ? ''
-    : projectReplacementText(decoration.replacementText, builder);
+    : yield* projectReplacementTextWork(decoration.replacementText, builder);
   const accessibilityText = decoration.kind === 'conceal'
     ? ''
     : decoration.accessibilityText === undefined
       ? displayText
-      : sanitizeTerminalText(decoration.accessibilityText, { widthProfile: builder.widthProfile }).text;
+      : (yield* sanitizeTerminalTextWork(decoration.accessibilityText, { widthProfile: builder.widthProfile })).text;
   appendProjection(
     builder,
     displayText,
@@ -1105,15 +1267,22 @@ function appendReplacement(
   );
 }
 
-function projectReplacementText(rawText: string, builder: ProjectionBuilder): string {
-  const sanitized = sanitizeTerminalControlText(rawText).text;
-  let text = '';
-  for (const grapheme of segmentGraphemesForMeasurement(sanitized, {
-    widthProfile: builder.widthProfile
-  })) {
-    text += projectedGrapheme(builder, grapheme.text, grapheme.cells);
+function* projectReplacementTextWork(rawText: string, builder: ProjectionBuilder): Generator<void, string> {
+  const sanitized = (yield* sanitizeTerminalControlTextWork(rawText)).text;
+  const parts: string[] = [];
+  const boundaries = sourceBoundaries(sanitized);
+  let offset = 0;
+  let measured = 0;
+  while (offset < sanitized.length) {
+    yield* boundaries.prepareThroughWork(offset);
+    const endOffsetExclusive = boundaries.at(offset)?.endOffsetExclusive ?? sanitized.length;
+    const text = sanitized.slice(offset, endOffsetExclusive);
+    const cells = measureGraphemeCells(text, { widthProfile: builder.widthProfile });
+    offset = endOffsetExclusive;
+    if (++measured % 256 === 0) yield;
+    parts.push(projectedGrapheme(builder, text, cells));
   }
-  return text;
+  return parts.join('');
 }
 
 function projectedGrapheme(builder: ProjectionBuilder, text: string, cells: number): string {
@@ -1208,21 +1377,31 @@ function appendMapping(mappings: MappingSegment[], segment: MappingSegment): voi
   }
 }
 
-function createOffsetProjection(
+function* createOffsetProjectionWork(
   sourceLength: number,
   targetLength: number,
   mappings: readonly MappingSegment[]
-): OffsetProjection {
-  const segments = Object.freeze([...mappings]);
+): Generator<void, OffsetProjection> {
+  const segments: MappingSegment[] = [];
+  const sourceSegments: MappingSegment[] = [];
+  const targetSegments: MappingSegment[] = [];
+  const virtualSegments: MappingSegment[] = [];
+  for (const segment of mappings) {
+    segments.push(segment);
+    if (segment.sourceEnd > segment.sourceStart) sourceSegments.push(segment);
+    if (segment.targetEnd > segment.targetStart) targetSegments.push(segment);
+    if (segment.sourceStart === segment.sourceEnd && segment.targetEnd > segment.targetStart) {
+      virtualSegments.push(segment);
+    }
+    if (segments.length % 256 === 0) yield;
+  }
   return Object.freeze({
     sourceLength,
     targetLength,
-    segments,
-    sourceSegments: Object.freeze(segments.filter((segment) => segment.sourceEnd > segment.sourceStart)),
-    targetSegments: Object.freeze(segments.filter((segment) => segment.targetEnd > segment.targetStart)),
-    virtualSegments: Object.freeze(segments.filter((segment) => (
-      segment.sourceStart === segment.sourceEnd && segment.targetEnd > segment.targetStart
-    )))
+    segments: Object.freeze(segments),
+    sourceSegments: Object.freeze(sourceSegments),
+    targetSegments: Object.freeze(targetSegments),
+    virtualSegments: Object.freeze(virtualSegments),
   });
 }
 
@@ -1297,7 +1476,12 @@ function virtualSegmentAt(
   }
   if (segments[low]?.sourceStart !== sourceOffset) return undefined;
   let end = low + 1;
-  while (segments[end]?.sourceStart === sourceOffset) end += 1;
+  high = segments.length;
+  while (end < high) {
+    const middle = Math.floor((end + high) / 2);
+    if (segments[middle]?.sourceStart === sourceOffset) end = middle + 1;
+    else high = middle;
+  }
   return Object.freeze({
     sourceStart: sourceOffset,
     sourceEnd: sourceOffset,

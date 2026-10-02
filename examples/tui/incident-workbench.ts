@@ -135,7 +135,14 @@ const commandEntries: readonly SearchEntry[] = [
   { id: 'resolve', label: 'Resolve selected ticket', value: '/resolve', group: 'Actions' },
   { id: 'notes', label: 'Open notes', value: '/notes', group: 'Navigation' }
 ];
-const searchPickerEntries: readonly SearchEntry[] = Object.freeze([...commandEntries, ...tickets.map(ticket => Object.freeze({ id: ticket.id, label: `${ticket.id} ${ticket.title}`, value: ticket.id, keywords: Object.freeze([ticket.owner, ticket.severity, ticket.queue]) }))]);
+function* searchPickerBatches(): Generator<readonly SearchEntry[]> {
+  yield commandEntries;
+  for (let start = 0; start < tickets.length; start += 256) {
+    yield tickets.slice(start, start + 256).map(ticket => ({ id: ticket.id,
+      label: `${ticket.id} ${ticket.title}`, value: ticket.id,
+      keywords: [ticket.owner, ticket.severity, ticket.queue] }));
+  }
+}
 const navigationTreeSource = createTreeSource(navigationNodes());
 
 const pickerKeymap = createSearchPickerKeymap({ next: [{ kind: 'key', key: 'n', modifiers: { ctrl: true } }], previous: [{ kind: 'key', key: 'p', modifiers: { ctrl: true } }] });
@@ -157,7 +164,7 @@ const workspaceControls = createTuiControls<WorkspaceState>()({
   },
 });
 
-const picker = createTuiChild(pickerDefinition(searchPickerEntries, pickerKeymap),
+const picker = createTuiChild(pickerDefinition(searchPickerBatches, pickerKeymap),
   (message): WorkspaceMessage => ({ kind: 'picker', message }));
 
 const emptyCommandSuggestions = createCommandSuggestions([]);

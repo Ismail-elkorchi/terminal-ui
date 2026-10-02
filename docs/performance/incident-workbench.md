@@ -15,8 +15,94 @@ not a production integration.
 
 Edits and resolutions are in memory. The example does not write user files.
 Queue arrays and table collections are retained rather than rebuilt on every
-keystroke. The owned search descriptors are adopted once; the index is constructed cooperatively
+keystroke. Search descriptors are adopted in bounded batches; the index is constructed cooperatively
 when the picker opens and retained in its child state after acceptance.
+
+## Owned rendering and preparation (2026-10-02)
+
+This change is compared with `ec247ee4ac7b88042b1672b3dceecc90b914a9c8`.
+Four fresh processes ran sequentially on the same cloud host, with 40 samples
+per query/cancellation scenario and 440 individual character events per run.
+These are host-commit timings, not terminal-emulator or physical display timings.
+All raw timing samples and semantic assertions are retained below.
+
+| Measurement (ms) | Baseline p95 | Current p95 | Baseline p99 | Current p99 |
+| --- | ---: | ---: | ---: | ---: |
+| Character → committed feedback | 29.6 | 13.1 | 35.9 | 17.0 |
+| Whole query → final result | 112.8 | 104.3 | 179.2 | 105.3 |
+| Escape → committed feedback | 30.0 | 19.0 | 30.6 | 19.5 |
+| Character, 5ms/write | 34.2 | 19.8 | 48.8 | 24.8 |
+
+Maximum character feedback was 1162.8→27.9ms without injected write delay,
+and 988.6→212.5ms with delayed writes. The latter outlier remains visible;
+these observations do not establish a hard latency deadline or universal removal
+of pauses. Application module import plus first frame was 416.7→314.9ms; first picker
+readiness measured from opening was 1524.8→1391.5ms.
+
+A localized second-character probe transfers two region cells rather than the
+previous 5,182, processes one snapshot row, and performs zero flat-cell
+materializations. Fresh-frame differential tests cover overlap, clears, wide
+cells, combining-only writes, graphics, fixed and changing backdrops, metadata,
+callbacks and failed writes. History-GC tests retain only current owners.
+
+Separate 20-sample inspector runs measured cumulative interaction allocation
+of 11,306→6,923 MiB, and active application heap after forced GC of
+277.2→206.0 MiB. Allocation is churn, not retained heap. The inspector's large
+sample graph is written separately and released before heap observations.
+These figures include application data and instrumentation; they are not
+library-only footprints. No off-thread transport was added: the demonstrated
+ordinary-input improvement comes from removing repeated work and maintaining
+cooperative preparation, without another execution lifecycle.
+
+The application qualification also checks ordered typing through successive
+append/replace/remove source updates, rapid whole-source replacement, unchanged
+source identity on reopening, and resize during matching. A real Unix PTY smoke
+checks startup, palette search, acceptance and clean exit. It does not qualify
+terminal pixels or screen-reader behavior.
+
+Cold text preparation uses the same computation as synchronous entrypoints.
+The separate, instrumented three-trial probe uses approximately 1.1M UTF-16 units:
+
+| Preparation | Cooperative median (ms) | Synchronous median (ms) | Largest observed work slice (ms) |
+| --- | ---: | ---: | ---: |
+| Document construction | 18.7 | 17.8 | 2.7 |
+| ASCII geometry | 608.4 | 504.4 | 38.6 |
+| Unicode geometry | 834.7 | 832.6 | 1.9 |
+| Locale words | 402.5 | 384.8 | 3.0 |
+| One enormous grapheme | 103.1 | 96.9 | 91.8 |
+
+The ordinary native grapheme window was at most 4,096 units in this probe.
+Locale-word setup still receives the whole line, and an enormous indivisible
+cluster exceeds that window. GC, native operations and callbacks can lengthen
+wall-clock slices. Cooperative readiness can cost more total time; it permits
+input and cancellation between framework-owned batches.
+
+Wrapped editors discover actual measurement/allocation dependencies through
+accepted-layout requests, including nested content-sized panes. Preparation
+and completion use ordinary effects/messages. Pending frames perform no cold
+layout, projection or source-boundary work; ready geometry matches fresh rendering.
+The tab/CR projection regression is guarded by the existing unchanged performance
+threshold and changed-line-only updates, not a larger budget.
+
+Remaining explicit cost cases: deliberate synchronous/raw-input APIs and
+application fixture construction; cooperative source updates still rebuild order
+while sharing unchanged entry/index data; native word setup and enormous grapheme
+work; and conservative full composition for graphics or changing backdrop
+surfaces. Stable backdrops use incremental composition. These are not claims of
+physical-terminal qualification or hard real-time responsiveness.
+
+Evidence: [baseline](./workbench-owned-baseline.json),
+[current](./workbench-owned-after.json),
+[baseline with delayed writes](./workbench-owned-baseline-slow.json),
+[current with delayed writes](./workbench-owned-after-slow.json),
+[allocation and active-heap observations](./workbench-owned-allocation-summary.json),
+[text preparation](./text-owned-preparation.json),
+[localized structural work](./workbench-owned-structure.json), and
+[Unix PTY smoke](./workbench-owned-pty.json).
+Reproduce with `scripts/performance/benchmark-workbench.mjs` (40 samples via
+`WORKBENCH_SAMPLES=40`; optional `WORKBENCH_WRITE_DELAY_MS=5`,
+`WORKBENCH_SOURCE_UPDATES=1`, or a separate `WORKBENCH_ALLOCATIONS=1` run with
+`node --expose-gc`) and `scripts/performance/benchmark-text-preparation.mjs 3`.
 
 ## Responsive query integration
 

@@ -10,15 +10,16 @@ import {
   normalizeTextDocumentOffset,
   textDocumentLength,
   textDocumentLineAt,
+  textDocumentLineBoundaries,
   textDocumentLineIndexAtOffset,
 } from '../../text/document.ts';
-import { createTerminalTextIndex } from '../../text/terminal-text-index.ts';
-import type { TextCaret, TextSelection, TextWidthProfile } from '../../text/types.ts';
+import { ownedWordBoundaryIndex } from '../../text/word-boundaries.ts';
+import type { TextCaret, TextSelection } from '../../text/types.ts';
 import type { TextAreaGeometry } from './geometry.ts';
 import { projectedCaret, textAreaGeometry } from './geometry.ts';
 import type { TextAreaModel } from './model.ts';
 
-export type TextAreaComponentAction = TextAreaTransition | { readonly kind: 'layout'; readonly snapshot: import('./contracts.ts').TextAreaLayoutSnapshot } | {
+export type TextAreaComponentAction = { readonly kind: 'layoutRequest'; readonly request: import('./contracts.ts').TextAreaLayoutRequest } | TextAreaTransition | { readonly kind: 'layout'; readonly snapshot: import('./contracts.ts').TextAreaLayoutSnapshot } | {
   readonly kind: 'contextMenu';
   readonly event: TextContextMenuEvent;
 };
@@ -142,13 +143,12 @@ export function textAreaDragScrollRequest(
 export function textAreaWordSelectionAt(
   document: TextDocument,
   offset: number,
-  widthProfile: TextWidthProfile,
 ): TextSelection {
   const normalized = normalizeTextDocumentOffset(document, offset);
   const lineIndex = textDocumentLineIndexAtOffset(document, normalized);
   const line = textDocumentLineAt(document, lineIndex);
   if (line === undefined) return { startOffset: normalized, endOffsetExclusive: normalized };
-  const local = createTerminalTextIndex(line.text, { widthProfile }).wordSelectionAt(
+  const local = ownedWordBoundaryIndex(textDocumentLineBoundaries(document, line)).selectionAt(
     normalized - line.startOffset,
   );
   return {

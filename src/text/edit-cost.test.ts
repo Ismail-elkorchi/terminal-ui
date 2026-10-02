@@ -39,7 +39,7 @@ function countSegmentIteration(run: (count: () => number) => void): void {
   }
 }
 
-void test('boundary editing traverses unchanged 1K, 10K, and 100K lines at most once', () => {
+void test('boundary editing reuses unchanged 1K, 10K, and 100K lines with bounded native seam overlap', () => {
   for (const length of [1_000, 10_000, 100_000]) {
     const source = 'a'.repeat(length);
     countSegmentIteration((count) => {
@@ -56,13 +56,15 @@ void test('boundary editing traverses unchanged 1K, 10K, and 100K lines at most 
         assert.equal(buffer.cursor, Math.min(length, initial + 20));
         assert.equal(caret.position.offset, buffer.cursor);
       }
-      assert.equal(count(), length, `repeated segmentation during boundary movement at length ${String(length)}`);
+      assert.ok(count() >= length && count() <= length + Math.ceil(length / 4_095),
+        `unexpected native seam overlap at length ${String(length)}`);
+      const warmed = count();
       for (let offset = 1; offset < length; offset += 100) {
         normalizeTextCursor(source, offset);
         previousGraphemeBoundary(source, offset);
         nextGraphemeBoundary(source, offset);
       }
-      assert.equal(count(), length, 'warm boundary operations segmented again');
+      assert.equal(count(), warmed, 'warm boundary operations segmented again');
     });
   }
 });
@@ -99,11 +101,11 @@ void test('vertical editing retains indexes, honors width profiles, and invalida
       caret: { position: { offset: 50_000, affinity: 'downstream' } }
     }, { kind: 'moveLineDown' });
     const afterWarmup = count();
-    assert.ok(afterWarmup >= 100_000);
+    assert.ok(afterWarmup >= 50_000 && afterWarmup < 51_000, 'only the requested geometry prefix is prepared');
     for (let step = 0; step < 10; step += 1) {
       editTextDocument({ document, caret: fromLong.caret }, { kind: 'moveLineUp' });
     }
-    assert.equal(count(), afterWarmup, 'unchanged lines were segmented again');
+    assert.ok(count() <= afterWarmup + 1, 'only the next prefix boundary may be needed');
   });
 
   const ambiguous = createTextDocument('·\nxx');
@@ -205,7 +207,7 @@ void test('owned buffers and documents reuse oversized line prefixes through nav
         };
         move('moveLeft');
         const cold = count();
-        assert.ok(cold >= text.length - 8 && cold <= text.length);
+        assert.ok(cold >= text.length - 8 && cold <= text.length + Math.ceil(text.length / 4_095));
         for (let step = 0; step < 20; step += 1) { move('moveRight'); move('moveLeft'); }
         assert.ok(count() <= cold + 1, 'warm navigation traversed the unchanged prefix');
         const warm = count();
@@ -246,7 +248,7 @@ void test('an enormous grapheme is scanned whole and its boundaries are reused',
     let buffer = editTextBuffer({ text, cursor: text.length }, { kind: 'moveLeft' });
     assert.equal(buffer.cursor, text.length - 1);
     const traversed = count();
-    assert.equal(traversed, text.length);
+    assert.ok(traversed >= text.length && traversed < text.length * 4, 'giant cluster retries must grow geometrically');
     for (let step = 0; step < 10; step += 1) {
       buffer = editTextBuffer(buffer, { kind: 'moveLeft' });
       assert.equal(buffer.cursor, 5);

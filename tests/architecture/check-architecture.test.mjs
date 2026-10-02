@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { cp, copyFile, mkdtemp, rm, symlink } from 'node:fs/promises';
+import { appendFile, cp, copyFile, mkdtemp, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
@@ -24,6 +24,8 @@ test('architecture checker rejects authority, determinism, and dependency-cycle 
   assert.match(result.output, /creates a raw timer/u);
   assert.match(result.output, /calls nondeterministic runtime API Math\.random/u);
   assert.match(result.output, /imports forbidden host runtime dependency/u);
+  assert.match(result.output, /imports forbidden foundation runtime dependency/u);
+  assert.match(result.output, /primitive validation must remain dependency-free/u);
 });
 
 test('architecture checker accepts permitted dependencies and shadowed ambient names', async () => {
@@ -46,6 +48,9 @@ async function checkFixture(name) {
       projectRoot,
       { recursive: true },
     );
+    if (name === 'rejected') {
+      await appendFile(path.join(projectRoot, 'src/foundation/validation.ts'), '\nimport "./runtime-cycle-a.ts";\n');
+    }
     return await run(process.execPath, [checkerPath, '--project-root', projectRoot]);
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
