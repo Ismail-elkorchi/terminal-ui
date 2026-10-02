@@ -10,7 +10,9 @@ import {
   commandInput,
   defineTui,
   createTuiControls,
-  createTuiPreparedQuery,
+  createTuiChild,
+  createTuiCommands,
+  liftTuiResult,
   dialog,
   grid,
   helpBar,
@@ -23,8 +25,6 @@ import {
   surface,
   tabs,
   text,
-  textArea,
-  tree
 } from '@ismail-elkorchi/terminal-ui';
 import type {
   CommandInputTransition,
@@ -33,35 +33,30 @@ import type {
   MenuItem,
   TabCloseEvent,
   TabsTransition,
-  TextAreaTransition,
   TreeNode,
   ScrollableTreeState,
-  TreeTransition,
   TuiContext,
   TuiControlMessage,
-  TuiPreparedQueryState,
-  TuiPreparedQueryMessage,
-  TreeView,
+  TuiChildState,
+  TuiChildMessage,
 } from '@ismail-elkorchi/terminal-ui';
 import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
 import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 import {
   commandInputView,
   createCommandInputState,
-  createTextAreaState,
   commandInputReducer,
   createScrollState,
   menuBarView,
   menuBarReducer,
   tabsReducer,
-  textAreaReducer,
-  treeReducer,
   createTreeSource,
-  prepareTreeView,
-  matchingTreeView,
 } from '@ismail-elkorchi/terminal-ui/behavior';
-import type { CommandInputState, MenuBarState, TextAreaState } from '@ismail-elkorchi/terminal-ui/behavior';
-import type { TreeSource } from '@ismail-elkorchi/terminal-ui';
+import type { CommandInputState, MenuBarState } from '@ismail-elkorchi/terminal-ui/behavior';
+import { editorPanelDefinition } from './features/editor-panel.ts';
+import type { EditorPanelState, EditorPanelMessage } from './features/editor-panel.ts';
+import { explorerDefinition } from './features/explorer.ts';
+import type { ExplorerState, ExplorerMessage } from './features/explorer.ts';
 import { createTuiRuntime } from '@ismail-elkorchi/terminal-ui/tui';
 import type { TuiEffect, TuiRuntime, TuiUpdateResult } from '@ismail-elkorchi/terminal-ui/tui';
 import { textDocumentBytes, textDocumentText } from '@ismail-elkorchi/terminal-ui/text';
@@ -75,7 +70,7 @@ type EntryMetadata = Readonly<{
 interface EditorBuffer {
   readonly path: string;
   readonly label: string;
-  readonly editor: TextAreaState;
+  readonly editor: TuiChildState<EditorPanelState>;
   readonly savedDocument: TextDocument;
 }
 
@@ -115,9 +110,7 @@ interface ChooserState {
 interface EditorState {
   readonly root?: string;
   readonly nodes: readonly TreeNode<EntryMetadata>[];
-  readonly treeSource: TreeSource<EntryMetadata>;
-  readonly tree: ScrollableTreeState;
-  readonly treeProjection: TuiPreparedQueryState<TreeView<EntryMetadata>>;
+  readonly explorer: TuiChildState<ExplorerState<EntryMetadata>>;
   readonly buffers: readonly EditorBuffer[];
   readonly activePath?: string;
   readonly menu: MenuBarState;
@@ -131,10 +124,9 @@ interface EditorState {
 type EditorMessage =
   | TuiControlMessage<typeof editorControls>
   | { readonly kind: 'menuActivate'; readonly id: string }
-  | { readonly kind: 'treeProjection'; readonly message: TuiPreparedQueryMessage<TreeView<EntryMetadata>> }
-  | { readonly kind: 'treeActivate'; readonly id: string }
+  | { readonly kind: 'explorer'; readonly message: TuiChildMessage<ExplorerMessage<EntryMetadata>> }
   | { readonly kind: 'closeTab'; readonly event: TabCloseEvent }
-  | { readonly kind: 'edit'; readonly path: string; readonly transition: TextAreaTransition }
+  | { readonly kind: 'edit'; readonly message: TuiChildMessage<EditorPanelMessage> }
   | { readonly kind: 'submitCommand'; readonly value: string }
   | { readonly kind: 'showChooser'; readonly mode: OpenMode }
   | { readonly kind: 'submitChooser'; readonly value: string }
@@ -148,22 +140,22 @@ type EditorMessage =
   | { readonly kind: 'closeActive' }
   | { readonly kind: 'exit' };
 
-const menuItems: readonly MenuItem[] = [{
-  id: 'file',
-  kind: 'submenu',
-  label: 'File',
-  children: [
-    { id: 'open-file', kind: 'action', label: 'Open File', shortcut: { kind: 'key', key: 'o', modifiers: { ctrl: true } } },
-    { id: 'open-folder', kind: 'action', label: 'Open Folder' },
-    { id: 'save', kind: 'action', label: 'Save', shortcut: { kind: 'key', key: 's', modifiers: { ctrl: true } } },
-    { id: 'close', kind: 'action', label: 'Close Buffer' },
-    { id: 'quit', kind: 'action', label: 'Quit', shortcut: { kind: 'key', key: 'q', modifiers: { ctrl: true } } }
-  ]
-}];
+const editorCommands = createTuiCommands<EditorState, EditorMessage, EditorMessage>([
+  { id: 'open-file', label: 'Open File', shortcuts: [{ kind: 'key', key: 'o', modifiers: { ctrl: true } }], message: { kind: 'showChooser', mode: 'file' } },
+  { id: 'open-folder', label: 'Open Folder', message: { kind: 'showChooser', mode: 'folder' } },
+  { id: 'save', label: 'Save', shortcuts: [{ kind: 'key', key: 's', modifiers: { ctrl: true } }], enabled: state => state.activePath !== undefined, message: { kind: 'saveActive' } },
+  { id: 'close', label: 'Close Buffer', enabled: state => state.activePath !== undefined, message: { kind: 'closeActive' } },
+  { id: 'quit', label: 'Quit', shortcuts: [{ kind: 'key', key: 'q', modifiers: { ctrl: true } }, { kind: 'key', key: 'c', modifiers: { ctrl: true } }], message: { kind: 'exit' } },
+], id => ({ kind: 'menuActivate', id }));
+
+function menuItems(state: EditorState): readonly MenuItem[] {
+  const items = editorCommands.menuItems(state);
+  const first = items[0];
+  return first === undefined ? [] : [{ id: 'file', kind: 'submenu', label: 'File', children: [first, ...items.slice(1)] }];
+}
 
 const editorControls = createTuiControls<EditorState>()({
-  menu: (menu, transition: MenuBarTransition) => menuBarReducer(menu, transition, menuItems),
-  tree: (tree, transition: TreeTransition, state) => treeReducer(tree, transition, { source: state.treeSource, view: state.treeProjection.result }),
+  menu: (menu, transition: MenuBarTransition, state) => menuBarReducer(menu, transition, menuItems(state)),
   command: commandInputReducer,
   chooser: (chooser, transition: CommandInputTransition) => chooser === undefined
     ? chooser : { ...chooser, command: commandInputReducer(chooser.command, transition) },
@@ -173,32 +165,19 @@ const editorControls = createTuiControls<EditorState>()({
   ).selectedId ?? activePath,
 });
 
-const explorerQuery = createTuiPreparedQuery({
-  id: 'explorer-projection',
-  prepare: ({ source, state }: { readonly source: TreeSource<EntryMetadata>; readonly state: ScrollableTreeState }, context) =>
-    prepareTreeView(source, state, { signal: context.signal, yield: async () => { await context.clock.sleep(0, context.signal); } }),
-  toMessage: (message): EditorMessage => ({ kind: 'treeProjection', message }),
-});
+const explorer = createTuiChild(explorerDefinition(createTreeSource<EntryMetadata>([])),
+  (message): EditorMessage => ({ kind: 'explorer', message }));
 
-function prepareExplorer(state: EditorState): TuiUpdateResult<EditorState, EditorMessage> {
-  const requested = explorerQuery.request(state.treeProjection, { source: state.treeSource, state: state.tree });
-  return { ...requested, state: { ...state, treeProjection: requested.state } };
-}
+const editorPanel = createTuiChild(editorPanelDefinition, (message): EditorMessage => ({ kind: 'edit', message }));
 
 const EDITOR_OPERATION_EFFECT_ID = 'editor-operation';
 const MAX_EDITOR_BUFFERS = 32;
 const MAX_EDITOR_FILE_BYTES = 4 * 1_024 * 1_024;
 
-function initialState(): EditorState {
+function initialState(explorerState: TuiChildState<ExplorerState<EntryMetadata>>): EditorState {
   return {
     nodes: [],
-    treeSource: createTreeSource<EntryMetadata>([]),
-    treeProjection: explorerQuery.init(),
-    tree: {
-      expandedIds: [],
-      selection: { mode: 'single', selectionFollowsActive: true },
-      scroll: createScrollState()
-    },
+    explorer: explorerState,
     buffers: [],
     menu: { kind: 'closed', active: 'file' },
     command: emptyCommand(),
@@ -215,29 +194,19 @@ function emptyCommand(): CommandInputState {
 export function createIdeEditorApp(operations: IdeEditorOperations = nodeEditorOperations) {
   return defineTui<EditorState, EditorMessage>({
     id: 'ide-editor',
-    init: () => prepareExplorer(initialState()),
-    update: (state, message) => updateEditor(state, message, operations),
+    init: context => {
+      const initialized = explorer.init({ id: 'explorer', generation: 0 }, context);
+      return { ...initialized, state: initialState(initialized.state) };
+    },
+    update: (state, message, context) => {
+      const updated = updateEditor(state, message, operations, context);
+      if (updated.state.buffers === state.buffers) return updated;
+      const retained = new Map(updated.state.buffers.map(buffer => [buffer.editor.id, buffer.editor.generation]));
+      const removed = state.buffers.filter(buffer => retained.get(buffer.editor.id) !== buffer.editor.generation);
+      return removed.length === 0 ? updated : { ...updated, cancel: [...(updated.cancel ?? []), ...removed.map(buffer => editorPanel.remove(buffer.editor))] };
+    },
     view: editorView,
-    inputBindings: [
-      {
-        id: 'exit',
-        triggers: [
-          { kind: 'key', key: 'c', modifiers: { ctrl: true } },
-          { kind: 'key', key: 'q', modifiers: { ctrl: true } }
-        ],
-        message: { kind: 'exit' }
-      },
-      {
-        id: 'save',
-        triggers: [{ kind: 'key', key: 's', modifiers: { ctrl: true } }],
-        message: { kind: 'saveActive' }
-      },
-      {
-        id: 'open',
-        triggers: [{ kind: 'key', key: 'o', modifiers: { ctrl: true } }],
-        message: { kind: 'showChooser', mode: 'file' }
-      }
-    ],
+    inputBindings: editorCommands.inputBindings,
     nonTty: { mode: 'last_frame' }
   });
 }
@@ -245,42 +214,37 @@ export function createIdeEditorApp(operations: IdeEditorOperations = nodeEditorO
 function updateEditor(
   state: EditorState,
   message: EditorMessage,
-  operations: IdeEditorOperations
+  operations: IdeEditorOperations,
+  context: TuiContext
 ): TuiUpdateResult<EditorState, EditorMessage> {
   switch (message.kind) {
-    case 'control': {
-      const updated = editorControls.update(state, message);
-      return message.control === 'tree' && updated.state.tree !== state.tree
-        && matchingTreeView(updated.state.treeSource, updated.state.tree, state.treeProjection.result) === undefined
-        ? prepareExplorer(updated.state) : updated;
+    case 'control': return editorControls.update(state, message);
+    case 'explorer': {
+      const { outputs, ...updated } = liftTuiResult(state, 'explorer', explorer.update(state.explorer, message.message, context));
+      const selected = outputs?.[0];
+      const node = selected === undefined ? undefined : findTreeNode(state.nodes, selected);
+      if (node?.metadata?.entryKind !== 'file') return updated;
+      const opened = requestOpen(updated.state, 'file', node.metadata.path, operations);
+      return { ...updated, ...opened, effects: [...(updated.effects ?? []), ...(opened.effects ?? [])] };
     }
-    case 'treeProjection': {
-      const projection = explorerQuery.update(state.treeProjection, message.message).state;
-      return result(projection === state.treeProjection ? state : {
-        ...state, treeProjection: projection,
-        ...(projection.error === null ? {} : { notice: projection.error.message }),
-      });
-    }
-    case 'menuActivate':
-      return commandResult(state, message.id, operations);
-    case 'treeActivate': {
-      const node = findTreeNode(state.nodes, message.id);
-      if (node?.metadata?.entryKind !== 'file') return result(state);
-      return requestOpen(state, 'file', node.metadata.path, operations);
+    case 'menuActivate': {
+      const command = editorCommands.resolve(state, message.id);
+      return command === undefined ? result(state) : updateEditor(state, command, operations, context);
     }
     case 'closeTab':
       return result(closeBuffer(state, message.event.id));
     case 'edit': {
-      const buffer = state.buffers.find((candidate) => candidate.path === message.path);
+      const buffer = state.buffers.find((candidate) => candidate.path === message.message.id);
       if (buffer === undefined) return result(state);
-      const editor = textAreaReducer(buffer.editor, message.transition).state;
-      if (textDocumentBytes(editor.document) > MAX_EDITOR_FILE_BYTES) {
+      const updated = editorPanel.update(buffer.editor, message.message, context);
+      const editor = updated.state;
+      if (textDocumentBytes(editor.state.editor.document) > MAX_EDITOR_FILE_BYTES) {
         return result({ ...state, notice: `Files are limited to ${formatByteLimit(MAX_EDITOR_FILE_BYTES)} in this example.` });
       }
-      return result(updateBuffer(state, message.path, (candidate) => ({ ...candidate, editor })));
+      return { ...updated, state: editor === buffer.editor ? state : updateBuffer(state, buffer.path, candidate => ({ ...candidate, editor })) };
     }
     case 'submitCommand':
-      return submitCommand(state, message.value, operations);
+      return submitCommand(state, message.value, operations, context);
     case 'showChooser':
       return result({ ...state, chooser: { mode: message.mode, command: emptyCommand() } });
     case 'submitChooser':
@@ -291,27 +255,21 @@ function updateEditor(
       return result(withoutChooser(state));
     case 'requestOpen':
       return requestOpen(state, message.mode, message.path, operations);
-    case 'workspaceLoaded':
+    case 'workspaceLoaded': {
       if (!isCurrentOperation(state, message.requestId, 'open')) return result(state);
-      return prepareExplorer({
-        ...state,
-        root: message.root,
-        nodes: message.nodes,
-        treeSource: createTreeSource(message.nodes),
-        tree: {
-          expandedIds: message.nodes.filter((node) => node.kind !== 'leaf').map((node) => node.id),
-          ...(message.nodes[0]?.id === undefined ? {} : { activeId: message.nodes[0].id }),
-          selection: message.nodes[0]?.id === undefined
-            ? { mode: 'single', selectionFollowsActive: true }
-            : { mode: 'single', selectedId: message.nodes[0].id, selectionFollowsActive: true },
-          scroll: createScrollState()
-        },
-        operation: { kind: 'idle' },
-        notice: `Opened workspace ${message.root}`
-      });
+      const tree: ScrollableTreeState = {
+        expandedIds: message.nodes.filter(node => node.kind !== 'leaf').map(node => node.id),
+        ...(message.nodes[0]?.id === undefined ? {} : { activeId: message.nodes[0].id }),
+        selection: message.nodes[0]?.id === undefined ? { mode: 'single', selectionFollowsActive: true }
+          : { mode: 'single', selectedId: message.nodes[0].id, selectionFollowsActive: true },
+        scroll: createScrollState(),
+      };
+      return liftTuiResult({ ...state, root: message.root, nodes: message.nodes, operation: { kind: 'idle' as const }, notice: `Opened workspace ${message.root}` },
+        'explorer', explorer.update(state.explorer, { ...state.explorer, message: { kind: 'replace', source: createTreeSource(message.nodes), tree } }, context));
+    }
     case 'fileLoaded':
       if (!isCurrentOperation(state, message.requestId, 'open')) return result(state);
-      return result(openBuffer(state, message.path, message.content));
+      return result(openBuffer(state, message.path, message.content, context));
     case 'fileSaved': {
       if (state.operation.kind !== 'pending'
         || state.operation.operation !== 'save'
@@ -342,25 +300,11 @@ function updateEditor(
   }
 }
 
-function commandResult(
-  state: EditorState,
-  command: string,
-  operations: IdeEditorOperations
-): TuiUpdateResult<EditorState, EditorMessage> {
-  switch (command) {
-    case 'open-file': return result({ ...state, chooser: { mode: 'file', command: emptyCommand() } });
-    case 'open-folder': return result({ ...state, chooser: { mode: 'folder', command: emptyCommand() } });
-    case 'save': return saveActive(state, operations);
-    case 'close': return result(closeActive(state));
-    case 'quit': return requestExit(state, 'menu quit');
-    default: return result({ ...state, notice: `Unknown menu action: ${command}` });
-  }
-}
-
 function submitCommand(
   state: EditorState,
   rawValue: string,
-  operations: IdeEditorOperations
+  operations: IdeEditorOperations,
+  context: TuiContext
 ): TuiUpdateResult<EditorState, EditorMessage> {
   const value = rawValue.trim();
   const [command, ...arguments_] = value.split(/\s+/u);
@@ -369,8 +313,11 @@ function submitCommand(
   switch (command) {
     case '/open': return requestOpen(cleared, 'file', argument, operations);
     case '/folder': return requestOpen(cleared, 'folder', argument, operations);
-    case '/save': return saveActive(cleared, operations);
-    case '/close': return result(closeActive(cleared));
+    case '/save':
+    case '/close': {
+      const message = editorCommands.resolve(cleared, command.slice(1));
+      return message === undefined ? result(cleared) : updateEditor(cleared, message, operations, context);
+    }
     case '': return result(cleared);
     default: return result({ ...cleared, notice: `Unknown command: ${command ?? ''}` });
   }
@@ -407,7 +354,7 @@ function saveActive(
   if (buffer === undefined) return result({ ...state, notice: 'No active buffer to save.' });
   if (!isDirty(buffer)) return result({ ...state, notice: `${buffer.label} is already saved.` });
   const requestId = `save-${String(state.nextOperation)}`;
-  const document = buffer.editor.document;
+  const document = buffer.editor.state.editor.document;
   return {
     state: {
       ...state,
@@ -538,8 +485,8 @@ function editorView(state: EditorState, context: TuiContext): Element<EditorMess
     return editorMinimumSizeNotice();
   }
   const main = splitPane([
-    explorerPane(state),
-    editorPane(state),
+    explorerPane(state, context),
+    editorPane(state, context),
     detailsPane(state)
   ], {
     id: 'editor-main-split',
@@ -588,27 +535,18 @@ function topMenu(state: EditorState): Element<EditorMessage> {
   return surface(menuBar({
     id: 'editor-menu',
     meta: { accessibleName: 'Application menu' },
-    items: menuItems,
-    view: menuBarView(menuItems, state.menu),
+    items: menuItems(state),
+    view: menuBarView(menuItems(state), state.menu),
     onTransition: editorControls.onTransition('menu'),
     onActivate: (event): EditorMessage => ({ kind: 'menuActivate', id: event.id }),
   }), { id: 'editor-menu-surface', appearance: 'bar', padding: { left: 1, right: 1 } });
 }
 
-function explorerPane(state: EditorState): Element<EditorMessage> {
+function explorerPane(state: EditorState, context: TuiContext): Element<EditorMessage> {
   return surface(column([
     text({ content: 'Explorer', id: 'explorer-heading', textRole: 'heading' }),
     text({ content: state.root === undefined ? 'No folder open' : path.basename(state.root), id: 'explorer-root', textRole: 'metadata' }),
-    tree({
-      id: 'editor-tree',
-      meta: { accessibleName: 'File explorer' },
-      source: state.treeSource,
-      view: state.treeProjection.result,
-      busy: state.treeProjection.pending,
-      ...editorControls.bind('tree', state),
-      emptyText: 'Use /folder <path>',
-      onActivate: (event): EditorMessage => ({ kind: 'treeActivate', id: event.id }),
-    }),
+    explorer.view(state.explorer, context),
     helpBar({ id: 'explorer-help', groups: [{ id: 'tree', bindings: [
       { binding: { kind: 'key', key: 'enter' }, label: 'open' },
       { binding: { kind: 'key', key: 'arrowRight' }, label: 'expand' },
@@ -619,7 +557,7 @@ function explorerPane(state: EditorState): Element<EditorMessage> {
   }), { id: 'explorer', appearance: 'inset', padding: { left: 1, right: 1 } });
 }
 
-function editorPane(state: EditorState): Element<EditorMessage> {
+function editorPane(state: EditorState, context: TuiContext): Element<EditorMessage> {
   if (state.buffers.length === 0) {
     return surface(column([
       text({ content: 'Open a folder or file to start editing.', id: 'empty-title', textRole: 'heading' }),
@@ -634,15 +572,7 @@ function editorPane(state: EditorState): Element<EditorMessage> {
       id: buffer.path,
       label: `${buffer.label}${isDirty(buffer) ? ' •' : ''}`,
       closable: true,
-      panel: textArea({
-        id: `editor:${buffer.path}`,
-        meta: { accessibleName: `Editor ${buffer.label}` },
-        state: buffer.editor,
-        lineNumbers: true,
-        highlightActiveLine: true,
-        scrollbar: { visible: 'auto' },
-        onTransition: (transition: TextAreaTransition): EditorMessage => ({ kind: 'edit', path: buffer.path, transition })
-      })
+      panel: editorPanel.view(buffer.editor, context)
     })),
     state: state.activePath === undefined
       ? {}
@@ -721,7 +651,7 @@ function chooserDialog(chooser: ChooserState): Element<EditorMessage> {
   });
 }
 
-function openBuffer(state: EditorState, targetPath: string, content: string): EditorState {
+function openBuffer(state: EditorState, targetPath: string, content: string, context: TuiContext): EditorState {
   const existing = state.buffers.find((buffer) => buffer.path === targetPath);
   if (existing !== undefined) {
     return { ...state, activePath: targetPath, operation: { kind: 'idle' }, notice: `Selected ${existing.label}` };
@@ -740,16 +670,13 @@ function openBuffer(state: EditorState, targetPath: string, content: string): Ed
       notice: `Close a buffer before opening more than ${String(MAX_EDITOR_BUFFERS)} files.`,
     };
   }
-  const editor = createTextAreaState({
-    value: content,
-    caret: { position: { offset: 0, affinity: 'downstream' } },
-    scroll: createScrollState()
-  });
+  const initialized = editorPanel.init({ id: targetPath, generation: state.nextOperation }, context).state;
+  const editor = editorPanel.update(initialized, { ...initialized, message: { kind: 'load', label: path.basename(targetPath), content } }, context).state;
   const buffer: EditorBuffer = {
     path: targetPath,
     label: path.basename(targetPath),
     editor,
-    savedDocument: editor.document,
+    savedDocument: editor.state.editor.document,
   };
   return {
     ...state,
@@ -800,7 +727,7 @@ function activeBuffer(state: EditorState): EditorBuffer | undefined {
 }
 
 function isDirty(buffer: EditorBuffer): boolean {
-  return buffer.editor.document !== buffer.savedDocument;
+  return buffer.editor.state.editor.document !== buffer.savedDocument;
 }
 
 function isCurrentOperation(
@@ -879,7 +806,9 @@ export async function runScriptedIdeEditor() {
     await waitForIdle(runtime);
     await runtime.dispatch({ kind: 'requestOpen', mode: 'file', path: planPath });
     await waitForIdle(runtime);
-    await runtime.dispatch({ kind: 'edit', path: planPath, transition: { kind: 'edit', operation: { kind: 'insert', text: 'planned: ' } } });
+    const editor = runtime.state().buffers.find(buffer => buffer.path === planPath)?.editor;
+    if (editor === undefined) throw new Error('Editor did not open');
+    await runtime.dispatch({ kind: 'edit', message: { id: editor.id, generation: editor.generation, message: { kind: 'transition', transition: { kind: 'edit', operation: { kind: 'insert', text: 'planned: ' } } } } });
     await runtime.dispatch({ kind: 'saveActive' });
     await waitForIdle(runtime);
     await runtime.dispatch({ kind: 'requestOpen', mode: 'file', path: readmePath });
@@ -898,7 +827,7 @@ export async function runScriptedIdeEditor() {
       chooserVisible,
       openBuffers: runtime.state().buffers.length,
       dirtyBuffers: runtime.state().buffers.filter(isDirty).length,
-      treeTargets: frame.hitTargets?.filter((target) => target.id.startsWith('editor-tree')).length ?? 0,
+      treeTargets: frame.hitTargets?.filter((target) => target.id.includes('tree')).length ?? 0,
       visible: renderFramePlain(frame).includes('README.md'),
       frames: runtime.metrics().frameCommits
     };

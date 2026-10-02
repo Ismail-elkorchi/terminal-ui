@@ -62,7 +62,7 @@ export function createTuiPreparedQuery<TInput, TResult, TMessage>(options: {
         : { ...state, pending: false, error: message.diagnostic } };
     },
     cancel<TState extends TuiPreparedQueryState<TResult>>(state: TState): TuiChildResult<Omit<TState, keyof TuiPreparedQueryState<TResult>> & TuiPreparedQueryState<TResult>, TMessage> {
-      return { state: { ...state, revision: state.revision + 1, pending: false, error: null }, cancelEffects: [id] };
+      return { state: { ...state, revision: state.revision + 1, pending: false, error: null }, cancel: [{ kind: 'effect', id }] };
     },
   });
 }

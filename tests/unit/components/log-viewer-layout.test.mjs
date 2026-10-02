@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createLogHistory } from '../../../dist/behavior/log-history.js';
+import { preparedLogLayout } from '../../../dist/behavior/log-viewer-view.js';
 import { createLogViewerView } from '../../../dist/behavior/index.js';
 import { unwrappedLogViewerLayout, visibleLogViewerRecords } from '../../../dist/behavior/log-viewer-layout.js';
 import { defaultTextWidthProfile } from '../../../dist/text/index.js';
@@ -15,6 +16,6 @@ test('unwrapped geometry indexes visible source rows and prepared wrapping retai
   const input = { history, wrap: true, width: 40, widthProfile: defaultTextWidthProfile, foldedIds: ['3', '7'] };
   const wrapped = createLogViewerView(input);
   const reused = createLogViewerView(input);
-  assert.strictEqual(reused.layouts[0], wrapped.layouts[0]);
-  assert.strictEqual(reused.layouts[1], wrapped.layouts[1]);
+  assert.strictEqual(preparedLogLayout(reused, 40), preparedLogLayout(wrapped, 40));
+  assert.strictEqual(preparedLogLayout(reused, 39), preparedLogLayout(wrapped, 39));
 });

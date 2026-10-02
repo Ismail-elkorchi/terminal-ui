@@ -1,13 +1,15 @@
 import { type ControlKeymap } from '../../interaction/control-keymap.ts';
 import { createTreeKeymap, type TreeKeyAction } from '../keymaps.ts';
 import { controlKeyBindings } from '../shared/control-key-bindings.ts';
-import { matchingTreeView } from '../../behavior/tree-operations.ts';
+import { ownCollectionQueryRequest } from '../../text/query.ts';
+import { matchingTreeView, preparedTreeLabelMatch } from '../../behavior/tree-operations.ts';
 import type {
   TreeActivateEvent,
   TreeLoadStatus,
   TreeTransition,
   TreeCollectionRow,
   TreeVisibleRow,
+  TreeView,
 } from '../../behavior/tree.ts';
 import { visibleRowWindow } from '../../behavior/visible-row-window.ts';
 import { createCompleteCollection, collectionItemById } from '../../collection/snapshot.ts';
@@ -43,12 +45,6 @@ import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type { HitTarget } from '../../renderer/contracts.ts';
 import { measureTextCells } from '../../text/measure.ts';
-import type { CompiledCollectionQuery } from '../../text/query.ts';
-import {
-  compileCollectionQuery,
-  indexQueryCandidate,
-  matchCompiledCollectionQuery,
-} from '../../text/query.ts';
 import { sanitizeTerminalText } from '../../text/sanitize.ts';
 import { terminalStyleHasBackground } from '../../theme/theme.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
@@ -75,7 +71,7 @@ interface TreeModel {
   readonly keymap: ControlKeymap<TreeKeyAction>;
   readonly collection: import('../../behavior/tree.ts').TreeCollection;
   readonly pending: boolean;
-  readonly query: CompiledCollectionQuery;
+  readonly view: TreeView | undefined;
   readonly activeId?: string;
   readonly selection: SelectionState;
   readonly emptyText: string;
@@ -207,6 +203,8 @@ export function tree<
   });
 }
 
+const emptyTreeQuery = Object.freeze({ text: '' });
+
 function createTreeModel<
   TMetadata extends Readonly<Record<string, unknown>>,
   TTransitionMessage extends ComponentMessage,
@@ -214,10 +212,7 @@ function createTreeModel<
 >(
   value: Readonly<TreeOptions<TMetadata, TTransitionMessage, TActivateMessage>>,
 ): TreeModel {
-  const query = compileCollectionQuery(
-    value.state.query ?? { text: '', mode: 'contains' },
-  );
-
+  ownCollectionQueryRequest(value.state.query ?? emptyTreeQuery);
   const scroll = decodeComponentScrollState(value.state.scroll, 'tree scroll');
   const scrollbar = decodeComponentScrollbarOptions(value.scrollbar, 'tree scrollbar');
   const scrollPolicy = decodeComponentScrollPolicy(value.scrollPolicy, 'tree scrollPolicy');
@@ -232,7 +227,7 @@ function createTreeModel<
     keymap: value.keymap ?? createTreeKeymap(),
     collection: view?.collection ?? emptyTreeCollection,
     pending: view === undefined,
-    query,
+    view,
     ...(activeId === undefined ? {} : { activeId }),
     selection: decodeSelectionState(value.state.selection, 'tree selection'),
     emptyText: text(value.emptyText, 'tree emptyText') ?? (view === undefined ? 'Tree not ready' : 'No items'),
@@ -622,11 +617,7 @@ function treeLabelSpans(
     cellRole: import('../../visual/frame-source.ts').FrameCellRole,
   ) => import('../../visual/frame-source.ts').FrameCellSource,
 ): readonly import('../../visual/render-content.ts').RenderSpan[] {
-  const match = matchCompiledCollectionQuery(
-    indexQueryCandidate({ id: row.id, primary: row.label }),
-    input.model.query,
-  )
-    ?.ranges.find((range) => range.field === 'primary');
+  const match = input.model.view === undefined ? undefined : preparedTreeLabelMatch(input.model.view, row.id);
   if (match === undefined) {
     return [
       span(row.label, {

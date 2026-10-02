@@ -235,19 +235,20 @@ const peerComponentSnapshot = renderElementSnapshot({
 });
 const peerHarness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
 const peerBefore = peerBadgeMetrics();
+const retainedPeer = peerBadge({ id: 'retained-peer', label: 'Owned peer' });
 await peerHarness.runApp(defineTui({
   id: 'peer-component-lifecycle',
   init: () => ({ state: 0 }),
   update: (state: number, _message: 'next') => ({ state: state + 1 }),
   view: (state: number) => column([
-    peerBadge({ id: 'retained-peer', label: 'Prepared peer' }),
+    retainedPeer,
     text({ content: String(state) }),
   ]),
 }), async (runtime) => {
   await runtime.dispatch('next');
   const metrics = peerBadgeMetrics();
-  if (metrics.preparations - peerBefore.preparations !== 2 || metrics.paints - peerBefore.paints !== 1) {
-    throw new Error('External components must share preparation and retained painting with built-ins.');
+  if (metrics.paints - peerBefore.paints !== 1) {
+    throw new Error('External components must share synchronous authoring and retained painting with built-ins.');
   }
 });
 const result = success('root-entrypoint');

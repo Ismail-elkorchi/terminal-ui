@@ -45,22 +45,23 @@ import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type { HitTarget } from '../../renderer/contracts.ts';
 import { measureTextCells } from '../../text/measure.ts';
-import type { CompiledCollectionQuery } from '../../text/query.ts';
-import { compileCollectionQuery, matchCollectionQuery } from '../../text/query.ts';
+import { measuredGraphemes } from '../../text/graphemes.ts';
+import type { CollectionQuery, CompiledCollectionQuery } from '../../text/query.ts';
+import { ownCollectionQueryRequest } from '../../text/query.ts';
+import { compileCollectionQuery } from '../../text/query.ts';
 import { sanitizeTerminalText } from '../../text/sanitize.ts';
-import { findTextHighlightMatches } from '../../text/search-highlight.ts';
 import { createTerminalTextIndex } from '../../text/terminal-text-index.ts';
 import type { TextWidthProfile } from '../../text/types.ts';
 import { textWidthProfileKey } from '../../text/width-profile.ts';
 import type { FrameCellSource } from '../../visual/frame-source.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
-import { span, wrapRenderSpans } from '../../visual/render-content.ts';
+import { span } from '../../visual/render-content.ts';
 import type { LogViewerStylePart } from '../style-parts.ts';
-import { assertLogViewerView, logViewerMatchById, matchingLogViewerView, ownLogViewerFoldedIds, type LogViewerView, type LogViewerViewInput } from '../../behavior/log-viewer-view.ts';
+import { assertLogViewerView, preparedLogLayout, preparedLogFieldMatches, logViewerMatchById, matchingLogViewerView, type LogViewerView, type LogViewerViewInput } from '../../behavior/log-viewer-view.ts';
 import { createLogViewerRecordView } from '../../behavior/log-viewer-record.ts';
 import {
   unwrappedLogViewerLayout,
-  logViewerRowForEntry,
+  logViewerRowForEntry, logViewerRowForOffset, type LogViewerSourceRow,
   visibleLogViewerRecords,
 } from '../../behavior/log-viewer-layout.ts';
 import type {
@@ -73,7 +74,7 @@ interface LogViewerModel {
   readonly history: LogHistory;
   readonly view: LogViewerView | null;
   readonly wrap: boolean;
-  readonly query: CompiledCollectionQuery;
+  readonly query: Required<CollectionQuery>;
   readonly activeMatchId?: string;
   readonly foldedIds: readonly string[];
   readonly selection?: LogViewerSelection;
@@ -218,16 +219,23 @@ export function logViewer<const TMessage extends ComponentMessage = never>(
   });
 }
 
+// One latest descriptor per owned history: bounded reuse without retaining a
+// chain of view states or comparing the history's records.
+const emptyPaintQuery = compileCollectionQuery({ text: '' });
+const latestLogModels = new WeakMap<LogHistory, LogViewerModel>();
+const emptyFoldedIds: readonly string[] = Object.freeze([]);
+
 function createLogViewerModel(value: Readonly<LogViewerComponentOptions>): LogViewerModel {
   const history = value.history;
   assertLogHistory(history);
   if (value.view !== null) assertLogViewerView(value.view);
   const wrap = optionalBoolean(value.wrap, 'logViewer wrap') ?? false;
-  const query = compileCollectionQuery(value.query ?? { text: '', mode: 'contains' });
+  const query = ownCollectionQueryRequest(value.query ?? { text: '', mode: 'contains' });
   const activeMatchId = value.activeMatchId === undefined
     ? undefined
     : nonEmpty(value.activeMatchId, 'logViewer activeMatchId');
-  const foldedIds = ownLogViewerFoldedIds(value.foldedIds);
+  const foldedIds = value.foldedIds ?? emptyFoldedIds;
+  if (!Array.isArray(foldedIds)) throw new TypeError('logViewer foldedIds must be an array.');
   const selection = ownLogViewerSelection(value.selection);
   const scroll = decodeComponentScrollState(value.scroll, 'logViewer scroll');
   const scrollbar = decodeComponentScrollbarOptions(value.scrollbar, 'logViewer scrollbar');
@@ -250,7 +258,37 @@ function createLogViewerModel(value: Readonly<LogViewerComponentOptions>): LogVi
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
   };
-  return model;
+  const previous = latestLogModels.get(history);
+  if (previous !== undefined && sameLogModel(previous, model)) return previous;
+  const owned = Object.freeze(model);
+  latestLogModels.set(history, owned);
+  return owned;
+}
+
+function sameLogModel(a: LogViewerModel, b: LogViewerModel): boolean {
+  return a.view === b.view && a.wrap === b.wrap && a.query.text === b.query.text
+    && a.query.mode === b.query.mode && a.query.caseSensitive === b.query.caseSensitive
+    && a.activeMatchId === b.activeMatchId && a.foldedIds === b.foldedIds
+    && sameLogSelection(a.selection, b.selection) && sameLogScroll(a, b);
+}
+
+function sameLogSelection(a: LogViewerSelection | undefined, b: LogViewerSelection | undefined): boolean {
+  return a?.anchor.entryId === b?.anchor.entryId && a?.anchor.offset === b?.anchor.offset
+    && a?.focus.entryId === b?.focus.entryId && a?.focus.offset === b?.focus.offset;
+}
+
+function sameLogScroll(a: LogViewerModel, b: LogViewerModel): boolean {
+  return (a.scroll === undefined) === (b.scroll === undefined)
+    && a.scroll?.offsetRow === b.scroll?.offsetRow && a.scroll?.offsetColumn === b.scroll?.offsetColumn
+    && a.scroll?.followTail === b.scroll?.followTail && sameLogScrollOptions(a, b);
+}
+
+function sameLogScrollOptions(a: LogViewerModel, b: LogViewerModel): boolean {
+  return a.scrollbar?.axis === b.scrollbar?.axis && a.scrollbar?.visible === b.scrollbar?.visible
+    && a.scrollbar?.visualState === b.scrollbar?.visualState
+    && a.scrollPolicy?.wheel?.unit === b.scrollPolicy?.wheel?.unit
+    && a.scrollPolicy?.wheel?.rows === b.scrollPolicy?.wheel?.rows
+    && a.scrollPolicy?.wheel?.columns === b.scrollPolicy?.wheel?.columns;
 }
 
 function measureLogViewer(input: ComponentMeasureInput<LogViewerModel>) {
@@ -260,9 +298,7 @@ function measureLogViewer(input: ComponentMeasureInput<LogViewerModel>) {
     for (const record of segment.records) {
       preferredWidth = Math.max(
         preferredWidth,
-        measureTextCells(record.displayText, {
-          widthProfile: input.widthProfile,
-        }).cells,
+        visibleSourceEnd(record.displayText, input.constraints.width, input.widthProfile).cells,
       );
       sampled += 1;
       if (sampled >= 64) break;
@@ -322,8 +358,8 @@ function logViewerWindow(
   }:${styled ? 'styled' : 'plain'}`;
   const cached = logViewerWindows.get(input.model)?.get(key);
   if (cached !== undefined) return cached;
-  const foldedIds = new Set(input.model.foldedIds);
   const accepted = matchingLogViewerView(preparationInput(input), input.model.view);
+  const foldedIds = acceptedFoldedIds(accepted);
   if (input.model.wrap && accepted === undefined) return pendingLogWindow(input, styled);
   const initialLayout = acceptedLogLayout(input, accepted, input.bounds.width);
   const search = accepted ?? emptyQuery;
@@ -375,16 +411,16 @@ function logViewerWindow(
   const omittedBefore = visible.startIndex;
   const omittedAfter = Math.max(0, layout.totalRows - visible.endIndexExclusive);
   const rows = visibleLogViewerRecords(layout, visible.startIndex, visible.endIndexExclusive)
-    .flatMap(({ record, localStart, localEnd }) =>
+    .flatMap(({ record, localStart, sourceRows }) =>
       recordRows(
         input,
         createLogViewerRecordView(record, foldedIds.has(record.entry.id)),
-        accepted === undefined ? compileCollectionQuery({ text: '' }) : input.model.query,
+        accepted?.query ?? emptyPaintQuery,
         activeMatch,
         selectionForRecord(input.model.history, record, input.model.selection),
         scrollbar.contentBounds.width,
-        styled,
-      ).slice(localStart, localEnd)
+        styled, sourceRows, localStart,
+      )
     );
   const marked = layout.totalRows === 0
     ? scrollbar.contentBounds.height <= 0 ? [] : [emptyRow(input, styled)]
@@ -431,35 +467,10 @@ function matchingLogViewerRow(
   const record = logHistoryRecordById(input.model.history, match.entryId);
   const entryStart = logViewerRowForEntry(layout, match.entryIndex);
   if (record === undefined || entryStart === undefined) return undefined;
+  if (!input.model.wrap) return entryStart;
   const recordView = createLogViewerRecordView(record, foldedIds.has(record.entry.id));
-  const spans = fullLineSpans(input, recordView, input.model.query, undefined, undefined, false);
-  const rows: number[] = [];
-  let row = 0;
-  let used = 0;
-  for (const current of spans) {
-    let recorded = false;
-    for (
-      const grapheme of measureTextCells(current.text, { widthProfile: input.widthProfile })
-        .graphemes
-    ) {
-      if (grapheme.text === '\n') {
-        row += 1;
-        used = 0;
-        continue;
-      }
-      if (used > 0 && used + grapheme.cells > Math.max(1, input.bounds.width)) {
-        row += 1;
-        used = 0;
-      }
-      if (current.source?.partType === 'match' && !recorded) {
-        rows.push(row);
-        recorded = true;
-      }
-      used += grapheme.cells;
-    }
-  }
-  const local = rows[match.occurrenceIndex];
-  return local === undefined ? entryStart : entryStart + local;
+  const fieldOffset = recordView.fieldOffsets.get(match.field)?.get(match.fieldKey);
+  return fieldOffset === undefined ? entryStart : logViewerRowForOffset(layout, match.entryIndex, fieldOffset + match.startOffset);
 }
 
 function recordRows(
@@ -472,32 +483,47 @@ function recordRows(
   selection: { readonly start: number; readonly end: number } | undefined,
   width: number,
   styled: boolean,
+  sourceRows?: readonly LogViewerSourceRow[],
+  firstRow = 0,
 ): readonly LogViewerVisibleRow[] {
-  const spans = fullLineSpans(input, record, query, activeMatch, selection, styled);
-  const lines = input.model.wrap && width > 0
-    ? wrapRenderSpans(spans, width, { widthProfile: input.widthProfile })
-    : [{ spans }];
-  let bodyCursor = 0;
-  return Object.freeze(lines.map((line, index) => {
-    const positions = bodyPositionsForLine(
-      line.spans,
-      record.bodyText,
-      record.source.entry.id,
-      bodyCursor,
-      input.widthProfile,
-    );
-    bodyCursor = positions.nextBodyCursor;
+  const ranges = sourceRows ?? [{ start: 0, end: visibleSourceEnd(record.displayText, width, input.widthProfile).end }];
+  return Object.freeze(ranges.map((range, index) => {
+    const spans = sliceSourceSpans(fullLineSpans(input, record, query, activeMatch, selection, styled, range), range);
+    const positions = bodyPositionsForLine(spans, record.bodyText, record.source.entry.id,
+      Math.max(0, range.start - (record.fieldOffsets.get('body')?.get(undefined) ?? 0)), input.widthProfile);
     return Object.freeze({
-      id: `${input.id ?? 'log-viewer'}:entry:${String(record.source.entryIndex)}:line:${
-        String(index)
-      }`,
-      text: line.spans.map((current) => current.text).join(''),
-      spans: line.spans,
-      matched: line.spans.some((current) => current.source?.partType === 'match'),
-      activeMatch: line.spans.some((current) => current.source?.interactionState === 'active'),
+      id: `${input.id ?? 'log-viewer'}:entry:${String(record.source.entryIndex)}:line:${String(firstRow + index)}`,
+      text: sourceRows === undefined ? record.displayText : record.displayText.slice(range.start, range.end),
+      spans,
+      matched: spans.some(current => current.source?.partType === 'match'),
+      activeMatch: spans.some(current => current.source?.interactionState === 'active'),
       ...(positions.positions.length === 0 ? {} : { bodyPositions: positions.positions }),
     });
   }));
+}
+
+function visibleSourceEnd(text: string, width: number, widthProfile: TextWidthProfile): { readonly end: number; readonly cells: number } {
+  let cells = 0; let end = 0;
+  if (width <= 0) return { end, cells };
+  for (const part of measuredGraphemes(text, { widthProfile })) {
+    if (part.text === '\n') { end = part.endOffsetExclusive; continue; }
+    if (cells + part.cells > width) break;
+    cells += part.cells; end = part.endOffsetExclusive;
+    if (cells >= width) break;
+  }
+  return { end, cells };
+}
+
+function sliceSourceSpans(spans: readonly LogViewerTextSegment[], range: LogViewerSourceRow): readonly LogViewerTextSegment[] {
+  const visible: LogViewerTextSegment[] = [];
+  let offset = 0;
+  for (const current of spans) {
+    const end = offset + current.text.length;
+    if (offset >= range.end) break;
+    if (end > range.start) visible.push({ ...current, text: current.text.slice(Math.max(0, range.start - offset), Math.min(current.text.length, range.end - offset)) });
+    offset = end;
+  }
+  return Object.freeze(visible);
 }
 
 function fullLineSpans(
@@ -509,6 +535,7 @@ function fullLineSpans(
   activeMatch: LogSearchMatch | undefined,
   selection: { readonly start: number; readonly end: number } | undefined,
   styled: boolean,
+  range?: LogViewerSourceRow,
 ): readonly LogViewerTextSegment[] {
   const output: LogViewerTextSegment[] = [];
   const entry = record.source.entry;
@@ -527,7 +554,7 @@ function fullLineSpans(
         record.source,
         styled,
         activeMatch,
-        'timestamp',
+        'timestamp', undefined, false, 0, fieldWindow(record, range, 'timestamp'),
       ),
     );
     output.push(
@@ -548,7 +575,7 @@ function fullLineSpans(
         styled,
         activeMatch,
         'metadataKey',
-        key,
+        key, false, 0, fieldWindow(record, range, 'metadataKey', key),
       ),
     );
     output.push(
@@ -573,12 +600,12 @@ function fullLineSpans(
         styled,
         activeMatch,
         'metadataValue',
-        key,
+        key, false, 0, fieldWindow(record, range, 'metadataValue', key),
       ),
     );
   }
   appendGap(output, input, styled);
-  output.push(...bodySegments(input, record, query, activeMatch, selection, styled));
+  output.push(...bodySegments(input, record, query, activeMatch, selection, styled, fieldWindow(record, range, 'body')));
   return Object.freeze(output.filter((current) => current.text.length > 0));
 }
 
@@ -591,6 +618,7 @@ function bodySegments(
   activeMatch: LogSearchMatch | undefined,
   selection: { readonly start: number; readonly end: number } | undefined,
   styled: boolean,
+  range?: LogViewerSourceRow,
 ): readonly LogViewerTextSegment[] {
   const body = record.bodyText;
   if (selection === undefined) {
@@ -606,7 +634,7 @@ function bodySegments(
       'body',
       undefined,
       true,
-      0,
+      0, range,
     );
   }
   const start = Math.max(0, Math.min(body.length, selection.start));
@@ -624,7 +652,7 @@ function bodySegments(
       'body',
       undefined,
       true,
-      0,
+      0, range,
     ),
     ...highlightSegments(
       input,
@@ -638,7 +666,7 @@ function bodySegments(
       'body',
       undefined,
       true,
-      start,
+      start, range,
     ),
     ...highlightSegments(
       input,
@@ -652,7 +680,7 @@ function bodySegments(
       'body',
       undefined,
       true,
-      end,
+      end, range,
     ),
   ];
 }
@@ -672,19 +700,14 @@ function highlightSegments(
   fieldKey?: string,
   body = false,
   sourceOffset = 0,
+  range?: LogViewerSourceRow,
 ): readonly LogViewerTextSegment[] {
-  const index = createTerminalTextIndex(text, { widthProfile: input.widthProfile });
-  const ranges = query.text.length === 0
+  const ranges = query.text.length === 0 || input.model.view === null
     ? []
-    : query.mode === 'contains'
-      ? findTextHighlightMatches(text, query.text, {
-          widthProfile: input.widthProfile,
-          caseSensitive: query.caseSensitive,
-        }).map((match) => ({
-          start: index.graphemeIndexToCodeUnitOffset(match.startGraphemeIndex),
-          end: index.graphemeIndexToCodeUnitOffset(match.endGraphemeIndexExclusive),
-        }))
-      : matchCollectionQuery({ id: record.entry.id, primary: text }, query)?.ranges ?? [];
+    : fieldMatchesInWindow(preparedLogFieldMatches(input.model.view, record, field, fieldKey),
+      Math.max(sourceOffset, range?.start ?? 0), Math.min(sourceOffset + text.length, range?.end ?? Number.POSITIVE_INFINITY))
+      .map(match => ({ start: Math.max(0, match.startOffset - sourceOffset),
+        end: Math.min(text.length, match.endOffsetExclusive - sourceOffset), original: match }));
   if (ranges.length === 0) {
     return [segment(input, text, part, partName, part, record, styled, body)];
   }
@@ -712,8 +735,8 @@ function highlightSegments(
         activeMatch?.entryId === record.entry.id &&
           activeMatch.field === field &&
           activeMatch.fieldKey === fieldKey &&
-          activeMatch.startOffset === sourceOffset + start &&
-          activeMatch.endOffsetExclusive === sourceOffset + end,
+          activeMatch.startOffset === match.original.startOffset &&
+          activeMatch.endOffsetExclusive === match.original.endOffsetExclusive,
       ),
     );
     cursor = end;
@@ -1099,7 +1122,7 @@ function bodyPositionsForLine(
   entryId: string,
   initialCursor: number,
   widthProfile: TextWidthProfile,
-): { readonly positions: readonly LogViewerBodyPosition[]; readonly nextBodyCursor: number } {
+): { readonly positions: readonly LogViewerBodyPosition[] } {
   const positions: LogViewerBodyPosition[] = [];
   let column = 0;
   let cursor = initialCursor;
@@ -1118,7 +1141,7 @@ function bodyPositionsForLine(
     }
     column += cells;
   }
-  return { positions: Object.freeze(positions), nextBodyCursor: cursor };
+  return { positions: Object.freeze(positions) };
 }
 
 function selectionForRecord(
@@ -1260,7 +1283,7 @@ function preparationInput(input: ComponentInput<LogViewerModel>): LogViewerViewI
 }
 function samePreparation(left: LogViewerViewInput, right: LogViewerViewInput): boolean {
   return left.history === right.history && left.query?.text === right.query?.text && left.query?.mode === right.query?.mode
-    && left.query?.caseSensitive === right.query?.caseSensitive && JSON.stringify(left.foldedIds) === JSON.stringify(right.foldedIds)
+    && left.query?.caseSensitive === right.query?.caseSensitive && left.foldedIds === right.foldedIds
     && left.wrap === right.wrap && left.width === right.width
     && textWidthProfileKey(left.widthProfile) === textWidthProfileKey(right.widthProfile);
 }
@@ -1272,7 +1295,30 @@ function pendingLogWindow(input: ComponentInput<LogViewerModel> | ComponentInter
 
 function acceptedLogLayout(input: ComponentInput<LogViewerModel>, view: LogViewerView | undefined, width: number) {
   if (!input.model.wrap) return unwrappedLogViewerLayout(input.model.history);
-  const layout = view?.layouts.find(candidate => candidate.width === width);
+  const layout = view === undefined ? undefined : preparedLogLayout(view, width);
   if (layout === undefined) throw new Error('Prepared log view is missing its allocated width.');
   return layout;
+}
+
+function acceptedFoldedIds(view: LogViewerView | undefined): ReadonlySet<string> {
+  return new Set(view?.foldedIds ?? emptyFoldedIds);
+}
+
+function fieldWindow(record: ReturnType<typeof createLogViewerRecordView>, range: LogViewerSourceRow | undefined, field: LogSearchMatch['field'], key?: string): LogViewerSourceRow | undefined {
+  if (range === undefined) return undefined;
+  const offset = record.fieldOffsets.get(field)?.get(key) ?? 0;
+  return { start: range.start - offset, end: range.end - offset };
+}
+
+function fieldMatchesInWindow(matches: readonly LogSearchMatch[], start: number, end: number): readonly LogSearchMatch[] {
+  if (end <= start) return [];
+  let lower = 0; let upper = matches.length;
+  while (lower < upper) {
+    const middle = (lower + upper) >>> 1;
+    if ((matches[middle]?.endOffsetExclusive ?? 0) <= start) lower = middle + 1;
+    else upper = middle;
+  }
+  const first = lower;
+  while (lower < matches.length && (matches[lower]?.startOffset ?? end) < end) lower++;
+  return matches.slice(first, lower);
 }

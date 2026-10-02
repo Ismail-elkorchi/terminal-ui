@@ -2,6 +2,7 @@ import { sanitizeTerminalControlText, sanitizeTerminalSingleLineText } from './s
 import {
   nextGraphemeBoundary,
   normalizeTextCursor,
+  normalizeTextEditCursor,
   normalizeTextSelection,
   previousGraphemeBoundary,
   replaceTextRange,
@@ -25,7 +26,7 @@ export function editTextBuffer(
   operation: TextEditOperation,
   options: TextBoundaryOptions = {}
 ): TextEditBuffer {
-  return editBuffer(buffer, operation, options, (text) => sanitizeTerminalSingleLineText(text).text);
+  return normalizeEditedBuffer(buffer, editBuffer(buffer, operation, options, (text) => sanitizeTerminalSingleLineText(text).text));
 }
 
 /** Source-backed text inputs defer tab expansion until the active display profile is known. */
@@ -33,7 +34,7 @@ export function editSourceTextBuffer(
   buffer: TextEditBuffer,
   operation: TextEditOperation,
 ): TextEditBuffer {
-  return editBuffer(buffer, operation, {}, sanitizeInsertedText);
+  return normalizeEditedBuffer(buffer, editBuffer(buffer, operation, {}, sanitizeInsertedText));
 }
 
 function editBuffer(
@@ -230,4 +231,10 @@ function requiredWordIndex(index: WordBoundaryIndex | undefined): WordBoundaryIn
 function sanitizeInsertedText(text: string): string {
   // Keep tabs as source text; their geometry belongs to the active display profile.
   return sanitizeTerminalControlText(text).text.replace(/\n/gu, ' ');
+}
+
+function normalizeEditedBuffer(previous: TextEditBuffer, buffer: TextEditBuffer): TextEditBuffer {
+  if (previous.text === buffer.text) return buffer;
+  const cursor = normalizeTextEditCursor(buffer.text, buffer.cursor);
+  return cursor === buffer.cursor ? buffer : { ...buffer, cursor };
 }

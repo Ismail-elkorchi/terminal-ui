@@ -182,11 +182,15 @@ the component identity and the `prepare` execution phase. Direct synchronous
 rendering does not run preparation, so rendering must support an unprepared
 model as well. Prepared resources are caches owned by the component.
 
-Leaf definitions may opt into `retainPaint: true` when painting is a pure
-function of the immutable render inputs. The renderer owns cache storage and
-invalidation for model, geometry, theme, width profile, styles, focus, and
-pointer state. Preparation must not change the visible result for otherwise
-equal render inputs. Definitions without this opt-in paint on every render.
-The explicit `styles` input lets a component include caller styles in a local
-cache key without hidden registration. Built-in and externally installed
-components use these same contracts.
+Leaf definitions may opt into `retainPaint: true` when painting is a deterministic
+function of immutable render inputs. Model, resource, theme and style identities
+are retention dependencies; application models are never recursively compared.
+Geometry, width policy, focus and pointer state use their declared fields. Supply
+a new owned model when visible domain values change. A renderer reading mutable
+external state must not opt in unless that state is represented by a new owned
+input. Definitions without this opt-in paint on every render.
+
+Only drawing commands are retained. Current event callbacks, hit targets and
+interaction mappings are constructed independently, including on paint hits.
+The renderer owns storage and invalidation; there is no caller-supplied equality
+escape hatch. Built-in and externally installed components use the same contract.

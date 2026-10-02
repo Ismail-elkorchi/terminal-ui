@@ -14,7 +14,6 @@ import type {
   LayoutNode,
   RenderDiff,
   RenderInstrumentation,
-  RenderPreparationContext,
 } from '../../renderer/contracts.ts';
 import { diffFrames } from '../../renderer/frame.ts';
 import type { DirtyRegionSet } from '../../renderer/internal/damage-contracts.ts';
@@ -23,13 +22,11 @@ import {
   dirtyRegionsForRegionChanges,
 } from '../../renderer/internal/dirty-regions.ts';
 import { withFrameAccessibility } from '../../renderer/internal/frame-snapshot.ts';
-import { prepareRenderTree } from '../../renderer/internal/prepare-render.ts';
 import {
   renderElementInternal,
   rerenderElementInternal,
 } from '../../renderer/internal/render-element.ts';
 import type { RenderRegion } from '../../renderer/internal/render-regions.ts';
-import { toRenderNode } from '../../renderer/internal/render-tree/element.ts';
 import type { RenderNode } from '../../renderer/internal/render-tree/types.ts';
 import { planTerminalFrameOutput } from '../../renderer/internal/terminal-frame-planner.ts';
 import type { RenderBudgetLimits } from '../../renderer/render-budget.ts';
@@ -57,7 +54,7 @@ export interface RenderCommitCandidate<TMessage> {
   readonly pointerVisuals?: PointerVisualSnapshot;
 }
 
-export async function renderCurrentFrame<TState, TMessage>(
+export function renderCurrentFrame<TState, TMessage>(
   app: TuiApp<TState, TMessage>,
   state: TState,
   context: TuiContext,
@@ -70,10 +67,8 @@ export async function renderCurrentFrame<TState, TMessage>(
   instrumentation?: RenderInstrumentation,
   focusPathForLayout?: (layout: LayoutNode) => FocusPath | undefined,
   previous?: RenderCommitCandidate<TMessage>,
-  preparation?: RenderPreparationContext,
-): Promise<RenderCommitCandidate<TMessage>> {
+): RenderCommitCandidate<TMessage> {
   const element = tuiDefinition(app).view(state, context);
-  if (preparation !== undefined) await prepareRenderTree(toRenderNode(element), preparation);
   const renderResult = renderElementInternal(element, context.terminalSize, {
     ...(focusPath === undefined ? {} : { focusPath }),
     theme,

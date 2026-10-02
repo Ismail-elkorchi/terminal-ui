@@ -120,21 +120,22 @@ void test('logViewerReducer owns pointer selection without retaining an empty ra
 });
 
 void test('logViewerReducer preserves identity for no-op query, fold, scroll, and navigation transitions', () => {
+  const foldedIds = Object.freeze(['a']);
   const scroll = followTailScrollState({ contentRows: 25, viewportRows: 5 });
   const state = logViewerReducer({
-    foldedIds: ['a'],
+    foldedIds,
     followTail: true,
     query: compileCollectionQuery({ text: 'needle', mode: 'contains' }),
     scroll,
   }, {
     kind: 'jumpMatch',
     direction: 1
-  }, { history, view: createLogViewerView({ history, query: { text: 'needle' }, foldedIds: ['a'] }) });
+  }, { history, view: createLogViewerView({ history, query: { text: 'needle' }, foldedIds }) });
 
   assert.equal(logViewerReducer(state, { kind: 'setQuery', query: { text: ' needle ' } }, { history, view: null }), state);
   assert.equal(logViewerReducer(state, { kind: 'fold', id: 'a' }, { history, view: null }), state);
   assert.equal(logViewerReducer(state, { kind: 'setFollowTail', followTail: true }, { history, view: null }), state);
   assert.notEqual(state.activeMatchId, undefined);
-  const cleared = logViewerReducer(state, { kind: 'setQuery', query: { text: '' } }, { history, view: createLogViewerView({ history, query: { text: 'needle' }, foldedIds: ['a'] }) });
+  const cleared = logViewerReducer(state, { kind: 'setQuery', query: { text: '' } }, { history, view: createLogViewerView({ history, query: { text: 'needle' }, foldedIds }) });
   assert.equal(cleared.activeMatchId, undefined);
 });

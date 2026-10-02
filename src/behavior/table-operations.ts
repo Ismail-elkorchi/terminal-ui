@@ -1,8 +1,9 @@
+import { finishWork, prepareWork, stableSortWork, type CooperativeWorkContext } from '../foundation/cooperative-work.ts';
 import type { CollectionWindow } from '../collection/snapshot.ts';
 import {
   collectionIds,
   collectionItemById,
-  createCompleteCollection,
+  createCompleteCollectionWork,
   createWindowedCollection,
 } from '../collection/snapshot.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
@@ -125,13 +126,29 @@ export function createTableCollection<TRow>(
   getRowId: (row: TRow, index: number) => string,
   window?: CollectionWindow,
 ): TableCollection<TRow> {
+  return finishWork(tableCollectionWork(rows, getRowId, window));
+}
+
+/** Rows and callback inputs must be immutable; only array membership is adopted here. */
+export function prepareTableCollection<TRow>(
+  rows: readonly TRow[], getRowId: (row: TRow, index: number) => string,
+  context: CooperativeWorkContext,
+): Promise<CompleteTableCollection<TRow>> {
+  context.signal.throwIfAborted();
+  return prepareWork(tableCollectionWork([...rows], getRowId), context) as Promise<CompleteTableCollection<TRow>>;
+}
+
+function* tableCollectionWork<TRow>(rows: readonly TRow[], getRowId: (row: TRow, index: number) => string,
+  window?: CollectionWindow): Generator<void, TableCollection<TRow>> {
   const startIndex = window?.startIndex ?? 0;
-  const items = rows.map((row, offset): TableCollectionRow<TRow> => {
+  const items: TableCollectionRow<TRow>[] = [];
+  for (const [offset, row] of rows.entries()) {
     const itemIndex = startIndex + offset;
-    return { id: getRowId(row, itemIndex), itemIndex, row };
-  });
+    items.push({ id: getRowId(row, itemIndex), itemIndex, row });
+    if (items.length % 256 === 0) yield;
+  }
   return window === undefined
-    ? createCompleteCollection(items)
+    ? yield* createCompleteCollectionWork(items)
     : createWindowedCollection({ items, window });
 }
 
@@ -141,11 +158,28 @@ export function sortTableRows<TRow>(
   valueForColumn: TableCellValueGetter<TRow>,
   compare: (left: unknown, right: unknown) => number = compareTableValues,
 ): readonly TRow[] {
+  return finishWork(sortTableRowsWork(rows, sort, valueForColumn, compare));
+}
+
+/** Immutable rows; callbacks are indivisible and must bound their own work. */
+export function prepareTableRows<TRow>(
+  rows: readonly TRow[], sort: TableSortState | undefined,
+  valueForColumn: TableCellValueGetter<TRow>, context: CooperativeWorkContext,
+  compare: (left: unknown, right: unknown) => number = compareTableValues,
+): Promise<readonly TRow[]> {
+  context.signal.throwIfAborted();
+  return prepareWork(sortTableRowsWork([...rows], sort, valueForColumn, compare), context);
+}
+
+function* sortTableRowsWork<TRow>(
+  rows: readonly TRow[], sort: TableSortState | undefined,
+  valueForColumn: TableCellValueGetter<TRow>, compare: (left: unknown, right: unknown) => number,
+): Generator<void, readonly TRow[]> {
   if (sort === undefined) return rows;
   const direction = sort.direction === 'ascending' ? 1 : -1;
-  return [...rows].sort((left, right) =>
-    compare(valueForColumn(left, sort.columnId), valueForColumn(right, sort.columnId)) * direction
-  );
+  const columnId = sort.columnId;
+  return yield* stableSortWork(rows, (left, right) =>
+    compare(valueForColumn(left, columnId), valueForColumn(right, columnId)) * direction);
 }
 
 function moveRow<TRow>(

@@ -36,8 +36,15 @@ export function createTuiControls<TState>(): <TReducers extends TuiControlReduce
     reducers: TReducers,
   ): TuiControls<TState, TReducers> => {
     const ownedReducers = Object.freeze({ ...reducers });
-    const onTransition = <TKey extends keyof TReducers & keyof TState & string>(control: TKey) =>
-      (transition: Parameters<NonNullable<TReducers[TKey]>>[1]): TuiControlTransitionMessage<TState, TReducers> => ({ kind: 'control', control, transition });
+    // One immutable binding per declared field. Callbacks carry no captured parent state.
+    const messages = new Map(Object.keys(ownedReducers).map(control => [control,
+      (transition: unknown) => ({ kind: 'control' as const, control, transition }),
+    ] as const));
+    const onTransition = <TKey extends keyof TReducers & keyof TState & string>(control: TKey) => {
+      const callback = messages.get(control);
+      if (callback === undefined) throw new TypeError(`Unknown controlled field: ${control}`);
+      return callback as (transition: Parameters<NonNullable<TReducers[TKey]>>[1]) => TuiControlTransitionMessage<TState, TReducers>;
+    };
     return Object.freeze({
       update(state: TState, message: TuiControlTransitionMessage<TState, TReducers>) {
         const key = message.control;

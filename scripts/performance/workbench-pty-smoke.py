@@ -13,15 +13,18 @@ def collect(seconds):
         if select.select([master], [], [], min(.05, max(0,end-time.monotonic())))[0]:
             try: output.extend(os.read(master, 65536))
             except OSError: break
+def wait_for_output(expected, timeout=20):
+    end = time.monotonic() + timeout
+    while expected not in output and proc.poll() is None and time.monotonic() < end:
+        collect(.05)
+    assert expected in output, 'Expected application output absent: ' + repr(expected)
 try:
-    collect(4)
+    wait_for_output(b'Incident Workbench')
     assert b'Incident Workbench' in output, 'Initial application frame absent'
     os.write(master, b'/palette\r')
-    collect(2)
-    assert b'Search 100,000' in output, 'Palette absent'
+    wait_for_output(b'Search 100,000')
     os.write(master, b'trace-42123')
-    collect(2)
-    assert b'INC-042123' in output, 'Matching incident not present in PTY output'
+    wait_for_output(b'INC-042123')
     os.write(master, b'\r')
     collect(.4)
     os.write(master, b'\x11')

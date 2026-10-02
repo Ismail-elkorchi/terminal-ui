@@ -31,7 +31,7 @@ import {
   normalizeInlineContent,
   tryNormalizeInlineContent,
 } from '../../visual/inline-content.ts';
-import type { TerminalStyle } from '../../visual/render-content.ts';
+import { sameTerminalStyle, type TerminalStyle } from '../../visual/render-content.ts';
 import { decodeTerminalStyle } from '../../visual/terminal-style.ts';
 import type { TableColumn, TableColumnWidth } from './column.ts';
 import type { DataGridOptions, TableOptions } from './options.ts';
@@ -106,9 +106,14 @@ export interface TableRenderSource {
   readonly rowModels: Map<number, TableRowModel>;
 }
 
+const noSelectedRows: readonly string[] = Object.freeze([]);
+const noSelectedCells: readonly DataGridCell[] = Object.freeze([]);
+
 const tableSources = new WeakMap<object, TableRenderSource>();
 
 const tableCollectionSources = new WeakMap<object, TableSource>();
+
+const latestTableStructures = new WeakMap<object, TableModelResources>();
 
 const inferredTableColumns = new WeakMap<object, readonly TableColumnModel[]>();
 
@@ -152,8 +157,8 @@ export function createTableModel<TRow, TMessage extends ComponentMessage>(
     ...(state.selectionMode === undefined ? {} : { selectionMode: state.selectionMode }),
     ...(state.activeRowId === undefined ? {} : { activeRowId: state.activeRowId }),
     ...(state.activeColumnId === undefined ? {} : { activeColumnId: state.activeColumnId }),
-    selectedRowIds: state.selectedRowIds,
-    selectedCells: state.selectedCells,
+    selectedRowIds: state.selectedRowIds.length === 0 ? noSelectedRows : state.selectedRowIds,
+    selectedCells: state.selectedCells.length === 0 ? noSelectedCells : state.selectedCells,
     ...(state.sort === undefined ? {} : { sort: state.sort }),
     columnWidths: state.columnWidths,
     density: density ?? 'regular',
@@ -193,6 +198,8 @@ function createTableStructure<TRow>(
   source: TableSource<TRow>,
 ): TableModelResources {
   const columnModels = createTableColumnModels(columns, source);
+  const previous = latestTableStructures.get(source);
+  if (previous !== undefined && sameTableColumns(previous.columns, columnModels)) return previous;
   const sourceToken = Object.freeze({});
   tableSources.set(sourceToken, {
     rows: source.rows,
@@ -203,7 +210,9 @@ function createTableStructure<TRow>(
     columns: columnModels,
     rowModels: new Map(),
   });
-  return Object.freeze({ columns: columnModels, source: sourceToken });
+  const structure = Object.freeze({ columns: columnModels, source: sourceToken });
+  latestTableStructures.set(source, structure);
+  return structure;
 }
 
 interface TableSource<TRow = unknown> {
@@ -339,11 +348,47 @@ function createTableColumnModels<TRow>(
   return Object.freeze(models);
 }
 
-function compiledTableCell<TRow>(
-  column: TableColumn<TRow>,
-): (row: unknown, rowIndex: number, columnIndex: number) => TableCellModel {
-  return (row, rowIndex, columnIndex) =>
-    tableCell(column, row as TRow, rowIndex, columnIndex);
+function sameTableColumns(a: readonly TableColumnModel[], b: readonly TableColumnModel[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let index = 0; index < a.length; index += 1) {
+    const left = a[index];
+    const right = b[index];
+    if (left === undefined || right === undefined) return false;
+    if (left.id !== right.id || left.index !== right.index || left.header !== right.header
+      || left.align !== right.align || left.semantic !== right.semantic || left.sortable !== right.sortable
+      || left.resizable !== right.resizable || left.cell !== right.cell
+      || !sameColumnWidth(left.width, right.width)
+      || !sameTerminalStyle(left.style, right.style) || !sameTerminalStyle(left.headerStyle, right.headerStyle)) return false;
+  }
+  return true;
+}
+
+function sameColumnWidth(a: TableColumnWidth | undefined, b: TableColumnWidth | undefined): boolean {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a.kind !== b.kind) return false;
+  switch (a.kind) {
+    case 'fixed': return b.kind === 'fixed' && a.cells === b.cells;
+    case 'percent': return b.kind === 'percent' && a.value === b.value;
+    case 'fill': return b.kind === 'fill' && a.weight === b.weight;
+    case 'content': return b.kind === 'content' && a.min === b.min && a.max === b.max;
+  }
+}
+
+const compiledCells = new WeakMap<object, { plain?: TableColumnModel['cell']; readonly rendered: WeakMap<object, TableColumnModel['cell']> }>();
+function compiledTableCell<TRow>(column: TableColumn<TRow>): TableColumnModel['cell'] {
+  const value = column.value;
+  const renderCell = 'renderCell' in column ? column.renderCell : undefined;
+  let byRender = compiledCells.get(value);
+  if (byRender === undefined) { byRender = { rendered: new WeakMap() }; compiledCells.set(value, byRender); }
+  const previous = renderCell === undefined ? byRender.plain : byRender.rendered.get(renderCell);
+  if (previous !== undefined) return previous;
+  // Capture callbacks rather than retaining the caller's mutable column wrapper.
+  const owned = { value, ...(renderCell === undefined ? {} : { renderCell }) };
+  const cell: TableColumnModel['cell'] = (row, rowIndex, columnIndex) => tableCell(owned, row as TRow, rowIndex, columnIndex);
+  if (renderCell === undefined) byRender.plain = cell;
+  else byRender.rendered.set(renderCell, cell);
+  return cell;
 }
 
 function decodeTableColumnWidth(
@@ -398,7 +443,7 @@ function rowCells(row: unknown): readonly unknown[] {
 }
 
 function tableCell<TRow>(
-  column: TableColumn<TRow> | undefined,
+  column: { readonly value: TableColumn<TRow>['value']; readonly renderCell?: (row: TRow, rowIndex: number, columnIndex: number) => string | import('../../visual/inline-content.ts').InlineContentSegment | InlineContent } | undefined,
   row: TRow,
   rowIndex: number,
   columnIndex: number,

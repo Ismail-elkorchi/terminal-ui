@@ -33,7 +33,7 @@ import type {
   ComponentStateCapability,
   ComponentVisualState,
 } from '../contracts.ts';
-import { executeComponentPhase, executeComponentPreparation } from '../execution-error.ts';
+import { executeComponentPhase } from '../execution-error.ts';
 import type {
   CompiledComponentDefinition,
   ComponentRuntimeContract,
@@ -80,19 +80,6 @@ export function adaptDefinition<
       }),
     }),
     ...(definition.structure === 'leaf' && definition.retainPaint === true ? { retainPaint: true } : {}),
-    ...(definition.prepare === undefined ? {} : {
-      prepare: async ({ renderNode, context }) => {
-        await executeComponentPreparation(definition.name, renderNode.id, async () => {
-          context.signal.throwIfAborted();
-          await definition.prepare?.call(undefined, {
-            ...context,
-            ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
-            model: renderNode.props.model as Readonly<TModel>,
-          });
-          context.signal.throwIfAborted();
-        });
-      },
-    }),
     ...(definition.semantics !== 'semantic' || definition.keys === undefined
       ? {}
       : {

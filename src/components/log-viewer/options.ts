@@ -24,6 +24,8 @@ interface LogViewerBaseOptions<TMessage extends ComponentMessage> {
   readonly wrap?: boolean;
   readonly query?: import('../../text/query.ts').CollectionQuery;
   readonly activeMatchId?: string;
+  /** Immutable preparation dependency; replace the array when folds change.
+   * Pending rendering does not consume its contents; preparation validates and owns them. */
   readonly foldedIds?: readonly string[];
   readonly selection?: LogViewerSelection;
   readonly styles?: import("../../element/metadata.ts").ElementStyles<LogViewerStylePart, 'focused' | 'hovered' | 'active' | 'selected' | 'disabled'>;

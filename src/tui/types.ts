@@ -42,10 +42,7 @@ export type TuiInit<TState, TMessage> = (
   context: TuiContext
 ) => TuiInitialResult<TState, TMessage>;
 
-export interface TuiInitialResult<TState, TMessage> {
-  readonly state: TState;
-  readonly effects?: readonly TuiEffect<TMessage>[];
-  readonly focus?: InitialFocusSelector;
+export interface TuiInitialResult<TState, TMessage> extends Omit<TuiUpdateContribution<TState, TMessage>, 'cancel'> {
   readonly exit?: TuiExitRequest;
 }
 export type TuiUpdate<TState, TMessage> = (
@@ -91,11 +88,20 @@ export interface TuiBindingHelpItem {
   }[];
 }
 
-export interface TuiUpdateResult<TState, TMessage> {
+/** Cancel one effect or all work owned by a child lifetime, including descendants. */
+export type TuiCancellation =
+  | { readonly kind: 'effect'; readonly id: string }
+  | { readonly kind: 'child'; readonly id: string; readonly generation: string | number };
+
+/** The contribution shared by application, child and prepared-query updates. */
+export interface TuiUpdateContribution<TState, TMessage, TFocus extends InitialFocusSelector = InitialFocusSelector> {
   readonly state: TState;
-  readonly cancelEffects?: readonly string[];
+  readonly cancel?: readonly TuiCancellation[];
   readonly effects?: readonly TuiEffect<TMessage>[];
-  readonly focus?: InitialFocusSelector;
+  readonly focus?: TFocus;
+}
+
+export interface TuiUpdateResult<TState, TMessage> extends TuiUpdateContribution<TState, TMessage> {
   readonly exit?: TuiExitRequest;
 }
 

@@ -112,7 +112,6 @@ export type {
   RenderFocusRelation,
   RenderInstrumentation,
   RenderOperation,
-  RenderPreparationContext,
   RenderStage,
   RenderStageMeasurement,
   RenderTarget,
@@ -166,3 +165,4 @@ export { renderElementFrame } from './render-element.ts';
 export type { RenderElementOptions } from './render-options.ts';
 export { highlightRenderSpans } from './text-highlight.ts';
 export type { HighlightRenderSpan, HighlightRenderSpansOptions } from './text-highlight.ts';
+export { measureElement } from './measure-element.ts';

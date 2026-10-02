@@ -1,3 +1,4 @@
+import { removedWork } from '../lifecycle/work-ownership.ts';
 import { layoutLifecycleMessages } from '../lifecycle/layout-lifecycle.ts';
 import { diagnostic } from '../../diagnostics.ts';
 import { TerminalUiError } from '../../errors.ts';
@@ -165,7 +166,7 @@ export function createRuntimeTransitions<TState, TMessage>(options: RuntimeTrans
       const exit = completeReduction(reduction, commits.frame());
       if (exit !== undefined) changes.publish({ kind: 'exit', exit });
       if (reduction.exitReason === undefined && lifecycle.active()) {
-        runPostCommit('effect_cancellation', () => { effects.cancelIds(reduction.cancelEffects); });
+        runPostCommit('effect_cancellation', () => { effects.cancelRequests(reduction.cancel); subscriptions.cancelRequests(reduction.cancel); });
         runPostCommit('effect_start', () => { startReductionEffects(reduction); });
       }
       return commits.state();
@@ -197,11 +198,13 @@ export function createRuntimeTransitions<TState, TMessage>(options: RuntimeTrans
       frame: result.render.frame
     });
     if (exit !== undefined) changes.publish({ kind: 'exit', exit });
+    if (reduction.exitReason === undefined && lifecycle.active()) {
+      runPostCommit('effect_cancellation', () => { effects.cancelRequests(reduction.cancel); subscriptions.cancelRequests(reduction.cancel); });
+    }
     if (subscriptionPlan !== undefined && lifecycle.active()) {
-      runPostCommit('subscription_activation', () => { subscriptions.activate(subscriptionPlan); });
+      runPostCommit('subscription_activation', () => { subscriptions.activate(subscriptionPlan, reduction.cancel); });
     }
     if (reduction.exitReason === undefined && lifecycle.active()) {
-      runPostCommit('effect_cancellation', () => { effects.cancelIds(reduction.cancelEffects); });
       const layoutMessages = resolvePostCommitMessages('layout_lifecycle_mapping', () => layoutLifecycleMessages(result.render, previousRender));
       const focusMessages = resolvePostCommitMessages('focus_lifecycle_mapping', () => focusLifecycleMessages<TMessage>({
         previous: {
@@ -239,7 +242,7 @@ export function createRuntimeTransitions<TState, TMessage>(options: RuntimeTrans
 
   function startReductionEffects(reduction: RuntimeReduction<TState, TMessage>): void {
     reduction.effects.forEach((effect, index) => {
-      effects.start([effect], reduction.effectOrigins[index] === true);
+      if (!removedWork(effect, reduction.cancel)) effects.start([effect], reduction.effectOrigins[index] === true);
     });
   }
 

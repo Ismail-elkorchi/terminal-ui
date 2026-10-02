@@ -17,8 +17,8 @@ const samples = Object.freeze([
   Object.freeze({
     name: 'terminal sanitizer preserves an unsafe sequence',
     module: 'dist/text/sanitize.js',
-    from: '        return replacement;',
-    to: '        return sequence;',
+    from: '        pieces.push(text.slice(cursor, codeUnitOffset), replacement);',
+    to: '        pieces.push(text.slice(cursor, codeUnitOffset), sequence);',
     test: 'tests/unit/text/text.test.mjs',
   }),
   Object.freeze({

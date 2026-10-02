@@ -101,6 +101,7 @@ function assertDefinitionHooks(
   value: Readonly<Record<string, unknown>>,
   structure: ComponentDefinitionStructure,
 ): void {
+  if ('prepare' in value) throw new TypeError('Component definition prepare is unsupported; use effect-owned prepared queries.');
   const requiredHooks = structure === 'leaf'
     ? ['measure', 'render']
     : structure === 'composite'
@@ -126,7 +127,6 @@ function assertDefinitionHooks(
 }
 
 const optionalComponentDefinitionHooks = [
-  'prepare',
   'onLayout',
   'renderBeforeChildren',
   'renderAfterChildren',

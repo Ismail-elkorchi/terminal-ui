@@ -1,6 +1,5 @@
 import type { ComponentInput, ComponentRenderInput } from '../../component/contracts.ts';
 import { paintComponentScrollbar } from '../../component/scrollbar.ts';
-import { samePaintData } from '../../foundation/paint-data.ts';
 import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
 import { measureTextCells } from '../../text/measure.ts';
 import { terminalStyleHasBackground } from '../../theme/theme.ts';
@@ -56,6 +55,12 @@ export function paintTable(input: ComponentRenderInput<TableModel, TableStylePar
     });
   }
   retainedTableRows.set(source, paintedRows);
+  // Source identities survive view construction, but off-screen decoded rows do
+  // not accumulate as the user traverses a large collection.
+  const visibleRows = new Set(plan.rows);
+  for (const [index, row] of source.rowModels) {
+    if (!visibleRows.has(row)) source.rowModels.delete(index);
+  }
   paintComponentScrollbar({
     target: input.target,
     plan: plan.geometry,
@@ -163,8 +168,50 @@ function tableHeaderSpans(
   return result;
 }
 
+interface TableRowPaintDependencies {
+  readonly id: string | undefined;
+  readonly theme: ComponentRenderInput<TableModel>['theme'];
+  readonly emoji: string;
+  readonly ambiguous: string;
+  readonly columns: TableModel['columns'];
+  readonly semanticRole: TableModel['semanticRole'];
+  readonly interactionKind: TableModel['interactionKind'];
+  readonly density: TableModel['density'];
+  readonly widths: readonly number[];
+  readonly selectedRowIds: TableModel['selectedRowIds'];
+  readonly active: boolean;
+  readonly activeColumnId: string | undefined;
+  readonly selectedCells: TableModel['selectedCells'];
+  readonly pointer: ReturnType<typeof pointerVisualState>;
+  readonly cellPointers: readonly ReturnType<typeof pointerVisualState>[];
+  readonly styles: ComponentRenderInput<TableModel>['styles'];
+  readonly disabled: boolean;
+  readonly busy: boolean;
+  readonly readOnly: boolean;
+  readonly inert: boolean;
+}
+
+function sameRowDependencies(a: TableRowPaintDependencies, b: TableRowPaintDependencies): boolean {
+  if (a.id !== b.id || a.theme !== b.theme || a.emoji !== b.emoji || a.ambiguous !== b.ambiguous
+    || a.columns !== b.columns || a.semanticRole !== b.semanticRole || a.interactionKind !== b.interactionKind
+    || a.density !== b.density || a.selectedRowIds !== b.selectedRowIds || a.active !== b.active
+    || a.activeColumnId !== b.activeColumnId || a.pointer !== b.pointer || a.styles !== b.styles
+    || a.disabled !== b.disabled || a.busy !== b.busy || a.readOnly !== b.readOnly || a.inert !== b.inert
+    || a.widths.length !== b.widths.length || a.selectedCells !== b.selectedCells
+    || a.cellPointers.length !== b.cellPointers.length) return false;
+  return sameRowColumnDependencies(a, b);
+}
+
+function sameRowColumnDependencies(a: TableRowPaintDependencies, b: TableRowPaintDependencies): boolean {
+  // These dense arrays are constructed here from visible columns, never supplied
+  // as arbitrary application data. No row contents or collections are traversed.
+  for (let i = 0; i < a.widths.length; i += 1) if (a.widths[i] !== b.widths[i]) return false;
+  for (let i = 0; i < a.cellPointers.length; i += 1) if (a.cellPointers[i] !== b.cellPointers[i]) return false;
+  return true;
+}
+
 interface RetainedTableRow {
-  readonly dependencies: readonly unknown[];
+  readonly dependencies: TableRowPaintDependencies;
   readonly spans: readonly import('../../visual/render-content.ts').RenderSpan[];
 }
 
@@ -180,15 +227,19 @@ function tableRowSpans(
 ): readonly import('../../visual/render-content.ts').RenderSpan[] {
   const active = input.model.activeRowId === row.id;
   const prefix = `${input.id ?? 'table'}:row:${row.id}`;
-  const dependencies = [input.id, input.theme, input.widthProfile, input.model.columns,
-    input.model.semanticRole, input.model.interactionKind, input.model.density, plan.widths,
-    input.model.selectedRowIds.includes(row.id), active, active ? input.model.activeColumnId : undefined,
-    input.model.selectedCells.filter(cell => cell.rowId === row.id).map(cell => cell.columnId),
-    pointerVisualState(input.pointerState, prefix),
-    input.model.columns.map(column => pointerVisualState(input.pointerState, `${prefix}:cell:${String(column.index)}`)),
-    input.styles, input.disabled, input.busy, input.readOnly, input.inert];
+  const dependencies: TableRowPaintDependencies = {
+    id: input.id, theme: input.theme, emoji: input.widthProfile.emoji, ambiguous: input.widthProfile.ambiguous,
+    columns: input.model.columns, semanticRole: input.model.semanticRole,
+    interactionKind: input.model.interactionKind, density: input.model.density, widths: plan.widths,
+    selectedRowIds: input.model.selectedRowIds, active,
+    activeColumnId: active ? input.model.activeColumnId : undefined,
+    selectedCells: input.model.selectedCells,
+    pointer: pointerVisualState(input.pointerState, prefix),
+    cellPointers: input.model.columns.map(column => pointerVisualState(input.pointerState, `${prefix}:cell:${String(column.index)}`)),
+    styles: input.styles, disabled: input.disabled, busy: input.busy, readOnly: input.readOnly, inert: input.inert,
+  };
   const cached = previous?.get(row);
-  if (cached !== undefined && samePaintData(cached.dependencies, dependencies)) {
+  if (cached !== undefined && sameRowDependencies(cached.dependencies, dependencies)) {
     next.set(row, cached);
     return cached.spans;
   }

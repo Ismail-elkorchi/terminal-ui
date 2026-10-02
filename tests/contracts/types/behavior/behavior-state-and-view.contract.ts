@@ -151,3 +151,7 @@ export type _UnscrolledComboboxCommit = Assert<Equal<
 
 declare const textAreaControlAction: TextAreaControlTransition;
 void textAreaControlAction;
+
+declare const preparedLogView: import('@ismail-elkorchi/terminal-ui/behavior').LogViewerView;
+// @ts-expect-error Prepared log geometry is private, not an application-owned index table.
+void preparedLogView.layouts;

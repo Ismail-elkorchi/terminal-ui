@@ -4,6 +4,9 @@ import test from 'node:test';
 import type { TerminalDiagnostic, TerminalDiagnosticValue } from '../diagnostics.ts';
 import { createMemoryTerminalHost } from '../host/memory.ts';
 import type { MemoryTerminalHost } from '../host/memory.ts';
+import { text } from '../components/index.ts';
+import { createTuiChild } from './child.ts';
+import { decodeTuiInitialResult, decodeTuiUpdateResult } from './hook-results.ts';
 import { createTuiEffectManager } from './lifecycle/effects.ts';
 import type { TuiEffectManagerOptions } from './lifecycle/effects.ts';
 import type { TuiEffect, TuiEffectConcurrency, TuiEffectPolicy } from './types.ts';
@@ -119,7 +122,7 @@ void test('selective cancellation stops matching active and queued effects witho
 
   effects.start([hanging('navigation'), hanging('navigation'), hanging('download')]);
   await waitUntil(() => started.includes('navigation') && started.includes('download'));
-  effects.cancelIds(['navigation']);
+  effects.cancelRequests([{ kind: 'effect', id: 'navigation' }]);
   await waitUntil(() => aborted.includes('navigation'));
 
   assert.equal(started.filter((id) => id === 'navigation').length, 1);
@@ -358,3 +361,82 @@ async function waitUntil(predicate: () => boolean): Promise<void> {
   }
   assert.fail('condition was not reached');
 }
+
+
+void test('nested lifetime cancellation removes queued and replacement work without touching sibling owners', async () => {
+  const release = gate();
+  const signals: AbortSignal[] = [];
+  let launches = 0;
+  let recoveries = 0;
+  const outputs: unknown[] = [];
+  const { effects, host } = manager<unknown>(async (messages, lease) => {
+    if (lease.authorized()) outputs.push(...messages);
+  }, { policy: { maxActive: 4, maxActivePerId: 1, maxQueued: 10, maxQueuedPerId: 10, replacementGracePeriodMs: 10_000 } });
+  const ctx = { terminalSize: host.getTerminalSize(), capabilities: await host.getCapabilities(), diagnostics: [], clock: host.clock };
+  const leaf = createTuiChild({
+    init: () => ({ state: 0, effects: [{ id: 'read', concurrency: 'enqueue' as const,
+      async run(context) { launches += 1; signals.push(context.signal); await release.promise; throw new Error('late failure'); },
+      onError() { recoveries += 1; return { kind: 'message' as const, message: 1 }; },
+    }] }),
+    update: (state: number, message: number) => { void message; return { state }; },
+    view: () => text({ content: 'leaf' }),
+  }, (message) => message.message);
+  const parent = createTuiChild({
+    init(context) { return leaf.init({ id: 'same-leaf', generation: 1 }, context); },
+    update(state, message: number) { void message; return { state, cancel: [leaf.remove(state)] }; },
+    view: () => text({ content: 'parent' }),
+  }, (message) => message);
+  const left = parent.init({ id: 'left', generation: 1 }, ctx);
+  const right = parent.init({ id: 'right', generation: 1 }, ctx);
+  const leftWork = decodeTuiInitialResult(left).effects ?? [];
+  const rightWork = decodeTuiInitialResult(right).effects ?? [];
+  effects.start([...leftWork, ...rightWork]);
+  await waitUntil(() => signals.length === 2);
+  effects.start(leftWork);
+  // A separate replacement uses the same ownership, preserved through the child adapter.
+  const replaceLeaf = createTuiChild({
+    init: () => ({ state: 0, effects: [{ id: 'read', concurrency: 'replace' as const,
+      async run() { launches += 100; return { kind: 'none' as const }; },
+    }] }),
+    update: (state: number, message: number) => { void message; return { state }; }, view: () => text({ content: '' }),
+  }, (message) => message.message);
+  const replaceParent = createTuiChild({
+    init(context) { return replaceLeaf.init({ id: 'same-leaf', generation: 1 }, context); },
+    update: (state, message: number) => { void message; return { state }; }, view: () => text({ content: '' }),
+  }, (message) => message);
+  effects.start(decodeTuiInitialResult(replaceParent.init({ id: 'left', generation: 1 }, ctx)).effects ?? []);
+  assert.equal(effects.metrics().queued, 1);
+  const removed = parent.update(left.state, { id: 'left', generation: 1, message: 0 }, ctx);
+  effects.cancelRequests(decodeTuiUpdateResult(removed).cancel ?? []);
+  assert.equal(effects.metrics().queued, 0);
+  assert.equal(signals[0]?.aborted, true);
+  assert.equal(signals[1]?.aborted, false);
+  release.release();
+  await waitUntil(() => effects.metrics().active === 0);
+  assert.equal(launches, 2);
+  assert.equal(recoveries, 1, 'the removed child cannot recover or emit a late failure');
+  assert.equal(outputs.length, 1, 'the independent sibling retains its recovery');
+  await effects.dispose();
+});
+
+void test('completed unique child effects release manager bookkeeping without growing child state', async () => {
+  const { effects, host } = manager<unknown>();
+  const ctx = { terminalSize: host.getTerminalSize(), capabilities: await host.getCapabilities(), diagnostics: [], clock: host.clock };
+  const child = createTuiChild({
+    init: () => ({ state: 0 }),
+    update: (state: number, message: number) => ({ state, effects: [{ id: String(message), concurrency: 'parallel' as const, run: async () => ({ kind: 'none' as const }) }] }),
+    view: () => text({ content: 'same' }),
+  }, (message) => message);
+  const state = child.init({ id: 'owner', generation: 1 }, ctx).state;
+  for (let batch = 0; batch < 20; batch += 1) {
+    for (let index = 0; index < 20; index += 1) {
+      const result = child.update(state, { id: 'owner', generation: 1, message: batch * 20 + index }, ctx);
+      assert.equal(result.state, state);
+      effects.start(decodeTuiUpdateResult(result).effects ?? []);
+    }
+    await waitUntil(() => effects.metrics().active === 0);
+    assert.deepEqual(effects.metrics(), { active: 0, queued: 0, rejected: 0 });
+  }
+  assert.deepEqual(Object.keys(state).sort(), ['generation', 'id', 'state']);
+  await effects.dispose();
+});

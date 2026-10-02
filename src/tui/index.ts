@@ -1,3 +1,10 @@
+export { createTuiForm } from './form.ts';
+export type { TuiForm, TuiFormErrors, TuiFormState, TuiFormMessage } from './form.ts';
+export { updateTuiNavigation } from './navigation.ts';
+export type { TuiNavigationScreen } from './navigation.ts';
+export { createTuiCommands } from './commands.ts';
+export type { TuiCommand, TuiCommands } from './commands.ts';
+export { liftTuiResult } from './result.ts';
 export { createTuiControls } from './controls.ts';
 export type { TuiControlMessage, TuiControlReducers, TuiControls, TuiControlTransitionMessage } from './controls.ts';
 export { createTuiPreparedQuery } from './prepared-query.ts';
@@ -81,6 +88,8 @@ export type {
   TuiSubscriptions,
   TuiTheme,
   TuiUpdate,
+  TuiCancellation,
+  TuiUpdateContribution,
   TuiUpdateResult,
   TuiView,
 } from './types.ts';

@@ -9,6 +9,7 @@ import {
   normalizeTextCursor,
   previousGraphemeBoundary,
 } from './text-range.ts';
+import { measuredGraphemes, graphemeBoundaryOffsets } from './graphemes.ts';
 import type { TextCaret } from './types.ts';
 
 function countSegmentIteration(run: (count: () => number) => void): void {
@@ -21,7 +22,7 @@ function countSegmentIteration(run: (count: () => number) => void): void {
     value: function (this: Intl.Segmenter, text: string) {
       const segments = original.call(this, text);
       return {
-        containing: (offset: number) => segments.containing(offset),
+        containing: () => { throw new Error('Editing must use iterator boundaries.'); },
         *[Symbol.iterator]() {
           for (const segment of segments) {
             traversed += segment.segment.length;
@@ -37,7 +38,7 @@ function countSegmentIteration(run: (count: () => number) => void): void {
   }
 }
 
-void test('boundary editing touches no grapheme stream on unchanged 1K, 10K, and 100K lines', () => {
+void test('boundary editing traverses unchanged 1K, 10K, and 100K lines at most once', () => {
   for (const length of [1_000, 10_000, 100_000]) {
     const source = 'a'.repeat(length);
     countSegmentIteration((count) => {
@@ -54,7 +55,13 @@ void test('boundary editing touches no grapheme stream on unchanged 1K, 10K, and
         assert.equal(buffer.cursor, Math.min(length, initial + 20));
         assert.equal(caret.position.offset, buffer.cursor);
       }
-      assert.equal(count(), 0, `full segmentation during boundary movement at length ${String(length)}`);
+      assert.equal(count(), length, `repeated segmentation during boundary movement at length ${String(length)}`);
+      for (let offset = 1; offset < length; offset += 100) {
+        normalizeTextCursor(source, offset);
+        previousGraphemeBoundary(source, offset);
+        nextGraphemeBoundary(source, offset);
+      }
+      assert.equal(count(), length, 'warm boundary operations segmented again');
     });
   }
 });
@@ -84,7 +91,7 @@ void test('Unicode clusters and CRLF remain atomic across document chunk seams',
 });
 
 void test('vertical editing retains indexes, honors width profiles, and invalidates changed lines', () => {
-  const document = createTextDocument(`${'a'.repeat(100_000)}\nxx`);
+  const document = createTextDocument(`${'v'.repeat(100_000)}\nxx`);
   countSegmentIteration((count) => {
     const fromLong = editTextDocument({
       document,
@@ -110,4 +117,73 @@ void test('vertical editing retains indexes, honors width profiles, and invalida
   const changed = textDocumentEdit(ambiguous, { startOffset: 2, endOffsetExclusive: 4 }, 'Z').document;
   assert.equal(textDocumentLineAt(changed, 1)?.text, 'Z');
   assert.equal(textDocumentLineAt(ambiguous, 1)?.text, 'xx');
+});
+
+void test('geometry policy changes reuse source boundaries and edits invalidate only changed lines', () => {
+  const first = 'source·👩🏽‍💻'.repeat(100);
+  const second = 'retained·🇲🇦'.repeat(100);
+  const document = createTextDocument(`${first}\n${second}`);
+  countSegmentIteration((count) => {
+    const firstOffsets = graphemeBoundaryOffsets(first);
+    const secondOffsets = graphemeBoundaryOffsets(second);
+    const traversed = count();
+    assert.equal(traversed, first.length + second.length);
+    const narrow = Array.from(measuredGraphemes(first));
+    const wide = Array.from(measuredGraphemes(first, { widthProfile: { emoji: 'codepoint', ambiguous: 'wide' } }));
+    assert.deepEqual(narrow.map((item) => item.startOffset), firstOffsets.slice(0, -1));
+    assert.deepEqual(wide.map((item) => item.startOffset), firstOffsets.slice(0, -1));
+    assert.notEqual(narrow.reduce((sum, item) => sum + item.cells, 0), wide.reduce((sum, item) => sum + item.cells, 0));
+    assert.equal(count(), traversed, 'width-only changes resegmented source');
+    const next = textDocumentEdit(document, { startOffset: 0, endOffsetExclusive: 0 }, 'new ').document;
+    const retained = textDocumentLineAt(next, 1);
+    assert.equal(retained?.text, second);
+    assert.deepEqual(graphemeBoundaryOffsets(retained.text), secondOffsets);
+    assert.equal(count(), traversed, 'unaffected document line resegmented');
+    const changed = textDocumentLineAt(next, 0)?.text ?? '';
+    graphemeBoundaryOffsets(changed);
+    assert.equal(count(), traversed + changed.length, 'changed logical line owns fresh boundaries');
+  });
+});
+
+void test('lazy measurement only advances requested boundaries and owns width policy', () => {
+  const text = '🧑🏾‍🚀lazy'.repeat(1_000);
+  const profile = { emoji: 'wide' as 'wide' | 'narrow', ambiguous: 'narrow' as const };
+  countSegmentIteration((count) => {
+    const iterator = measuredGraphemes(text, { widthProfile: profile });
+    assert.equal(count(), 0);
+    const first = iterator.next();
+    if (first.done === true) throw new Error('Missing initial measured grapheme.');
+    assert.equal(first.value.cells, 2);
+    assert.equal(count(), '🧑🏾‍🚀'.length);
+    profile.emoji = 'narrow';
+    for (let step = 0; step < 4; step += 1) iterator.next();
+    const second = iterator.next();
+    if (second.done === true) throw new Error('Missing second measured grapheme.');
+    assert.equal(second.value.cells, 2);
+    assert.ok(count() < text.length);
+    iterator.return?.();
+  });
+});
+
+void test('source-boundary reuse is bounded and oversized sources remain lazy without retention', () => {
+  const sources = Array.from({ length: 26 }, (_, index) => `${String(index).padStart(2, '0')}${'q'.repeat(80_000)}`);
+  countSegmentIteration((count) => {
+    for (const source of sources) {
+      const iterator = measuredGraphemes(source);
+      iterator.next();
+      iterator.return?.();
+    }
+    assert.equal(count(), sources.length);
+    const oldest = measuredGraphemes(sources[0] ?? '');
+    oldest.next();
+    oldest.return?.();
+    assert.equal(count(), sources.length + 1, 'old source entry survived beyond the cache budget');
+    const huge = `uncached${'u'.repeat(1_000_000)}`;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const iterator = measuredGraphemes(huge);
+      iterator.next();
+      iterator.return?.();
+    }
+    assert.equal(count(), sources.length + 3, 'oversized source was retained or eagerly traversed');
+  });
 });

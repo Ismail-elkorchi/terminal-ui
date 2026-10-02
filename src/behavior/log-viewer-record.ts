@@ -6,6 +6,7 @@ export interface LogViewerRecordView {
   readonly metadataEntries: readonly (readonly [string, string])[];
   readonly displayText: string;
   readonly searchFields: readonly LogSearchField[];
+  readonly fieldOffsets: ReadonlyMap<LogSearchField['kind'], ReadonlyMap<string | undefined, number>>;
 }
 
 const expandedRecords = new WeakMap<LogHistoryRecord, LogViewerRecordView>();
@@ -20,7 +21,8 @@ export function createLogViewerRecordView(
   if (cached !== undefined) return cached;
   if (!folded) {
     const view = Object.freeze({ source: record, bodyText: record.bodyText,
-      metadataEntries: record.metadataEntries, displayText: record.displayText, searchFields: record.searchFields });
+      metadataEntries: record.metadataEntries, displayText: record.displayText, searchFields: record.searchFields,
+      fieldOffsets: fieldOffsets(record.entry.timestamp, record.metadataEntries) });
     cache.set(record, view);
     return view;
   }
@@ -46,6 +48,7 @@ export function createLogViewerRecordView(
     metadataEntries,
     displayText: prefix.length === 0 ? bodyText : `${prefix.join(' ')} ${bodyText}`,
     searchFields,
+    fieldOffsets: fieldOffsets(record.entry.timestamp, metadataEntries),
   });
   cache.set(record, view);
   return view;
@@ -54,4 +57,25 @@ export function createLogViewerRecordView(
 function foldedBody(text: string): string {
   const newline = text.indexOf('\n');
   return newline < 0 ? text : `${text.slice(0, newline)} ...`;
+}
+
+function fieldOffsets(timestamp: string | undefined, metadata: readonly (readonly [string, string])[]): LogViewerRecordView['fieldOffsets'] {
+  const fields = new Map<LogSearchField['kind'], Map<string | undefined, number>>();
+  let offset = 0;
+  if (timestamp !== undefined) {
+    fields.set('timestamp', new Map([[undefined, 1]]));
+    offset = timestamp.length + 2;
+  }
+  const keys = new Map<string | undefined, number>();
+  const values = new Map<string | undefined, number>();
+  for (const [key, value] of metadata) {
+    if (offset > 0) offset++;
+    keys.set(key, offset);
+    offset += key.length + 1;
+    values.set(key, offset);
+    offset += value.length;
+  }
+  fields.set('metadataKey', keys); fields.set('metadataValue', values);
+  fields.set('body', new Map([[undefined, offset > 0 ? offset + 1 : 0]]));
+  return fields;
 }

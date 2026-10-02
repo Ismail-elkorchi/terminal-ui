@@ -33,8 +33,8 @@ import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
 import { segmentGraphemes } from '../../text/graphemes.ts';
 import { measureTextCells } from '../../text/measure.ts';
-import type { CompiledCollectionQuery, QueryMatchRange } from '../../text/query.ts';
-import { compileCollectionQuery } from '../../text/query.ts';
+import type { CollectionQuery, QueryMatchRange } from '../../text/query.ts';
+import { ownCollectionQueryRequest } from '../../text/query.ts';
 import { createTerminalTextIndex } from '../../text/terminal-text-index.ts';
 import type { TerminalStyle } from '../../visual/render-content.ts';
 import { clipRenderSpans, span } from '../../visual/render-content.ts';
@@ -73,7 +73,6 @@ interface SearchPickerModel {
   readonly keymap: ControlKeymap<SearchPickerKeyAction>;
   readonly title: string;
   readonly input: import('../../text/index.ts').TextEditBuffer;
-  readonly query: CompiledCollectionQuery;
   readonly rows: readonly SearchEntryModel[];
   readonly activeIndex?: number | undefined;
   readonly activeId?: string | undefined;
@@ -435,7 +434,6 @@ function materializeSearchPickerModel(value: Readonly<SearchPickerComponentOptio
     keymap: resolveControlKeymap(value.keymap, defaultSearchPickerKeymap),
     title: clean(value.title, 'searchPicker title') ?? '',
     input: view.input,
-    query,
     rows,
     ...(window.activeIndex === undefined ? {} : { activeIndex: window.activeIndex }),
     ...(window.activeEntry === undefined ? {} : { activeId: window.activeEntry.id }),
@@ -456,7 +454,7 @@ function decodeSearchPickerView(
   value: SearchPickerView,
 ): {
   readonly input: import('../../text/index.ts').TextEditBuffer;
-  readonly query: CompiledCollectionQuery;
+  readonly query: CollectionQuery;
   readonly activeId?: string | undefined;
   readonly scroll?: ScrollState;
 } {
@@ -479,7 +477,7 @@ function decodeSearchPickerView(
     cursor,
     ...(selection === undefined ? {} : { selection }),
   });
-  const query = compileCollectionQuery({ text, ...value.query });
+  const query = ownCollectionQueryRequest({ text, ...value.query });
   const activeId = value.activeId === undefined
     ? undefined
     : nonEmpty(value.activeId, 'searchPicker activeId');

@@ -24,7 +24,6 @@ import type {
   HitTarget,
   Measurement,
   RenderFocusRelation,
-  RenderPreparationContext,
   RenderStyleInput,
 } from '../renderer/contracts.ts';
 import type { TextWidthProfile } from '../text/types.ts';
@@ -223,12 +222,6 @@ export interface ComponentDefinitionIdentity {
   readonly name: ComponentDefinitionName;
 }
 
-/** Optional preparation may warm model-owned caches; rendering must also work without it. */
-export interface ComponentPreparationInput<TModel extends object> extends RenderPreparationContext {
-  readonly id?: string;
-  readonly model: Readonly<TModel>;
-}
-
 interface ComponentModelDefinition<
   TOptions extends object,
   TModel extends object
@@ -266,7 +259,6 @@ type ComponentDefinitionBase<
   TPart extends string,
   TVisualStates extends readonly ComponentVisualState[]
 > = ComponentDefinitionIdentity & ComponentOptionsDefinition<TOptions, TModel> & {
-  readonly prepare?: (this: undefined, input: ComponentPreparationInput<TModel>) => Promise<void>;
   readonly identity: TIdentity;
   readonly states?: TStates;
   readonly parts?: readonly TPart[];
@@ -405,7 +397,7 @@ export type SemanticLeafComponentDefinition<
     readonly metadata?: TMetadata;
     readonly slots?: never;
     readonly structure: 'leaf';
-    /** Opt in only when paint depends exclusively on its immutable render input. */
+    /** Deterministic paint from immutable inputs only. Models/resources use identity; replace changed inputs. */
     readonly retainPaint?: boolean;
     readonly render: (
       this: undefined,
@@ -433,7 +425,7 @@ export type DecorativeLeafComponentDefinition<
     readonly metadata?: TMetadata;
     readonly slots?: never;
     readonly structure: 'leaf';
-    /** Opt in only when paint depends exclusively on its immutable render input. */
+    /** Deterministic paint from immutable inputs only. Models/resources use identity; replace changed inputs. */
     readonly retainPaint?: boolean;
     readonly render: (
       this: undefined,

@@ -1,4 +1,4 @@
-import { samePaintData } from '../../foundation/paint-data.ts';
+import { sameRect } from '../../geometry/rect.ts';
 import type { Rect } from '../../geometry/types.ts';
 import type { GraphicPlacementInput } from '../../graphics/types.ts';
 import type { FocusPath } from '../../interaction/focus.ts';
@@ -19,8 +19,40 @@ type PaintOperation =
   | { readonly kind: 'cell'; readonly cell: FrameCell }
   | { readonly kind: 'clear'; readonly rect?: Rect }
   | { readonly kind: 'graphic'; readonly placement: GraphicPlacementInput };
+// Only fixed renderer-owned descriptors are compared by value. Component models,
+// styles and theme resources are opaque immutable identities, never object graphs.
+interface PaintDependencies {
+  readonly definition: unknown;
+  readonly id: string | undefined;
+  readonly model: unknown;
+  readonly accessibleName: string | undefined;
+  readonly styles: unknown;
+  readonly theme: unknown;
+  readonly bounds: Rect;
+  readonly viewport: Rect;
+  readonly disabled: boolean;
+  readonly busy: boolean;
+  readonly readOnly: boolean;
+  readonly inert: boolean;
+  readonly emoji: string;
+  readonly ambiguous: string;
+  readonly focus: RenderNodeRenderInput['focus'];
+  readonly focusedTargetId: string | undefined;
+  readonly hoveredTargetId: string | undefined;
+  readonly pressedTargetId: string | undefined;
+}
+
+function sameDependencies(a: PaintDependencies, b: PaintDependencies): boolean {
+  return a.definition === b.definition && a.id === b.id && Object.is(a.model, b.model)
+    && a.accessibleName === b.accessibleName && a.styles === b.styles && a.theme === b.theme
+    && sameRect(a.bounds, b.bounds) && sameRect(a.viewport, b.viewport)
+    && a.disabled === b.disabled && a.busy === b.busy && a.readOnly === b.readOnly && a.inert === b.inert
+    && a.emoji === b.emoji && a.ambiguous === b.ambiguous && a.focus === b.focus
+    && a.focusedTargetId === b.focusedTargetId && a.hoveredTargetId === b.hoveredTargetId
+    && a.pressedTargetId === b.pressedTargetId;
+}
 interface PaintRecord {
-  readonly dependencies: readonly unknown[];
+  readonly dependencies: PaintDependencies;
   readonly operations: readonly PaintOperation[];
 }
 const caches = new WeakMap<readonly RenderRegion[], ReadonlyMap<string, PaintRecord>>();
@@ -42,12 +74,20 @@ export function createPaintRetention(previous?: readonly RenderRegion[]) {
     ): boolean {
       const node = input.renderNode as RenderNode;
       if (node.kind !== 'component' || node.definition.renderer.retainPaint !== true) return false;
-      const dependencies = [node.definition, node.id, node.props.model, node.props.accessibleName,
-        node.state, node.styles, input.layoutNode.bounds, input.layoutNode.viewport,
-        input.theme, input.widthProfile, input.focus, input.focusedTargetId, input.pointerState];
+      const dependencies: PaintDependencies = {
+        definition: node.definition, id: node.id, model: node.props.model,
+        accessibleName: node.props.accessibleName, styles: node.styles, theme: input.theme,
+        bounds: input.layoutNode.bounds, viewport: input.layoutNode.viewport,
+        disabled: node.state?.disabled === true, busy: node.state?.busy === true,
+        readOnly: node.state?.readOnly === true, inert: node.state?.inert === true,
+        emoji: input.widthProfile.emoji, ambiguous: input.widthProfile.ambiguous,
+        focus: input.focus, focusedTargetId: input.focusedTargetId,
+        hoveredTargetId: input.pointerState?.hoveredTargetId,
+        pressedTargetId: input.pointerState?.pressedTargetId,
+      };
       const key = hitTargetOwnerIdentity(path, input.layoutNode.identity);
       let record = prior?.get(key);
-      if (record !== undefined && samePaintData(record.dependencies, dependencies)) {
+      if (record !== undefined && sameDependencies(record.dependencies, dependencies)) {
         for (const operation of record.operations) replay(input.buffer, operation);
       } else {
         const operations: PaintOperation[] = [];

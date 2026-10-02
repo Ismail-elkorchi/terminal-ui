@@ -20,10 +20,10 @@ test('TUI update results are admitted and owned at the update boundary', () => {
     /run must be a function/u
   );
 
-  const cancelEffects = ['load'];
+  const cancel = [{ kind: 'effect', id: 'load' }];
   const result = decodeTuiUpdateResult({
     state: undefined,
-    cancelEffects,
+    cancel,
     effects: [{
       id: 'load',
       concurrency: 'replace',
@@ -31,20 +31,24 @@ test('TUI update results are admitted and owned at the update boundary', () => {
     }],
     exit: { reason: 'done' }
   });
-  cancelEffects.push('late');
+  cancel.push({ kind: 'effect', id: 'late' });
 
-  assert.deepEqual(result.cancelEffects, ['load']);
+  assert.deepEqual(result.cancel, [{ kind: 'effect', id: 'load' }]);
   assert.equal(Object.isFrozen(result), true);
   assert.equal(Object.isFrozen(result.effects), true);
 });
 
 test('TUI update results validate cancellation identities before publication', () => {
+  assert.throws(() => decodeTuiUpdateResult({ state: {}, cancelEffects: ['old'] }), /obsolete/u);
+  assert.throws(() => decodeTuiUpdateResult({ state: {}, cancel: ['old'] }), /must be an object/u);
+  assert.throws(() => decodeTuiUpdateResult({ state: {}, cancel: [{ kind: 'child', id: 'panel', generation: NaN }] }), /child lifetime/u);
+
   assert.throws(
-    () => decodeTuiUpdateResult({ state: {}, cancelEffects: [''] }),
+    () => decodeTuiUpdateResult({ state: {}, cancel: [{ kind: 'effect', id: '' }] }),
     /Effect id must contain visible text/u
   );
   assert.throws(
-    () => decodeTuiUpdateResult({ state: {}, cancelEffects: ['load\u0000late'] }),
+    () => decodeTuiUpdateResult({ state: {}, cancel: [{ kind: 'effect', id: 'load\u0000late' }] }),
     /Effect id must contain visible text/u
   );
 });

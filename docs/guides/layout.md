@@ -75,15 +75,29 @@ removal operations return persistent collection versions, while
 `measuredWindow()` queries only the indexed rows intersecting the viewport.
 `measuredColumn()` then creates elements only for those visible entries.
 
-Rows are caller-owned measurements for a particular layout context. If a width,
-theme, terminal text profile, or application content change alters wrapping,
-rebuild or replace the affected measurements explicitly; the collection never
-retains elements or tries to infer domain changes. For stable scrolling, derive
-an item anchor from the old collection with `measuredAnchorAt()` before applying
-changes, then pass that anchor to the next `measuredWindow()` query. Omit the
-anchor while following the tail so the application remains in control of that
-policy, and pass the new `collection.totalRows` as the controlled offset to
-clamp the window to its end.
+Use `createMeasurementState()` with that same collection when heights are initially
+estimates. `measurementRequests(state, overscanRows)` selects only unmeasured
+visible items and bounded overscan. Each request retains the immutable content
+identity and geometry it was issued for. In an effect, `measureElement()` runs
+the existing component measurement implementation; return a batch of
+`{ request, rows }` through an ordinary completion message and apply it using
+`acceptMeasurements()`. Do not measure or start work inside `view()`.
+
+`updateMeasurementState()` reconciles append, prepend, replacement, removal,
+viewport changes and scrolling, preserving the logical item/intra-item anchor.
+Set `followTail` explicitly to follow appended content. Its geometry includes
+columns and an owned revision identity: change that identity when the theme,
+terminal text-width profile, or other height-affecting policy changes. Content
+changes replace the immutable collection value. Invalidation keeps old heights
+as estimates without scanning or measuring the full history. Stale replies are
+rejected, and accepted unchanged heights produce no further requests.
+
+`measuredColumn()` still requires exact heights. While requested entries are
+pending, explicitly display a pending representation, or a previously accepted
+window at its original geometry. Never present estimates as measured content.
+A single custom measurement callback is synchronous and cannot be preempted;
+yield between requested items in effect work and keep each callback bounded.
+`examples/tui/measured-feed.ts` demonstrates this ownership and convergence.
 
 A `viewport()` with `onScroll` also participates in focus reveal. Components
 inside it publish logical focus targets even when those targets are currently

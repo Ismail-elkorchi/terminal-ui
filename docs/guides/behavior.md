@@ -446,3 +446,35 @@ visual wrapped-line navigation even when their physical keys change.
 `createControlKeymap()` can resolve the same action-key data for a custom
 component. This is a binding table, not a command dispatcher: the component
 still owns its semantic actions and focused interaction handlers.
+
+## Cooperative resource construction
+
+Use `prepareSearchPickerIndex`, `prepareTreeSource`, `prepareLogHistory`,
+`prepareAppendLogHistory`, `prepareTableCollection`, and `prepareTableRows` inside
+an effect when adopting large sources. They take the same caller-owned
+`CooperativeWorkContext` as query preparation. Their synchronous counterparts
+execute the same computation to completion for deliberate small-data use.
+Construction, text indexing, matching, stable sorting and navigation indexing
+have checkpoints; a single long field can yield even when there is only one
+record. Cancelled work does not publish a partially constructed resource or query
+result. Log append keeps existing history segments instead of rebuilding them.
+
+Raw entry descriptors and array membership are copied before the first yield,
+which is an explicit indivisible adoption cost. Strings are immutable; opaque
+picker values, table rows, metadata values and callback dependencies remain
+application-owned and must be immutable for the duration of preparation. Table
+callbacks must bound their own work. Native grapheme segmentation and
+normalization of one grapheme, one native escape-regex search, allocation
+and final string assembly are indivisible operations; cooperative preparation
+is not a hard wall-clock deadline. Very long graphemes and escaped fields should
+be included in application latency measurements.
+
+Accept the completed resource through an ordinary message or
+`createTuiPreparedQuery`; pass an accepted result or an explicit pending value to
+the view. Rendering never starts construction or waits for it.
+
+Prepared-view admission compares source identity and the owned request's query,
+geometry and collection dependencies; it does not recompile a query or sort
+expansion/fold state during rendering. Keep `expandedIds`, `loadStatusById` and
+`foldedIds` immutable, preserve their identities for unchanged state, and replace
+them on changes. In-place mutation is outside the controlled-state contract.

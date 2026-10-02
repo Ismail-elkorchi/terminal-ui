@@ -27,12 +27,6 @@ import type {
   TerminalStyle,
 } from '../visual/render-content.ts';
 
-/** Runtime scheduling for optional work before synchronous frame materialization. */
-export interface RenderPreparationContext {
-  readonly signal: AbortSignal;
-  readonly yield: () => Promise<void>;
-}
-
 export interface Measurement {
   readonly minWidth: number;
   readonly minHeight: number;

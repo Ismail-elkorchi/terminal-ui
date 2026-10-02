@@ -37,6 +37,29 @@ interface TextModel {
   readonly headingLevel?: number;
 }
 
+// Primitive text has no opaque source handle. Keep a small content-weighted
+// interning window so ordinary view reconstruction preserves its owned model.
+const textModels = new Map<string, TextModel>();
+let textModelWeight = 0;
+function ownTextModel(model: TextModel): TextModel {
+  const prior = textModels.get(model.content);
+  if (prior?.textRole === model.textRole && prior.headingLevel === model.headingLevel) return prior;
+  const owned = Object.freeze(model);
+  const weight = model.content.length + 1;
+  if (weight > 65_536) return owned;
+  if (prior !== undefined) textModelWeight -= weight;
+  textModels.delete(model.content);
+  textModels.set(model.content, owned);
+  textModelWeight += weight;
+  while (textModels.size > 256 || textModelWeight > 65_536) {
+    const oldest = textModels.keys().next().value;
+    if (oldest === undefined) break;
+    textModels.delete(oldest);
+    textModelWeight -= oldest.length + 1;
+  }
+  return owned;
+}
+
 export const text: SemanticLeafComponentFactory<
   Pick<TextOptions, 'content' | 'textRole' | 'headingLevel'>,
   never,
@@ -68,11 +91,11 @@ export const text: SemanticLeafComponentFactory<
     if (headingLevel !== undefined && textRole !== 'heading' && textRole !== 'title') {
       throw new TypeError('text headingLevel requires a heading or title textRole.');
     }
-    return {
+    return ownTextModel({
       content: sanitizeTerminalControlText(content).text,
       textRole: textRole ?? 'body',
       ...(headingLevel === undefined ? {} : { headingLevel }),
-    };
+    });
   },
   measure({ model, widthProfile }) {
     const lines = model.content.split('\n');

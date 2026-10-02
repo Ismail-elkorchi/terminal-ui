@@ -10,7 +10,7 @@ import { incidentWorkbenchApp, incidentCount } from '../../examples/tui/incident
 
 async function settled(runtime) {
   for (let count = 0; count < 10_000; count++) {
-    if (!runtime.state().searchPicker.pending) return;
+    if (!runtime.state().searchPicker.state.pending && !runtime.state().searchPicker.state.construction.pending) return;
     await delay(1);
   }
   throw new Error('Incident query did not finish');
@@ -31,11 +31,11 @@ test('incident workbench searches 100k records, navigates, edits, and cancels st
     await runtime.start();
     await runtime.dispatch({ kind: 'openSearchPicker' });
     await runtime.handleInput({ kind: 'text', text: 'trace-42123', paste: false });
-    assert.equal(runtime.state().searchPicker.pending, true);
+    assert.equal(runtime.state().searchPicker.state.pending || runtime.state().searchPicker.state.construction.pending, true);
     await settled(runtime);
-    assert.equal(runtime.state().searchPicker.result.entries[0].id, 'INC-042123');
+    assert.equal(runtime.state().searchPicker.state.result.entries[0].id, 'INC-042123');
     await runtime.handleInput(keyInput('enter'));
-    assert.equal(runtime.state().searchPicker.open, false);
+    assert.equal(runtime.state().searchPicker.state.open, false);
     assert.equal(runtime.state().table.interaction.activeRowId, 'INC-042123');
     assert.equal(runtime.state().table.scroll.offsetRow, 14041, 'acceptance reveals the selected incident in its queue');
     await runtime.dispatch({ kind: 'resolve' });
@@ -53,18 +53,18 @@ test('incident workbench searches 100k records, navigates, edits, and cancels st
     await runtime.handleInput(keyInput('a', { modifiers: { ctrl: true } }));
     await runtime.handleInput({ kind: 'text', text: 'gateway', paste: false });
     await runtime.handleInput(keyInput('escape'));
-    assert.equal(runtime.state().searchPicker.open, false);
+    assert.equal(runtime.state().searchPicker.state.open, false);
     await delay(10);
-    assert.equal(runtime.state().searchPicker.open, false);
+    assert.equal(runtime.state().searchPicker.state.open, false);
     await runtime.dispatch({ kind: 'openSearchPicker' });
     await runtime.handleInput(keyInput('a', { modifiers: { ctrl: true } }));
     await runtime.handleInput({ kind: 'text', text: 'region-3', paste: false });
     await settled(runtime);
-    const first = runtime.state().searchPicker.state.editor.activeId;
+    const first = runtime.state().searchPicker.state.control.editor.activeId;
     await runtime.handleInput(keyInput('n', { modifiers: { ctrl: true } }));
-    assert.notEqual(runtime.state().searchPicker.state.editor.activeId, first);
+    assert.notEqual(runtime.state().searchPicker.state.control.editor.activeId, first);
     await runtime.handleInput(keyInput('p', { modifiers: { ctrl: true } }));
-    assert.equal(runtime.state().searchPicker.state.editor.activeId, first);
+    assert.equal(runtime.state().searchPicker.state.control.editor.activeId, first);
     await runtime.resize({ columns: 88, rows: 24 });
     assert.ok(runtime.frame().focusPath.length > 0);
     assert.deepEqual(runtime.diagnostics(), []);
@@ -80,21 +80,22 @@ test('incident query ignores success and failure from an earlier close/reopen li
     await runtime.start();
     await runtime.dispatch({ kind: 'openSearchPicker' });
     await settled(runtime);
-    const previous = runtime.state().searchPicker;
+    const child = runtime.state().searchPicker;
+    const previous = child.state;
     await runtime.dispatch({ kind: 'closeSearchPicker' });
     await runtime.dispatch({ kind: 'openSearchPicker' });
     await runtime.handleInput({ kind: 'text', text: 'trace-99997', paste: false });
     await runtime.dispatchMany([
-      { kind: 'searchResult', message: { kind: 'ready', revision: previous.revision, result: previous.result } },
-      { kind: 'searchResult', message: { kind: 'failed', revision: previous.revision, diagnostic: diagnostic('TUI_EFFECT_FAILED', 'obsolete query failure') } },
+      { kind: 'picker', message: { id: child.id, generation: child.generation, message: { kind: 'prepared', message: { kind: 'ready', revision: previous.revision, result: previous.result } } } },
+      { kind: 'picker', message: { id: child.id, generation: child.generation, message: { kind: 'prepared', message: { kind: 'failed', revision: previous.revision, diagnostic: diagnostic('TUI_EFFECT_FAILED', 'obsolete query failure') } } } },
     ]);
     await settled(runtime);
-    assert.equal(runtime.state().searchPicker.result.entries[0].id, 'INC-099997');
-    assert.equal(runtime.state().searchPicker.error, null);
+    assert.equal(runtime.state().searchPicker.state.result.entries[0].id, 'INC-099997');
+    assert.equal(runtime.state().searchPicker.state.error, null);
     assert.equal(runtime.state().activity.includes('obsolete query failure'), false);
     await runtime.dispatch({ kind: 'openSearchPicker' });
     await settled(runtime);
-    assert.equal(runtime.state().searchPicker.result.entries[0].id, 'INC-099997');
+    assert.equal(runtime.state().searchPicker.state.result.entries[0].id, 'INC-099997');
     assert.deepEqual(runtime.diagnostics(), []);
   } finally { await runtime.dispose(); }
 });

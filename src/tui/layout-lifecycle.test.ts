@@ -78,7 +78,7 @@ void test('post-commit removal can cancel work started by the frame that reporte
       await release.promise;
       return { kind: 'message' as const, message: 100 };
     } }] }),
-    update: (state: number, message: number) => message === 1 ? { state: 1, cancelEffects: ['owned'] } : { state: state + message },
+    update: (state: number, message: number) => message === 1 ? { state: 1, cancel: [{ kind: 'effect', id: 'owned' }] } : { state: state + message },
     view: (state: number) => state === 0 ? textArea({ id: 'editor', meta: { accessibleName: 'Editor' }, disabled: true,
       state: { document, caret: { position: { offset: 0, affinity: 'downstream' } } }, onLayout: () => 1,
     }) : text({ content: 'removed' }),

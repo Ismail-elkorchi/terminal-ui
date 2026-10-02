@@ -165,8 +165,8 @@ test('IDE preserves the active tab and refuses to discard dirty buffers', async 
 
     await runtime.dispatch({
       kind: 'edit',
-      path: virtualFile('c.txt'),
-      transition: { kind: 'edit', operation: { kind: 'insert', text: 'changed' } },
+      message: { ...runtime.state().buffers.find(buffer => buffer.path === virtualFile('c.txt')).editor,
+        message: { kind: 'transition', transition: { kind: 'edit', operation: { kind: 'insert', text: 'changed' } } } },
     });
     await runtime.dispatch({ kind: 'closeActive' });
     assert.equal(runtime.state().activePath, virtualFile('c.txt'));
@@ -201,11 +201,11 @@ test('IDE workspace selection continues to follow tree navigation', async () => 
     await runtime.start();
     await runtime.dispatch({ kind: 'requestOpen', mode: 'folder', path: '/virtual' });
     await waitUntil(() => runtime.state().operation.kind === 'idle');
-    await runtime.dispatch({ kind: 'control', control: 'tree', transition: { kind: 'setActive', id: '/virtual/a.txt' } });
-    assert.equal(runtime.state().tree.selection.selectedId, '/virtual/a.txt');
-    await runtime.dispatch({ kind: 'control', control: 'tree', transition: { kind: 'moveActive', delta: 1 } });
-    assert.equal(runtime.state().tree.activeId, '/virtual/b.txt');
-    assert.equal(runtime.state().tree.selection.selectedId, '/virtual/b.txt');
+    await runtime.dispatch({ kind: 'explorer', message: { ...runtime.state().explorer, message: { kind: 'control', control: 'tree', transition: { kind: 'setActive', id: '/virtual/a.txt' } } } });
+    assert.equal(runtime.state().explorer.state.tree.selection.selectedId, '/virtual/a.txt');
+    await runtime.dispatch({ kind: 'explorer', message: { ...runtime.state().explorer, message: { kind: 'control', control: 'tree', transition: { kind: 'moveActive', delta: 1 } } } });
+    assert.equal(runtime.state().explorer.state.tree.activeId, '/virtual/b.txt');
+    assert.equal(runtime.state().explorer.state.tree.selection.selectedId, '/virtual/b.txt');
   } finally {
     await runtime.dispose();
   }

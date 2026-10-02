@@ -5,6 +5,7 @@ import {
   type ComponentMessage,
   type ComponentSlotLayout,
   type SemanticComposedComponentDefinition,
+  type SemanticLeafComponentDefinition,
 } from '@ismail-elkorchi/terminal-ui/component';
 import { row } from '@ismail-elkorchi/terminal-ui/layout';
 
@@ -411,3 +412,14 @@ const invalidAbsentRequired: ComponentSlotLayout<typeof visibilitySlots> = {
 void hiddenSlotLayout;
 void absentOptionalLayout;
 void invalidAbsentRequired;
+
+const obsoletePreparation: SemanticLeafComponentDefinition<StagedBadgeOptions> = {
+  name: 'terminal-ui-tests/components/obsolete-preparation',
+  identity: 'required', structure: 'leaf', semantics: 'semantic', accessibleRole: 'status',
+  // @ts-expect-error application preparation is effect-owned, never a component hook
+  prepare: async () => undefined,
+  measure: () => ({ minWidth: 0, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
+  render: ({ model, target }) => { target.write(0, 0, [span(model.label)]); },
+  accessibility: ({ id, model }) => ({ id, role: 'status', label: model.label }),
+};
+void obsoletePreparation;

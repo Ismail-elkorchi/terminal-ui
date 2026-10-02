@@ -74,7 +74,7 @@ export async function runTuiNonTty<TState, TMessage>(
 
   let frame: Frame;
   try {
-    frame = (await renderCurrentFrame(
+    frame = (renderCurrentFrame(
       app,
       state,
       context,

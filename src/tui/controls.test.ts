@@ -36,3 +36,11 @@ void test('control definitions snapshot caller-owned reducer maps', () => {
   reducers.count = () => -1;
   assert.equal(owned.update({ count: 2, step: 1 }, owned.onTransition('count')(3)).state.count, 5);
 });
+
+void test('controlled bindings reuse callbacks without capturing a parent snapshot', () => {
+  const first = { count: 1, step: 2 };
+  const later = { count: 3, step: 10 };
+  assert.equal(controls.bind('count', first).onTransition, controls.bind('count', later).onTransition);
+  assert.equal(controls.onTransition('count'), controls.onTransition('count'));
+  assert.equal(controls.update(later, controls.bind('count', first).onTransition('increment')).state.count, 13);
+});

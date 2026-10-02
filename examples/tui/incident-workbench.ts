@@ -10,7 +10,8 @@ import {
   column,
   commandInput,
   defineTui,
-  createTuiPreparedQuery,
+  createTuiChild,
+  liftTuiResult,
   createTuiControls,
   dialog,
   dataGrid,
@@ -18,7 +19,6 @@ import {
   overlay,
   createCommandSuggestions,
   runTui,
-  searchPicker,
   splitPane,
   statusBar,
   surface,
@@ -27,21 +27,14 @@ import {
   textArea,
   tree
 } from '@ismail-elkorchi/terminal-ui';
-import type { TuiContext, TuiUpdateResult, TuiPreparedQueryState, TuiPreparedQueryMessage, TuiControlMessage } from '@ismail-elkorchi/terminal-ui';
+import type { TuiContext, TuiUpdateResult, TuiChildState, TuiChildMessage, TuiControlMessage } from '@ismail-elkorchi/terminal-ui';
 import {
   commandInputView,
   commandInputReducer,
   createCommandInputState,
-  createSearchPickerState,
-  prepareSearchPickerQuery,
   createScrollState,
   dataGridReducer,
   createTableCollection,
-  searchPickerReducer,
-  searchPickerView,
-  createSearchPickerIndex,
-  searchPickerEntryById,
-  searchPickerQueryPosition,
   tabsReducer,
   createTextAreaState,
   textAreaReducer,
@@ -49,8 +42,7 @@ import {
   createTreeView,
   treeReducer
 } from '@ismail-elkorchi/terminal-ui/behavior';
-import type { CollectionQuery } from '@ismail-elkorchi/terminal-ui/text';
-import type { SearchPickerIndex, SearchPickerQueryResult, CommandInputState, UnscrolledSearchPickerState } from '@ismail-elkorchi/terminal-ui/behavior';
+import type { CommandInputState } from '@ismail-elkorchi/terminal-ui/behavior';
 import type {
   CompleteTableCollection,
   TextAreaTransition,
@@ -58,13 +50,15 @@ import type {
   ScrollableDataGridState,
   DataGridTransition,
   SearchEntry,
-  SearchPickerControlTransition,
   TableColumn,
   TabsTransition,
   TreeNode,
   ScrollableTreeState,
   TreeTransition,
 } from '@ismail-elkorchi/terminal-ui';
+
+import { pickerDefinition } from './features/picker.ts';
+import type { PickerState, PickerMessage } from './features/picker.ts';
 
 interface Ticket {
   readonly id: string;
@@ -84,10 +78,7 @@ export interface WorkspaceState {
   readonly tree: ScrollableTreeState;
   readonly table: ScrollableDataGridState;
   readonly command: CommandInputState;
-  readonly searchPicker: TuiPreparedQueryState<SearchPickerQueryResult> & {
-    readonly open: boolean;
-    readonly state: UnscrolledSearchPickerState;
-  };
+  readonly searchPicker: TuiChildState<PickerState<string>>;
   readonly resolved: ReadonlySet<string>;
   readonly activity: readonly string[];
 }
@@ -96,11 +87,9 @@ export type WorkspaceMessage =
   | TuiControlMessage<typeof workspaceControls>
   | { readonly kind: 'tree'; readonly transition: TreeTransition }
   | { readonly kind: 'submit'; readonly value: string }
-  | { readonly kind: 'searchResult'; readonly message: TuiPreparedQueryMessage<SearchPickerQueryResult> }
+  | { readonly kind: 'picker'; readonly message: TuiChildMessage<PickerMessage<string>> }
   | { readonly kind: 'openSearchPicker' }
   | { readonly kind: 'closeSearchPicker' }
-  | { readonly kind: 'searchPicker'; readonly transition: SearchPickerControlTransition }
-  | { readonly kind: 'acceptSearchPicker'; readonly id: string }
   | { readonly kind: 'resolve' }
   | { readonly kind: 'exit' };
 
@@ -146,8 +135,7 @@ const commandEntries: readonly SearchEntry[] = [
   { id: 'resolve', label: 'Resolve selected ticket', value: '/resolve', group: 'Actions' },
   { id: 'notes', label: 'Open notes', value: '/notes', group: 'Navigation' }
 ];
-const searchPickerEntries: readonly SearchEntry[] = [...commandEntries, ...tickets.map(ticket => ({ id: ticket.id, label: `${ticket.id} ${ticket.title}`, value: ticket.id, keywords: [ticket.owner, ticket.severity, ticket.queue] }))];
-const workspaceSearchPickerIndex = createSearchPickerIndex(searchPickerEntries);
+const searchPickerEntries: readonly SearchEntry[] = Object.freeze([...commandEntries, ...tickets.map(ticket => Object.freeze({ id: ticket.id, label: `${ticket.id} ${ticket.title}`, value: ticket.id, keywords: Object.freeze([ticket.owner, ticket.severity, ticket.queue]) }))]);
 const navigationTreeSource = createTreeSource(navigationNodes());
 
 const pickerKeymap = createSearchPickerKeymap({ next: [{ kind: 'key', key: 'n', modifiers: { ctrl: true } }], previous: [{ kind: 'key', key: 'p', modifiers: { ctrl: true } }] });
@@ -169,15 +157,8 @@ const workspaceControls = createTuiControls<WorkspaceState>()({
   },
 });
 
-const incidentQuery = createTuiPreparedQuery({
-  id: 'incident-search',
-  prepare: ({ index, query }: { readonly index: SearchPickerIndex; readonly query: CollectionQuery }, context) =>
-    prepareSearchPickerQuery(index, query, {
-      signal: context.signal,
-      yield: async () => { await context.clock.sleep(0, context.signal); },
-    }),
-  toMessage: (message): WorkspaceMessage => ({ kind: 'searchResult', message }),
-});
+const picker = createTuiChild(pickerDefinition(searchPickerEntries, pickerKeymap),
+  (message): WorkspaceMessage => ({ kind: 'picker', message }));
 
 const emptyCommandSuggestions = createCommandSuggestions([]);
 
@@ -194,7 +175,7 @@ function navigationNodes(): readonly TreeNode<NavigationMetadata>[] {
   }];
 }
 
-function initialState(): WorkspaceState {
+function initialState(context: TuiContext): WorkspaceState {
   return {
     notes: createTextAreaState({ value: 'Incident response notes\n\nHypothesis:\nEvidence:\nNext steps:\n' }),
     tab: 'issues',
@@ -213,10 +194,7 @@ function initialState(): WorkspaceState {
       scroll: createScrollState()
     },
     command: createCommandInputState({ suggestions: emptyCommandSuggestions }),
-    searchPicker: {
-      ...incidentQuery.init(), open: false,
-      state: createSearchPickerState({ query: { text: '', mode: 'contains' }, queryResult: null }, workspaceSearchPickerIndex),
-    },
+    searchPicker: picker.init({ id: 'command-search', generation: 0 }, context).state,
     resolved: new Set<string>(),
     activity: ['Workspace started.', 'Loaded 100,000 deterministic incident records. Notes and resolution edits stay in memory.']
   };
@@ -224,8 +202,8 @@ function initialState(): WorkspaceState {
 
 export const incidentWorkbenchApp = defineTui<WorkspaceState, WorkspaceMessage>({
   id: 'incident-workbench',
-  init: () => ({
-    state: initialState(),
+  init: context => ({
+    state: initialState(context),
     focus: {
       kind: 'path',
       path: ['workspace-root', 'workspace-grid', 'workspace-command-surface', 'workspace-command'],
@@ -246,7 +224,8 @@ export const incidentWorkbenchApp = defineTui<WorkspaceState, WorkspaceMessage>(
 
 function updateWorkspace(
   state: WorkspaceState,
-  message: WorkspaceMessage
+  message: WorkspaceMessage,
+  context: TuiContext
 ): TuiUpdateResult<WorkspaceState, WorkspaceMessage> {
   switch (message.kind) {
     case 'control': return workspaceControls.update(state, message);
@@ -276,69 +255,28 @@ function updateWorkspace(
       });
     }
     case 'submit':
-      return message.value.trim() === '/palette' ? startSearch({ ...state, searchPicker: { ...state.searchPicker, open: true } }) : updateResult(applyCommand(state, message.value));
-    case 'openSearchPicker':
-      return startSearch({ ...state, searchPicker: { ...state.searchPicker, open: true } });
-    case 'closeSearchPicker': {
-      const cancelled = incidentQuery.cancel({ ...state.searchPicker, open: false });
-      return { ...cancelled, state: { ...state, searchPicker: cancelled.state } };
+      return message.value.trim() === '/palette' ? updatePicker(state, { kind: 'open' }, context) : updateResult(applyCommand(state, message.value));
+    case 'openSearchPicker': return updatePicker(state, { kind: 'open' }, context);
+    case 'closeSearchPicker': return updatePicker(state, { kind: 'close' }, context);
+    case 'picker': {
+      const { outputs, ...updated } = liftTuiResult(state, 'searchPicker', picker.update(state.searchPicker, message.message, context));
+      const accepted = outputs?.[0];
+      return accepted === undefined ? updated : { ...updated, state: applyCommand(updated.state, accepted) };
     }
-    case 'searchPicker': {
-      const next = searchPickerReducer(state.searchPicker.state, message.transition, {
-        searchPickerIndex: workspaceSearchPickerIndex,
-        queryResult: state.searchPicker.result,
-      });
-      const updated = { ...state, searchPicker: { ...state.searchPicker, state: next } };
-      return next.editor.input.text !== state.searchPicker.state.editor.input.text
-        || next.mode !== state.searchPicker.state.mode || next.caseSensitive !== state.searchPicker.state.caseSensitive
-        ? startSearch(updated)
-        : updateResult(updated);
-    }
-    case 'searchResult': {
-      const settled = incidentQuery.update(state.searchPicker, message.message).state;
-      if (settled === state.searchPicker) return updateResult(state);
-      if (settled.error !== null) return updateResult({ ...state, searchPicker: settled, activity: [...state.activity, settled.error.message] });
-      const id = settled.result?.entries.find(entry => !entry.disabled)?.id;
-      const next = searchPickerReducer(settled.state, { kind: 'setActive', ...(id === undefined ? {} : { id }) }, {
-        searchPickerIndex: workspaceSearchPickerIndex, queryResult: settled.result,
-      });
-      return updateResult({ ...state, searchPicker: { ...settled, state: next } });
-    }
-    case 'acceptSearchPicker': {
-      if (!state.searchPicker.open || state.searchPicker.pending || state.searchPicker.result === null
-        || searchPickerQueryPosition(state.searchPicker.result, message.id) === undefined) return updateResult(state);
-      const entry = searchPickerEntryById(workspaceSearchPickerIndex, message.id);
-      return updateResult(entry === undefined ? state : applyCommand({
-        ...state,
-        searchPicker: {
-          ...state.searchPicker,
-          open: false,
-        },
-      }, entry.value));
-    }
-    case 'resolve': {
-      const ticket = selectedTicket(state);
-      if (state.resolved.has(ticket.id)) return updateResult(state);
-      const resolved = new Set(state.resolved);
-      resolved.add(ticket.id);
-      return updateResult({
-        ...state,
-        resolved,
-        activity: [...state.activity, `Resolved ${ticket.id}.`]
-      });
-    }
+    case 'resolve': return updateResult(resolveSelected(state));
     case 'exit':
       return { state, exit: { reason: 'user requested exit' } };
   }
 }
 
-function startSearch(state: WorkspaceState): TuiUpdateResult<WorkspaceState, WorkspaceMessage> {
-  const view = searchPickerView(state.searchPicker.state);
-  // This app hides old results while typing; other apps may keep the last prepared result.
-  const requested = incidentQuery.request({ ...state.searchPicker, result: null }, {
-    index: workspaceSearchPickerIndex, query: { text: view.input.text, ...view.query },
-  });
-  return { ...requested, state: { ...state, searchPicker: requested.state } };
+function updatePicker(state: WorkspaceState, message: PickerMessage<string>, context: TuiContext): TuiUpdateResult<WorkspaceState, WorkspaceMessage> {
+  return liftTuiResult(state, 'searchPicker', picker.update(state.searchPicker, { ...state.searchPicker, message }, context));
+}
+
+function resolveSelected(state: WorkspaceState): WorkspaceState {
+  const ticket = selectedTicket(state);
+  if (state.resolved.has(ticket.id)) return state;
+  return { ...state, resolved: new Set([...state.resolved, ticket.id]), activity: [...state.activity, `Resolved ${ticket.id}.`] };
 }
 
 function applyCommand(state: WorkspaceState, raw: string): WorkspaceState {
@@ -350,17 +288,10 @@ function applyCommand(state: WorkspaceState, raw: string): WorkspaceState {
     )
   };
   switch (command) {
-    case '/palette': return {
-      ...cleared,
-      searchPicker: {
-        ...state.searchPicker,
-        open: true,
-      },
-    };
     case '/issues': return { ...cleared, tab: 'issues' };
     case '/activity': return { ...cleared, tab: 'activity' };
     case '/notes': return { ...cleared, tab: 'notes' };
-    case '/resolve': return updateWorkspace(cleared, { kind: 'resolve' }).state;
+    case '/resolve': return resolveSelected(cleared);
     default: {
       const ticket = ticketById.get(command);
       if (ticket === undefined) return cleared;
@@ -415,7 +346,7 @@ function workspaceView(state: WorkspaceState, context: TuiContext) {
       { kind: 'fixed', cells: 1 }
     ]
   });
-  return overlay([base, ...(state.searchPicker.open ? [searchPickerLayer(state)] : [])], { id: 'workspace-root' });
+  return overlay([base, ...(state.searchPicker.state.open ? [searchPickerLayer(state, context)] : [])], { id: 'workspace-root' });
 }
 
 function workspaceMinimumSizeNotice() {
@@ -543,25 +474,16 @@ function commandPane(state: WorkspaceState) {
   });
 }
 
-function searchPickerLayer(state: WorkspaceState) {
+function searchPickerLayer(state: WorkspaceState, context: TuiContext) {
   return dialog({
     slots: {
-      content: column([searchPicker<string, WorkspaceMessage, WorkspaceMessage>({
-        id: 'workspace-search-picker',
-        keymap: pickerKeymap,
-        searchPickerIndex: workspaceSearchPickerIndex,
-        queryResult: state.searchPicker.result,
-        view: searchPickerView(state.searchPicker.state),
-        meta: { accessibleName: 'Command search' },
-        onTransition: (transition): WorkspaceMessage => ({ kind: 'searchPicker', transition }),
-        onAccept: (event): WorkspaceMessage => ({ kind: 'acceptSearchPicker', id: event.id }),
-      }), helpBar({ id: 'picker-help', groups: [{ id: 'picker', bindings: controlKeymapHelp(pickerKeymap, ['previous', 'next', 'accept']) }] })], { sizes: [{ kind: 'fill' }, { kind: 'fixed', cells: 1 }] })
+      content: column([picker.view(state.searchPicker, context), helpBar({ id: 'picker-help', groups: [{ id: 'picker', bindings: controlKeymapHelp(pickerKeymap, ['previous', 'next', 'accept']) }] })], { sizes: [{ kind: 'fill' }, { kind: 'fixed', cells: 1 }] })
     },
     id: 'workspace-search-picker-dialog',
-    title: state.searchPicker.pending ? 'Searching… type to replace query' : 'Search 100,000 incidents and commands',
+    title: state.searchPicker.state.construction.error?.message ?? state.searchPicker.state.error?.message ?? (state.searchPicker.state.construction.pending ? 'Indexing… you can keep typing' : state.searchPicker.state.pending ? 'Searching… type to replace query' : 'Search 100,000 incidents and commands'),
     modal: true,
     focusPolicy: {
-      initialFocus: { kind: 'element', elementId: 'workspace-search-picker' },
+      initialFocus: { kind: 'element', elementId: picker.elementId(state.searchPicker, 'picker') },
       returnFocus: 'restore'
     },
     dismissal: {

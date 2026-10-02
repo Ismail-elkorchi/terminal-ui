@@ -10,7 +10,7 @@ import {
 } from './log-history.ts';
 import type { TextWidthProfile } from '../text/types.ts';
 import { textWidthProfileKey } from '../text/width-profile.ts';
-import { countWrappedTextRows } from '../text/wrap.ts';
+import { measuredGraphemes } from '../text/graphemes.ts';
 
 export interface LogViewerLayout {
   readonly width: number;
@@ -26,22 +26,27 @@ interface LogViewerSegmentLayout {
   readonly rowStarts?: readonly number[];
   readonly rowCounts?: readonly number[];
   readonly totalRows: number;
+  readonly recordRows?: readonly Uint32Array[];
 }
 
 export interface LogViewerVisibleRecord {
   readonly record: LogHistoryRecord;
   readonly localStart: number;
   readonly localEnd: number;
+  readonly sourceRows?: readonly LogViewerSourceRow[];
 }
 
+export interface LogViewerSourceRow { readonly start: number; readonly end: number; }
+
 interface CachedSegmentLayout {
+  readonly recordRows?: readonly Uint32Array[];
   readonly rowStarts?: readonly number[];
   readonly rowCounts?: readonly number[];
   readonly totalRows: number;
 }
 
-const layoutCache = new WeakMap<LogHistorySegment, Map<string, CachedSegmentLayout>>();
-const historyLayoutCache = new WeakMap<LogHistory, Map<string, LogViewerLayout>>();
+const layoutCache = new WeakMap<LogHistorySegment, Map<string, CachedSegmentLayout | WeakRef<CachedSegmentLayout>>>();
+const historyLayoutCache = new WeakMap<LogHistory, Map<string, LogViewerLayout | WeakRef<LogViewerLayout>>>();
 const maxLayoutsPerSegment = 8;
 
 const unwrappedLayouts = new WeakMap<LogHistory, LogViewerLayout>();
@@ -117,11 +122,13 @@ export function visibleLogViewerRecords(
       const rowCount = segment.rowCounts?.[recordIndex] ?? 1;
       const rowEnd = rowStart + rowCount;
       if (rowStart >= localEnd) break;
+      const offsets = segment.recordRows?.[recordIndex];
       if (record !== undefined && rowEnd > localStart) {
         visible.push({
           record,
           localStart: Math.max(0, localStart - rowStart),
           localEnd: Math.min(rowCount, localEnd - rowStart),
+          ...(offsets === undefined ? {} : { sourceRows: sourceRowsInWindow(offsets, Math.max(0, localStart - rowStart), Math.min(rowCount, localEnd - rowStart)) }),
         });
       }
       recordIndex += 1;
@@ -167,11 +174,14 @@ function* segmentLayoutWork(
   if (width <= 0) return { totalRows: segment.records.length };
   const rowStarts: number[] = [];
   const rowCounts: number[] = [];
+  const recordRows: Uint32Array[] = [];
   let totalRows = 0;
   for (const record of segment.records) {
     rowStarts.push(totalRows);
     const recordView = createLogViewerRecordView(record, foldedIds.has(record.entry.id));
-    const count = countWrappedTextRows(recordView.displayText, width, { widthProfile });
+    const boundaries = yield* wrappedSourceRows(recordView.displayText, width, widthProfile);
+    recordRows.push(boundaries);
+    const count = boundaries.length / 2;
     rowCounts.push(count);
     totalRows += count;
     if (rowCounts.length % 32 === 0) yield;
@@ -179,6 +189,7 @@ function* segmentLayoutWork(
   const result = Object.freeze({
     rowStarts: Object.freeze(rowStarts),
     rowCounts: Object.freeze(rowCounts),
+    recordRows: Object.freeze(recordRows),
     totalRows,
   });
   retain(cache, key, result, maxLayoutsPerSegment);
@@ -211,27 +222,28 @@ function firstOverlappingRecord(segment: LogViewerSegmentLayout, row: number): n
   return low;
 }
 
-function cacheFor<TKey extends object, TValue>(
-  caches: WeakMap<TKey, Map<string, TValue>>,
+function cacheFor<TKey extends object, TValue extends object>(
+  caches: WeakMap<TKey, Map<string, TValue | WeakRef<TValue>>>,
   key: TKey,
-): Map<string, TValue> {
+): Map<string, TValue | WeakRef<TValue>> {
   const cached = caches.get(key);
   if (cached !== undefined) return cached;
-  const created = new Map<string, TValue>();
+  const created = new Map<string, TValue | WeakRef<TValue>>();
   caches.set(key, created);
   return created;
 }
 
-function touch<TValue>(cache: Map<string, TValue>, key: string): TValue | undefined {
-  const value = cache.get(key);
+function touch<TValue extends object>(cache: Map<string, TValue | WeakRef<TValue>>, key: string): TValue | undefined {
+  const retained = cache.get(key);
+  const value = retained instanceof WeakRef ? retained.deref() : retained;
   if (value === undefined) return undefined;
   cache.delete(key);
-  cache.set(key, value);
+  if (retained !== undefined) cache.set(key, retained);
   return value;
 }
 
-function retain<TValue>(
-  cache: Map<string, TValue>,
+function retain<TValue extends { readonly totalRows: number }>(
+  cache: Map<string, TValue | WeakRef<TValue>>,
   key: string,
   value: TValue,
   limit: number,
@@ -242,9 +254,70 @@ function retain<TValue>(
     if (oldest === undefined) break;
     cache.delete(oldest);
   }
-  cache.set(key, value);
+  // Large row-boundary tables are owned by accepted views, not multiplied by history cache retention.
+  cache.set(key, value.totalRows > 65_536 ? new WeakRef(value) : value);
 }
 
 function segmentFoldKey(segment: LogHistorySegment, foldedIds: ReadonlySet<string>): string {
   return JSON.stringify(segment.records.filter(record => foldedIds.has(record.entry.id)).map(record => record.entry.id));
+}
+
+function* wrappedSourceRows(text: string, width: number, widthProfile: TextWidthProfile): Generator<void, Uint32Array> {
+  const boundaries: number[] = [];
+  let start = 0;
+  let cells = 0;
+  let work = 0;
+  for (const part of measuredGraphemes(text, { widthProfile })) {
+    if (part.text === '\n') {
+      boundaries.push(start, part.startOffset);
+      start = part.endOffsetExclusive;
+      cells = 0;
+    } else {
+      if (cells > 0 && cells + part.cells > width) {
+        boundaries.push(start, part.startOffset);
+        start = part.startOffset;
+        cells = 0;
+      }
+      cells += part.cells;
+    }
+    work += part.endOffsetExclusive - part.startOffset;
+    if (work >= 2048) { work = 0; yield; }
+  }
+  boundaries.push(start, text.length);
+  const result = new Uint32Array(boundaries.length);
+  for (let i = 0; i < boundaries.length; i += 1) {
+    result[i] = boundaries[i] ?? 0;
+    if ((i + 1) % 2048 === 0) yield;
+  }
+  return result;
+}
+
+function sourceRowsInWindow(offsets: Uint32Array, start: number, end: number): readonly LogViewerSourceRow[] {
+  const rows: LogViewerSourceRow[] = [];
+  for (let index = start; index < end; index++) rows.push({ start: offsets[index * 2] ?? 0, end: offsets[index * 2 + 1] ?? 0 });
+  return rows;
+}
+
+/** Map an owned display-source offset without walking an off-screen record prefix. */
+export function logViewerRowForOffset(layout: LogViewerLayout, entryIndex: number, offset: number): number | undefined {
+  const entryStart = logViewerRowForEntry(layout, entryIndex);
+  if (entryStart === undefined || layout.unwrappedHistory !== undefined) return entryStart;
+  let lower = 0;
+  let upper = layout.segments.length;
+  while (lower < upper) {
+    const middle = (lower + upper) >>> 1;
+    const segment = layout.segments[middle];
+    if (segment === undefined || segment.segment.startIndex + segment.segment.records.length > entryIndex) upper = middle;
+    else lower = middle + 1;
+  }
+  const segment = layout.segments[lower];
+  const offsets = segment?.recordRows?.[entryIndex - segment.segment.startIndex];
+  if (offsets === undefined) return entryStart;
+  lower = 0; upper = offsets.length / 2;
+  while (lower < upper) {
+    const middle = (lower + upper) >>> 1;
+    if ((offsets[middle * 2] ?? 0) <= offset) lower = middle + 1;
+    else upper = middle;
+  }
+  return entryStart + Math.max(0, lower - 1);
 }

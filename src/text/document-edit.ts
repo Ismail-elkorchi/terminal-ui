@@ -180,7 +180,10 @@ function replaceOffsets(
 ): TextDocumentEditResult {
   const change = textDocumentEdit(state.document, { startOffset, endOffsetExclusive }, insertion);
   const offset = change.replaced.startOffset + change.insertedLength;
-  const nextCaret = caretAt(offset, 'downstream');
+  let nextCaret = normalizeTextCaret(change.document, caretAt(offset, 'downstream'));
+  if (nextCaret.position.offset !== offset) {
+    nextCaret = caretAt(rightOffset(change.document, nextCaret, undefined, false), 'downstream');
+  }
   if (change.document === state.document && sameTextCaret(nextCaret, state.caret) && state.selection === undefined) {
     return state;
   }

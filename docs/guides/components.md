@@ -1,5 +1,16 @@
 # Components
 
+Component model construction, measurement, layout, paint, semantics and interaction
+consume available state synchronously. There is no component preparation hook.
+Use an effect-owned `createTuiPreparedQuery()` for expensive derived data, then
+render its accepted immutable result or an explicit pending/previous-result view.
+Include source revision, query and relevant geometry in the request. Accepted
+layout notifications can send an ordinary message to request geometry-dependent
+work after the frame commits; they do not run that work inside rendering.
+
+Synchronous preparation functions remain useful for deliberate small inputs and
+direct rendering. Call them explicitly before constructing the element.
+
 Components are typed public factories that return opaque `Element<TMessage>`
 values. They are generic UI building blocks, not product-specific recipes.
 They own component behavior, interaction messages, and accessibility semantics

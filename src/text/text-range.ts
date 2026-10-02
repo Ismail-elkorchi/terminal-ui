@@ -25,7 +25,7 @@ export function replaceTextRange(text: string, selection: TextSelection, replace
   const start = normalizeTextCursor(text, Math.min(selection.startOffset, selection.endOffsetExclusive));
   const end = normalizeTextCursor(text, Math.max(selection.startOffset, selection.endOffsetExclusive));
   const next = `${text.slice(0, start)}${replacement}${text.slice(end)}`;
-  return { text: next, cursor: start + replacement.length };
+  return { text: next, cursor: normalizeTextEditCursor(next, start + replacement.length) };
 }
 
 export function previousGraphemeBoundary(text: string, cursor: number): number {
@@ -41,4 +41,11 @@ export function nextGraphemeBoundary(text: string, cursor: number): number {
 export function clampTextOffset(value: number, length: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(length, Math.floor(value)));
+}
+
+/** After a mutation, a new cluster can join across the edit seam. Place the
+ * insertion caret after that complete cluster instead of inside its source. */
+export function normalizeTextEditCursor(text: string, cursor: number): number {
+  const start = normalizeTextCursor(text, cursor);
+  return start === cursor ? cursor : nextGraphemeBoundary(text, start);
 }

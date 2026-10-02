@@ -1,8 +1,10 @@
+import { copyWorkOwnership } from './lifecycle/work-ownership.ts';
 import { effectExecutionId, subscriptionExecutionId } from '../foundation/identity.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
 import type { InitialFocusSelector } from '../interaction/focus.ts';
 import type { MessageResolution } from '../interaction/message.ts';
 import type {
+  TuiCancellation,
   TuiEffect,
   TuiEffectContext,
   TuiEffectOutput,
@@ -40,8 +42,8 @@ export function decodeTuiUpdateResult<TState, TMessage>(
   if (!Object.hasOwn(result, 'state')) {
     throw new TypeError('TUI update result must provide state.');
   }
-  const cancelEffects = optionalStringArray(result['cancelEffects'], 'TUI update cancelEffects')
-    ?.map((id) => effectExecutionId(id));
+  if (Object.hasOwn(result, 'cancelEffects')) throw new TypeError('TUI update cancelEffects is obsolete; use typed cancel requests.');
+  const cancel = optionalArray(result['cancel'], 'TUI update cancel')?.map(decodeCancellation);
   const effects = optionalArray(result['effects'], 'TUI update effects')?.map(decodeTuiEffect<TMessage>);
   const focus = result['focus'] === undefined
     ? undefined
@@ -49,7 +51,7 @@ export function decodeTuiUpdateResult<TState, TMessage>(
   const exit = decodeExitRequest(result['exit'], 'TUI update exit');
   return Object.freeze({
     state: result['state'] as TState,
-    ...(cancelEffects === undefined ? {} : { cancelEffects: Object.freeze(cancelEffects) }),
+    ...(cancel === undefined ? {} : { cancel: Object.freeze(cancel) }),
     ...(effects === undefined ? {} : { effects: Object.freeze(effects) }),
     ...(focus === undefined ? {} : { focus }),
     ...(exit === undefined ? {} : { exit })
@@ -75,7 +77,7 @@ export function decodeTuiEffect<TMessage>(value: unknown, index?: number): TuiEf
   if (onError !== undefined && typeof onError !== 'function') {
     throw new TypeError(`${label} onError must be a function when provided.`);
   }
-  return Object.freeze({
+  return copyWorkOwnership(effect, Object.freeze({
     id,
     concurrency,
     run: (context: TuiEffectContext) =>
@@ -84,7 +86,7 @@ export function decodeTuiEffect<TMessage>(value: unknown, index?: number): TuiEf
       onError: (failure: Parameters<NonNullable<TuiEffect<TMessage>['onError']>>[0]) =>
         onError.call(effect, failure) as TuiEffectOutput<TMessage>
     })
-  });
+  }));
 }
 
 export function decodeTuiEffectOutput<TMessage>(
@@ -137,13 +139,13 @@ function decodeTuiEventSource<TMessage>(value: unknown, index: number): TuiEvent
   }
   const channel = decodeTuiEventSourceChannel(source['channel'], label);
   const callbacks = decodeTuiEventSourceCallbacks<TMessage>(source, label);
-  return Object.freeze({
+  return copyWorkOwnership(source, Object.freeze({
     id,
     generation,
     ...(sourceName === undefined ? {} : { source: sourceName }),
     ...(channel === undefined ? {} : { channel }),
     ...callbacks,
-  });
+  }));
 }
 
 function decodeTuiEventSourceChannel(
@@ -234,15 +236,6 @@ function optionalArray(value: unknown, label: string): readonly unknown[] | unde
   return value === undefined ? undefined : requiredArray(value, label);
 }
 
-function optionalStringArray(value: unknown, label: string): readonly string[] | undefined {
-  const values = optionalArray(value, label);
-  if (values === undefined) return undefined;
-  if (values.some((item) => typeof item !== 'string')) {
-    throw new TypeError(`${label} must contain strings.`);
-  }
-  return Object.freeze([...values]) as readonly string[];
-}
-
 function requiredIdentity(
   value: unknown,
   label: string,
@@ -257,4 +250,15 @@ function nonEmptyString(value: unknown, label: string): string {
     throw new TypeError(`${label} must be a non-empty string.`);
   }
   return value;
+}
+
+function decodeCancellation(value: unknown): TuiCancellation {
+  const request = objectResult(value, 'TUI cancellation');
+  const id = requiredIdentity(request['id'], 'TUI cancellation', effectExecutionId);
+  if (request['kind'] === 'effect') return copyWorkOwnership(request, Object.freeze({ kind: 'effect', id }));
+  const generation = request['generation'];
+  if (request['kind'] !== 'child' || (typeof generation !== 'string' && !(typeof generation === 'number' && Number.isFinite(generation)))) {
+    throw new TypeError('TUI cancellation must identify an effect or a child lifetime.');
+  }
+  return copyWorkOwnership(request, Object.freeze({ kind: 'child', id, generation }));
 }

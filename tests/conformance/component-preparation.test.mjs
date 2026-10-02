@@ -1,92 +1,105 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { defineComponent, ComponentExecutionError, span } from '@ismail-elkorchi/terminal-ui/component';
+import { defineComponent, span } from '@ismail-elkorchi/terminal-ui/component';
 import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
-import { createTuiRuntime, defineTui } from '@ismail-elkorchi/terminal-ui/tui';
+import { createTuiRuntime, createTuiPreparedQuery, defineTui } from '@ismail-elkorchi/terminal-ui/tui';
 import { renderElementFrame, renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 
 function component(overrides = {}) {
   return defineComponent({
     structure: 'leaf', semantics: 'semantic',
     name: 'external/prepared-label', identity: 'required', accessibleRole: 'status',
-    measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 4, preferredHeight: 1 }),
+    measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 16, preferredHeight: 1 }),
     render: ({ model, target }) => target.write(0, 0, [span(model.label)]),
     accessibility: ({ id, model }) => ({ id, role: 'status', label: model.label }),
     ...overrides,
   });
 }
-function runtimeFor(view, host = createMemoryTerminalHost()) {
-  return createTuiRuntime({ host, app: defineTui({
-    id: 'prepared-component', init: () => ({ state: 0 }),
-    update: state => ({ state: state + 1 }), view,
-  }) });
-}
 
-test('preparation settles through the host scheduler before synchronous hooks run', async () => {
-  const order = [];
-  const label = component({
-    async prepare({ signal, yield: yieldWork }) {
-      signal.throwIfAborted();
-      order.push('prepare');
-      await yieldWork();
-      order.push('prepared');
-    },
-    render: ({ target }) => { order.push('paint'); target.write(0, 0, [span('done')]); },
-  });
-  const runtime = runtimeFor(() => label({ id: 'label', label: 'done' }));
-  try {
-    await runtime.start();
-    assert.deepEqual(order, ['prepare', 'prepared', 'paint']);
-  } finally { await runtime.dispose(); }
+test('component definitions reject the retired preparation hook even when undefined', () => {
+  for (const prepare of [undefined, 1, async () => {}]) {
+    assert.throws(() => component({ prepare }), /prepare is unsupported/u);
+  }
 });
 
-test('preparation failures identify the component and do not publish a frame', async () => {
-  const failure = new Error('cannot prepare');
-  const label = component({ prepare: () => Promise.reject(failure) });
-  const host = createMemoryTerminalHost();
-  const runtime = runtimeFor(() => label({ id: 'label', label: 'done' }), host);
-  try {
-    await assert.rejects(runtime.start(), error => error instanceof ComponentExecutionError
-      && error.phase === 'prepare' && error.component === 'external/prepared-label' && error.cause === failure);
-    assert.equal(host.output(), '');
-  } finally { await runtime.dispose(); }
-});
-
-test('direct rendering stays synchronous and custom painters run unless retention is requested', () => {
-  let preparations = 0;
+test('direct rendering consumes explicit data synchronously and paints without retention', () => {
   let paints = 0;
   const label = component({
-    async prepare() { preparations += 1; },
-    render: ({ target }) => { paints += 1; target.write(0, 0, [span('done')]); },
+    render: ({ model, target }) => { paints++; target.write(0, 0, [span(model.label)]); },
   });
-  for (let index = 0; index < 2; index += 1) {
-    const frame = renderElementFrame(label({ id: 'label', label: 'done' }), { columns: 4, rows: 1 });
-    assert.equal(renderFramePlain(frame), 'done');
+  const result = Object.freeze({ label: 'done' });
+  for (let index = 0; index < 2; index++) {
+    assert.equal(renderFramePlain(renderElementFrame(label({ id: 'label', ...result }), { columns: 4, rows: 1 })), 'done');
   }
-  assert.equal(preparations, 0);
   assert.equal(paints, 2);
   assert.throws(() => component({ retainPaint: 'yes' }), /retainPaint/u);
-  assert.throws(() => component({ prepare: 1 }), /prepare/u);
 });
 
-test('runtime disposal aborts preparation without publishing partial output', async () => {
-  let began;
-  const started = new Promise(resolve => { began = resolve; });
-  let aborted = false;
-  const label = component({
-    prepare: ({ signal }) => new Promise(resolve => {
-      signal.addEventListener('abort', () => { aborted = true; resolve(); }, { once: true });
-      began();
-    }),
+function application(prepare) {
+  const label = component();
+  const query = createTuiPreparedQuery({ id: 'label-work', prepare, toMessage: message => ({ kind: 'result', message }) });
+  return defineTui({
+    id: 'prepared-component',
+    init: () => { const initial = query.request(query.init(), 'request'); return { ...initial, state: { ...initial.state, count: 0 } }; },
+    update(state, message) {
+      if (message.kind === 'increment') return { state: { ...state, count: state.count + 1 } };
+      return query.update(state, message.message);
+    },
+    view: state => label({ id: 'label', label: state.result ?? (state.error === null ? `pending ${state.count}` : 'failed') }),
   });
-  const host = createMemoryTerminalHost();
-  const runtime = runtimeFor(() => label({ id: 'label', label: 'done' }), host);
-  const startup = assert.rejects(runtime.start(), error => error instanceof ComponentExecutionError
-    && error.phase === 'prepare');
-  await started;
-  await runtime.dispose();
-  await startup;
-  assert.equal(aborted, true);
-  assert.equal(host.output(), '');
-  assert.equal(runtime.frame(), undefined);
+}
+
+test('input and resize commit while effect-owned preparation is blocked', async () => {
+  const started = Promise.withResolvers();
+  const released = Promise.withResolvers();
+  const runtime = createTuiRuntime({ host: createMemoryTerminalHost(), app: application(async () => {
+    started.resolve(); return released.promise;
+  }) });
+  try {
+    await runtime.start();
+    await started.promise;
+    assert.match(renderFramePlain(runtime.frame()), /pending 0/u);
+    await runtime.dispatch({ kind: 'increment' });
+    await runtime.resize({ columns: 32, rows: 4 });
+    assert.equal(runtime.state().count, 1);
+    assert.match(renderFramePlain(runtime.frame()), /pending 1/u);
+    released.resolve('done');
+    while (runtime.state().pending) await runtime.nextChange();
+    assert.match(renderFramePlain(runtime.frame()), /done/u);
+  } finally { released.resolve('done'); await runtime.dispose(); }
+});
+
+test('preparation failure becomes ordinary state after an accepted pending frame', async () => {
+  const released = Promise.withResolvers();
+  const runtime = createTuiRuntime({ host: createMemoryTerminalHost(), app: application(async () => {
+    await released.promise; throw new Error('cannot prepare');
+  }) });
+  try {
+    await runtime.start();
+    assert.match(renderFramePlain(runtime.frame()), /pending/u);
+    released.resolve();
+    while (runtime.state().pending) await runtime.nextChange();
+    assert.equal(runtime.state().error.code, 'TUI_EFFECT_FAILED');
+    assert.match(renderFramePlain(runtime.frame()), /failed/u);
+  } finally { released.resolve(); await runtime.dispose(); }
+});
+
+test('disposal cancels effect preparation and rejects an ignored-cancellation result', async () => {
+  const started = Promise.withResolvers();
+  const released = Promise.withResolvers();
+  let signal;
+  const runtime = createTuiRuntime({ host: createMemoryTerminalHost(), app: application(async (_input, context) => {
+    signal = context.signal; started.resolve(); return released.promise;
+  }) });
+  await runtime.start();
+  await started.promise;
+  const before = runtime.state();
+  const aborted = new Promise(resolve => signal.addEventListener('abort', resolve, { once: true }));
+  const disposing = runtime.dispose();
+  await aborted;
+  assert.equal(signal.aborted, true);
+  released.resolve('obsolete');
+  await disposing;
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(runtime.state(), before);
 });

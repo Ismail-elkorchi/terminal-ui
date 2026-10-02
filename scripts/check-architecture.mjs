@@ -507,7 +507,13 @@ function inspectDependencyAuthority(filePath, sourceLayer, dependency) {
   const targetLayer = architectureUnit(dependency.target);
   if (sourceLayer !== targetLayer) {
     const allowed = architectureDependencies.get(sourceLayer);
-    if (allowed === undefined || !allowed.has(targetLayer)) {
+    // Shared deterministic work drivers and public item contracts do not grant
+    // text or TUI code access to other foundation/collection internals.
+    const narrowDependency = (sourceLayer === 'text'
+      && sourceRelative(dependency.target) === 'foundation/cooperative-work.ts')
+      || (sourceLayer === 'tui' && dependency.kind === 'type'
+        && sourceRelative(dependency.target) === 'collection/item.ts');
+    if (!narrowDependency && (allowed === undefined || !allowed.has(targetLayer))) {
       failures.push(
         `${relative(filePath)} imports forbidden ${targetLayer} ${dependency.kind} dependency through ${dependency.specifier}`
       );

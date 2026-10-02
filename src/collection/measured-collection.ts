@@ -120,6 +120,22 @@ export function replaceMeasuredItem<TValue>(
   collection: MeasuredCollection<TValue>,
   item: MeasuredCollectionItem<TValue>
 ): MeasuredCollection<TValue> {
+  return replaceMeasuredItemValue(collection, item, false);
+}
+
+// Measurement acceptance owns a new receipt even when the estimated height was exact.
+export function replaceMeasuredItemIdentity<TValue>(
+  collection: MeasuredCollection<TValue>,
+  item: MeasuredCollectionItem<TValue>,
+): MeasuredCollection<TValue> {
+  return replaceMeasuredItemValue(collection, item, true);
+}
+
+function replaceMeasuredItemValue<TValue>(
+  collection: MeasuredCollection<TValue>,
+  item: MeasuredCollectionItem<TValue>,
+  replaceIdentity: boolean,
+): MeasuredCollection<TValue> {
   const data = measuredCollectionData(collection);
   const replacement = decodeMeasuredItem(item, 'Measured collection replacement item');
   const order = idIndexGet(data.ids, replacement.id);
@@ -130,7 +146,7 @@ export function replaceMeasuredItem<TValue>(
   if (current === undefined) {
     throw new Error('Measured collection indexes are inconsistent.');
   }
-  if (current.item.rows === replacement.rows && Object.is(current.item.value, replacement.value)) {
+  if (!replaceIdentity && current.item.rows === replacement.rows && Object.is(current.item.value, replacement.value)) {
     return collection;
   }
   assertTotalRows(collection.totalRows - current.item.rows, replacement.rows);

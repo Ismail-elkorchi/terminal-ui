@@ -131,6 +131,8 @@ export type {
 export {
   appendLogHistory,
   createLogHistory,
+  prepareLogHistory,
+  prepareAppendLogHistory,
   logHistoryEntries,
   logHistoryEntryAt,
   logHistoryRecordById,
@@ -263,7 +265,7 @@ export {
   scrollReducer,
   visibleWindowFromScroll,
 } from './scroll.ts';
-export { createSearchPickerIndex, querySearchPickerIndex, prepareSearchPickerQuery, matchingSearchPickerQuery, searchPickerEntryById, searchPickerQueryPosition } from './search-picker-index.ts';
+export { createSearchPickerIndex, prepareSearchPickerIndex, querySearchPickerIndex, prepareSearchPickerQuery, matchingSearchPickerQuery, searchPickerEntryById, searchPickerQueryPosition } from './search-picker-index.ts';
 export type { SearchPickerIndex, SearchPickerQueryResult } from './search-picker-index.ts';
 export {
   activeSearchPickerEntry,
@@ -352,6 +354,7 @@ export {
   createTreeCollection,
   createTreeCollectionFromRows,
   createTreeSource,
+  prepareTreeSource,
   createTreeView,
   matchingTreeView,
   prepareTreeView,

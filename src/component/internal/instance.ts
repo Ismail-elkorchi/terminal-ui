@@ -83,7 +83,7 @@ export function createDefinedComponentElement<
       model,
       state
     );
-    const semanticInspection = resolveComponentInspection(ownedDefinition, instance.id, behavior);
+    const semanticInspection = componentSemanticInspection(ownedDefinition, instance.id, behavior);
     const requiredLayer = componentDefinitionLayer(instance.id, ownedDefinition, behavior);
     const meta = componentInstanceMeta(
       instance,
@@ -173,16 +173,6 @@ export function createDefinedComponentElement<
       })
     };
     return componentElementFromRenderNode<'component', unknown>(renderNode);
-}
-
-function resolveComponentInspection<TModel extends object>(
-  definition: Parameters<typeof componentSemanticInspection<TModel>>[0] & { readonly prepare?: unknown },
-  instanceId: string | undefined,
-  behavior: ComponentBehaviorInput<TModel>,
-): ComponentSemanticInspection | (() => ComponentSemanticInspection | undefined) | undefined {
-  const inspect = () => componentSemanticInspection(definition, instanceId, behavior);
-  return definition.prepare !== undefined && definition.semantics === 'semantic' && definition.inspection !== undefined
-    ? inspect : inspect();
 }
 
 function componentSemanticInspection<TModel extends object>(

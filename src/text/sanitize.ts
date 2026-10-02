@@ -1,4 +1,5 @@
-import { expandTerminalTabs, terminalTabCells } from './tabs.ts';
+import { finishWork } from '../foundation/cooperative-work.ts';
+import { expandTerminalTabsWork, terminalTabCells } from './tabs.ts';
 import { textWidthProfileKey } from './width-profile.ts';
 import { graphemeBoundaryOffsets, segmentGraphemesForMeasurement } from './graphemes.ts';
 import type {
@@ -19,6 +20,7 @@ const unsafeTerminalSequenceParts = [
   String.raw`[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]`
 ];
 const unsafeTerminalSequence = new RegExp(unsafeTerminalSequenceParts.join('|'), 'gu');
+const unsafeTerminalTextCharacters = new RegExp(String.raw`[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]`, 'u');
 const sanitizeCacheWeightLimit = 65_536;
 const sanitizeCacheMaxTextLength = 256;
 const sanitizeCache = new Map<string, SanitizedTerminalText>();
@@ -42,6 +44,11 @@ export function sanitizeTerminalSingleLineText(
 /** Strip unsafe controls while retaining tabs until a layout profile is known. */
 export function sanitizeTerminalControlText(text: string): SanitizedTerminalText {
   return sanitize(text, {}, 'control');
+}
+
+/** Cooperative form of the same sanitizer used by direct text operations. */
+export function* sanitizeTerminalTextWork(text: string): Generator<void, SanitizedTerminalText> {
+  return yield* sanitizeWork(text, {}, 'multiline');
 }
 
 /** Source offsets for an editable one-line value whose terminal text may be sanitized. */
@@ -170,6 +177,14 @@ function sanitize(
   options: SanitizeTerminalTextOptions,
   mode: 'multiline' | 'single-line' | 'cell' | 'control'
 ): SanitizedTerminalText {
+  return finishWork(sanitizeWork(text, options, mode));
+}
+
+function* sanitizeWork(
+  text: string,
+  options: SanitizeTerminalTextOptions,
+  mode: 'multiline' | 'single-line' | 'cell' | 'control',
+): Generator<void, SanitizedTerminalText> {
   const replacement = options.replacement ?? '';
   if (hasUnsafeTerminalText(replacement) || /[\t\r\n]/u.test(replacement)) {
     throw new TypeError('Terminal text replacement must not contain control characters or terminal sequences.');
@@ -179,7 +194,7 @@ function sanitize(
     const cached = sanitizeCache.get(cacheKey);
     if (cached !== undefined) return cached;
   }
-  if (isTerminalTextSafe(text) && (mode === 'multiline' || !text.includes('\n'))) {
+  if ((yield* terminalTextSafetyWork(text, true)) && (mode === 'multiline' || !text.includes('\n'))) {
     const result = Object.freeze({
       text,
       changed: false,
@@ -193,21 +208,29 @@ function sanitize(
     return result;
   }
   const removedControlSequences: RemovedControlSequence[] = [];
-  const stripped = text.replace(unsafeTerminalSequence, (sequence: string, codeUnitOffset: number) => {
-    removedControlSequences.push({
-      sequence,
-      codeUnitOffset,
-      kind: isTerminalEscape(sequence) ? 'escape' : 'control'
-    });
-    return replacement;
-  });
+  const pieces: string[] = [];
+  let cursor = 0;
+  let operations = 0;
+  // Each native regex search is indivisible; matches and assembly cooperate.
+  const matcher = new RegExp(unsafeTerminalSequence.source, unsafeTerminalSequence.flags);
+  for (let match = matcher.exec(text); match !== null; match = matcher.exec(text)) {
+    const sequence = match[0];
+    const codeUnitOffset = match.index;
+    pieces.push(text.slice(cursor, codeUnitOffset), replacement);
+    cursor = codeUnitOffset + sequence.length;
+    removedControlSequences.push(Object.freeze({ sequence, codeUnitOffset,
+      kind: isTerminalEscape(sequence) ? 'escape' : 'control' }));
+    if (++operations % 256 === 0) yield;
+  }
+  pieces.push(text.slice(cursor));
+  const stripped = pieces.join('');
   const normalized = stripped.replace(/\r\n?/gu, '\n');
-  const multiline = mode === 'control' ? normalized : expandTerminalTabs(normalized, options);
+  const multiline = mode === 'control' ? normalized : yield* expandTerminalTabsWork(normalized, options);
   const sanitized = mode === 'multiline' || mode === 'control' ? multiline : multiline.replace(/\n/gu, mode === 'single-line' ? ' ' : '');
   const result = Object.freeze({
     text: sanitized,
     changed: removedControlSequences.length > 0 || sanitized !== text,
-    removedControlSequences: Object.freeze(removedControlSequences.map((entry) => Object.freeze(entry)))
+    removedControlSequences: Object.freeze(removedControlSequences)
   });
   if (cacheKey !== undefined) {
     sanitizeCache.set(cacheKey, result);
@@ -224,9 +247,18 @@ export function isTerminalTextSafe(text: string): boolean {
 
 /** Whether text is free of terminal control sequences, excluding editable whitespace. */
 export function isTerminalControlTextSafe(text: string): boolean {
+  return finishWork(terminalTextSafetyWork(text, false));
+}
+
+function* terminalTextSafetyWork(text: string, multiline: boolean): Generator<void, boolean> {
+  if (text.length <= 2048) {
+    return !unsafeTerminalTextCharacters.test(text)
+      && (!multiline || !/[\t\r]/u.test(text));
+  }
   for (let index = 0; index < text.length; index += 1) {
     const code = text.charCodeAt(index);
-    if (code === 0x1b
+    if ((multiline && (code === 9 || code === 13))
+      || code === 0x1b
       || code <= 0x08
       || code === 0x0b
       || code === 0x0c
@@ -234,6 +266,7 @@ export function isTerminalControlTextSafe(text: string): boolean {
       || (code >= 0x7f && code <= 0x9f)) {
       return false;
     }
+    if ((index + 1) % 2048 === 0) yield;
   }
   return true;
 }

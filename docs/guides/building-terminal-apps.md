@@ -150,10 +150,14 @@ created; it does not make state or domain values immutable for you.
 
 Keep policies in the application: the IDE's buffer byte limit, dirty-close guard,
 saved-document identity and file operations remain explicit. A tree transition
-that also switches another panel stays in the app reducer. The complete
-[IDE example](../../examples/tui/ide-editor.ts) uses one control branch for five
-ordinary fields, with no extra child lifetime. Use [child composition](./tui.md#composing-child-applications)
-when a feature actually needs mount identity and owned effects/subscriptions.
+that also switches another panel stays in the app reducer. The [IDE example](../../examples/tui/ide-editor.ts) uses ordinary bindings for menu,
+command, chooser and tab fields. Its explorer and editor panels are reusable
+[child modules](../../examples/tui/features/) with explicit lifetime identities.
+The workbench uses the same pattern for its prepared search picker. Parent reducers
+handle domain outputs such as opening a file or accepting a command, rather than
+forwarding every internal transition. Use ordinary element-returning functions
+for visual reuse; a new `defineComponent()` is needed only for a rendering or
+interaction primitive.
 
 See [Components](./components.md) for component roles and
 [Behavior helpers](./behavior.md) for reducer state boundaries.
@@ -195,3 +199,28 @@ See [Component definitions](./component-definitions.md) and
 Executable examples: [interactive workspace](../../examples/tui/interactive-workspace.ts),
 [IDE editor](../../examples/tui/ide-editor.ts), and
 [btop-style monitor](../../examples/tui/btop-monitor.ts).
+
+## Lifting nested updates and defining commands
+
+`liftTuiResult(parent, 'field', result)` grafts a child or prepared-query result
+into one existing state field. It preserves effects, typed cancellation, focus
+and domain outputs. If the field is unchanged, the parent object is unchanged.
+Consume child `outputs` explicitly before returning the application update. This
+is stateless composition, not a path registry or mutable binding.
+
+`createTuiCommands(definitions, toMessage)` owns one static command catalog. Its
+`inputBindings`, `menuItems(state)` and `pickerEntries(state)` project into existing
+controls. `tuiBindingHelp(app)` derives help from those same bindings. In update,
+call `resolve(currentState, id)` before executing the resulting domain message:
+menu/picker availability from an earlier frame is not execution authorization.
+The IDE derives its menu and shortcuts from one catalog. Application-specific
+argument parsing and resource operations stay in application code.
+
+The workbench picker starts `prepareSearchPickerIndex()` from a child effect when
+opened. A separate prepared query owns the search, because typing changes search
+dependencies without invalidating the source index. While construction is pending,
+the input renders against one empty index and keeps accepting text; construction
+completion queries the latest controlled text. The accepted index stays in child
+state and is reused on reopening. Source replacement and removal cancel both
+operations and reject stale completions. Copying raw entry descriptors before
+yielding remains an explicit indivisible adoption cost.

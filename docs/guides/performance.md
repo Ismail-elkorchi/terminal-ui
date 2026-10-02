@@ -23,14 +23,18 @@ visible highlights. These synchronous benchmark fixtures explicitly prepare
 results in their element-construction scenario, so picker candidate counters
 include that preparation; missing or zero candidate evidence fails the structural
 gate. Segmentation
-counters report cache misses and the portion actually measured when clipping.
+counters report text processed for geometry and the portion measured when clipping;
+they do not count literal Intl iterator calls. Source boundaries can be reused even
+when a different width policy requires new geometry.
 Snapshot counters report rebuilt final-frame rows and cells.
 
 The runtime retains paint commands for framework leaf components and spans for
 unchanged table rows. Paint dependencies include geometry, theme, width profile,
 styles and interaction state. Hit targets and callbacks are refreshed on redraw.
-Custom painters execute on every render. Immutable cells and row fingerprints
-can be shared across frames without sharing mutable buffers.
+Custom painters execute on every render unless they explicitly opt into the
+immutable-input retainPaint contract. Cache checks compare declared geometry and
+style fields plus owned model/resource identities; they never walk arbitrary
+application data. Immutable cells can be shared without sharing mutable buffers.
 
 Log searches use compact text indexes and lazily create case-folded tokens.
 Applications explicitly prepare `LogViewerView` values in cancellable effects

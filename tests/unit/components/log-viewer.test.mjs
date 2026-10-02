@@ -184,11 +184,11 @@ test('log viewer renders folded history as visible document metadata', () => {
     { id: 'a', text: 'alpha\nmore alpha', metadata: { source: 'worker' } },
     { id: 'b', text: 'bravo' }
   ]);
-  const frame = renderElementFrame(logViewer({ view: null,
-    id: 'folded-log',
-    history,
-    foldedIds: ['a']
-  }), { columns: 48, rows: 2 });
+  const foldedIds = ['a'];
+  const options = { id: 'folded-log', history, foldedIds };
+  const pending = renderElementFrame(logViewer({ ...options, view: null }), { columns: 48, rows: 2 });
+  assert.doesNotMatch(renderFramePlain(pending), /folded=true/u);
+  const frame = renderElementFrame(logViewer({ ...options, view: createLogViewerView({ history, foldedIds }) }), { columns: 48, rows: 2 });
 
   assert.match(renderFramePlain(frame), /source=worker folded=true alpha \.\.\./u);
   assert.equal(frame.cells.find((cell) => cell.source?.description === 'metadata.folded.key')?.text, 'f');
@@ -205,10 +205,11 @@ test('log viewer folding preserves source-local selection anchors', () => {
     anchor: { entryId: 'a', offset: 2 },
     focus: { entryId: 'b', offset: 3 }
   };
-  const frame = renderElementFrame(logViewer({ view: null,
+  const foldedIds = ['a'];
+  const frame = renderElementFrame(logViewer({ view: createLogViewerView({ history, foldedIds }),
     id: 'folded-selection',
     history,
-    foldedIds: ['a'],
+    foldedIds,
     selection
   }), { columns: 48, rows: 3 });
 

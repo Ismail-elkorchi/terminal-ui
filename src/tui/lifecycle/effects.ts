@@ -1,3 +1,4 @@
+import { cancellationMatches } from './work-ownership.ts';
 import type { TerminalDiagnostic } from '../../diagnostics.ts';
 import { diagnostic } from '../../diagnostics.ts';
 import type { TerminalClock } from '../../host/types.ts';
@@ -6,6 +7,7 @@ import type { ProducerAdmissionLease } from './producer-admission.ts';
 import { createProducerAdmissionLease } from './producer-admission.ts';
 import { decodeCopySelectedTextInput } from '../selection.ts';
 import type {
+  TuiCancellation,
   TuiContext,
   TuiEffect,
   TuiEffectContext,
@@ -15,6 +17,7 @@ import type {
 
 interface ActiveEffect {
   readonly id: string;
+  readonly effect: TuiEffect<unknown>;
   readonly controller: AbortController;
   readonly lease: ProducerAdmissionLease;
   completion: Promise<void>;
@@ -33,7 +36,7 @@ export interface TuiEffectManagerMetrics {
 
 export interface TuiEffectManager<TMessage> {
   start(effects: readonly TuiEffect<TMessage>[], redacted?: boolean): void;
-  cancelIds(ids: readonly string[]): void;
+  cancelRequests(requests: readonly TuiCancellation[]): void;
   cancel(): void;
   dispose(): Promise<void>;
   metrics(): TuiEffectManagerMetrics;
@@ -83,7 +86,7 @@ export function createTuiEffectManager<TMessage>(
     const id = effect.id;
     const controller = new AbortController();
     const lease = createProducerAdmissionLease('effect', id, controller.signal);
-    const execution: ActiveEffect = { id, controller, lease, completion: Promise.resolve() };
+    const execution: ActiveEffect = { id, effect, controller, lease, completion: Promise.resolve() };
     execution.completion = executeEffect(effect, scheduled.redacted, execution, options)
       .catch((cause: unknown) => {
         executionFailures.push(cause);
@@ -208,9 +211,26 @@ export function createTuiEffectManager<TMessage>(
       if (disposed) return;
       for (const effect of effects) schedule({ effect, redacted });
     },
-    cancelIds(ids) {
+    cancelRequests(requests) {
       if (disposed) return;
-      for (const id of ids) cancelId(id);
+      for (const request of requests) {
+        if (request.kind === 'effect') { cancelId(request.id); continue; }
+        for (const [id, queue] of queues) {
+          const retained = queue.filter((item) => !cancellationMatches(request, item.effect));
+          if (retained.length === 0) queues.delete(id);
+          else queues.set(id, retained);
+        }
+        for (const [id, replacement] of pendingReplacements) {
+          if (!cancellationMatches(request, replacement.effect)) continue;
+          pendingReplacements.delete(id);
+          cancelReplacementDeadline(id);
+        }
+        for (const execution of active) {
+          if (!cancellationMatches(request, execution.effect)) continue;
+          execution.lease.revoke();
+          execution.controller.abort();
+        }
+      }
       launchPending();
     },
     cancel() {

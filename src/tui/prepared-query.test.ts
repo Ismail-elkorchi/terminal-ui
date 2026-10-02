@@ -59,7 +59,7 @@ void test('failure and cancellation keep display policy explicit, and reopen rej
   assert.equal(failed.result, 'shown');
   assert.equal(failed.pending, false);
   const cancelled = query.cancel(pending.state);
-  assert.deepEqual(cancelled.cancelEffects, ['prepare']);
+  assert.deepEqual(cancelled.cancel, [{ kind: 'effect', id: 'prepare' }]);
   assert.equal(query.update(cancelled.state, failedOutput.message).state, cancelled.state);
   const reopened = query.request(cancelled.state, { source: 'two', query: 'next' });
   assert.equal(query.update(reopened.state, failedOutput.message).state, reopened.state);
@@ -106,7 +106,7 @@ void test('prepared query work uses child ownership for removal and fresh-genera
   const runtime = createTuiRuntime({ host: createMemoryTerminalHost(), app: defineTui<State, Message>({
     init(ctx) { const initial = mount(1, ctx); return { ...initial, state: { generation: 1, child: initial.state } }; },
     update(state, message, ctx) {
-      if (message.kind === 'remove') return { state: { generation: state.generation }, cancelEffects: state.child === undefined ? [] : child.remove(state.child) };
+      if (message.kind === 'remove') return { state: { generation: state.generation }, cancel: state.child === undefined ? [] : [child.remove(state.child)] };
       if (message.kind === 'reopen') {
         const initial = mount(state.generation + 1, ctx);
         return { ...initial, state: { generation: state.generation + 1, child: initial.state } };

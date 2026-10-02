@@ -3,8 +3,9 @@ import { renderNodeId } from '../foundation/identity.ts';
 import type { InitialFocusSelector } from '../interaction/focus.ts';
 import { isIgnoredMessage } from '../interaction/message.ts';
 import { scopeElement } from '../renderer/internal/render-tree/element.ts';
+import { scopeWork } from './lifecycle/work-ownership.ts';
 import type {
-  TuiContext, TuiEffect, TuiEffectOutput, TuiEventSource, TuiSubscriptions,
+  TuiUpdateContribution, TuiCancellation, TuiContext, TuiEffect, TuiEffectOutput, TuiEventSource, TuiSubscriptions,
 } from './types.ts';
 
 /** A parent-owned identity. Use a fresh generation whenever a removed child is mounted again. */
@@ -16,8 +17,6 @@ export interface TuiChildIdentity {
 /** Explicit child state stored in the parent's ordinary aggregate state. */
 export interface TuiChildState<TState> extends TuiChildIdentity {
   readonly state: TState;
-  /** Scoped work identities owned by this lifetime, including queued work. */
-  readonly effectIds: readonly string[];
 }
 
 export interface TuiChildMessage<TMessage> extends TuiChildIdentity {
@@ -25,11 +24,7 @@ export interface TuiChildMessage<TMessage> extends TuiChildIdentity {
 }
 
 /** Domain outputs are returned to the parent, never implicitly dispatched or interpreted. */
-export interface TuiChildResult<TState, TMessage, TOutput = never> {
-  readonly state: TState;
-  readonly effects?: readonly TuiEffect<TMessage>[];
-  readonly cancelEffects?: readonly string[];
-  readonly focus?: Exclude<InitialFocusSelector, { readonly kind: 'path' }>;
+export interface TuiChildResult<TState, TMessage, TOutput = never> extends TuiUpdateContribution<TState, TMessage, Exclude<InitialFocusSelector, { readonly kind: 'path' }>> {
   readonly outputs?: readonly TOutput[];
 }
 
@@ -42,14 +37,14 @@ export interface TuiChildDefinition<TState, TMessage, TOutput = never> {
 
 /** Stateless composition into one parent's existing update, render and work lifecycle. */
 export interface TuiChild<TState, TMessage, TParentMessage, TOutput = never> {
-  init(identity: TuiChildIdentity, context: TuiContext): TuiChildResult<TuiChildState<TState>, TParentMessage, TOutput>;
-  update(child: TuiChildState<TState>, message: TuiChildMessage<TMessage>, context: TuiContext): TuiChildResult<TuiChildState<TState>, TParentMessage, TOutput>;
-  view(child: TuiChildState<TState>, context: TuiContext): Element<TParentMessage>;
-  subscriptions(child: TuiChildState<TState>, context: TuiContext): readonly TuiEventSource<TParentMessage>[];
-  /** Return cancellation IDs and remove the child from parent state and subscriptions in the same update. */
-  remove(child: TuiChildState<TState>): readonly string[];
+  readonly init: (identity: TuiChildIdentity, context: TuiContext) => TuiChildResult<TuiChildState<TState>, TParentMessage, TOutput>;
+  readonly update: (child: TuiChildState<TState>, message: TuiChildMessage<TMessage>, context: TuiContext) => TuiChildResult<TuiChildState<TState>, TParentMessage, TOutput>;
+  readonly view: (child: TuiChildState<TState>, context: TuiContext) => Element<TParentMessage>;
+  readonly subscriptions: (child: TuiChildState<TState>, context: TuiContext) => readonly TuiEventSource<TParentMessage>[];
+  /** Cancel this lifetime and remove its state and subscriptions in the same update. */
+  readonly remove: (child: TuiChildState<TState>) => TuiCancellation;
   /** Resolve a local element identity when the parent intentionally requests child focus. */
-  elementId(child: TuiChildIdentity, localId: string): string;
+  readonly elementId: (child: TuiChildIdentity, localId: string) => string;
 }
 
 /** Compose a reusable child without a registry, a second store or a second runtime. */
@@ -64,29 +59,29 @@ export function createTuiChild<TState, TMessage, TParentMessage, TOutput = never
 
   function result(
     identity: TuiChildIdentity,
-    previousIds: readonly string[],
+    previous: TuiChildState<TState> | undefined,
     local: TuiChildResult<TState, TMessage, TOutput>,
   ): TuiChildResult<TuiChildState<TState>, TParentMessage, TOutput> {
     const effects = local.effects?.map((effect): TuiEffect<TParentMessage> => {
       const onError = effect.onError?.bind(effect);
-      return {
+      return scopeWork(identity, effect, {
         id: scopeId(identity, effect.id),
         concurrency: effect.concurrency,
         run: async (context) => mapOutput(await effect.run(context), (message) => mapMessage(identity, message)),
         ...(onError === undefined ? {} : {
           onError: (failure) => mapOutput(onError({ ...failure, id: effect.id }), (message) => mapMessage(identity, message)),
         }),
-      };
+      });
     });
     return {
-      state: Object.freeze({
+      state: previous !== undefined && Object.is(previous.state, local.state) ? previous : Object.freeze({
         id: identity.id,
         generation: identity.generation,
         state: local.state,
-        effectIds: Object.freeze([...new Set([...previousIds, ...(effects?.map((effect) => effect.id) ?? [])])]),
       }),
       ...(effects === undefined ? {} : { effects }),
-      ...(local.cancelEffects === undefined ? {} : { cancelEffects: local.cancelEffects.map((id) => scopeId(identity, id)) }),
+      ...(local.cancel === undefined ? {} : { cancel: local.cancel.map((request) => scopeWork(identity, request,
+        request.kind === 'effect' ? { ...request, id: scopeId(identity, request.id) } : { ...request })) }),
       ...(local.focus === undefined ? {} : { focus: scopeFocus(local.focus, (id) => scopeId(identity, id)) }),
       ...(local.outputs === undefined ? {} : { outputs: local.outputs }),
     };
@@ -98,11 +93,11 @@ export function createTuiChild<TState, TMessage, TParentMessage, TOutput = never
       if (typeof identity.generation !== 'string' && !(typeof identity.generation === 'number' && Number.isFinite(identity.generation))) {
         throw new TypeError('TUI child generation must be a string or finite number.');
       }
-      return result(identity, [], definition.init(context));
+      return result(identity, undefined, definition.init(context));
     },
     update(child: TuiChildState<TState>, envelope: TuiChildMessage<TMessage>, context: TuiContext) {
       if (child.id !== envelope.id || child.generation !== envelope.generation) return { state: child };
-      return result(child, child.effectIds, definition.update(child.state, envelope.message, context));
+      return result(child, child, definition.update(child.state, envelope.message, context));
     },
     view(child: TuiChildState<TState>, context: TuiContext) {
       return scopeElement(definition.view(child.state, context), (message) => mapMessage(child, message as TMessage), (id) => scopeId(child, id)) as Element<TParentMessage>;
@@ -111,7 +106,7 @@ export function createTuiChild<TState, TMessage, TParentMessage, TOutput = never
       return (definition.subscriptions?.(child.state, context) ?? []).map((source): TuiEventSource<TParentMessage> => {
         const onLifecycle = source.onLifecycle?.bind(source);
         const dispose = source.dispose?.bind(source);
-        return {
+        return scopeWork(child, source, {
           id: scopeId(child, source.id),
           generation: source.generation,
           ...(source.source === undefined ? {} : { source: source.source }),
@@ -126,10 +121,10 @@ export function createTuiChild<TState, TMessage, TParentMessage, TOutput = never
             },
           }),
           ...(dispose === undefined ? {} : { dispose: () => dispose() }),
-        };
+        });
       });
     },
-    remove: (child: TuiChildState<TState>) => child.effectIds,
+    remove: (child: TuiChildState<TState>): TuiCancellation => Object.freeze({ kind: 'child', id: child.id, generation: child.generation }),
     elementId: scopeId,
   });
 }

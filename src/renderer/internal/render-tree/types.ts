@@ -23,8 +23,7 @@ interface RenderNodeBase<TMessage, TKind extends RenderNodeKind> {
   /** Children visible to public element inspection. */
   readonly inspectionChildren?: readonly RenderNode<TMessage>[];
   /** Definition-owned semantic description adopted for public inspection. */
-  readonly semanticInspection?: import("../../../element/inspection-contracts.ts").ComponentSemanticInspection
-    | (() => import("../../../element/inspection-contracts.ts").ComponentSemanticInspection | undefined);
+  readonly semanticInspection?: import("../../../element/inspection-contracts.ts").ComponentSemanticInspection;
   readonly keyMap?: ElementKeyBindings<TMessage>;
   readonly inputMap?: RenderNodeInputMap<TMessage>;
   readonly focusLifecycle?: (
@@ -83,7 +82,6 @@ import type {
   LayoutNode,
   Measurement,
   RenderFocusRelation,
-  RenderPreparationContext,
   RenderTarget,
 } from '../../contracts.ts';
 
@@ -213,7 +211,6 @@ export interface RenderNodeRenderer<
   onLayout?(input: RenderNodeLayoutCommitInput<TMessage, TKind>): unknown;
   readonly clipChildren?: boolean;
   readonly retainPaint?: boolean;
-  prepare?(input: { readonly renderNode: RenderNodeOfKind<TMessage, TKind>; readonly context: RenderPreparationContext }): Promise<void>;
   keyMap?(input: RenderNodeKeyInput<TMessage, TKind>): import('../../../element/metadata.ts').ElementKeyBindings<TMessage> | undefined;
   place?(input: RenderNodePlaceInput<TMessage, TKind>): Rect;
   measure(input: RenderNodeMeasureInput<TMessage, TKind>): Measurement;

@@ -500,7 +500,7 @@ test('invalid effect cancellation identities fail before output or state publica
   const app = defineTui({
     id: 'invalid-effect-cancellation',
     init: () => ({ state: ({ count: 0 }) }),
-    update: (state) => ({ state: { count: state.count + 1 }, cancelEffects: [''] }),
+    update: (state) => ({ state: { count: state.count + 1 }, cancel: [{ kind: 'effect', id: '' }] }),
     view: (state) => text({ content: `Count ${String(state.count)}`, id: 'invalid-cancel-count' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
@@ -1189,7 +1189,7 @@ test('TUI updates cancel one effect id without cancelling unrelated or later eff
       if (message.kind === 'stop') {
         return {
           state: { phase: 'stopped' },
-          cancelEffects: ['navigation:tab-1']
+          cancel: [{ kind: 'effect', id: 'navigation:tab-1' }]
         };
       }
       if (message.kind === 'later') {

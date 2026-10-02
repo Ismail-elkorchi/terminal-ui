@@ -1,3 +1,10 @@
+export { createTuiForm } from './tui/form.ts';
+export type { TuiForm, TuiFormErrors, TuiFormState, TuiFormMessage } from './tui/form.ts';
+export { updateTuiNavigation } from './tui/navigation.ts';
+export type { TuiNavigationScreen } from './tui/navigation.ts';
+export { createTuiCommands } from './tui/commands.ts';
+export type { TuiCommand, TuiCommands } from './tui/commands.ts';
+export { liftTuiResult } from './tui/result.ts';
 export { createTuiControls } from './tui/controls.ts';
 export type { TuiControlMessage, TuiControlReducers, TuiControls, TuiControlTransitionMessage } from './tui/controls.ts';
 export { createTuiPreparedQuery } from './tui/prepared-query.ts';
@@ -59,6 +66,8 @@ export type {
   TuiRunOptions,
   TuiRunResult,
   TuiUpdate,
+  TuiCancellation,
+  TuiUpdateContribution,
   TuiUpdateResult,
   TuiView,
 } from './tui/types.ts';
@@ -662,3 +671,4 @@ export type {
   InlineSymbolSegment,
   InlineTextSegment,
 } from './visual/inline-content.ts';
+export { measureElement } from './renderer/measure-element.ts';

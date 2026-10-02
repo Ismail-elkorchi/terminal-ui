@@ -2,8 +2,7 @@ import { decodeAccessibleSnapshotWithPolicy } from '../../accessibility/validate
 import type { TerminalDiagnostic } from '../../diagnostics.ts';
 import { diagnostic } from '../../diagnostics.ts';
 import type { Element } from '../../element/types.ts';
-import { samePaintData } from '../../foundation/paint-data.ts';
-import { intersectRects } from '../../geometry/rect.ts';
+import { intersectRects, sameRect } from '../../geometry/rect.ts';
 import type { Rect, TerminalSize } from '../../geometry/types.ts';
 import type { GraphicsBudgetLimits } from '../../graphics/budget.ts';
 import { createGraphicsBudget, GraphicsBudgetExceededError } from '../../graphics/budget.ts';
@@ -798,7 +797,7 @@ function createRegionComposer<TMessage>(
           height: 0
         },
         underlay: node.layer.underlay,
-        ...(priorRegion !== undefined && samePaintData(priorRegion.bounds, bounds) ? { previous: priorRegion.metadata } : {}),
+        ...(priorRegion !== undefined && sameRect(priorRegion.bounds, bounds) ? { previous: priorRegion.metadata } : {}),
         ...(backdropBounds === undefined ? {} : { backdropBounds }),
         widthProfile,
         ...(instrumentation === undefined ? {} : { instrumentation })

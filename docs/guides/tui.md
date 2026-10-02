@@ -104,7 +104,7 @@ work does not need suspension.
 query lifecycle in ordinary reducer/effect results. Store `query.init()` in app
 or child state. `query.request(state, input)` returns pending state and a
 replacement effect; `query.update(state, completion)` accepts only the current
-pending revision; `query.cancel(state)` returns `cancelEffects` and invalidates
+pending revision; `query.cancel(state)` returns `cancel` and invalidates
 old completions. Forward the entire returned result, including effects and
 cancellation, through the parent update. No separate scheduler, registry or
 mutable query store is created. Use distinct IDs for independent queries in one
@@ -122,7 +122,7 @@ The helper owns `revision`, `pending`, `result` and `error`, and preserves other
 caller-owned fields. It retains the last complete result across request, failure
 and cancellation. The app explicitly chooses whether to display it: the
 [100,000-incident workbench](../../examples/tui/incident-workbench.ts) passes
-`{ ...state.searchPicker, result: null }` when starting a query, so old results
+`{ ...state, result: null }` in its picker child when starting a query, so old results
 are hidden while typing. The workbench also explicitly chooses the first enabled
 result and applies accepted commands. These are application policies, not query
 lifecycle behavior.
@@ -157,25 +157,28 @@ and [performance evidence](./performance.md).
 `createTuiChild(definition, toParentMessage)` reuses the ordinary `init`,
 `update`, `view`, and optional `subscriptions` contract. Store the returned
 `TuiChildState` in the parent's state. It contains the local state, a stable ID,
-its mount generation, and owned effect IDs; there is no additional runtime or
-mutable state registry. Reuse a finite set of local operation IDs (for example
-`read` or `save`); mount ownership retains those identities until removal.
+and its mount generation; there is no additional runtime or
+mutable state registry. Active and queued work belongs to the runtime. Completed
+operations leave no historical IDs in application state.
 
 Initialize with `child.init({ id: 'notes', generation }, context)`. Use a fresh
 parent-owned generation each time that child is mounted after removal. Forward
 one `TuiChildMessage` envelope to `child.update`, render with `child.view`, and
 include `child.subscriptions` while the child exists. The adapter scopes local
-effect IDs, cancellation IDs, source IDs, element IDs, and element-based focus
+effect IDs, typed cancellation requests, source IDs, element IDs, and element-based focus
 requests. It fences old-generation messages and preserves local error/source
 lifecycle identities. Child focus requests use `element` or `elementTarget`;
 explicit paths in view metadata are absolute parent paths.
 
 When removing or replacing a child, return `child.remove(instance)` in the
-parent's `cancelEffects`, remove its state, and omit its subscriptions in that
+parent's `cancel` array as `[child.remove(instance)]`, remove its state, and omit its subscriptions in that
 same update. Merely hiding its view does not remove it or cancel its work.
 `outputs` from child initialization/update are explicit domain decisions for
 the parent to handle, such as closing a panel; they do not silently dispatch
-parent messages or exit the application.
+parent messages or exit the application. `liftTuiResult(parent, field, childResult)`
+forwards every contribution and preserves parent identity for a child no-op.
+`TuiUpdateContribution` defines the shared state/effects/cancel/focus contract;
+application exit and child outputs remain distinct.
 
 ## Accepted layout notifications
 

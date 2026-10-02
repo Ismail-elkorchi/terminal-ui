@@ -1,3 +1,4 @@
+import { finishWork, prepareWork, stableSortWork, type CooperativeWorkContext } from '../foundation/cooperative-work.ts';
 import type {
   CollectionQuery,
   CompiledCollectionQuery,
@@ -5,15 +6,15 @@ import type {
 } from '../text/query.ts';
 import {
   compileCollectionQuery,
-  indexQueryCandidate,
-  matchCompiledCollectionQuery,
+  collectionQuerySearch,
+  indexQueryCandidateWork,
+  matchCompiledCollectionQueryWork,
 } from '../text/query.ts';
-import { sanitizeTerminalText } from '../text/sanitize.ts';
+import { sanitizeTerminalText, sanitizeTerminalTextWork } from '../text/sanitize.ts';
 import type { CompiledTextSearchQuery, TextSearchIndex } from '../text/search-index.ts';
 import {
-  compileTextSearchQuery,
-  createTextSearchIndex,
-  textMatchStarts,
+  createTextSearchIndexWork,
+  textMatchEvents,
   textSearchOffset,
 } from '../text/search-index.ts';
 import { decodeTerminalStyle } from '../visual/terminal-style.ts';
@@ -88,12 +89,34 @@ export function appendLogHistory(
   history: LogHistory,
   entries: readonly LogEntry[]
 ): LogHistory {
+  return finishWork(appendLogHistoryWork(history, entries));
+}
+
+/** Raw descriptor adoption is indivisible; record normalization and indexing cooperate. */
+export function prepareLogHistory(entries: readonly LogEntry[], context: CooperativeWorkContext): Promise<LogHistory> {
+  return prepareAppendLogHistory(emptyLogHistory, entries, context);
+}
+
+export function prepareAppendLogHistory(history: LogHistory, entries: readonly LogEntry[], context: CooperativeWorkContext): Promise<LogHistory> {
+  context.signal.throwIfAborted();
+  return prepareWork(appendLogHistoryWork(history, adoptLogEntries(entries)), context);
+}
+
+function adoptLogEntries(entries: readonly LogEntry[]): readonly LogEntry[] {
+  return entries.map(entry => ({ ...entry,
+    ...(entry.metadata === undefined ? {} : { metadata: { ...entry.metadata } }),
+    ...(entry.style === undefined ? {} : { style: decodeTerminalStyle(entry.style, 'log entry style') }),
+  }));
+}
+
+function* appendLogHistoryWork(history: LogHistory, entries: readonly LogEntry[]): Generator<void, LogHistory> {
   const data = historyData(history);
   if (entries.length === 0) return history;
-  const records = createLogRecords(history, data, entries);
+  const records = yield* createLogRecordsWork(history, data, entries);
   let segments = data.segments;
   for (let start = 0; start < records.length; start += 256) {
     segments = appendSegment(segments, logHistorySegment(Object.freeze(records.slice(start, start + 256))));
+    yield;
   }
   const last = records.at(-1);
   const next = Object.freeze({
@@ -132,9 +155,7 @@ export function logHistoryRecordMatches(
 export function compileLogSearchQuery(query: CollectionQuery): CompiledLogSearchQuery {
   const compiled = compileCollectionQuery(query);
   const result = Object.freeze({ kind: 'compiled-log-search-query' as const, query: compiled });
-  compiledLogQueries.set(result, compileTextSearchQuery(compiled.text, {
-    caseSensitive: compiled.caseSensitive,
-  }));
+  compiledLogQueries.set(result, collectionQuerySearch(compiled));
   return result;
 }
 
@@ -143,18 +164,26 @@ export function logHistoryRecordMatchesCompiled(
   query: CompiledLogSearchQuery,
   fields: readonly LogSearchField[] = record.searchFields,
 ): readonly LogSearchMatch[] {
+  return finishWork(logHistoryRecordMatchesWork(record, query, fields));
+}
+
+export function* logHistoryRecordMatchesWork(
+  record: LogHistoryRecord, query: CompiledLogSearchQuery,
+  fields: readonly LogSearchField[] = record.searchFields,
+): Generator<void, readonly LogSearchMatch[]> {
   const textQuery = compiledLogQueries.get(query);
   if (textQuery === undefined) throw new TypeError('log query must be created by compileLogSearchQuery().');
   const matches: LogSearchMatch[] = [];
   for (const field of fields) {
     if (query.query.mode === 'contains') {
-      const index = searchIndexFor(field, query.query.caseSensitive);
-      for (const start of textMatchStarts(index, textQuery)) {
+      const index = yield* searchIndexForWork(field, query.query.caseSensitive);
+      for (const start of textMatchEvents(index, textQuery)) {
+        if (start === undefined) { yield; continue; }
         appendMatch(matches, record, field, textSearchOffset(index, start),
           textSearchOffset(index, start + textQuery.graphemes.length));
       }
     } else {
-      const result = matchCompiledCollectionQuery(candidateFor(field), query.query);
+      const result = yield* matchCompiledCollectionQueryWork(yield* candidateForWork(field), query.query);
       for (const match of result?.ranges ?? []) appendMatch(matches, record, field, match.start, match.end);
     }
   }
@@ -210,22 +239,25 @@ const emptyLogHistory: LogHistory = registerHistory(Object.freeze({
   entryCount: 0,
 }) as LogHistory, { segments: Object.freeze([]), bodyLength: 0 });
 
-function createLogRecords(
+function* createLogRecordsWork(
   history: LogHistory,
   data: LogHistoryData,
   entries: readonly LogEntry[]
-): readonly LogHistoryRecord[] {
+): Generator<void, readonly LogHistoryRecord[]> {
   const appendedIds = new Set<string>();
   let bodyOffset = history.entryCount === 0 ? 0 : data.bodyLength + 1;
-  return Object.freeze(entries.map((entry, offset): LogHistoryRecord => {
-    const id = sanitizeTerminalText(entry.id).text;
+  const records: LogHistoryRecord[] = [];
+  for (const [offset, entry] of entries.entries()) {
+    const id = (yield* sanitizeTerminalTextWork(entry.id)).text;
     if (id.length === 0) throw new TypeError('log entry ids must not be empty.');
-    if (appendedIds.has(id) || data.segments.some((segment) => segmentIds.get(segment)?.has(id) === true)) {
-      throw new TypeError(`Duplicate log entry id: ${id}`);
+    if (appendedIds.has(id)) throw new TypeError(`Duplicate log entry id: ${id}`);
+    for (const [index, segment] of data.segments.entries()) {
+      if (segmentIds.get(segment)?.has(id) === true) throw new TypeError(`Duplicate log entry id: ${id}`);
+      if ((index + 1) % 256 === 0) yield;
     }
     appendedIds.add(id);
-    const bodyText = sanitizeTerminalText(entry.text).text;
-    const metadataEntries = normalizedMetadataEntries(entry.metadata);
+    const bodyText = (yield* sanitizeTerminalTextWork(entry.text)).text;
+    const metadataEntries = yield* normalizedMetadataEntriesWork(entry.metadata);
     const normalized = normalizeEntry(entry, id, bodyText, metadataEntries);
     const displayText = displayTextForEntry(normalized, bodyText, metadataEntries);
     const record = Object.freeze({
@@ -238,30 +270,32 @@ function createLogRecords(
       searchFields: Object.freeze(searchFieldsForEntry(normalized, bodyText, metadataEntries))
     });
     bodyOffset += bodyText.length + 1;
-    return record;
-  }));
+    records.push(record);
+    if (records.length % 256 === 0) yield;
+  }
+  return Object.freeze(records);
 }
 
 const queryCandidates = new WeakMap<LogSearchField, IndexedQueryCandidate>();
 
-function candidateFor(field: LogSearchField): IndexedQueryCandidate {
+function* candidateForWork(field: LogSearchField): Generator<void, IndexedQueryCandidate> {
   let candidate = queryCandidates.get(field);
   if (candidate === undefined) {
-    candidate = indexQueryCandidate({ id: '', primary: field.text });
+    candidate = yield* indexQueryCandidateWork({ id: '', primary: field.text });
     queryCandidates.set(field, candidate);
   }
   return candidate;
 }
 
-function searchIndexFor(field: LogSearchField, caseSensitive: boolean): TextSearchIndex {
+function* searchIndexForWork(field: LogSearchField, caseSensitive: boolean): Generator<void, TextSearchIndex> {
   let indexes = searchIndexes.get(field);
   if (indexes === undefined) {
     indexes = {};
     searchIndexes.set(field, indexes);
   }
   return caseSensitive
-    ? indexes.sensitive ??= createTextSearchIndex(field.text, { caseSensitive: true })
-    : indexes.insensitive ??= createTextSearchIndex(field.text);
+    ? indexes.sensitive ??= yield* createTextSearchIndexWork(field.text, { caseSensitive: true })
+    : indexes.insensitive ??= yield* createTextSearchIndexWork(field.text);
 }
 
 function normalizeEntry(
@@ -312,14 +346,17 @@ function searchFieldsForEntry(
   ];
 }
 
-function normalizedMetadataEntries(
-  metadata: Readonly<Record<string, string>> | undefined
-): readonly (readonly [string, string])[] {
+function* normalizedMetadataEntriesWork(
+  metadata: Readonly<Record<string, string>> | undefined,
+): Generator<void, readonly (readonly [string, string])[]> {
   if (metadata === undefined) return Object.freeze([]);
-  return Object.freeze(Object.entries(metadata)
-    .map(([key, value]) => [sanitizeTerminalText(key).text, sanitizeTerminalText(value).text] as const)
-    .toSorted(([left], [right]) => compareCodePoints(left, right))
-    .map((entry) => Object.freeze(entry)));
+  const entries: (readonly [string, string])[] = [];
+  for (const [key, value] of Object.entries(metadata)) {
+    entries.push(Object.freeze([(yield* sanitizeTerminalTextWork(key)).text,
+      (yield* sanitizeTerminalTextWork(value)).text] as const));
+    if (entries.length % 256 === 0) yield;
+  }
+  return Object.freeze(yield* stableSortWork(entries, ([left], [right]) => compareCodePoints(left, right)));
 }
 
 function logHistorySegment(records: readonly LogHistoryRecord[]): LogHistorySegment {

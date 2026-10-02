@@ -1,3 +1,4 @@
+import { cancellationMatches, removedWork } from './work-ownership.ts';
 import type { TerminalDiagnostic } from '../../diagnostics.ts';
 import { diagnostic } from '../../diagnostics.ts';
 import type { TuiMessageSource } from '../../interaction/message.ts';
@@ -8,6 +9,7 @@ import { createProducerAdmissionLease } from './producer-admission.ts';
 import type { TuiSourceChannel } from './source-channel.ts';
 import { createTuiSourceChannel, decodeTuiSourceEmission } from './source-channel.ts';
 import type {
+  TuiCancellation,
   TuiContext,
   TuiEventSource,
   TuiSourceChannelMetrics,
@@ -41,7 +43,8 @@ export interface TuiSubscriptionPlan<TMessage> {
 
 export interface TuiSubscriptionManager<TState, TMessage> {
   plan(state: TState, context?: TuiContext): Promise<TuiSubscriptionPlan<TMessage>>;
-  activate(plan: TuiSubscriptionPlan<TMessage>): void;
+  activate(plan: TuiSubscriptionPlan<TMessage>, cancel?: readonly TuiCancellation[]): void;
+  cancelRequests(requests: readonly TuiCancellation[]): void;
   reconcile(state: TState): Promise<void>;
   cancel(): void;
   dispose(): Promise<void>;
@@ -78,8 +81,16 @@ export function createTuiSubscriptionManager<TState, TMessage>(
       assertUniqueSourceIds(sources, options.reportDiagnostic);
       return { context, sources };
     },
-    activate(plan) {
-      applyPlan(plan);
+    activate(plan, cancel = []) {
+      applyPlan({ ...plan, sources: plan.sources.filter((source) => !removedWork(source, cancel)) });
+    },
+    cancelRequests(requests) {
+      for (const [id, source] of active) {
+        if (!requests.some((request) => request.kind === 'child' && cancellationMatches(request, source.source))) continue;
+        active.delete(id);
+        terminal.delete(id);
+        retireSource(source);
+      }
     },
     async reconcile(state) {
       const plan = await this.plan(state);

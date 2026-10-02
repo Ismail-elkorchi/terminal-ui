@@ -86,7 +86,6 @@ export type {
   ComponentMetadataCapability,
   ComponentMetadataOptions,
   ComponentModelContext,
-  ComponentPreparationInput,
   ComponentRenderInput,
   ComponentSlotCardinality,
   ComponentSlotDefinition,

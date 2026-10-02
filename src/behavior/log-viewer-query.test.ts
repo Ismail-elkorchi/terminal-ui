@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createLogHistory, appendLogHistory } from './log-history.ts';
-import { matchingLogViewerView, prepareLogViewerView, createLogViewerView } from './log-viewer-view.ts';
+import { matchingLogViewerView, preparedLogLayout, prepareLogViewerView, createLogViewerView } from './log-viewer-view.ts';
 import { logViewerReducer } from './log-viewer-operations.ts';
 import { logViewer } from '../components/log-viewer/definition.ts';
 import { defaultTextWidthProfile } from '../text/width-profile.ts';
@@ -52,8 +52,12 @@ void test('log preparation owns inputs, yields and cancels before publishing a c
 void test('prepared wrapped views own geometry and never silently rewrap stale widths or profiles', () => {
   const history = createLogHistory([{ id: 'long', text: 'wrapped content 界🙂 '.repeat(200) }]);
   const view = createLogViewerView({ history, wrap: true, width: 20, widthProfile: defaultTextWidthProfile });
-  assert.ok(Object.isFrozen(view.layouts));
-  assert.ok(view.layouts.every(layout => Object.isFrozen(layout) && Object.isFrozen(layout.segments) && layout.segments.every(Object.isFrozen)));
+  assert.equal('layouts' in view, false);
+  for (const width of [20, 19]) {
+    const layout = preparedLogLayout(view, width);
+    assert.ok(layout);
+    assert.ok(Object.isFrozen(layout) && Object.isFrozen(layout.segments) && layout.segments.every(Object.isFrozen));
+  }
   const render = (columns: number, widthProfile = defaultTextWidthProfile) => renderElementFrame(logViewer({ id: 'log', history, wrap: true, view }), { columns, rows: 4 }, { widthProfile });
   assert.doesNotMatch(JSON.stringify(render(20).accessibility), /Preparing/u);
   assert.match(JSON.stringify(render(19).accessibility), /Preparing log layout/u);
@@ -89,9 +93,9 @@ void test('warm wrapped history assembly yields and cancels while reusing cached
     yield: async () => { completedYields++; },
   });
   assert.ok(completedYields >= 64, 'cached segment assembly must retain cooperative checkpoints');
-  assert.equal(view.layouts[0]?.totalRows, 8193);
-  assert.equal(view.layouts[0].segments[0]?.rowStarts, prior.layouts[0]?.segments[0]?.rowStarts);
-  assert.equal(view.layouts[1]?.segments[0]?.rowCounts, prior.layouts[1]?.segments[0]?.rowCounts);
+  assert.equal(preparedLogLayout(view, input.width)?.totalRows, 8193);
+  assert.equal(preparedLogLayout(view, input.width)?.segments[0]?.rowStarts, preparedLogLayout(prior, input.width)?.segments[0]?.rowStarts);
+  assert.equal(preparedLogLayout(view, input.width - 1)?.segments[0]?.rowCounts, preparedLogLayout(prior, input.width - 1)?.segments[0]?.rowCounts);
 });
 
 void test('fold domain transitions invalidate active occurrences before accepting their new projection', () => {

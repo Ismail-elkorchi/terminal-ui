@@ -1,7 +1,7 @@
 import type { InitialFocusSelector } from '../../interaction/focus.ts';
 import type { TuiMessageSource } from '../../interaction/message.ts';
 import { decodeTuiUpdateResult } from '../hook-results.ts';
-import type { TuiContext, TuiEffect, TuiUpdate } from '../types.ts';
+import type { TuiCancellation, TuiContext, TuiEffect, TuiUpdate } from '../types.ts';
 
 export interface PendingTuiMessage<TMessage> {
   readonly message: TMessage;
@@ -13,7 +13,7 @@ export interface RuntimeReduction<TState, TMessage> {
   readonly state: TState;
   readonly stateVersion: number;
   readonly messages: readonly PendingTuiMessage<TMessage>[];
-  readonly cancelEffects: readonly string[];
+  readonly cancel: readonly TuiCancellation[];
   readonly effects: readonly TuiEffect<TMessage>[];
   readonly effectOrigins: readonly boolean[];
   readonly focus?: InitialFocusSelector;
@@ -30,7 +30,7 @@ export function createRuntimeReducer<TState, TMessage>(
       let exitReason: string | undefined;
       let focus: InitialFocusSelector | undefined;
       const applied: PendingTuiMessage<TMessage>[] = [];
-      const cancelEffects = new Set<string>();
+      const cancel: TuiCancellation[] = [];
       const effects: TuiEffect<TMessage>[] = [];
       const effectOrigins: boolean[] = [];
       for (const item of messages) {
@@ -38,7 +38,7 @@ export function createRuntimeReducer<TState, TMessage>(
         messageDispatched();
         const result = decodeTuiUpdateResult<TState, TMessage>(update(state, item.message, context));
         applied.push(item);
-        for (const id of result.cancelEffects ?? []) cancelEffects.add(id);
+        cancel.push(...(result.cancel ?? []));
         effects.push(...(result.effects ?? []));
         for (let index = 0; index < (result.effects?.length ?? 0); index += 1) {
           effectOrigins.push(item.redacted === true);
@@ -52,7 +52,7 @@ export function createRuntimeReducer<TState, TMessage>(
         state,
         stateVersion: nextStateVersion,
         messages: applied,
-        cancelEffects: [...cancelEffects],
+        cancel,
         effects,
         effectOrigins,
         ...(focus === undefined ? {} : { focus }),

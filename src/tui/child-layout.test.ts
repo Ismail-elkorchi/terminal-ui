@@ -24,7 +24,7 @@ void test('committed layout messages keep sibling scopes and reject removed chil
   const runtime = createTuiRuntime({ host: createMemoryTerminalHost({ terminalSize: { columns: 40, rows: 6 } }), app: defineTui<State, Message>({
     init: context => ({ state: { left: child.init({ id: 'left', generation: 1 }, context).state, right: child.init({ id: 'right', generation: 1 }, context).state } }),
     update(state, message, context) {
-      if (message.kind === 'reopen') return { state: { ...state, left: child.init({ id: 'left', generation: 2 }, context).state }, cancelEffects: child.remove(state.left) };
+      if (message.kind === 'reopen') return { state: { ...state, left: child.init({ id: 'left', generation: 2 }, context).state }, cancel: [child.remove(state.left)] };
       const key = message.child.id === 'left' ? 'left' : 'right';
       const updated = child.update(state[key], message.child, context);
       return { ...updated, state: { ...state, [key]: updated.state } };

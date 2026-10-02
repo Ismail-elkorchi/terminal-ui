@@ -51,3 +51,19 @@ void test('compiled collection queries are retained and nominally proved', () =>
     /indexQueryCandidate/u,
   );
 });
+
+void test('bounded native ASCII matching agrees with the cooperative general path in every mode', () => {
+  for (const text of ['abc abc', 'AbC', 'a_b_c', '', 'bca', 'a'.repeat(255)]) {
+    for (const queryText of ['', 'a', 'ab', 'abc', 'missing', 'AbC']) {
+      for (const mode of ['contains', 'prefix', 'exact', 'fuzzy'] as const) {
+        for (const caseSensitive of [false, true]) {
+          const query = { text: queryText, mode, caseSensitive };
+          const bounded = { id: 'one', primary: text, secondary: ['abc'] };
+          // A non-ASCII, nonmatching field selects the general cooperative path.
+          const general = { ...bounded, secondary: [...bounded.secondary, '☃'] };
+          assert.deepEqual(matchCollectionQuery(bounded, query), matchCollectionQuery(general, query));
+        }
+      }
+    }
+  }
+});

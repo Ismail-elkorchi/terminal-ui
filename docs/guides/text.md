@@ -7,7 +7,17 @@ editing.
 Text functions sanitize terminal control sequences before measurement or
 display-facing output. Editing and cursor movement operate on grapheme
 boundaries, so combined characters and emoji are not split by ordinary edit
-operations.
+operations. The source-boundary index is shared by movement, selection,
+deletion, replacement and measurement; it is independent of terminal widths.
+An edit can join graphemes across its seam, so its resulting caret is placed
+after the complete joined cluster. Unchanged logical lines reuse their source
+boundaries across document edits and width-profile changes.
+
+Boundary indexes advance lazily and are retained within a bounded cache. The
+first lookup can traverse a logical-line prefix; resegmenting an edited line
+can require that complete line. A long grapheme itself is an indivisible
+runtime segmentation call. Neither case has a constant-time guarantee, and
+oversized strings are processed without adding an unbounded cache entry.
 
 ## Word Navigation
 

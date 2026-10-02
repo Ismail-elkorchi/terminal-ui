@@ -55,9 +55,10 @@ See [API stability](../guides/api-stability.md) for stability labels.
 ### @ismail-elkorchi/terminal-ui/collection
 
 - [`ChoiceItem`](#collection-choiceitem), [`CollectionItem`](#collection-collectionitem), [`CollectionSnapshot`](#collection-collectionsnapshot), [`CompleteCollectionSnapshot`](#collection-completecollectionsnapshot), [`LabeledItem`](#collection-labeleditem), [`MeasuredAnchorAtOptions`](#collection-measuredanchoratoptions), [`MeasuredCollection`](#collection-measuredcollection), [`MeasuredCollectionItem`](#collection-measuredcollectionitem)
-- [`MeasuredWindowAnchor`](#collection-measuredwindowanchor), [`MeasuredWindowEntry`](#collection-measuredwindowentry), [`MeasuredWindowOptions`](#collection-measuredwindowoptions), [`SearchEntry`](#collection-searchentry), [`WindowedCollectionSnapshot`](#collection-windowedcollectionsnapshot), [`appendMeasuredItems`](#collection-appendmeasureditems), [`assertStableIds`](#collection-assertstableids), [`collectionIds`](#collection-collectionids)
-- [`collectionItemById`](#collection-collectionitembyid), [`createCompleteCollection`](#collection-createcompletecollection), [`createMeasuredCollection`](#collection-createmeasuredcollection), [`createWindowedCollection`](#collection-createwindowedcollection), [`isCollectionSnapshot`](#collection-iscollectionsnapshot), [`isMeasuredWindow`](#collection-ismeasuredwindow), [`measuredAnchorAt`](#collection-measuredanchorat), [`measuredCollectionItemById`](#collection-measuredcollectionitembyid)
-- [`measuredWindow`](#collection-measuredwindow), [`prependMeasuredItems`](#collection-prependmeasureditems), [`removeMeasuredItems`](#collection-removemeasureditems), [`replaceMeasuredItem`](#collection-replacemeasureditem)
+- [`MeasuredWindowAnchor`](#collection-measuredwindowanchor), [`MeasuredWindowEntry`](#collection-measuredwindowentry), [`MeasuredWindowOptions`](#collection-measuredwindowoptions), [`MeasurementGeometry`](#collection-measurementgeometry), [`MeasurementOptions`](#collection-measurementoptions), [`MeasurementRequest`](#collection-measurementrequest), [`MeasurementState`](#collection-measurementstate), [`MeasurementUpdate`](#collection-measurementupdate)
+- [`SearchEntry`](#collection-searchentry), [`WindowedCollectionSnapshot`](#collection-windowedcollectionsnapshot), [`acceptMeasurements`](#collection-acceptmeasurements), [`appendMeasuredItems`](#collection-appendmeasureditems), [`assertStableIds`](#collection-assertstableids), [`collectionIds`](#collection-collectionids), [`collectionItemById`](#collection-collectionitembyid), [`createCompleteCollection`](#collection-createcompletecollection)
+- [`createMeasuredCollection`](#collection-createmeasuredcollection), [`createMeasurementState`](#collection-createmeasurementstate), [`createWindowedCollection`](#collection-createwindowedcollection), [`isCollectionSnapshot`](#collection-iscollectionsnapshot), [`isMeasuredWindow`](#collection-ismeasuredwindow), [`measuredAnchorAt`](#collection-measuredanchorat), [`measuredCollectionItemById`](#collection-measuredcollectionitembyid), [`measuredWindow`](#collection-measuredwindow)
+- [`measurementRequests`](#collection-measurementrequests), [`prependMeasuredItems`](#collection-prependmeasureditems), [`removeMeasuredItems`](#collection-removemeasureditems), [`replaceMeasuredItem`](#collection-replacemeasureditem), [`updateMeasurementState`](#collection-updatemeasurementstate)
 
 ### @ismail-elkorchi/terminal-ui/protocol
 
@@ -111,17 +112,19 @@ See [API stability](../guides/api-stability.md) for stability labels.
 ### @ismail-elkorchi/terminal-ui/tui
 
 - [`AnimationFrame`](#tui-animationframe), [`AnimationTimeline`](#tui-animationtimeline), [`CopySelectedTextInput`](#tui-copyselectedtextinput), [`CopySelectedTextResult`](#tui-copyselectedtextresult), [`CursorVisibilityPolicy`](#tui-cursorvisibilitypolicy), [`ProtocolRequirement`](#tui-protocolrequirement), [`SelectedText`](#tui-selectedtext), [`SessionProtocolOperation`](#tui-sessionprotocoloperation)
-- [`SessionProtocolOperationKind`](#tui-sessionprotocoloperationkind), [`SessionProtocolPolicy`](#tui-sessionprotocolpolicy), [`SessionProtocolSetupResult`](#tui-sessionprotocolsetupresult), [`TuiApp`](#tui-tuiapp), [`TuiBindingHelpItem`](#tui-tuibindinghelpitem), [`TuiChild`](#tui-tuichild), [`TuiChildDefinition`](#tui-tuichilddefinition), [`TuiChildIdentity`](#tui-tuichildidentity)
-- [`TuiChildMessage`](#tui-tuichildmessage), [`TuiChildResult`](#tui-tuichildresult), [`TuiChildState`](#tui-tuichildstate), [`TuiContext`](#tui-tuicontext), [`TuiControlMessage`](#tui-tuicontrolmessage), [`TuiControlReducers`](#tui-tuicontrolreducers), [`TuiControlTransitionMessage`](#tui-tuicontroltransitionmessage), [`TuiControls`](#tui-tuicontrols)
-- [`TuiDefinition`](#tui-tuidefinition), [`TuiEffect`](#tui-tuieffect), [`TuiEffectConcurrency`](#tui-tuieffectconcurrency), [`TuiEffectContext`](#tui-tuieffectcontext), [`TuiEffectFailure`](#tui-tuieffectfailure), [`TuiEffectOutput`](#tui-tuieffectoutput), [`TuiEffectPolicy`](#tui-tuieffectpolicy), [`TuiEventSource`](#tui-tuieventsource)
-- [`TuiExit`](#tui-tuiexit), [`TuiExitHandler`](#tui-tuiexithandler), [`TuiExitRequest`](#tui-tuiexitrequest), [`TuiInit`](#tui-tuiinit), [`TuiInitialResult`](#tui-tuiinitialresult), [`TuiInputBatchResult`](#tui-tuiinputbatchresult), [`TuiInputBinding`](#tui-tuiinputbinding), [`TuiInputBindingContext`](#tui-tuiinputbindingcontext)
-- [`TuiInputBindingPhase`](#tui-tuiinputbindingphase), [`TuiInputResult`](#tui-tuiinputresult), [`TuiLifecyclePolicy`](#tui-tuilifecyclepolicy), [`TuiMessageSource`](#tui-tuimessagesource), [`TuiNonTtyMode`](#tui-tuinonttymode), [`TuiNonTtyPolicy`](#tui-tuinonttypolicy), [`TuiPreparedQuery`](#tui-tuipreparedquery), [`TuiPreparedQueryMessage`](#tui-tuipreparedquerymessage)
+- [`SessionProtocolOperationKind`](#tui-sessionprotocoloperationkind), [`SessionProtocolPolicy`](#tui-sessionprotocolpolicy), [`SessionProtocolSetupResult`](#tui-sessionprotocolsetupresult), [`TuiApp`](#tui-tuiapp), [`TuiBindingHelpItem`](#tui-tuibindinghelpitem), [`TuiCancellation`](#tui-tuicancellation), [`TuiChild`](#tui-tuichild), [`TuiChildDefinition`](#tui-tuichilddefinition)
+- [`TuiChildIdentity`](#tui-tuichildidentity), [`TuiChildMessage`](#tui-tuichildmessage), [`TuiChildResult`](#tui-tuichildresult), [`TuiChildState`](#tui-tuichildstate), [`TuiCommand`](#tui-tuicommand), [`TuiCommands`](#tui-tuicommands), [`TuiContext`](#tui-tuicontext), [`TuiControlMessage`](#tui-tuicontrolmessage)
+- [`TuiControlReducers`](#tui-tuicontrolreducers), [`TuiControlTransitionMessage`](#tui-tuicontroltransitionmessage), [`TuiControls`](#tui-tuicontrols), [`TuiDefinition`](#tui-tuidefinition), [`TuiEffect`](#tui-tuieffect), [`TuiEffectConcurrency`](#tui-tuieffectconcurrency), [`TuiEffectContext`](#tui-tuieffectcontext), [`TuiEffectFailure`](#tui-tuieffectfailure)
+- [`TuiEffectOutput`](#tui-tuieffectoutput), [`TuiEffectPolicy`](#tui-tuieffectpolicy), [`TuiEventSource`](#tui-tuieventsource), [`TuiExit`](#tui-tuiexit), [`TuiExitHandler`](#tui-tuiexithandler), [`TuiExitRequest`](#tui-tuiexitrequest), [`TuiForm`](#tui-tuiform), [`TuiFormErrors`](#tui-tuiformerrors)
+- [`TuiFormMessage`](#tui-tuiformmessage), [`TuiFormState`](#tui-tuiformstate), [`TuiInit`](#tui-tuiinit), [`TuiInitialResult`](#tui-tuiinitialresult), [`TuiInputBatchResult`](#tui-tuiinputbatchresult), [`TuiInputBinding`](#tui-tuiinputbinding), [`TuiInputBindingContext`](#tui-tuiinputbindingcontext), [`TuiInputBindingPhase`](#tui-tuiinputbindingphase)
+- [`TuiInputResult`](#tui-tuiinputresult), [`TuiLifecyclePolicy`](#tui-tuilifecyclepolicy), [`TuiMessageSource`](#tui-tuimessagesource), [`TuiNavigationScreen`](#tui-tuinavigationscreen), [`TuiNonTtyMode`](#tui-tuinonttymode), [`TuiNonTtyPolicy`](#tui-tuinonttypolicy), [`TuiPreparedQuery`](#tui-tuipreparedquery), [`TuiPreparedQueryMessage`](#tui-tuipreparedquerymessage)
 - [`TuiPreparedQueryState`](#tui-tuipreparedquerystate), [`TuiResizeContext`](#tui-tuiresizecontext), [`TuiResizeMessage`](#tui-tuiresizemessage), [`TuiRunError`](#tui-tuirunerror), [`TuiRunInputPolicy`](#tui-tuiruninputpolicy), [`TuiRunOptions`](#tui-tuirunoptions), [`TuiRunResult`](#tui-tuirunresult), [`TuiRuntime`](#tui-tuiruntime)
 - [`TuiRuntimeChange`](#tui-tuiruntimechange), [`TuiRuntimeDisposeOptions`](#tui-tuiruntimedisposeoptions), [`TuiRuntimeMetrics`](#tui-tuiruntimemetrics), [`TuiRuntimeOptions`](#tui-tuiruntimeoptions), [`TuiSourceChannelMetrics`](#tui-tuisourcechannelmetrics), [`TuiSourceChannelPolicy`](#tui-tuisourcechannelpolicy), [`TuiSourceEmission`](#tui-tuisourceemission), [`TuiSourceLifecycle`](#tui-tuisourcelifecycle)
-- [`TuiSourceSink`](#tui-tuisourcesink), [`TuiSubscriptionContext`](#tui-tuisubscriptioncontext), [`TuiSubscriptions`](#tui-tuisubscriptions), [`TuiTheme`](#tui-tuitheme), [`TuiUpdate`](#tui-tuiupdate), [`TuiUpdateResult`](#tui-tuiupdateresult), [`TuiView`](#tui-tuiview), [`advanceAnimationTimeline`](#tui-advanceanimationtimeline)
-- [`animationSource`](#tui-animationsource), [`applySessionProtocolPolicy`](#tui-applysessionprotocolpolicy), [`createAnimationTimeline`](#tui-createanimationtimeline), [`createSessionProtocolPlan`](#tui-createsessionprotocolplan), [`createTuiChild`](#tui-createtuichild), [`createTuiControls`](#tui-createtuicontrols), [`createTuiPreparedQuery`](#tui-createtuipreparedquery), [`createTuiRuntime`](#tui-createtuiruntime)
-- [`defaultSessionProtocolPolicy`](#tui-defaultsessionprotocolpolicy), [`defaultTuiEffectPolicy`](#tui-defaulttuieffectpolicy), [`defaultTuiLifecyclePolicy`](#tui-defaulttuilifecyclepolicy), [`defaultTuiSourceChannelCapacity`](#tui-defaulttuisourcechannelcapacity), [`defineTui`](#tui-definetui), [`intervalSource`](#tui-intervalsource), [`nextAnimationDeadline`](#tui-nextanimationdeadline), [`reliableSourceMessage`](#tui-reliablesourcemessage)
-- [`replaceableSourceMessage`](#tui-replaceablesourcemessage), [`runTui`](#tui-runtui), [`timeoutSource`](#tui-timeoutsource), [`tuiBindingHelp`](#tui-tuibindinghelp)
+- [`TuiSourceSink`](#tui-tuisourcesink), [`TuiSubscriptionContext`](#tui-tuisubscriptioncontext), [`TuiSubscriptions`](#tui-tuisubscriptions), [`TuiTheme`](#tui-tuitheme), [`TuiUpdate`](#tui-tuiupdate), [`TuiUpdateContribution`](#tui-tuiupdatecontribution), [`TuiUpdateResult`](#tui-tuiupdateresult), [`TuiView`](#tui-tuiview)
+- [`advanceAnimationTimeline`](#tui-advanceanimationtimeline), [`animationSource`](#tui-animationsource), [`applySessionProtocolPolicy`](#tui-applysessionprotocolpolicy), [`createAnimationTimeline`](#tui-createanimationtimeline), [`createSessionProtocolPlan`](#tui-createsessionprotocolplan), [`createTuiChild`](#tui-createtuichild), [`createTuiCommands`](#tui-createtuicommands), [`createTuiControls`](#tui-createtuicontrols)
+- [`createTuiForm`](#tui-createtuiform), [`createTuiPreparedQuery`](#tui-createtuipreparedquery), [`createTuiRuntime`](#tui-createtuiruntime), [`defaultSessionProtocolPolicy`](#tui-defaultsessionprotocolpolicy), [`defaultTuiEffectPolicy`](#tui-defaulttuieffectpolicy), [`defaultTuiLifecyclePolicy`](#tui-defaulttuilifecyclepolicy), [`defaultTuiSourceChannelCapacity`](#tui-defaulttuisourcechannelcapacity), [`defineTui`](#tui-definetui)
+- [`intervalSource`](#tui-intervalsource), [`liftTuiResult`](#tui-lifttuiresult), [`nextAnimationDeadline`](#tui-nextanimationdeadline), [`reliableSourceMessage`](#tui-reliablesourcemessage), [`replaceableSourceMessage`](#tui-replaceablesourcemessage), [`runTui`](#tui-runtui), [`timeoutSource`](#tui-timeoutsource), [`tuiBindingHelp`](#tui-tuibindinghelp)
+- [`updateTuiNavigation`](#tui-updatetuinavigation)
 
 ### @ismail-elkorchi/terminal-ui/components
 
@@ -211,17 +214,17 @@ See [API stability](../guides/api-stability.md) for stability labels.
 - [`CollectionInteractionOptions`](#component-collectioninteractionoptions), [`CollectionInteractionState`](#component-collectioninteractionstate), [`CollectionInteractionTransition`](#component-collectioninteractiontransition), [`CollectionQuery`](#component-collectionquery), [`CompiledCollectionQuery`](#component-compiledcollectionquery), [`ComponentAccessibilityInput`](#component-componentaccessibilityinput), [`ComponentCallerSlotValues`](#component-componentcallerslotvalues), [`ComponentCapturedMessageInput`](#component-componentcapturedmessageinput)
 - [`ComponentCompositionInput`](#component-componentcompositioninput), [`ComponentDefinition`](#component-componentdefinition), [`ComponentDefinitionName`](#component-componentdefinitionname), [`ComponentExecutionError`](#component-componentexecutionerror), [`ComponentExecutionPhase`](#component-componentexecutionphase), [`ComponentFrameSourceInput`](#component-componentframesourceinput), [`ComponentIdentity`](#component-componentidentity), [`ComponentImplementationSlotValues`](#component-componentimplementationslotvalues)
 - [`ComponentInput`](#component-componentinput), [`ComponentInspectionInput`](#component-componentinspectioninput), [`ComponentInspectionRecord`](#component-componentinspectionrecord), [`ComponentInspectionValue`](#component-componentinspectionvalue), [`ComponentInteractionInput`](#component-componentinteractioninput), [`ComponentKeyInput`](#component-componentkeyinput), [`ComponentLayoutCommitInput`](#component-componentlayoutcommitinput), [`ComponentLayoutInput`](#component-componentlayoutinput)
-- [`ComponentMeasureConstraints`](#component-componentmeasureconstraints), [`ComponentMeasureInput`](#component-componentmeasureinput), [`ComponentMessage`](#component-componentmessage), [`ComponentMetadataCapability`](#component-componentmetadatacapability), [`ComponentMetadataOptions`](#component-componentmetadataoptions), [`ComponentModelContext`](#component-componentmodelcontext), [`ComponentPreparationInput`](#component-componentpreparationinput), [`ComponentRenderInput`](#component-componentrenderinput)
-- [`ComponentScrollbarLayout`](#component-componentscrollbarlayout), [`ComponentScrollbarPlan`](#component-componentscrollbarplan), [`ComponentScrollbarThumb`](#component-componentscrollbarthumb), [`ComponentScrollbarTrack`](#component-componentscrollbartrack), [`ComponentSemanticInspection`](#component-componentsemanticinspection), [`ComponentSlotCardinality`](#component-componentslotcardinality), [`ComponentSlotDefinition`](#component-componentslotdefinition), [`ComponentSlotLayout`](#component-componentslotlayout)
-- [`ComponentSlotMessagePolicy`](#component-componentslotmessagepolicy), [`ComponentSlotOwner`](#component-componentslotowner), [`ComponentSlotShape`](#component-componentslotshape), [`ComponentSlotsDefinition`](#component-componentslotsdefinition), [`ComponentStateCapability`](#component-componentstatecapability), [`ComponentStyleInput`](#component-componentstyleinput), [`ComponentStylePartMapping`](#component-componentstylepartmapping), [`ComponentTextInput`](#component-componenttextinput)
-- [`ComponentVisualState`](#component-componentvisualstate), [`DecorativeLeafComponentDefinition`](#component-decorativeleafcomponentdefinition), [`DecorativeLeafComponentFactory`](#component-decorativeleafcomponentfactory), [`Element`](#component-element), [`ElementChildren`](#component-elementchildren), [`ElementChildrenMessage`](#component-elementchildrenmessage), [`ElementMessage`](#component-elementmessage), [`ElementState`](#component-elementstate)
-- [`ElementStyles`](#component-elementstyles), [`ElementVisualState`](#component-elementvisualstate), [`FocusLifecycleEvent`](#component-focuslifecycleevent), [`FocusNavigation`](#component-focusnavigation), [`FocusTargetLifecycleEvent`](#component-focustargetlifecycleevent), [`HitTarget`](#component-hittarget), [`IgnoredMessage`](#component-ignoredmessage), [`IndexedQueryCandidate`](#component-indexedquerycandidate)
-- [`KeyboardBinding`](#component-keyboardbinding), [`MessageResolution`](#component-messageresolution), [`PopupState`](#component-popupstate), [`PopupTransition`](#component-popuptransition), [`QueryCandidate`](#component-querycandidate), [`QueryMatch`](#component-querymatch), [`QueryMatchRange`](#component-querymatchrange), [`RenderBlock`](#component-renderblock)
-- [`RenderLine`](#component-renderline), [`RenderSpan`](#component-renderspan), [`SelectionState`](#component-selectionstate), [`SemanticComposedComponentDefinition`](#component-semanticcomposedcomponentdefinition), [`SemanticCompositeComponentDefinition`](#component-semanticcompositecomponentdefinition), [`SemanticCompositeComponentFactory`](#component-semanticcompositecomponentfactory), [`SemanticLeafComponentDefinition`](#component-semanticleafcomponentdefinition), [`SemanticLeafComponentFactory`](#component-semanticleafcomponentfactory)
-- [`StagedComponentFactory`](#component-stagedcomponentfactory), [`TerminalStyle`](#component-terminalstyle), [`clipRenderLine`](#component-cliprenderline), [`clipRenderSpans`](#component-cliprenderspans), [`collectionInteractionReducer`](#component-collectioninteractionreducer), [`compareCollectionText`](#component-comparecollectiontext), [`compileCollectionQuery`](#component-compilecollectionquery), [`componentScrollbarHitTargets`](#component-componentscrollbarhittargets)
-- [`decodeComponentScrollPolicy`](#component-decodecomponentscrollpolicy), [`decodeComponentScrollState`](#component-decodecomponentscrollstate), [`decodeComponentScrollbarOptions`](#component-decodecomponentscrollbaroptions), [`decodeTerminalStyle`](#component-decodeterminalstyle), [`defineComponent`](#component-definecomponent), [`formatKeyboardBinding`](#component-formatkeyboardbinding), [`ignoreMessage`](#component-ignoremessage), [`layoutComponentScrollbar`](#component-layoutcomponentscrollbar)
-- [`line`](#component-line), [`mapComponentStyles`](#component-mapcomponentstyles), [`matchCollectionQuery`](#component-matchcollectionquery), [`measureConstrainedBox`](#component-measureconstrainedbox), [`measureRenderSpans`](#component-measurerenderspans), [`mergeElementStyles`](#component-mergeelementstyles), [`mergeTerminalStyles`](#component-mergeterminalstyles), [`normalizeCollectionInteraction`](#component-normalizecollectioninteraction)
-- [`padRenderLine`](#component-padrenderline), [`paintComponentScrollbar`](#component-paintcomponentscrollbar), [`popupReducer`](#component-popupreducer), [`queryCandidates`](#component-querycandidates), [`span`](#component-span), [`wrapRenderSpans`](#component-wraprenderspans)
+- [`ComponentMeasureConstraints`](#component-componentmeasureconstraints), [`ComponentMeasureInput`](#component-componentmeasureinput), [`ComponentMessage`](#component-componentmessage), [`ComponentMetadataCapability`](#component-componentmetadatacapability), [`ComponentMetadataOptions`](#component-componentmetadataoptions), [`ComponentModelContext`](#component-componentmodelcontext), [`ComponentRenderInput`](#component-componentrenderinput), [`ComponentScrollbarLayout`](#component-componentscrollbarlayout)
+- [`ComponentScrollbarPlan`](#component-componentscrollbarplan), [`ComponentScrollbarThumb`](#component-componentscrollbarthumb), [`ComponentScrollbarTrack`](#component-componentscrollbartrack), [`ComponentSemanticInspection`](#component-componentsemanticinspection), [`ComponentSlotCardinality`](#component-componentslotcardinality), [`ComponentSlotDefinition`](#component-componentslotdefinition), [`ComponentSlotLayout`](#component-componentslotlayout), [`ComponentSlotMessagePolicy`](#component-componentslotmessagepolicy)
+- [`ComponentSlotOwner`](#component-componentslotowner), [`ComponentSlotShape`](#component-componentslotshape), [`ComponentSlotsDefinition`](#component-componentslotsdefinition), [`ComponentStateCapability`](#component-componentstatecapability), [`ComponentStyleInput`](#component-componentstyleinput), [`ComponentStylePartMapping`](#component-componentstylepartmapping), [`ComponentTextInput`](#component-componenttextinput), [`ComponentVisualState`](#component-componentvisualstate)
+- [`DecorativeLeafComponentDefinition`](#component-decorativeleafcomponentdefinition), [`DecorativeLeafComponentFactory`](#component-decorativeleafcomponentfactory), [`Element`](#component-element), [`ElementChildren`](#component-elementchildren), [`ElementChildrenMessage`](#component-elementchildrenmessage), [`ElementMessage`](#component-elementmessage), [`ElementState`](#component-elementstate), [`ElementStyles`](#component-elementstyles)
+- [`ElementVisualState`](#component-elementvisualstate), [`FocusLifecycleEvent`](#component-focuslifecycleevent), [`FocusNavigation`](#component-focusnavigation), [`FocusTargetLifecycleEvent`](#component-focustargetlifecycleevent), [`HitTarget`](#component-hittarget), [`IgnoredMessage`](#component-ignoredmessage), [`IndexedQueryCandidate`](#component-indexedquerycandidate), [`KeyboardBinding`](#component-keyboardbinding)
+- [`MessageResolution`](#component-messageresolution), [`PopupState`](#component-popupstate), [`PopupTransition`](#component-popuptransition), [`QueryCandidate`](#component-querycandidate), [`QueryMatch`](#component-querymatch), [`QueryMatchRange`](#component-querymatchrange), [`RenderBlock`](#component-renderblock), [`RenderLine`](#component-renderline)
+- [`RenderSpan`](#component-renderspan), [`SelectionState`](#component-selectionstate), [`SemanticComposedComponentDefinition`](#component-semanticcomposedcomponentdefinition), [`SemanticCompositeComponentDefinition`](#component-semanticcompositecomponentdefinition), [`SemanticCompositeComponentFactory`](#component-semanticcompositecomponentfactory), [`SemanticLeafComponentDefinition`](#component-semanticleafcomponentdefinition), [`SemanticLeafComponentFactory`](#component-semanticleafcomponentfactory), [`StagedComponentFactory`](#component-stagedcomponentfactory)
+- [`TerminalStyle`](#component-terminalstyle), [`clipRenderLine`](#component-cliprenderline), [`clipRenderSpans`](#component-cliprenderspans), [`collectionInteractionReducer`](#component-collectioninteractionreducer), [`compareCollectionText`](#component-comparecollectiontext), [`compileCollectionQuery`](#component-compilecollectionquery), [`componentScrollbarHitTargets`](#component-componentscrollbarhittargets), [`decodeComponentScrollPolicy`](#component-decodecomponentscrollpolicy)
+- [`decodeComponentScrollState`](#component-decodecomponentscrollstate), [`decodeComponentScrollbarOptions`](#component-decodecomponentscrollbaroptions), [`decodeTerminalStyle`](#component-decodeterminalstyle), [`defineComponent`](#component-definecomponent), [`formatKeyboardBinding`](#component-formatkeyboardbinding), [`ignoreMessage`](#component-ignoremessage), [`layoutComponentScrollbar`](#component-layoutcomponentscrollbar), [`line`](#component-line)
+- [`mapComponentStyles`](#component-mapcomponentstyles), [`matchCollectionQuery`](#component-matchcollectionquery), [`measureConstrainedBox`](#component-measureconstrainedbox), [`measureRenderSpans`](#component-measurerenderspans), [`mergeElementStyles`](#component-mergeelementstyles), [`mergeTerminalStyles`](#component-mergeterminalstyles), [`normalizeCollectionInteraction`](#component-normalizecollectioninteraction), [`padRenderLine`](#component-padrenderline)
+- [`paintComponentScrollbar`](#component-paintcomponentscrollbar), [`popupReducer`](#component-popupreducer), [`queryCandidates`](#component-querycandidates), [`span`](#component-span), [`wrapRenderSpans`](#component-wraprenderspans)
 
 ### @ismail-elkorchi/terminal-ui/layout
 
@@ -261,11 +264,11 @@ See [API stability](../guides/api-stability.md) for stability labels.
 - [`logHistoryRecordById`](#behavior-loghistoryrecordbyid), [`logHistoryRecordMatches`](#behavior-loghistoryrecordmatches), [`logViewerReducer`](#behavior-logviewerreducer), [`matchingLogViewerView`](#behavior-matchinglogviewerview), [`matchingSearchPickerQuery`](#behavior-matchingsearchpickerquery), [`matchingTreeView`](#behavior-matchingtreeview), [`menuBarReducer`](#behavior-menubarreducer), [`menuBarView`](#behavior-menubarview)
 - [`menuReducer`](#behavior-menureducer), [`menuTriggerReducer`](#behavior-menutriggerreducer), [`menuTriggerView`](#behavior-menutriggerview), [`menuView`](#behavior-menuview), [`navigationStackReducer`](#behavior-navigationstackreducer), [`nextLogViewerMatch`](#behavior-nextlogviewermatch), [`nextNotificationExpiry`](#behavior-nextnotificationexpiry), [`normalizeCheckboxGroupState`](#behavior-normalizecheckboxgroupstate)
 - [`normalizeColorSwatchPickerState`](#behavior-normalizecolorswatchpickerstate), [`normalizeRadioGroupState`](#behavior-normalizeradiogroupstate), [`normalizeScrollState`](#behavior-normalizescrollstate), [`notificationHistoryItems`](#behavior-notificationhistoryitems), [`notificationReducer`](#behavior-notificationreducer), [`notificationTransitionFromHistory`](#behavior-notificationtransitionfromhistory), [`numberInputAnalysis`](#behavior-numberinputanalysis), [`numberInputReducer`](#behavior-numberinputreducer)
-- [`numberInputView`](#behavior-numberinputview), [`paginationReducer`](#behavior-paginationreducer), [`paginationView`](#behavior-paginationview), [`paginationWindow`](#behavior-paginationwindow), [`prepareLogViewerView`](#behavior-preparelogviewerview), [`prepareSearchPickerQuery`](#behavior-preparesearchpickerquery), [`prepareTreeView`](#behavior-preparetreeview), [`progressValueStatus`](#behavior-progressvaluestatus)
-- [`querySearchPickerIndex`](#behavior-querysearchpickerindex), [`radioGroupReducer`](#behavior-radiogroupreducer), [`rangeSliderReducer`](#behavior-rangesliderreducer), [`scrollReducer`](#behavior-scrollreducer), [`searchPickerEntryById`](#behavior-searchpickerentrybyid), [`searchPickerQueryPosition`](#behavior-searchpickerqueryposition), [`searchPickerReducer`](#behavior-searchpickerreducer), [`searchPickerView`](#behavior-searchpickerview)
-- [`searchPickerWindow`](#behavior-searchpickerwindow), [`selectableTreeRows`](#behavior-selectabletreerows), [`selectionFromTextPointerTransition`](#behavior-selectionfromtextpointertransition), [`sliceVisibleRows`](#behavior-slicevisiblerows), [`sortTableRows`](#behavior-sorttablerows), [`splitPaneLayout`](#behavior-splitpanelayout), [`splitPaneReducer`](#behavior-splitpanereducer), [`tabsReducer`](#behavior-tabsreducer)
-- [`textAreaReducer`](#behavior-textareareducer), [`textInputReducer`](#behavior-textinputreducer), [`treeDisclosureTransition`](#behavior-treedisclosuretransition), [`treeNodeMatches`](#behavior-treenodematches), [`treeReducer`](#behavior-treereducer), [`visibleListboxEntries`](#behavior-visiblelistboxentries), [`visibleRowWindow`](#behavior-visiblerowwindow), [`visibleTreeRows`](#behavior-visibletreerows)
-- [`visibleWindowFromScroll`](#behavior-visiblewindowfromscroll)
+- [`numberInputView`](#behavior-numberinputview), [`paginationReducer`](#behavior-paginationreducer), [`paginationView`](#behavior-paginationview), [`paginationWindow`](#behavior-paginationwindow), [`prepareAppendLogHistory`](#behavior-prepareappendloghistory), [`prepareLogHistory`](#behavior-prepareloghistory), [`prepareLogViewerView`](#behavior-preparelogviewerview), [`prepareSearchPickerIndex`](#behavior-preparesearchpickerindex)
+- [`prepareSearchPickerQuery`](#behavior-preparesearchpickerquery), [`prepareTreeSource`](#behavior-preparetreesource), [`prepareTreeView`](#behavior-preparetreeview), [`progressValueStatus`](#behavior-progressvaluestatus), [`querySearchPickerIndex`](#behavior-querysearchpickerindex), [`radioGroupReducer`](#behavior-radiogroupreducer), [`rangeSliderReducer`](#behavior-rangesliderreducer), [`scrollReducer`](#behavior-scrollreducer)
+- [`searchPickerEntryById`](#behavior-searchpickerentrybyid), [`searchPickerQueryPosition`](#behavior-searchpickerqueryposition), [`searchPickerReducer`](#behavior-searchpickerreducer), [`searchPickerView`](#behavior-searchpickerview), [`searchPickerWindow`](#behavior-searchpickerwindow), [`selectableTreeRows`](#behavior-selectabletreerows), [`selectionFromTextPointerTransition`](#behavior-selectionfromtextpointertransition), [`sliceVisibleRows`](#behavior-slicevisiblerows)
+- [`sortTableRows`](#behavior-sorttablerows), [`splitPaneLayout`](#behavior-splitpanelayout), [`splitPaneReducer`](#behavior-splitpanereducer), [`tabsReducer`](#behavior-tabsreducer), [`textAreaReducer`](#behavior-textareareducer), [`textInputReducer`](#behavior-textinputreducer), [`treeDisclosureTransition`](#behavior-treedisclosuretransition), [`treeNodeMatches`](#behavior-treenodematches)
+- [`treeReducer`](#behavior-treereducer), [`visibleListboxEntries`](#behavior-visiblelistboxentries), [`visibleRowWindow`](#behavior-visiblerowwindow), [`visibleTreeRows`](#behavior-visibletreerows), [`visibleWindowFromScroll`](#behavior-visiblewindowfromscroll)
 
 ### @ismail-elkorchi/terminal-ui/renderer
 
@@ -276,13 +279,13 @@ See [API stability](../guides/api-stability.md) for stability labels.
 - [`FrameDescriptor`](#renderer-framedescriptor), [`FrameHitTarget`](#renderer-framehittarget), [`FramePass`](#renderer-framepass), [`FramePassContext`](#renderer-framepasscontext), [`FrameRenderTarget`](#renderer-framerendertarget), [`FrameRowDiff`](#renderer-framerowdiff), [`HighlightRenderSpan`](#renderer-highlightrenderspan), [`HighlightRenderSpansOptions`](#renderer-highlightrenderspansoptions)
 - [`Layer`](#renderer-layer), [`LayoutFocusRegion`](#renderer-layoutfocusregion), [`LayoutNode`](#renderer-layoutnode), [`Measurement`](#renderer-measurement), [`MeasurementInput`](#renderer-measurementinput), [`PadRenderLineOptions`](#renderer-padrenderlineoptions), [`Rect`](#renderer-rect), [`RenderAlignment`](#renderer-renderalignment)
 - [`RenderBlockSize`](#renderer-renderblocksize), [`RenderBudgetLimits`](#renderer-renderbudgetlimits), [`RenderClipMode`](#renderer-renderclipmode), [`RenderDiff`](#renderer-renderdiff), [`RenderDiffAnsiOptions`](#renderer-renderdiffansioptions), [`RenderDiffDescriptor`](#renderer-renderdiffdescriptor), [`RenderElementOptions`](#renderer-renderelementoptions), [`RenderFocusRelation`](#renderer-renderfocusrelation)
-- [`RenderInstrumentation`](#renderer-renderinstrumentation), [`RenderOperation`](#renderer-renderoperation), [`RenderPreparationContext`](#renderer-renderpreparationcontext), [`RenderSerializeOptions`](#renderer-renderserializeoptions), [`RenderStage`](#renderer-renderstage), [`RenderStageMeasurement`](#renderer-renderstagemeasurement), [`RenderTarget`](#renderer-rendertarget), [`RenderTargetCell`](#renderer-rendertargetcell)
-- [`RenderTuiOutputOptions`](#renderer-rendertuioutputoptions), [`RenderWorkInstrumentation`](#renderer-renderworkinstrumentation), [`RenderWorkKind`](#renderer-renderworkkind), [`RenderWorkMeasurement`](#renderer-renderworkmeasurement), [`RenderedTuiOutput`](#renderer-renderedtuioutput), [`SeriesOptions`](#renderer-seriesoptions), [`StrokeFillOptions`](#renderer-strokefilloptions), [`TerminalColor`](#renderer-terminalcolor)
-- [`TerminalLink`](#renderer-terminallink), [`TooltipLine`](#renderer-tooltipline), [`alignRenderLine`](#renderer-alignrenderline), [`blockGlyph`](#renderer-blockglyph), [`blockSpan`](#renderer-blockspan), [`boxDrawingJoinPass`](#renderer-boxdrawingjoinpass), [`brailleCellForSubcell`](#renderer-braillecellforsubcell), [`brailleCharacter`](#renderer-braillecharacter)
-- [`brailleMaskForSubcell`](#renderer-braillemaskforsubcell), [`canvasTransform`](#renderer-canvastransform), [`clampMeasurement`](#renderer-clampmeasurement), [`combineMeasurementsHorizontally`](#renderer-combinemeasurementshorizontally), [`combineMeasurementsOverlay`](#renderer-combinemeasurementsoverlay), [`combineMeasurementsVertically`](#renderer-combinemeasurementsvertically), [`compactRenderSpans`](#renderer-compactrenderspans), [`composeCanvasTransform`](#renderer-composecanvastransform)
-- [`createCanvas2D`](#renderer-createcanvas2d), [`createComponentCanvas2D`](#renderer-createcomponentcanvas2d), [`createFrameBuffer`](#renderer-createframebuffer), [`decodeMeasurement`](#renderer-decodemeasurement), [`defaultRenderBudgetLimits`](#renderer-defaultrenderbudgetlimits), [`diffFrames`](#renderer-diffframes), [`drawAreaSeries`](#renderer-drawareaseries), [`drawAxes`](#renderer-drawaxes)
-- [`drawBarSeries`](#renderer-drawbarseries), [`drawBorder`](#renderer-drawborder), [`drawLineSeries`](#renderer-drawlineseries), [`ellipseInteriorPoints`](#renderer-ellipseinteriorpoints), [`ellipseStrokePoints`](#renderer-ellipsestrokepoints), [`frameCellSource`](#renderer-framecellsource), [`highlightRenderSpans`](#renderer-highlightrenderspans), [`horizontalAxis`](#renderer-horizontalaxis)
-- [`identityCanvasTransform`](#renderer-identitycanvastransform), [`integerPoint`](#renderer-integerpoint), [`layoutElement`](#renderer-layoutelement), [`linePoints`](#renderer-linepoints), [`measureBlock`](#renderer-measureblock), [`measureLine`](#renderer-measureline), [`measureRenderBlock`](#renderer-measurerenderblock), [`measureRenderLine`](#renderer-measurerenderline)
+- [`RenderInstrumentation`](#renderer-renderinstrumentation), [`RenderOperation`](#renderer-renderoperation), [`RenderSerializeOptions`](#renderer-renderserializeoptions), [`RenderStage`](#renderer-renderstage), [`RenderStageMeasurement`](#renderer-renderstagemeasurement), [`RenderTarget`](#renderer-rendertarget), [`RenderTargetCell`](#renderer-rendertargetcell), [`RenderTuiOutputOptions`](#renderer-rendertuioutputoptions)
+- [`RenderWorkInstrumentation`](#renderer-renderworkinstrumentation), [`RenderWorkKind`](#renderer-renderworkkind), [`RenderWorkMeasurement`](#renderer-renderworkmeasurement), [`RenderedTuiOutput`](#renderer-renderedtuioutput), [`SeriesOptions`](#renderer-seriesoptions), [`StrokeFillOptions`](#renderer-strokefilloptions), [`TerminalColor`](#renderer-terminalcolor), [`TerminalLink`](#renderer-terminallink)
+- [`TooltipLine`](#renderer-tooltipline), [`alignRenderLine`](#renderer-alignrenderline), [`blockGlyph`](#renderer-blockglyph), [`blockSpan`](#renderer-blockspan), [`boxDrawingJoinPass`](#renderer-boxdrawingjoinpass), [`brailleCellForSubcell`](#renderer-braillecellforsubcell), [`brailleCharacter`](#renderer-braillecharacter), [`brailleMaskForSubcell`](#renderer-braillemaskforsubcell)
+- [`canvasTransform`](#renderer-canvastransform), [`clampMeasurement`](#renderer-clampmeasurement), [`combineMeasurementsHorizontally`](#renderer-combinemeasurementshorizontally), [`combineMeasurementsOverlay`](#renderer-combinemeasurementsoverlay), [`combineMeasurementsVertically`](#renderer-combinemeasurementsvertically), [`compactRenderSpans`](#renderer-compactrenderspans), [`composeCanvasTransform`](#renderer-composecanvastransform), [`createCanvas2D`](#renderer-createcanvas2d)
+- [`createComponentCanvas2D`](#renderer-createcomponentcanvas2d), [`createFrameBuffer`](#renderer-createframebuffer), [`decodeMeasurement`](#renderer-decodemeasurement), [`defaultRenderBudgetLimits`](#renderer-defaultrenderbudgetlimits), [`diffFrames`](#renderer-diffframes), [`drawAreaSeries`](#renderer-drawareaseries), [`drawAxes`](#renderer-drawaxes), [`drawBarSeries`](#renderer-drawbarseries)
+- [`drawBorder`](#renderer-drawborder), [`drawLineSeries`](#renderer-drawlineseries), [`ellipseInteriorPoints`](#renderer-ellipseinteriorpoints), [`ellipseStrokePoints`](#renderer-ellipsestrokepoints), [`frameCellSource`](#renderer-framecellsource), [`highlightRenderSpans`](#renderer-highlightrenderspans), [`horizontalAxis`](#renderer-horizontalaxis), [`identityCanvasTransform`](#renderer-identitycanvastransform)
+- [`integerPoint`](#renderer-integerpoint), [`layoutElement`](#renderer-layoutelement), [`linePoints`](#renderer-linepoints), [`measureBlock`](#renderer-measureblock), [`measureElement`](#renderer-measureelement), [`measureLine`](#renderer-measureline), [`measureRenderBlock`](#renderer-measurerenderblock), [`measureRenderLine`](#renderer-measurerenderline)
 - [`measureSize`](#renderer-measuresize), [`measureSpans`](#renderer-measurespans), [`measureText`](#renderer-measuretext), [`measurement`](#renderer-measurement), [`normalizeMeasurement`](#renderer-normalizemeasurement), [`polygonInteriorPoints`](#renderer-polygoninteriorpoints), [`rectInteriorPoints`](#renderer-rectinteriorpoints), [`rectStrokePoints`](#renderer-rectstrokepoints)
 - [`renderAccessibleSnapshot`](#renderer-renderaccessiblesnapshot), [`renderDiffAnsi`](#renderer-renderdiffansi), [`renderElementFrame`](#renderer-renderelementframe), [`renderFrameAnsi`](#renderer-renderframeansi), [`renderFrameDebug`](#renderer-renderframedebug), [`renderFramePlain`](#renderer-renderframeplain), [`renderTuiOutput`](#renderer-rendertuioutput), [`sameFrameCell`](#renderer-sameframecell)
 - [`sameFrameCellSource`](#renderer-sameframecellsource), [`sameTerminalColor`](#renderer-sameterminalcolor), [`sameTerminalLink`](#renderer-sameterminallink), [`sameTerminalStyle`](#renderer-sameterminalstyle), [`scaleChartValue`](#renderer-scalechartvalue), [`serializeRenderSpansStateful`](#renderer-serializerenderspansstateful), [`tooltipLines`](#renderer-tooltiplines), [`transformCanvasPoint`](#renderer-transformcanvaspoint)
@@ -626,7 +629,7 @@ export type { ListViewReducerOptions } from './list-view.ts';
 export { createListboxCollection, listboxReducer, visibleListboxEntries, } from './listbox-operations.ts';
 export type { ListboxReducerOptions } from './listbox-operations.ts';
 export type { CompleteListboxCollection, ListboxActivateEvent, ListboxCollection, ListboxCollectionItem, ListboxControlTransition, ListboxOption, ListboxOptionMapper, ListboxState, ListboxTransition, ListboxViewEntry, ScrollableListboxState, UnscrolledListboxState, WindowedListboxCollection, } from './listbox.ts';
-export { appendLogHistory, createLogHistory, logHistoryEntries, logHistoryEntryAt, logHistoryRecordById, logHistoryRecordMatches, } from './log-history.ts';
+export { appendLogHistory, createLogHistory, prepareLogHistory, prepareAppendLogHistory, logHistoryEntries, logHistoryEntryAt, logHistoryRecordById, logHistoryRecordMatches, } from './log-history.ts';
 export type { LogEntry, LogHistory, LogHistoryRecord, LogSearchField, LogSearchMatch, } from './log-history.ts';
 export { followTailScrollState, logViewerReducer, } from './log-viewer-operations.ts';
 export type { LogViewerReducerOptions, LogViewerState, ScrollableLogViewerState, UnscrolledLogViewerState, } from './log-viewer-operations.ts';
@@ -652,7 +655,7 @@ export type { ProgressFrame, ProgressFrameCell, ProgressValueStatus } from './pr
 export { rangeSliderReducer } from './range-slider-operations.ts';
 export type { NumericRange, RangeSliderHandle, RangeSliderReducerOptions, RangeSliderState, RangeSliderStepDirection, RangeSliderTransition, RangeSliderValue, } from './range-slider.ts';
 export { applyScrollRequest, createScrollState, normalizeScrollState, scrollReducer, visibleWindowFromScroll, } from './scroll.ts';
-export { createSearchPickerIndex, querySearchPickerIndex, prepareSearchPickerQuery, matchingSearchPickerQuery, searchPickerEntryById, searchPickerQueryPosition } from './search-picker-index.ts';
+export { createSearchPickerIndex, prepareSearchPickerIndex, querySearchPickerIndex, prepareSearchPickerQuery, matchingSearchPickerQuery, searchPickerEntryById, searchPickerQueryPosition } from './search-picker-index.ts';
 export type { SearchPickerIndex, SearchPickerQueryResult } from './search-picker-index.ts';
 export { activeSearchPickerEntry, createSearchPickerState, searchPickerReducer, searchPickerView, searchPickerWindow, } from './search-picker-operations.ts';
 export type { CreateSearchPickerStateInput, ScrollableSearchPickerState, SearchPickerActiveInput, SearchPickerReducerOptions, SearchPickerState, SearchPickerWindow, SearchPickerWindowInput, UnscrolledSearchPickerState, } from './search-picker-operations.ts';
@@ -670,7 +673,7 @@ export type { ScrollableTextAreaControlState, TextAreaControlState, TextAreaCont
 export { applyTextPointerTransition, createTextAreaState, selectionFromTextPointerTransition, textAreaReducer, textInputReducer, } from './text-editing.ts';
 export type { CreateTextAreaStateInput, TextAreaEditHistory, TextAreaEditPoint, TextAreaEditRecord, TextAreaHistoryRejection, TextAreaReduction, TextAreaState, } from './text-editing.ts';
 export type { TextInputTransition } from './text-input.ts';
-export { createTreeCollection, createTreeCollectionFromRows, createTreeSource, createTreeView, matchingTreeView, prepareTreeView, isTreeView, selectableTreeRows, treeDisclosureTransition, treeNodeMatches, treeReducer, visibleTreeRows, } from './tree-operations.ts';
+export { createTreeCollection, createTreeCollectionFromRows, createTreeSource, prepareTreeSource, createTreeView, matchingTreeView, prepareTreeView, isTreeView, selectableTreeRows, treeDisclosureTransition, treeNodeMatches, treeReducer, visibleTreeRows, } from './tree-operations.ts';
 export type { TreeReducerOptions } from './tree-operations.ts';
 export type { CompleteTreeCollection, ScrollableTreeState, TreeCollection, TreeCollectionRow, TreeControlTransition, TreeDisclosureTransition, TreeLoadStatus, TreeState, TreeTransition, TreeVisibleRow, UnscrolledTreeState, WindowedTreeCollection, } from './tree.ts';
 export { sliceVisibleRows, visibleRowWindow } from './visible-row-window.ts';
@@ -701,6 +704,8 @@ export { isMeasuredWindow, measuredAnchorAt, measuredWindow, } from './measured-
 export type { MeasuredAnchorAtOptions, MeasuredWindow, MeasuredWindowAnchor, MeasuredWindowEntry, MeasuredWindowOptions, } from './measured-window.ts';
 export { collectionIds, collectionItemById, createCompleteCollection, createWindowedCollection, isCollectionSnapshot, } from './snapshot.ts';
 export type { CollectionItem, CollectionSnapshot, CollectionWindow, CollectionWindowScope, CollectionWindowScopeInput, CompleteCollectionSnapshot, WindowedCollectionSnapshot, } from './snapshot.ts';
+export { acceptMeasurements, createMeasurementState, measurementRequests, updateMeasurementState } from './measurement.ts';
+export type { MeasurementGeometry, MeasurementOptions, MeasurementRequest, MeasurementState, MeasurementUpdate } from './measurement.ts';
 
 ```
 
@@ -2644,13 +2649,6 @@ readonly width?: number;
 
 ```ts
 readonly widthProfile?: TextWidthProfile;
-```
-
-<a id="behavior-logviewerview-layouts"></a>
-#### layouts
-
-```ts
-readonly layouts: readonly LogViewerLayout[];
 ```
 
 <a id="behavior-logviewerviewinput"></a>
@@ -6297,6 +6295,38 @@ export declare function paginationWindow(input: PaginationWindowInput): Paginati
 
 Related types: [`PaginationWindow`](#behavior-paginationwindow), [`PaginationWindowInput`](#behavior-paginationwindowinput), [`input`](#prompts-input)
 
+<a id="behavior-prepareappendloghistory"></a>
+### prepareAppendLogHistory
+
+function · beta · [source](../../src/behavior/log-history.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+```ts
+export declare function prepareAppendLogHistory(
+  history: LogHistory,
+  entries: readonly LogEntry[],
+  context: CooperativeWorkContext
+): Promise<LogHistory>;
+```
+
+Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`LogEntry`](#components-patterns-logentry), [`LogHistory`](#components-patterns-loghistory)
+
+<a id="behavior-prepareloghistory"></a>
+### prepareLogHistory
+
+function · beta · [source](../../src/behavior/log-history.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+Raw descriptor adoption is indivisible; record normalization and indexing cooperate.
+
+```ts
+export declare function prepareLogHistory(entries: readonly LogEntry[], context: CooperativeWorkContext): Promise<LogHistory>;
+```
+
+Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`LogEntry`](#components-patterns-logentry), [`LogHistory`](#components-patterns-loghistory)
+
 <a id="behavior-preparelogviewerview"></a>
 ### prepareLogViewerView
 
@@ -6311,6 +6341,26 @@ export declare function prepareLogViewerView(input: LogViewerViewInput, context:
 ```
 
 Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`LogViewerView`](#behavior-logviewerview), [`LogViewerViewInput`](#behavior-logviewerviewinput), [`input`](#prompts-input)
+
+<a id="behavior-preparesearchpickerindex"></a>
+### prepareSearchPickerIndex
+
+function · beta · [source](../../src/behavior/search-picker-index.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+Build an owned index cooperatively. Mapper callbacks and input adoption cannot be preempted.
+
+```ts
+export declare function prepareSearchPickerIndex<
+  TValue
+>(
+  entries: readonly SearchEntry<TValue>[],
+  context: CooperativeWorkContext
+): Promise<SearchPickerIndex<TValue>>;
+```
+
+Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`SearchPickerIndex`](#behavior-searchpickerindex), [`SearchEntry`](#collection-searchentry)
 
 <a id="behavior-preparesearchpickerquery"></a>
 ### prepareSearchPickerQuery
@@ -6332,6 +6382,26 @@ export declare function prepareSearchPickerQuery<
 ```
 
 Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`SearchPickerIndex`](#behavior-searchpickerindex), [`SearchPickerQueryResult`](#behavior-searchpickerqueryresult), [`CollectionQuery`](#component-collectionquery)
+
+<a id="behavior-preparetreesource"></a>
+### prepareTreeSource
+
+function · beta · [source](../../src/behavior/tree-operations.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+Snapshot adoption is indivisible; normalization and source indexing cooperate.
+
+```ts
+export declare function prepareTreeSource<
+  TMetadata extends Readonly<Record<string, unknown>>
+>(
+  nodes: readonly TreeNode<TMetadata>[],
+  context: CooperativeWorkContext
+): Promise<TreeSource<TMetadata>>;
+```
+
+Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`TreeNode`](#components-collections-treenode), [`TreeSource`](#components-collections-treesource)
 
 <a id="behavior-preparetreeview"></a>
 ### prepareTreeView
@@ -7161,6 +7231,195 @@ readonly activeId?: string;
 readonly anchor?: MeasuredWindowAnchor;
 ```
 
+<a id="collection-measurementgeometry"></a>
+### MeasurementGeometry
+
+interface · beta · [source](../../src/collection/measurement.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/collection` (type only)
+
+Geometry dependencies that affect height. Change revision for theme or text-width policy changes.
+
+```ts
+export interface MeasurementGeometry { … }
+```
+
+<a id="collection-measurementgeometry-columns"></a>
+#### columns
+
+```ts
+readonly columns: number;
+```
+
+<a id="collection-measurementgeometry-revision"></a>
+#### revision
+
+```ts
+readonly revision: unknown;
+```
+
+<a id="collection-measurementoptions"></a>
+### MeasurementOptions
+
+interface · beta · [source](../../src/collection/measurement.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/collection` (type only)
+
+```ts
+export interface MeasurementOptions<TValue> { … }
+```
+
+<a id="collection-measurementoptions-collection"></a>
+#### collection
+
+```ts
+readonly collection: MeasuredCollection<TValue>;
+```
+
+<a id="collection-measurementoptions-geometry"></a>
+#### geometry
+
+```ts
+readonly geometry: MeasurementGeometry;
+```
+
+<a id="collection-measurementoptions-viewportrows"></a>
+#### viewportRows
+
+```ts
+readonly viewportRows: number;
+```
+
+<a id="collection-measurementoptions-offsetrow"></a>
+#### offsetRow
+
+```ts
+readonly offsetRow?: number;
+```
+
+<a id="collection-measurementoptions-followtail"></a>
+#### followTail
+
+```ts
+readonly followTail?: boolean;
+```
+
+<a id="collection-measurementrequest"></a>
+### MeasurementRequest
+
+interface · beta · [source](../../src/collection/measurement.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/collection` (type only)
+
+A visible item's immutable content revision and geometry, retained until layout is accepted.
+
+```ts
+export interface MeasurementRequest<TValue> { … }
+```
+
+<a id="collection-measurementrequest-itemid"></a>
+#### itemId
+
+```ts
+readonly itemId: string;
+```
+
+<a id="collection-measurementrequest-value"></a>
+#### value
+
+```ts
+readonly value: TValue;
+```
+
+<a id="collection-measurementrequest-geometry"></a>
+#### geometry
+
+```ts
+readonly geometry: MeasurementGeometry;
+```
+
+<a id="collection-measurementrequest-estimatedrows"></a>
+#### estimatedRows
+
+```ts
+readonly estimatedRows: number;
+```
+
+<a id="collection-measurementstate"></a>
+### MeasurementState
+
+interface · beta · [source](../../src/collection/measurement.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/collection` (type only)
+
+Controlled measurements over the existing persistent collection. Values must be immutable.
+
+```ts
+export interface MeasurementState<TValue> { … }
+```
+
+<a id="collection-measurementstate-collection"></a>
+#### collection
+
+```ts
+readonly collection: MeasuredCollection<TValue>;
+```
+
+<a id="collection-measurementstate-geometry"></a>
+#### geometry
+
+```ts
+readonly geometry: MeasurementGeometry;
+```
+
+<a id="collection-measurementstate-viewportrows"></a>
+#### viewportRows
+
+```ts
+readonly viewportRows: number;
+```
+
+<a id="collection-measurementstate-offsetrow"></a>
+#### offsetRow
+
+```ts
+readonly offsetRow: number;
+```
+
+<a id="collection-measurementstate-followtail"></a>
+#### followTail
+
+```ts
+readonly followTail: boolean;
+```
+
+<a id="collection-measurementupdate"></a>
+### MeasurementUpdate
+
+interface · beta · [source](../../src/collection/measurement.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/collection` (type only)
+
+Carry this through an ordinary message from accepted layout or prepared measurement work.
+
+```ts
+export interface MeasurementUpdate<TValue> { … }
+```
+
+<a id="collection-measurementupdate-request"></a>
+#### request
+
+```ts
+readonly request: MeasurementRequest<TValue>;
+```
+
+<a id="collection-measurementupdate-rows"></a>
+#### rows
+
+```ts
+readonly rows: number;
+```
+
 <a id="collection-searchentry"></a>
 ### SearchEntry
 
@@ -7217,6 +7476,26 @@ readonly kind: 'window';
 ```ts
 readonly scope: CollectionWindowScope;
 ```
+
+<a id="collection-acceptmeasurements"></a>
+### acceptMeasurements
+
+function · beta · [source](../../src/collection/measurement.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/collection`
+
+Accept one batch atomically; stale content/geometry and duplicate replies cannot change state.
+
+```ts
+export declare function acceptMeasurements<
+  TValue
+>(
+  state: MeasurementState<TValue>,
+  updates: readonly MeasurementUpdate<TValue>[]
+): MeasurementState<TValue>;
+```
+
+Related types: [`MeasurementState`](#collection-measurementstate), [`MeasurementUpdate`](#collection-measurementupdate)
 
 <a id="collection-appendmeasureditems"></a>
 ### appendMeasuredItems
@@ -7309,6 +7588,21 @@ export declare function createMeasuredCollection<TValue>(items: readonly Measure
 ```
 
 Related types: [`MeasuredCollection`](#collection-measuredcollection), [`MeasuredCollectionItem`](#collection-measuredcollectionitem)
+
+<a id="collection-createmeasurementstate"></a>
+### createMeasurementState
+
+function · beta · [source](../../src/collection/measurement.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/collection`
+
+Initial item heights are estimates until an accepted measurement supplies the same geometry.
+
+```ts
+export declare function createMeasurementState<TValue>(options: MeasurementOptions<TValue>): MeasurementState<TValue>;
+```
+
+Related types: [`MeasurementOptions`](#collection-measurementoptions), [`MeasurementState`](#collection-measurementstate)
 
 <a id="collection-createwindowedcollection"></a>
 ### createWindowedCollection
@@ -7410,6 +7704,26 @@ export declare function measuredWindow<
 
 Related types: [`collection`](#root-collection), [`MeasuredCollection`](#collection-measuredcollection), [`MeasuredWindowOptions`](#collection-measuredwindowoptions), [`MeasuredWindow`](#components-collections-measuredwindow)
 
+<a id="collection-measurementrequests"></a>
+### measurementRequests
+
+function · beta · [source](../../src/collection/measurement.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/collection`
+
+Only visible rows plus bounded overscan are examined. Already accepted items produce no request.
+
+```ts
+export declare function measurementRequests<
+  TValue
+>(
+  state: MeasurementState<TValue>,
+  overscanRows?: number
+): readonly MeasurementRequest<TValue>[];
+```
+
+Related types: [`MeasurementRequest`](#collection-measurementrequest), [`MeasurementState`](#collection-measurementstate)
+
 <a id="collection-prependmeasureditems"></a>
 ### prependMeasuredItems
 
@@ -7463,6 +7777,26 @@ export declare function replaceMeasuredItem<
 ```
 
 Related types: [`collection`](#root-collection), [`MeasuredCollection`](#collection-measuredcollection), [`MeasuredCollectionItem`](#collection-measuredcollectionitem)
+
+<a id="collection-updatemeasurementstate"></a>
+### updateMeasurementState
+
+function · beta · [source](../../src/collection/measurement.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/collection`
+
+Reconcile membership/content/geometry without scanning history. Existing heights become estimates on invalidation.
+
+```ts
+export declare function updateMeasurementState<
+  TValue
+>(
+  state: MeasurementState<TValue>,
+  options: MeasurementOptions<TValue>
+): MeasurementState<TValue>;
+```
+
+Related types: [`MeasurementOptions`](#collection-measurementoptions), [`MeasurementState`](#collection-measurementstate)
 
 ## @ismail-elkorchi/terminal-ui/component
 
@@ -7844,7 +8178,7 @@ type · beta · [source](../../src/component/execution-error.ts)
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
 ```ts
-export type ComponentExecutionPhase = 'createModel' | 'prepare' | 'inspection' | 'compose' | 'measure' | 'layout' | 'paint' | 'accessibility' | 'focus' | 'action' | 'pointer' | 'keyboard' | 'input' | 'paste' | 'metadata';
+export type ComponentExecutionPhase = 'createModel' | 'inspection' | 'compose' | 'measure' | 'layout' | 'paint' | 'accessibility' | 'focus' | 'action' | 'pointer' | 'keyboard' | 'input' | 'paste' | 'metadata';
 ```
 
 Related types: [`input`](#prompts-input)
@@ -8235,33 +8569,6 @@ readonly readOnly: boolean;
 
 ```ts
 readonly inert: boolean;
-```
-
-<a id="component-componentpreparationinput"></a>
-### ComponentPreparationInput
-
-interface · beta · [source](../../src/component/contracts.ts)
-
-Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
-
-Optional preparation may warm model-owned caches; rendering must also work without it.
-
-```ts
-export interface ComponentPreparationInput<TModel extends object> extends RenderPreparationContext { … }
-```
-
-<a id="component-componentpreparationinput-id"></a>
-#### id
-
-```ts
-readonly id?: string;
-```
-
-<a id="component-componentpreparationinput-model"></a>
-#### model
-
-```ts
-readonly model: Readonly<TModel>;
 ```
 
 <a id="component-componentrenderinput"></a>
@@ -8678,7 +8985,7 @@ export type DecorativeLeafComponentDefinition<TOptions extends object = Readonly
     readonly metadata?: TMetadata;
     readonly slots?: never;
     readonly structure: 'leaf';
-    /** Opt in only when paint depends exclusively on its immutable render input. */
+    /** Deterministic paint from immutable inputs only. Models/resources use identity; replace changed inputs. */
     readonly retainPaint?: boolean;
     readonly render: (this: undefined, input: ComponentRenderInput<TModel, TPart>) => undefined;
 };
@@ -9347,7 +9654,7 @@ export type SemanticLeafComponentDefinition<TOptions extends object = Readonly<R
     readonly metadata?: TMetadata;
     readonly slots?: never;
     readonly structure: 'leaf';
-    /** Opt in only when paint depends exclusively on its immutable render input. */
+    /** Deterministic paint from immutable inputs only. Models/resources use identity; replace changed inputs. */
     readonly retainPaint?: boolean;
     readonly render: (this: undefined, input: ComponentRenderInput<TModel, TPart>) => undefined;
 };
@@ -31763,33 +32070,6 @@ export type RenderOperation = {
 
 Related types: [`RenderSpan`](#component-renderspan), [`TerminalStyle`](#component-terminalstyle), [`column`](#layout-column), [`row`](#layout-row), [`Rect`](#renderer-rect)
 
-<a id="renderer-renderpreparationcontext"></a>
-### RenderPreparationContext
-
-interface · beta · [source](../../src/renderer/contracts.ts)
-
-Import from: `@ismail-elkorchi/terminal-ui/renderer` (type only)
-
-Runtime scheduling for optional work before synchronous frame materialization.
-
-```ts
-export interface RenderPreparationContext { … }
-```
-
-<a id="renderer-renderpreparationcontext-signal"></a>
-#### signal
-
-```ts
-readonly signal: AbortSignal;
-```
-
-<a id="renderer-renderpreparationcontext-yield"></a>
-#### yield
-
-```ts
-readonly yield: () => Promise<void>;
-```
-
 <a id="renderer-renderserializeoptions"></a>
 ### RenderSerializeOptions
 
@@ -32748,6 +33028,25 @@ export declare function measureBlock(block: RenderBlock, options?: TextMeasureme
 ```
 
 Related types: [`RenderBlock`](#component-renderblock), [`Measurement`](#renderer-measurement), [`TextMeasurementOptions`](#text-textmeasurementoptions)
+
+<a id="renderer-measureelement"></a>
+### measureElement
+
+function · beta · [source](../../src/renderer/measure-element.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/renderer`
+
+Deliberate synchronous measurement, sharing the renderer's measurement and validation implementation.
+
+```ts
+export declare function measureElement(
+  element: Element<unknown>,
+  constraints: TerminalSize,
+  options?: Pick<RenderElementOptions, 'theme' | 'widthProfile' | 'limits'>
+): Measurement;
+```
+
+Related types: [`Element`](#component-element), [`TerminalSize`](#host-terminalsize), [`Measurement`](#renderer-measurement), [`RenderElementOptions`](#renderer-renderelementoptions)
 
 <a id="renderer-measureline"></a>
 ### measureLine
@@ -38663,6 +38962,26 @@ readonly bindings: readonly {
     }[];
 ```
 
+<a id="tui-tuicancellation"></a>
+### TuiCancellation
+
+type · beta · [source](../../src/tui/types.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+Cancel one effect or all work owned by a child lifetime, including descendants.
+
+```ts
+export type TuiCancellation = {
+    readonly kind: 'effect';
+    readonly id: string;
+} | {
+    readonly kind: 'child';
+    readonly id: string;
+    readonly generation: string | number;
+};
+```
+
 <a id="tui-tuichild"></a>
 ### TuiChild
 
@@ -38680,41 +38999,37 @@ export interface TuiChild<TState, TMessage, TParentMessage, TOutput = never> { �
 #### init
 
 ```ts
-init(identity: TuiChildIdentity, context: TuiContext): TuiChildResult<TuiChildState<TState>, TParentMessage, TOutput>;
+readonly init: (identity: TuiChildIdentity, context: TuiContext) => TuiChildResult<TuiChildState<TState>, TParentMessage, TOutput>;
 ```
 
 <a id="tui-tuichild-update"></a>
 #### update
 
 ```ts
-update(
-  child: TuiChildState<TState>,
-  message: TuiChildMessage<TMessage>,
-  context: TuiContext
-): TuiChildResult<TuiChildState<TState>, TParentMessage, TOutput>;
+readonly update: (child: TuiChildState<TState>, message: TuiChildMessage<TMessage>, context: TuiContext) => TuiChildResult<TuiChildState<TState>, TParentMessage, TOutput>;
 ```
 
 <a id="tui-tuichild-view"></a>
 #### view
 
 ```ts
-view(child: TuiChildState<TState>, context: TuiContext): Element<TParentMessage>;
+readonly view: (child: TuiChildState<TState>, context: TuiContext) => Element<TParentMessage>;
 ```
 
 <a id="tui-tuichild-subscriptions"></a>
 #### subscriptions
 
 ```ts
-subscriptions(child: TuiChildState<TState>, context: TuiContext): readonly TuiEventSource<TParentMessage>[];
+readonly subscriptions: (child: TuiChildState<TState>, context: TuiContext) => readonly TuiEventSource<TParentMessage>[];
 ```
 
 <a id="tui-tuichild-remove"></a>
 #### remove
 
-Return cancellation IDs and remove the child from parent state and subscriptions in the same update.
+Cancel this lifetime and remove its state and subscriptions in the same update.
 
 ```ts
-remove(child: TuiChildState<TState>): readonly string[];
+readonly remove: (child: TuiChildState<TState>) => TuiCancellation;
 ```
 
 <a id="tui-tuichild-elementid"></a>
@@ -38723,7 +39038,7 @@ remove(child: TuiChildState<TState>): readonly string[];
 Resolve a local element identity when the parent intentionally requests child focus.
 
 ```ts
-elementId(child: TuiChildIdentity, localId: string): string;
+readonly elementId: (child: TuiChildIdentity, localId: string) => string;
 ```
 
 <a id="tui-tuichilddefinition"></a>
@@ -38820,37 +39135,7 @@ Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/termi
 Domain outputs are returned to the parent, never implicitly dispatched or interpreted.
 
 ```ts
-export interface TuiChildResult<TState, TMessage, TOutput = never> { … }
-```
-
-<a id="tui-tuichildresult-state"></a>
-#### state
-
-```ts
-readonly state: TState;
-```
-
-<a id="tui-tuichildresult-effects"></a>
-#### effects
-
-```ts
-readonly effects?: readonly TuiEffect<TMessage>[];
-```
-
-<a id="tui-tuichildresult-canceleffects"></a>
-#### cancelEffects
-
-```ts
-readonly cancelEffects?: readonly string[];
-```
-
-<a id="tui-tuichildresult-focus"></a>
-#### focus
-
-```ts
-readonly focus?: Exclude<InitialFocusSelector, {
-        readonly kind: 'path';
-    }>;
+export interface TuiChildResult<TState, TMessage, TOutput = never> extends TuiUpdateContribution<TState, TMessage, Exclude<InitialFocusSelector, { … }
 ```
 
 <a id="tui-tuichildresult-outputs"></a>
@@ -38880,13 +39165,93 @@ export interface TuiChildState<TState> extends TuiChildIdentity { … }
 readonly state: TState;
 ```
 
-<a id="tui-tuichildstate-effectids"></a>
-#### effectIds
+<a id="tui-tuicommand"></a>
+### TuiCommand
 
-Scoped work identities owned by this lifetime, including queued work.
+interface · beta · [source](../../src/tui/commands.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+One application-owned command, projected through existing controls and bindings.
 
 ```ts
-readonly effectIds: readonly string[];
+export interface TuiCommand<TState, TMessage> { … }
+```
+
+<a id="tui-tuicommand-id"></a>
+#### id
+
+```ts
+readonly id: string;
+```
+
+<a id="tui-tuicommand-label"></a>
+#### label
+
+```ts
+readonly label: string;
+```
+
+<a id="tui-tuicommand-shortcuts"></a>
+#### shortcuts
+
+```ts
+readonly shortcuts?: readonly KeyboardBinding[];
+```
+
+<a id="tui-tuicommand-enabled"></a>
+#### enabled
+
+```ts
+readonly enabled?: (state: TState) => boolean;
+```
+
+<a id="tui-tuicommand-message"></a>
+#### message
+
+```ts
+readonly message: TMessage;
+```
+
+<a id="tui-tuicommands"></a>
+### TuiCommands
+
+interface · beta · [source](../../src/tui/commands.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+```ts
+export interface TuiCommands<TState, TMessage, TCommandMessage> { … }
+```
+
+<a id="tui-tuicommands-inputbindings"></a>
+#### inputBindings
+
+```ts
+readonly inputBindings: readonly TuiInputBinding<TState, TCommandMessage>[];
+```
+
+<a id="tui-tuicommands-menuitems"></a>
+#### menuItems
+
+```ts
+readonly menuItems: (state: TState) => readonly MenuActionItem[];
+```
+
+<a id="tui-tuicommands-pickerentries"></a>
+#### pickerEntries
+
+```ts
+readonly pickerEntries: (state: TState) => readonly SearchEntry[];
+```
+
+<a id="tui-tuicommands-resolve"></a>
+#### resolve
+
+Call from update with current state, including activations from older frames.
+
+```ts
+readonly resolve: (state: TState, id: string) => TMessage | undefined;
 ```
 
 <a id="tui-tuicontext"></a>
@@ -39392,6 +39757,156 @@ export interface TuiExitRequest { … }
 readonly reason?: string;
 ```
 
+<a id="tui-tuiform"></a>
+### TuiForm
+
+interface · beta · [source](../../src/tui/form.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+```ts
+export interface TuiForm<TValues extends object, TResult, TMessage> { … }
+```
+
+<a id="tui-tuiform-init"></a>
+#### init
+
+```ts
+readonly init: (values: TValues) => TuiFormState<TValues, TResult>;
+```
+
+<a id="tui-tuiform-dirty"></a>
+#### dirty
+
+```ts
+readonly dirty: (state: TuiFormState<TValues, TResult>) => boolean;
+```
+
+<a id="tui-tuiform-touch"></a>
+#### touch
+
+```ts
+readonly touch: (state: TuiFormState<TValues, TResult>, field: keyof TValues) => TuiChildResult<TuiFormState<TValues, TResult>, TMessage>;
+```
+
+<a id="tui-tuiform-change"></a>
+#### change
+
+```ts
+readonly change: (state: TuiFormState<TValues, TResult>, values: TValues) => TuiChildResult<TuiFormState<TValues, TResult>, TMessage>;
+```
+
+<a id="tui-tuiform-validate"></a>
+#### validate
+
+```ts
+readonly validate: (state: TuiFormState<TValues, TResult>) => TuiChildResult<TuiFormState<TValues, TResult>, TMessage>;
+```
+
+<a id="tui-tuiform-submit"></a>
+#### submit
+
+```ts
+readonly submit: (state: TuiFormState<TValues, TResult>) => TuiChildResult<TuiFormState<TValues, TResult>, TMessage>;
+```
+
+<a id="tui-tuiform-update"></a>
+#### update
+
+```ts
+readonly update: (state: TuiFormState<TValues, TResult>, message: TuiFormMessage<TValues, TResult>) => TuiChildResult<TuiFormState<TValues, TResult>, TMessage>;
+```
+
+<a id="tui-tuiformerrors"></a>
+### TuiFormErrors
+
+type · beta · [source](../../src/tui/form.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+```ts
+export type TuiFormErrors<TValues> = Readonly<Partial<Record<keyof TValues, string>>>;
+```
+
+<a id="tui-tuiformmessage"></a>
+### TuiFormMessage
+
+type · beta · [source](../../src/tui/form.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+```ts
+export type TuiFormMessage<TValues, TResult> = {
+    readonly kind: 'validation';
+    readonly completion: TuiPreparedQueryMessage<TuiFormErrors<TValues>>;
+} | {
+    readonly kind: 'submission';
+    readonly completion: TuiPreparedQueryMessage<TResult>;
+};
+```
+
+Related types: [`TuiFormErrors`](#tui-tuiformerrors), [`TuiPreparedQueryMessage`](#tui-tuipreparedquerymessage)
+
+<a id="tui-tuiformstate"></a>
+### TuiFormState
+
+interface · beta · [source](../../src/tui/form.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+```ts
+export interface TuiFormState<TValues, TResult> { … }
+```
+
+<a id="tui-tuiformstate-values"></a>
+#### values
+
+```ts
+readonly values: TValues;
+```
+
+<a id="tui-tuiformstate-baseline"></a>
+#### baseline
+
+```ts
+readonly baseline: TValues;
+```
+
+<a id="tui-tuiformstate-touched"></a>
+#### touched
+
+```ts
+readonly touched: Readonly<Partial<Record<keyof TValues, boolean>>>;
+```
+
+<a id="tui-tuiformstate-errors"></a>
+#### errors
+
+```ts
+readonly errors: TuiFormErrors<TValues>;
+```
+
+<a id="tui-tuiformstate-validation"></a>
+#### validation
+
+```ts
+readonly validation: TuiPreparedQueryState<TuiFormErrors<TValues>>;
+```
+
+<a id="tui-tuiformstate-submission"></a>
+#### submission
+
+```ts
+readonly submission: TuiPreparedQueryState<TResult>;
+```
+
+<a id="tui-tuiformstate-submitrequested"></a>
+#### submitRequested
+
+```ts
+readonly submitRequested: boolean;
+```
+
 <a id="tui-tuiinit"></a>
 ### TuiInit
 
@@ -39413,28 +39928,7 @@ interface · beta · [source](../../src/tui/types.ts)
 Import from: `@ismail-elkorchi/terminal-ui/tui` (type only)
 
 ```ts
-export interface TuiInitialResult<TState, TMessage> { … }
-```
-
-<a id="tui-tuiinitialresult-state"></a>
-#### state
-
-```ts
-readonly state: TState;
-```
-
-<a id="tui-tuiinitialresult-effects"></a>
-#### effects
-
-```ts
-readonly effects?: readonly TuiEffect<TMessage>[];
-```
-
-<a id="tui-tuiinitialresult-focus"></a>
-#### focus
-
-```ts
-readonly focus?: InitialFocusSelector;
+export interface TuiInitialResult<TState, TMessage> extends Omit<TuiUpdateContribution<TState, TMessage>, 'cancel'> { … }
 ```
 
 <a id="tui-tuiinitialresult-exit"></a>
@@ -39653,6 +40147,37 @@ Import from: `@ismail-elkorchi/terminal-ui/tui` (type only)
 
 ```ts
 export type TuiMessageSource = typeof tuiMessageSources[number];
+```
+
+<a id="tui-tuinavigationscreen"></a>
+### TuiNavigationScreen
+
+interface · beta · [source](../../src/tui/navigation.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+Retained screens keep their child lifetime and their application-selected restoration target.
+
+```ts
+export interface TuiNavigationScreen<TState> { … }
+```
+
+<a id="tui-tuinavigationscreen-child"></a>
+#### child
+
+```ts
+readonly child: TuiChildState<TState>;
+```
+
+<a id="tui-tuinavigationscreen-focus"></a>
+#### focus
+
+A parent-scope selector; resolve a child-local element with child.elementId(instance, localId).
+
+```ts
+readonly focus?: Exclude<InitialFocusSelector, {
+        readonly kind: 'path';
+    }>;
 ```
 
 <a id="tui-tuinonttymode"></a>
@@ -40546,6 +41071,47 @@ export type TuiUpdate<TState, TMessage> = (state: TState, message: TMessage, con
 
 Related types: [`TuiContext`](#tui-tuicontext), [`TuiUpdateResult`](#tui-tuiupdateresult)
 
+<a id="tui-tuiupdatecontribution"></a>
+### TuiUpdateContribution
+
+interface · beta · [source](../../src/tui/types.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+The contribution shared by application, child and prepared-query updates.
+
+```ts
+export interface TuiUpdateContribution<TState, TMessage, TFocus extends InitialFocusSelector = InitialFocusSelector> { … }
+```
+
+<a id="tui-tuiupdatecontribution-state"></a>
+#### state
+
+```ts
+readonly state: TState;
+```
+
+<a id="tui-tuiupdatecontribution-cancel"></a>
+#### cancel
+
+```ts
+readonly cancel?: readonly TuiCancellation[];
+```
+
+<a id="tui-tuiupdatecontribution-effects"></a>
+#### effects
+
+```ts
+readonly effects?: readonly TuiEffect<TMessage>[];
+```
+
+<a id="tui-tuiupdatecontribution-focus"></a>
+#### focus
+
+```ts
+readonly focus?: TFocus;
+```
+
 <a id="tui-tuiupdateresult"></a>
 ### TuiUpdateResult
 
@@ -40554,35 +41120,7 @@ interface · beta · [source](../../src/tui/types.ts)
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
 
 ```ts
-export interface TuiUpdateResult<TState, TMessage> { … }
-```
-
-<a id="tui-tuiupdateresult-state"></a>
-#### state
-
-```ts
-readonly state: TState;
-```
-
-<a id="tui-tuiupdateresult-canceleffects"></a>
-#### cancelEffects
-
-```ts
-readonly cancelEffects?: readonly string[];
-```
-
-<a id="tui-tuiupdateresult-effects"></a>
-#### effects
-
-```ts
-readonly effects?: readonly TuiEffect<TMessage>[];
-```
-
-<a id="tui-tuiupdateresult-focus"></a>
-#### focus
-
-```ts
-readonly focus?: InitialFocusSelector;
+export interface TuiUpdateResult<TState, TMessage> extends TuiUpdateContribution<TState, TMessage> { … }
 ```
 
 <a id="tui-tuiupdateresult-exit"></a>
@@ -40709,6 +41247,28 @@ export declare function createTuiChild<
 
 Related types: [`TuiChild`](#tui-tuichild), [`TuiChildDefinition`](#tui-tuichilddefinition), [`TuiChildMessage`](#tui-tuichildmessage)
 
+<a id="tui-createtuicommands"></a>
+### createTuiCommands
+
+function · beta · [source](../../src/tui/commands.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/tui`
+
+Static command definitions; no registration, dispatch or second event lifecycle.
+
+```ts
+export declare function createTuiCommands<
+  TState,
+  TMessage,
+  TCommandMessage
+>(
+  commands: readonly TuiCommand<TState, TMessage>[],
+  toMessage: (id: string) => TCommandMessage
+): TuiCommands<TState, TMessage, TCommandMessage>;
+```
+
+Related types: [`TuiCommand`](#tui-tuicommand), [`TuiCommands`](#tui-tuicommands)
+
 <a id="tui-createtuicontrols"></a>
 ### createTuiControls
 
@@ -40725,6 +41285,33 @@ export declare function createTuiControls<
 ```
 
 Related types: [`TuiControlReducers`](#tui-tuicontrolreducers), [`TuiControls`](#tui-tuicontrols)
+
+<a id="tui-createtuiform"></a>
+### createTuiForm
+
+function · beta · [source](../../src/tui/form.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/tui`
+
+Values are immutable application-owned snapshots. Validation rules and submission stay application code.
+
+```ts
+export declare function createTuiForm<
+  TValues extends object,
+  TResult,
+  TMessage
+>(
+  options: {
+    readonly id: string;
+    readonly validate: (values: TValues) => TuiFormErrors<TValues>;
+    readonly validateAsync?: (values: TValues, context: TuiEffectContext) => Promise<TuiFormErrors<TValues>>;
+    readonly submit: (values: TValues, context: TuiEffectContext) => Promise<TResult>;
+    readonly toMessage: (message: TuiFormMessage<TValues, TResult>) => TMessage;
+}
+): TuiForm<TValues, TResult, TMessage>;
+```
+
+Related types: [`TuiEffectContext`](#tui-tuieffectcontext), [`TuiForm`](#tui-tuiform), [`TuiFormErrors`](#tui-tuiformerrors), [`TuiFormMessage`](#tui-tuiformmessage)
 
 <a id="tui-createtuipreparedquery"></a>
 ### createTuiPreparedQuery
@@ -40851,6 +41438,33 @@ export declare function intervalSource<
 
 Related types: [`TuiEventSource`](#tui-tuieventsource)
 
+<a id="tui-lifttuiresult"></a>
+### liftTuiResult
+
+function · beta · [source](../../src/tui/result.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/tui`
+
+Lift one controlled field without dropping effects, cancellation, focus or domain outputs.
+
+```ts
+export declare function liftTuiResult<
+  TParent,
+  TKey extends keyof TParent,
+  TResult extends {
+    readonly state: TParent[TKey];
+}
+>(
+  parent: TParent,
+  field: TKey,
+  result: TResult
+): Omit<TResult, 'state'> & {
+    readonly state: TParent;
+};
+```
+
+Related types: [`field`](#components-forms-field)
+
 <a id="tui-nextanimationdeadline"></a>
 ### nextAnimationDeadline
 
@@ -40945,3 +41559,27 @@ export declare function tuiBindingHelp<TState, TMessage>(app: TuiApp<TState, TMe
 ```
 
 Related types: [`TuiApp`](#tui-tuiapp), [`TuiBindingHelpItem`](#tui-tuibindinghelpitem)
+
+<a id="tui-updatetuinavigation"></a>
+### updateTuiNavigation
+
+function · beta · [source](../../src/tui/navigation.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/tui`
+
+Adapt the existing stack reducer to child ownership; hidden entries remain mounted.
+
+```ts
+export declare function updateTuiNavigation<
+  TState,
+  TMessage,
+  TOutput = never
+>(
+  stack: NavigationStack<TuiNavigationScreen<TState>>,
+  transition: NavigationStackTransition<TuiNavigationScreen<TState>>,
+  remove: (child: TuiChildState<TState>) => TuiCancellation,
+  outputs?: readonly TOutput[]
+): TuiChildResult<NavigationStack<TuiNavigationScreen<TState>>, TMessage, TOutput>;
+```
+
+Related types: [`NavigationStack`](#behavior-navigationstack), [`NavigationStackTransition`](#behavior-navigationstacktransition), [`TuiCancellation`](#tui-tuicancellation), [`TuiChildResult`](#tui-tuichildresult), [`TuiChildState`](#tui-tuichildstate), [`TuiNavigationScreen`](#tui-tuinavigationscreen)

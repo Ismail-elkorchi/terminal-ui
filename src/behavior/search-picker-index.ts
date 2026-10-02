@@ -9,11 +9,12 @@ import type {
   QueryMatch,
 } from '../text/query.ts';
 import {
-  compileCollectionQuery,
-  indexQueryCandidate,
+  compileCollectionQueryWork,
+  sameCollectionQueryRequest,
+  indexQueryCandidateWork,
   queryIndexedCandidatesWork,
 } from '../text/query.ts';
-import { sanitizeTerminalText } from '../text/sanitize.ts';
+import { sanitizeTerminalTextWork } from '../text/sanitize.ts';
 
 const searchPickerIndexBrand: unique symbol = Symbol('terminal-ui.search-picker-index');
 const queryCacheLimit = 8;
@@ -66,7 +67,7 @@ export function createSearchPickerIndex<TSource, TValue>(
     const byMapper = mappedSourceIndexes.get(source);
     const cached = byMapper?.get(toEntry) as SearchPickerIndex<TValue> | undefined;
     if (cached !== undefined) return cached;
-    const index = buildSearchPickerIndex(source.map(toEntry));
+    const index = finishWork(buildSearchPickerIndexWork(source.map(toEntry)));
     const cache = byMapper ?? new WeakMap<object, SearchPickerIndex<unknown>>();
     cache.set(toEntry, index);
     if (byMapper === undefined) mappedSourceIndexes.set(source, cache);
@@ -75,54 +76,67 @@ export function createSearchPickerIndex<TSource, TValue>(
   const entries = source as readonly SearchEntry<TValue>[];
   const cached = sourceIndexes.get(entries) as SearchPickerIndex<TValue> | undefined;
   if (cached !== undefined) return cached;
-  const index = buildSearchPickerIndex(entries);
+  const index = finishWork(buildSearchPickerIndexWork(entries));
   sourceIndexes.set(entries, index);
   return index;
 }
 
-function buildSearchPickerIndex<TValue>(
+/**
+ * Adopt raw entry descriptors before yielding. The descriptor/keyword copy is indivisible;
+ * strings are immutable and values retain their caller-owned domain identity.
+ */
+function adoptEntries<TValue>(entries: readonly SearchEntry<TValue>[]): readonly SearchEntry<TValue>[] {
+  return entries.map(entry => Object.freeze({ ...entry,
+    ...(entry.keywords === undefined ? {} : { keywords: Object.freeze([...entry.keywords]) }),
+  }));
+}
+
+/** Build an owned index cooperatively. Mapper callbacks and input adoption cannot be preempted. */
+export function prepareSearchPickerIndex<TValue>(
+  entries: readonly SearchEntry<TValue>[], context: CooperativeWorkContext,
+): Promise<SearchPickerIndex<TValue>> {
+  context.signal.throwIfAborted();
+  if (!Array.isArray(entries)) throw new TypeError('Search picker index source must be an array.');
+  const owned = adoptEntries<TValue>(entries);
+  return prepareWork(buildSearchPickerIndexWork(owned), context);
+}
+
+function* buildSearchPickerIndexWork<TValue>(
   entries: readonly SearchEntry<TValue>[],
-): SearchPickerIndex<TValue> {
+): Generator<void, SearchPickerIndex<TValue>> {
   const seen = new Set<string>();
-  const normalized = Object.freeze(entries.map((entry): SearchEntry<TValue> => {
-    const id = clean(entry.id);
+  const normalized: SearchEntry<TValue>[] = [];
+  const candidates: IndexedQueryCandidate[] = [];
+  const entriesById = new Map<string, SearchEntry<TValue>>();
+  for (const entry of entries) {
+    const id = yield* cleanWork(entry.id);
     if (id.length === 0) throw new TypeError('Search picker entry ids must not be empty.');
     if (seen.has(id)) throw new TypeError(`Search picker entry ids must be unique; duplicate id: ${id}`);
     seen.add(id);
-    return Object.freeze({
-      id,
-      label: clean(entry.label),
-      value: entry.value,
-      ...(entry.description === undefined ? {} : { description: clean(entry.description) }),
+    const keywords: string[] = [];
+    for (const keyword of entry.keywords ?? []) keywords.push(yield* cleanWork(keyword));
+    const value = Object.freeze({
+      id, label: yield* cleanWork(entry.label), value: entry.value,
+      ...(entry.description === undefined ? {} : { description: yield* cleanWork(entry.description) }),
       ...(entry.disabled === true ? { disabled: true } : {}),
-      ...(entry.group === undefined ? {} : { group: clean(entry.group) }),
-      ...(entry.preview === undefined ? {} : { preview: clean(entry.preview) }),
-      ...(entry.keywords === undefined ? {} : { keywords: Object.freeze(entry.keywords.map(clean)) })
+      ...(entry.group === undefined ? {} : { group: yield* cleanWork(entry.group) }),
+      ...(entry.preview === undefined ? {} : { preview: yield* cleanWork(entry.preview) }),
+      ...(entry.keywords === undefined ? {} : { keywords: Object.freeze(keywords) }),
     });
-  }));
+    normalized.push(value);
+    entriesById.set(id, value);
+    const secondary = [id, ...(value.description === undefined ? [] : [value.description]), ...keywords];
+    candidates.push(yield* indexQueryCandidateWork({ id, primary: value.label, secondary,
+      ...(value.group === undefined ? {} : { group: value.group }),
+    }));
+    if (normalized.length % 256 === 0) yield;
+  }
   const index = Object.freeze<SearchPickerIndex<TValue>>({
-    [searchPickerIndexBrand]: undefined as TValue,
-    kind: 'search-picker-index',
-    size: normalized.length
+    [searchPickerIndexBrand]: undefined as TValue, kind: 'search-picker-index', size: normalized.length,
   });
-  const candidates = Object.freeze(normalized.map((entry) => indexQueryCandidate({
-    id: entry.id,
-    primary: entry.label,
-    secondary: Object.freeze([
-      entry.id,
-      entry.description,
-      ...(entry.keywords ?? []),
-    ].filter((value): value is string => value !== undefined)),
-    ...(entry.group === undefined ? {} : { group: entry.group }),
-  })));
-  const entriesById = new Map(normalized.map((entry) => [entry.id, entry] as const));
   indexData.set(index, {
-    entries: normalized,
-    entriesById,
-    candidates,
-    queryResults: new Map(),
-    queryEvaluations: 0,
-    candidateEvaluations: 0
+    entries: Object.freeze(normalized), entriesById, candidates: Object.freeze(candidates),
+    queryResults: new Map(), queryEvaluations: 0, candidateEvaluations: 0,
   });
   return index;
 }
@@ -158,12 +172,12 @@ export function matchingSearchPickerQuery<TValue>(
 ): SearchPickerQueryResult<TValue> | undefined {
   if (result === null) return undefined;
   if (!queryResultIdentities.has(result)) throw new TypeError('Search picker query results must be prepared by terminal-ui.');
-  const compiled = compileCollectionQuery(query);
   return result.searchPickerIndex === index
-    && result.query.text === compiled.text && result.query.mode === compiled.mode
-    && result.query.caseSensitive === compiled.caseSensitive ? result : undefined;
+    && (sameCollectionQueryRequest(query, queryRequests.get(result))
+      || sameCollectionQueryRequest(query, result.query)) ? result : undefined;
 }
 
+const queryRequests = new WeakMap<object, CollectionQuery>();
 const queryResultIdentities = new WeakSet<object>();
 const queryPositions = new WeakMap<object, ReadonlyMap<string, number>>();
 
@@ -175,8 +189,9 @@ function* searchPickerQueryWork<TValue>(
   index: SearchPickerIndex<TValue>, query: CollectionQuery,
 ): Generator<void, SearchPickerQueryResult<TValue>> {
   const data = dataFor(index);
-  const normalizedQuery = compileCollectionQuery(query);
-  const cacheKey = `${normalizedQuery.mode}:${normalizedQuery.caseSensitive ? '1' : '0'}:${normalizedQuery.text}`;
+  const request = Object.freeze({ ...query });
+  const normalizedQuery = yield* compileCollectionQueryWork(request);
+  const cacheKey = `${normalizedQuery.mode}:${normalizedQuery.caseSensitive ? '1' : '0'}:${request.text}`;
   const cached = data.queryResults.get(cacheKey);
   if (cached !== undefined) {
     data.queryResults.delete(cacheKey);
@@ -208,6 +223,7 @@ function* searchPickerQueryWork<TValue>(
     matches,
     interactionIndex,
   });
+  queryRequests.set(result, request);
   queryResultIdentities.add(result);
   queryPositions.set(result, positions);
   data.queryResults.set(cacheKey, result);
@@ -250,6 +266,29 @@ function dataFor<TValue>(index: SearchPickerIndex<TValue>): SearchPickerIndexDat
   return data;
 }
 
-function clean(value: string): string {
-  return sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ');
+function* cleanWork(value: string): Generator<void, string> {
+  const sanitized = yield* sanitizeTerminalTextWork(value);
+  const text = sanitized.text;
+  const parts: string[] = [];
+  let retainedStart = 0;
+  let whitespaceStart = -1;
+  let newline = false;
+  for (let offset = 0; offset <= text.length; offset += 1) {
+    const character = text[offset];
+    if (character !== undefined && /\s/u.test(character)) {
+      if (whitespaceStart < 0) whitespaceStart = offset;
+      if (character === '\n') newline = true;
+    } else if (whitespaceStart >= 0) {
+      if (newline) {
+        parts.push(text.slice(retainedStart, whitespaceStart), ' ');
+        retainedStart = offset;
+      }
+      whitespaceStart = -1;
+      newline = false;
+    }
+    if ((offset + 1) % 2048 === 0) yield;
+  }
+  if (parts.length === 0) return text;
+  parts.push(text.slice(retainedStart));
+  return parts.join('');
 }
