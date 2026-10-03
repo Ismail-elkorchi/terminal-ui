@@ -7,14 +7,22 @@ receipts; they do not construct a source, flatten one or complete missing work.
 
 ## Reader costs
 
-The common internal order implementation uses a path-shared AVL sequence and
-hashed identity index. It provides item count, ID lookup, rank, selection by rank,
+Editable sources use a path-shared AVL sequence and hashed identity index. It provides item count, ID lookup, rank, selection by rank,
 enabled rank/selection and bounded in-order windows. A localized append, replace
 or removal visits the changed IDs and logarithmic paths, not every retained item.
 Initial construction uses a preparation-owned bulk builder that seals this same
 representation, rather than replaying persistent path copies for every item.
 Old receipts remain usable. Disabled items retain their visible rank while
 keyboard navigation uses the independently aggregated enabled count.
+
+Read-only picker/listbox results, visible tree rows and standalone interaction
+orders use compact immutable projections: one ranked reference vector, identity
+lookup and enabled-navigation metadata only when needed. They share the owned
+reader contract without acquiring persistent update capability. Matched source
+references travel through the same stable sort as their match records, so result
+construction does not recover every item by rehashing its ID. Empty queries still
+share their source order. Reader storage accounting estimates logical retained
+metadata, excludes shared payloads, and is not an exact JavaScript heap limit.
 
 Measured collections adapt the same sequence with row-height sums. Their row
 windows, accepted measurements and anchors retain weighted behavior. Ordinary

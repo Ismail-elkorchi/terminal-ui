@@ -33,3 +33,19 @@ test('cooperative work observes pre-abort and closes an interrupted generator', 
   }), /interrupted/u);
   assert.equal(closed, true);
 });
+
+test('aligned stable sorting preserves companion identity, ties and plain work charges', async () => {
+  const { stableSortAlignedWork } = await import('../../../dist/foundation/cooperative-work.js');
+  function drain(work) {
+    const charges = [];
+    let step = work.next();
+    while (!step.done) { charges.push(step.value); step = work.next(); }
+    return { result: step.value, charges };
+  }
+  assert.deepEqual(drain(stableSortWork([3, 1, 2], (left, right) => left - right)), { result: [1, 2, 3], charges: [6, 9] });
+  const owners = [{ id: 'first' }, { id: 'second' }, { id: 'third' }, { id: 'fourth' }];
+  const sorted = drain(stableSortAlignedWork([3, 1, 3, 2], [...owners], (left, right) => left - right));
+  assert.deepEqual(sorted.result.values, [1, 2, 3, 3]);
+  assert.deepEqual(sorted.result.companions, [owners[1], owners[3], owners[0], owners[2]]);
+  assert.throws(() => finishWork(stableSortAlignedWork([1], [], (left, right) => left - right)), /equal lengths/u);
+});

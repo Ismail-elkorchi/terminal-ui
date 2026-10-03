@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { finishWork, prepareWork } from '../foundation/cooperative-work.ts';
-import { createPersistentSequence, createPersistentSequenceWork, readPersistentSequence, type PersistentSequence, type PersistentSequenceItem } from '../foundation/persistent-sequence.ts';
+import { createPersistentSequence, createPersistentSequenceWork, createPersistentSequenceCursor, appendSequenceItems, prependSequenceItems, replaceSequenceValue, removeSequenceItems, readPersistentSequence, type PersistentSequence, type PersistentSequenceItem } from '../foundation/persistent-sequence.ts';
 import { createOrderedSource, appendOrderedItems, replaceOrderedItemWork, removeOrderedItemsWork } from '../foundation/ordered-source.ts';
 import { createMeasuredCollection, appendMeasuredItems, prependMeasuredItems, replaceMeasuredItem, removeMeasuredItems, readMeasuredCollection } from './measured-collection.ts';
 import { measuredAnchorAt, measuredWindow } from './measured-window-operations.ts';
@@ -205,4 +205,90 @@ void test('bulk sequence construction remains cancellable during AVL and HAMT as
     if (phase === 'sequence') { assert.ok(sequenceNodes >= 128 && sequenceNodes < 4096); assert.equal(idNodes, 0); }
     else { assert.equal(sequenceNodes, 4096); assert.ok(idNodes >= 128 && idNodes < 4096); }
   }
+});
+
+
+void test('compact singleton identities split and collapse collision leaves without changing retained versions', () => {
+  // These distinct IDs have the same full 32-bit FNV-1a hash.
+  const first = { id: 'costarring', value: 1, extent: 3, enabled: false };
+  const second = { id: 'liquid', value: 2, extent: 5, enabled: true };
+  const singleton = createPersistentSequence([first]);
+  const collision = appendSequenceItems(singleton, [second]);
+  const bulk = createPersistentSequence([first, second]);
+  for (const sequence of [collision, bulk]) {
+    const reader = readPersistentSequence(sequence);
+    assert.equal(reader.positionById('liquid')?.startExtent, 3);
+    assert.equal(reader.enabledRank('liquid'), 0);
+    assert.equal(reader.enabledRank('costarring'), undefined);
+    assert.equal(reader.itemById('missing'), undefined);
+    assert.throws(() => appendSequenceItems(sequence, [second]), /unique/u);
+    const changed = replaceSequenceValue(sequence, { ...second, extent: 7, value: 9 });
+    const collapsed = removeSequenceItems(changed, ['costarring']);
+    const restored = prependSequenceItems(collapsed, [first]);
+    assert.equal(readPersistentSequence(collapsed).itemById('costarring'), undefined);
+    assert.equal(readPersistentSequence(collapsed).positionById('liquid')?.startExtent, 0);
+    assert.equal(readPersistentSequence(restored).positionById('liquid')?.startExtent, 3);
+    assert.equal(readPersistentSequence(sequence).itemById('liquid')?.value, 2);
+    assert.equal(removeSequenceItems(collapsed, ['missing']), collapsed);
+    assert.equal(removeSequenceItems(collapsed, ['liquid']).itemCount, 0);
+  }
+  assert.equal(readPersistentSequence(singleton).itemById('liquid'), undefined);
+  assert.equal(singleton.totalExtent, 3);
+});
+
+void test('sequence snapshots caller item fields and keeps unaffected item identities through rotations', () => {
+  const supplied = { id: 'initial', value: { payload: 1 }, extent: 2, enabled: false };
+  const original = createPersistentSequence([supplied]);
+  const item = readPersistentSequence(original).itemAt(0);
+  assert.ok(item);
+  supplied.id = 'mutated'; supplied.extent = 100; supplied.enabled = true;
+  const changed = appendSequenceItems(prependSequenceItems(original, [{ id: 'before', value: supplied.value, extent: 3 }]),
+    Array.from({ length: 64 }, (_, index) => ({ id: String(index), value: supplied.value, extent: 1 })));
+  assert.equal(readPersistentSequence(changed).itemById('initial'), item);
+  assert.deepEqual(item, { id: 'initial', value: supplied.value, extent: 2, enabled: false });
+  assert.ok(Object.isFrozen(item));
+  assert.equal(original.totalExtent, 2);
+  assert.equal(original.enabledCount, 0);
+});
+
+
+void test('direct sequence cursors are independent, seek late windows, and release cancelled traversal', () => {
+  const original = createPersistentSequence(Array.from({ length: 1024 }, (_, value) => ({ id: String(value), value, extent: 1 })));
+  const first = createPersistentSequenceCursor(original, 1000, 1004);
+  const second = createPersistentSequenceCursor(original, 1001, 1003);
+  const reader = readPersistentSequence(original);
+  assert.equal(first.next(), reader.itemAt(1000));
+  assert.equal(second.next(), reader.itemAt(1001));
+  const edited = removeSequenceItems(original, ['1001']);
+  assert.equal(first.next(), reader.itemAt(1001));
+  first.close();
+  assert.equal(first.next(), undefined);
+  first.close();
+  assert.equal(second.next(), reader.itemAt(1002));
+  assert.equal(second.next(), undefined);
+  assert.equal(second.next(), undefined);
+  assert.equal(createPersistentSequenceCursor(edited, 1001, 1002).next()?.id, '1002');
+  for (const [start, end] of [[3, 3], [8, 2], [NaN, 3], [1, NaN], [1024, 1025]] as const) {
+    assert.equal(createPersistentSequenceCursor(original, start, end).next(), undefined);
+  }
+});
+
+
+void test('bulk HAMT terminals reuse identity records without singleton leaf arrays', () => {
+  const originalFreeze = Object.freeze;
+  let identities = 0;
+  let singletonLeaves = 0;
+  Object.freeze = ((value: unknown) => {
+    if (value !== null && typeof value === 'object' && 'kind' in value) {
+      if (value.kind === 'entry') identities++;
+      if (value.kind === 'leaf' && 'entries' in value && Array.isArray(value.entries) && value.entries.length === 1) singletonLeaves++;
+    }
+    return originalFreeze(value);
+  });
+  try {
+    const sequence = createPersistentSequence(Array.from({ length: 1024 }, (_, value) => ({ id: String(value), value, extent: 1 })));
+    assert.equal(sequence.itemCount, 1024);
+  } finally { Object.freeze = originalFreeze; }
+  assert.equal(identities, 1024);
+  assert.equal(singletonLeaves, 0);
 });

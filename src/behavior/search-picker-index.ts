@@ -1,3 +1,5 @@
+import { createCollectionOrderScan } from '../foundation/order-reader.ts';
+import { createCompactOrderWork } from '../foundation/compact-order.ts';
 import { snapshotArray } from '../foundation/array-snapshot.ts';
 import { orderedItemByIdWork, createOrderedSourceWork, appendOrderedItemsWork, replaceOrderedItemWork, removeOrderedItemsWork, type OrderedSource } from '../foundation/ordered-source.ts';
 import { finishWork, prepareWork, type CooperativeWorkContext } from '../foundation/cooperative-work.ts';
@@ -15,9 +17,9 @@ import {
   ownCollectionQueryRequest,
   indexQueryFieldsWork,
   collectionQueryStorageBytes,
-  queryIndexedCandidatesWork,
+  queryIndexedOwnedScanWork,
 } from '../text/query.ts';
-import { sanitizeTerminalTextWork } from '../text/sanitize.ts';
+import { cleanSearchFieldWork as cleanWork } from '../text/clean-search-field.ts';
 
 const searchPickerIndexBrand: unique symbol = Symbol('terminal-ui.search-picker-index');
 const queryCacheLimit = 8;
@@ -338,20 +340,23 @@ function* searchPickerQueryWork<TValue>(
   data.queryEvaluations += 1;
   data.candidateEvaluations += normalizedQuery.text.length === 0 ? 0 : data.order.count;
   const empty = normalizedQuery.text.length === 0;
-  const matches = empty ? emptyMatches : yield* queryIndexedCandidatesWork(data.order.values(), normalizedQuery);
+  const ranked = empty ? undefined : yield* queryIndexedOwnedScanWork(() => createCollectionOrderScan(data.order), normalizedQuery);
+  const matches = ranked?.matches ?? emptyMatches;
   let order = data.order;
   let interactionIndex = data.interactionIndex;
   let storageBytes = cacheKey.length * 2 + request.text.length * 2 + collectionQueryStorageBytes(normalizedQuery) + 128;
   if (!empty) {
     function* rankedItems() {
-      for (const match of matches) {
-        const entry = yield* orderedItemByIdWork(data.order, match.id);
-        if (entry !== undefined) yield { id: entry.id, value: entry, disabled: entry.disabled === true };
+      let rank = 0;
+      for (const entry of ranked?.owners ?? []) {
+        const match = matches[rank++];
+        if (match === undefined) throw new Error('Ranked picker match is missing its owned entry.');
+        yield { id: entry.id, value: entry, disabled: entry.disabled === true };
         storageBytes += 48 + match.ranges.length * 48;
         yield 1;
       }
     }
-    order = yield* createOrderedSourceWork(rankedItems());
+    order = yield* createCompactOrderWork(rankedItems());
     interactionIndex = createCollectionInteractionIndexFromSource(order);
     storageBytes += collectionInteractionIndexStorageBytes(interactionIndex);
   }
@@ -416,36 +421,6 @@ function dataFor<TValue>(index: SearchPickerIndex<TValue>): SearchPickerIndexDat
   const data = indexData.get(index) as SearchPickerIndexData<TValue> | undefined;
   if (data === undefined) throw new TypeError('Search picker indexes must be created with createSearchPickerIndex().');
   return data;
-}
-
-const whitespaceCharacter = /\s/u;
-
-function* cleanWork(value: string): Generator<number, string> {
-  const sanitized = yield* sanitizeTerminalTextWork(value);
-  const text = sanitized.text;
-  const parts: string[] = [];
-  let retainedStart = 0;
-  let whitespaceStart = -1;
-  let newline = false;
-  for (let offset = 0; offset <= text.length; offset += 1) {
-    const character = text[offset];
-    if (character !== undefined && whitespaceCharacter.test(character)) {
-      if (whitespaceStart < 0) whitespaceStart = offset;
-      if (character === '\n') newline = true;
-    } else if (whitespaceStart >= 0) {
-      if (newline) {
-        parts.push(text.slice(retainedStart, whitespaceStart), ' ');
-        retainedStart = offset;
-      }
-      whitespaceStart = -1;
-      newline = false;
-    }
-    if ((offset + 1) % 256 === 0) yield 256;
-  }
-  yield (text.length + 1) % 256;
-  if (parts.length === 0) return text;
-  parts.push(text.slice(retainedStart));
-  return parts.join('');
 }
 
 /** Explicit O(result count) materialization for exports and deliberate eager consumers. */

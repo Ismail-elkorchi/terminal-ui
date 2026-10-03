@@ -1,7 +1,9 @@
-import { orderedItemByIdWork, createOrderedSourceWork, type OrderedSource } from '../foundation/ordered-source.ts';
+import { createCollectionOrderScan } from '../foundation/order-reader.ts';
+import { createCompactOrderWork } from '../foundation/compact-order.ts';
+import type { OrderedSource } from '../foundation/ordered-source.ts';
 import { createCollectionInteractionIndexFromSource } from '../interaction/collection-interaction.ts';
 import { finishWork, prepareWork, type CooperativeWorkContext } from '../foundation/cooperative-work.ts';
-import { compileCollectionQueryWork, queryIndexedCandidatesWork, matchCompiledCollectionQueryFieldWork, sameCollectionQueryRequest, ownCollectionQueryRequest, type CollectionQuery, type QueryMatchRange } from '../text/query.ts';
+import { compileCollectionQueryWork, queryIndexedOwnedScanWork, matchCompiledCollectionQueryFieldWork, sameCollectionQueryRequest, ownCollectionQueryRequest, type CollectionQuery, type QueryMatchRange } from '../text/query.ts';
 import { readListboxSource, type ListboxSourceValue } from './listbox-source.ts';
 import type { ListboxCollection, ListboxView, ListboxViewEntry } from './listbox.ts';
 
@@ -35,20 +37,22 @@ function* viewWork<T>(collection: ListboxCollection<T>, requested?: CollectionQu
   let order = source;
   const highlights = new Map<string, readonly QueryMatchRange[]>();
   if (collection.kind !== 'window' && query.text.length > 0) {
-    const matches = yield* queryIndexedCandidatesWork(source.values(), query);
+    const ranked = yield* queryIndexedOwnedScanWork(() => createCollectionOrderScan(source), query);
     function* rankedItems() {
-      for (const match of matches) {
-        const item = yield* orderedItemByIdWork(source, match.id);
-        if (item === undefined) continue;
+      for (const item of ranked.owners) {
         const primary = yield* matchCompiledCollectionQueryFieldWork(item, query, 0);
         if (primary !== undefined) highlights.set(item.id, primary.ranges);
         yield { id: item.id, value: item, disabled: item.option.disabled };
         yield 1;
       }
     }
-    order = yield* createOrderedSourceWork(rankedItems());
+    order = yield* createCompactOrderWork(rankedItems());
   }
 
+  // Another preparation may have published while matching or indexing yielded.
+  const admittedCache = cache.get(collection) ?? byQuery;
+  const admitted = admittedCache.get(key) as ListboxView<T> | undefined;
+  if (admitted !== undefined) return admitted;
   const entryAt = (rank: number): ListboxViewEntry<T> | undefined => {
     const item = order.itemAt(rank);
     if (item === undefined) return undefined;
@@ -66,14 +70,14 @@ function* viewWork<T>(collection: ListboxCollection<T>, requested?: CollectionQu
     totalCount: collection.kind === 'window' ? collection.totalCount : order.count,
   });
   views.set(view, { order, request });
-  byQuery.set(key, view);
+  admittedCache.set(key, view);
   let count = 0;
-  for (const retained of byQuery.values()) count += retained.query.text.length === 0 ? 0 : retained.count;
-  while (byQuery.size > 1 && (byQuery.size > 8 || count > 8192)) {
-    const oldest = byQuery.entries().next().value;
+  for (const retained of admittedCache.values()) count += retained.query.text.length === 0 ? 0 : retained.count;
+  while (admittedCache.size > 1 && (admittedCache.size > 8 || count > 8192)) {
+    const oldest = admittedCache.entries().next().value;
     if (oldest === undefined) break;
-    byQuery.delete(oldest[0]); count -= oldest[1].query.text.length === 0 ? 0 : oldest[1].count;
+    admittedCache.delete(oldest[0]); count -= oldest[1].query.text.length === 0 ? 0 : oldest[1].count;
   }
-  cache.set(collection, byQuery);
+  cache.set(collection, admittedCache);
   return view;
 }

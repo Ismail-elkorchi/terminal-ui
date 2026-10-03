@@ -18,6 +18,143 @@ Queue arrays and table collections are retained rather than rebuilt on every
 keystroke. Search descriptors are adopted in bounded batches; the index is constructed cooperatively
 when the picker opens and retained in its child state after acceptance.
 
+## Compact projections and owned scans (2026-10-03)
+
+This section qualifies the performance changes after `819b1e618dae04891a59ab15e3317ddd5f0237b7`.
+Earlier sections below are historical. The candidate is the implementation
+committed with this report.
+
+Read-only picker/listbox/tree projections no longer construct update-capable
+AVL/HAMT sources. Matching carries immutable owner references through the same
+stable merge kernel, avoiding a second ID lookup for every result. Editable
+sources retain persistent versions with compact singleton identity nodes, shared
+order values and fewer temporary buckets. Private scans reuse one iterator
+result per query; public iterables use native iteration semantics. Field indexes
+have one canonical admission path. Bounded ASCII cleaning and normalization
+reuse that path. Frame-source normalization avoids intermediate field objects;
+opt-in region timings distinguish painting, snapshots and interaction targets.
+
+An experimental fused field-admission path was removed after isolated matching
+regressed. Neither forcing GC nor shared allocation factories justified retaining
+it. The final pipeline retains the cold improvement without a second admission
+implementation. An earlier hand-written iterable adapter was also removed in
+favor of native iteration. These exploratory versions are not the candidate
+measured here.
+
+### Method and correctness
+
+Node 24.19.0, Linux, the same shared cloud host and 100,000-incident application,
+120×40 memory terminal with the native Node clock. Three independent processes
+per revision for normal output and three for an injected 5 ms/write delay.
+Revision order was baseline/candidate, candidate/baseline, baseline/candidate.
+Each process had two warmups, 40 unique selective queries, 40 superseding queries,
+40 Escape trials and 440 individual character events. The tables pool the three
+runs (120 query/Escape and 1,320 character samples); samples within a process are
+not independent observations. No samples or outliers were discarded.
+
+Cold-only measurements used three additional fresh processes per revision.
+Broad queries used a separate process per revision, 20 samples per case after
+two warmups, rotating case order and varying whitespace-equivalent request keys.
+Source-only checks also covered 1k, 10k and 100k entries, with exact matches,
+ranks/ranges and cache misses asserted. Inspector allocation runs used a separate
+20-sample workload; post-GC retained heap is not cumulative allocation. Observer
+frame/output history and inspector sample graphs were not retained in that heap.
+No profiler, forced GC or GC tuning was used for latency measurements.
+
+The suite passed 2,084 unit tests with 93.17% line, 85.36% branch and 93.67%
+function coverage, plus architecture, declarations, lint, type/example checks,
+acceptance, conformance, integration, package, invariant, security, mutation,
+packed Node/Deno/Bun, runtime/JSR and 46 performance-contract tests. A real Unix
+PTY run verified startup, palette, `INC-042123`, Enter acceptance through the
+Activity message, and normal exit. These are not physical presentation or
+screen-reader speech measurements.
+
+### Application results
+
+Times are milliseconds; each cell is **p50 / p95 / maximum**.
+
+| Normal output | Baseline | Candidate |
+| --- | ---: | ---: |
+| Character → committed feedback | 8.42 / 12.60 / 19.45 | 8.41 / 12.01 / 21.39 |
+| Whole selective query → final frame | 72.15 / 89.27 / 227.09 | 60.53 / 93.26 / 196.78 |
+| Character stream → final result | 168.49 / 204.55 / 551.33 | 155.11 / 173.03 / 489.45 |
+| Escape → committed feedback | 13.90 / 18.57 / 25.05 | 12.57 / 18.87 / 75.11 |
+| Superseding-input event-loop delay | 11.17 / 15.28 / 17.33 | 11.14 / 15.65 / 37.11 |
+
+| Injected 5 ms/write | Baseline | Candidate |
+| --- | ---: | ---: |
+| Character → committed feedback | 13.01 / 17.56 / 307.05 | 13.73 / 18.17 / 265.91 |
+| Whole selective query → final frame | 74.05 / 88.07 / 100.20 | 70.36 / 88.04 / 210.46 |
+| Character stream → final result | 216.00 / 338.53 / 531.23 | 215.48 / 247.96 / 578.70 |
+| Escape → committed feedback | 16.57 / 18.93 / 19.69 | 17.15 / 20.23 / 30.14 |
+| Superseding-input event-loop delay | 10.68 / 14.67 / 17.21 | 11.03 / 16.84 / 23.00 |
+
+Normal selective-query p95 by process was 82.67/91.13/86.55 ms for the baseline
+and 184.20/62.42/70.30 ms for the candidate. Thus the lower median latency is
+not a uniform tail improvement. Pooled p95 and maxima above retain that variance.
+
+| Cold boundary, median of three fresh processes | Baseline | Candidate |
+| --- | ---: | ---: |
+| Import → initial frame | 285.14 | 276.64 |
+| Import → initial table ready | 639.07 | 567.88 |
+| Import → first picker/index/query ready | 2913.26 | 1708.59 |
+
+First-search cold observations were 2913.26/2929.95/2891.58 ms versus
+1759.36/1658.90/1708.59 ms. These boundaries exclude process launch and static
+framework imports before dynamic application import. Table/picker preparation
+can overlap; their times must not be added.
+
+| Separate broad-query application run, final frame | Baseline | Candidate |
+| --- | ---: | ---: |
+| `gateway`, 12,500 results | 202.15 / 221.38 / 224.81 | 98.58 / 102.85 / 106.35 |
+| `i`, 100,003 results including commands | 832.03 / 976.31 / 990.02 | 175.82 / 189.90 / 303.62 |
+| `trace-99999`, one result | 91.97 / 249.84 / 343.27 | 60.40 / 66.49 / 70.96 |
+
+| Separate memory/allocation run, MiB | Baseline | Candidate |
+| --- | ---: | ---: |
+| Active heap after setup, post-GC | 216.13 | 185.42 |
+| Active heap after interactions, post-GC | 267.23 | 231.02 |
+| Cumulative sampled setup allocation | 1913.18 | 1275.93 |
+| Cumulative sampled interaction allocation | 5639.63 | 4159.67 |
+
+The strongest established gains are broad-result construction (about 79% lower
+median for the largest application query), cold search readiness (about 41%),
+retained active heap (about 14%) and sampled interaction allocation (about 26%).
+These memory totals include the application, data and runtime, not only library
+storage. Source-only synchronous full-result query medians at 1k/10k/100k were
+5.47/56.12/667.06 ms versus 0.81/7.14/110.39 ms; deliberate matcher-only timings
+must not be substituted for these complete preparation times.
+
+### Remaining limits and reproduction
+
+Ordinary typing is broadly comparable, not uniformly faster. Normal selective
+query p95 rose from 89.27 to 93.26 ms; delayed-write Escape p95 rose from 18.93 to
+20.23 ms. Several maxima remain substantial, including a 578.70 ms delayed-write
+character-stream completion. Their cause is not established by these unprofiled
+runs. The earlier 294 ms Escape observation is still not retrospectively
+explained. Shared-host/process variance and GC/render work remain investigation
+subjects, not reasons to discard samples or claim a hard latency ceiling.
+
+Full-corpus matching remains linear. Native operations, caller callbacks,
+allocations and final sealing are not preemptible. The default 2,048-operation,
+advisory 4 ms cooperative budget is unchanged. No input dropping, universal
+debounce, disabled accessibility validation, forced-GC policy or speculative
+state publication was used to improve results.
+
+Use `scripts/performance/benchmark-workbench.mjs` after building. Set
+`WORKBENCH_SAMPLES=40`; repeat fresh processes and alternate revision order.
+`WORKBENCH_COLD_ONLY=1` selects cold-only observations,
+`WORKBENCH_BROAD_ONLY=1` selects broad-query qualification, and
+`WORKBENCH_WRITE_DELAY_MS=5` injects slow output. Run allocation separately with
+`WORKBENCH_ALLOCATIONS=1`, 20 samples and `node --expose-gc`.
+`WORKBENCH_DIAGNOSTICS=1` records bounded aggregate renderer stages; `regions`
+includes its `region_*` children, so do not sum both. The portable
+`benchmark-source-preparation.mjs [built-checkout]` accepts `SOURCE_SCALE` and
+`SOURCE_SAMPLES` for separate matcher/ranking and full preparation checks.
+Neither their difference nor a sum of separate percentile timings is an exact
+stage attribution. Large raw traces are kept outside the source/package tree;
+this section and the executable harnesses are the committed evidence summary.
+
 ## Retained sources and bounded work (2026-10-02)
 
 The final candidate is compared with exact baseline

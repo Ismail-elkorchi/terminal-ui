@@ -215,15 +215,26 @@ void test('cooperative identity updates retain colliding IDs and prior receipts 
   assert.equal(removed.totalExtent, 2);
 });
 
-void test('query finalization cooperatively resolves huge matching identities before publishing ranked sources', async () => {
+void test('query finalization adopts huge identities cooperatively without recovering matched owners', async () => {
   const entry = { id: longId, label: 'matched', value: 1 };
   const query = { text: 'matched', mode: 'exact' as const };
   const picker = createSearchPickerIndex([entry]);
-  const pickerProbe = await scanProbe(context => prepareSearchPickerQuery(picker, query, context));
-  bounded(pickerProbe);
-  assert.equal(pickerProbe.result.entryAt(0)?.id, longId);
   const listbox = createListboxCollection([entry], item => item);
-  const listProbe = await scanProbe(context => prepareListboxView(listbox, { query }, context));
-  bounded(listProbe);
-  assert.equal(listProbe.result.entryAt(0)?.id, longId);
+  const operations: ((context: CooperativeWorkContext) => Promise<{
+    readonly entryAt: (rank: number) => { readonly id: string } | undefined;
+  }>)[] = [
+    context => prepareSearchPickerQuery(picker, query, context),
+    context => prepareListboxView(listbox, { query }, context),
+  ];
+  for (const prepare of operations) {
+    const controller = new AbortController();
+    let turns = 0;
+    await assert.rejects(prepare({ signal: controller.signal, operationLimit: 256,
+      yield: () => { turns++; controller.abort(new Error('cancel projection adoption')); return Promise.resolve(); },
+    }), /cancel projection adoption/u);
+    assert.equal(turns, 1, 'Huge ID admission must yield before any projection is published');
+    const probe = await scanProbe(prepare);
+    assert.equal(probe.total, 0, 'Matched owners must not be recovered through persistent identity hashing');
+    assert.equal(probe.result.entryAt(0)?.id, longId);
+  }
 });

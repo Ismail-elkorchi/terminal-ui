@@ -1,4 +1,5 @@
 import { finishWork } from '../foundation/cooperative-work.ts';
+import { isBoundedPrintableAscii } from './printable-ascii.ts';
 import { sourceBoundaries } from './source-boundaries.ts';
 import type { TextMeasurementOptions } from './types.ts';
 
@@ -40,11 +41,12 @@ export function* createTextSearchIndexWork(
   // A capped native scan avoids per-character and assembly overhead for ordinary
   // fields. Long strings still take the checkpointed path below; source width
   // never changes grapheme boundaries.
-  if (text.length <= 2048 && /^[\x20-\x7e]*$/u.test(text)) {
-    const graphemes = normalizedSearchText(text, options);
+  if (isBoundedPrintableAscii(text)) {
+    const graphemes = foldedSearchText(text, options);
     yield text.length * 2; // ASCII examination plus normalization/copying.
     return Object.freeze({ graphemes });
   }
+  if (text.length <= 2048) yield text.length; // A failed bounded scan still consumes work.
   let ascii = true;
   let operations = 0;
   for (let i = 0; i < text.length; i += 1) {
@@ -57,7 +59,7 @@ export function* createTextSearchIndexWork(
     const pieces: string[] = [];
     for (let i = 0; i < text.length; i += 2048) {
       const part = text.slice(i, i + 2048);
-      pieces.push(normalizedSearchText(part, options));
+      pieces.push(foldedSearchText(part, options));
       yield part.length;
     }
     // Native join is indivisible; its copied units are charged before publication.
@@ -219,9 +221,14 @@ function normalizedSearchText(text: string, options: TextHighlightOptions): stri
   const accentNormalized = options.accentSensitive === false
     ? text.normalize('NFD').replace(/\p{Mark}/gu, '')
     : text.normalize('NFC');
+  return foldedSearchText(accentNormalized, options);
+}
+
+/** Printable ASCII is already NFC/NFD and has no combining marks. */
+function foldedSearchText(text: string, options: TextHighlightOptions): string {
   return options.caseSensitive === true
-    ? accentNormalized
+    ? text
     : options.locale === undefined
-      ? accentNormalized.toLowerCase()
-      : accentNormalized.toLocaleLowerCase(options.locale);
+      ? text.toLowerCase()
+      : text.toLocaleLowerCase(options.locale);
 }

@@ -68,15 +68,35 @@ export function* stableSortWork<T>(
   values: Iterable<T>,
   compare: (left: T, right: T) => number,
 ): Generator<number, readonly T[], unknown> {
-  let source: T[] = [];
+  const source: T[] = [];
   let operations = 0;
   for (const value of values) {
     source.push(value);
     if (++operations === 128) { yield operations; operations = 0; }
   }
+  return (yield* mergeSortWork(source, undefined, compare, operations)).values;
+}
+
+/** Transfers private producer-owned arrays into the shared stable merge kernel.
+ * Neither input may be observed or mutated while this work is suspended.
+ */
+export function* stableSortAlignedWork<T, U>(
+  values: T[], companions: U[], compare: (left: T, right: T) => number,
+): Generator<number, { readonly values: readonly T[]; readonly companions: readonly U[] }> {
+  if (values.length !== companions.length) throw new RangeError('Aligned sort arrays must have equal lengths.');
+  const sorted = yield* mergeSortWork(values, companions, compare, 0);
+  if (sorted.companions === undefined) throw new Error('Aligned sort lost its companion buffer.');
+  return { values: sorted.values, companions: sorted.companions };
+}
+
+function* mergeSortWork<T, U>(
+  source: T[], companions: U[] | undefined,
+  compare: (left: T, right: T) => number, pendingOperations: number,
+): Generator<number, { readonly values: T[]; readonly companions: U[] | undefined }> {
   let target = new Array<T>(source.length);
-  yield operations + source.length;
-  operations = 0;
+  let companionTarget = companions === undefined ? undefined : new Array<U>(source.length);
+  yield pendingOperations + source.length * (companions === undefined ? 1 : 2);
+  let operations = 0;
   for (let width = 1; width < source.length; width *= 2) {
     for (let start = 0; start < source.length; start += width * 2) {
       const middle = Math.min(start + width, source.length);
@@ -86,14 +106,30 @@ export function* stableSortWork<T>(
       let output = start;
       while (left < middle || right < end) {
         const takeLeft = right >= end || (left < middle && (operations += 1, compare(source[left] as T, source[right] as T) <= 0));
-        target[output++] = takeLeft ? source[left++] as T : source[right++] as T;
+        const selected = takeLeft ? left++ : right++;
+        target[output] = source[selected] as T;
+        if (companions !== undefined && companionTarget !== undefined) {
+          companionTarget[output] = companions[selected] as U;
+          operations += 1;
+        }
+        output += 1;
         if (++operations >= 128) { yield operations; operations = 0; }
       }
     }
     const previous = source;
     source = target;
     target = previous;
+    const previousCompanions = companions;
+    companions = companionTarget;
+    companionTarget = previousCompanions;
   }
   if (operations !== 0) yield operations;
-  return source;
+  return { values: source, companions };
+}
+
+/** Scan-local mutable position; never allocated per item or exposed publicly. */
+export interface CollectionScanCursor<T> {
+  advance(): boolean;
+  readonly value: T | undefined;
+  close(): void;
 }

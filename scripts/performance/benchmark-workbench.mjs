@@ -73,7 +73,21 @@ const host = { ...memoryHost, observer: {}, clock: clockHost.clock, async write(
   memoryHost.stdout.clear();
   return receipt;
 } };
-const runtime = createTuiRuntime({ app: incidentWorkbenchApp, host });
+// Opt-in aggregate diagnostics retain no frame history or per-region traces.
+// 'regions' includes its region_* children; totals must not be added together.
+const diagnosticRun = process.env['WORKBENCH_DIAGNOSTICS'] === '1';
+const rendererStages = new Map();
+const rendererWork = new Map();
+const instrumentation = diagnosticRun ? {
+  now: () => performance.now(),
+  record({ stage, durationMs }) {
+    const previous = rendererStages.get(stage) ?? { count: 0, totalMs: 0, maxMs: 0 };
+    previous.count++; previous.totalMs += durationMs; previous.maxMs = Math.max(previous.maxMs, durationMs);
+    rendererStages.set(stage, previous);
+  },
+  recordWork({ kind, count }) { rendererWork.set(kind, (rendererWork.get(kind) ?? 0) + count); },
+} : undefined;
+const runtime = createTuiRuntime({ app: incidentWorkbenchApp, host, ...(instrumentation === undefined ? {} : { instrumentation }) });
 const feedback = [], final = [], superseding = [], timerLag = [];
 const textInput = text => ({ kind: 'text', text, paste: false });
 function summary(samples) {
@@ -110,6 +124,48 @@ const firstOpenFeedbackMs = performance.now() - firstOpenBegin;
 await settled();
 const firstOpenReadyMs = performance.now() - firstOpenBegin;
 const initialTableReadyMs = await tableReadiness;
+const setupReport = () => ({ moduleImportMs, initialFrameMs, initialTableReadyMs, firstOpenFeedbackMs, firstOpenReadyMs,
+  moduleToInitialFrameMs: initialBegin - moduleBegin + initialFrameMs,
+  moduleToInitialTableReadyMs: initialBegin - moduleBegin + initialTableReadyMs,
+  moduleToFirstOpenReadyMs: firstOpenBegin - moduleBegin + firstOpenReadyMs,
+  clockBoundary: 'moduleTo* starts before dynamic application import; excludes process launch and earlier static framework imports. Table and picker preparation overlap.' });
+if (process.env['WORKBENCH_COLD_ONLY'] === '1') {
+  assert.equal(allocationRun, false, 'Cold timing and allocation diagnostics must run separately');
+  const report = { runtime: process.version, coldOnly: true, setup: setupReport() };
+  await runtime.dispose(); await clockHost.dispose();
+  if (process.argv[2]) await writeFile(process.argv[2], JSON.stringify(report, null, 2) + '\n');
+  console.log(JSON.stringify(report, null, 2));
+  process.exit(0);
+}
+
+if (process.env['WORKBENCH_BROAD_ONLY'] === '1') {
+  assert.equal(allocationRun, false, 'Broad latency and allocation diagnostics must run separately');
+  const trials = [];
+  const cases = [{ text: 'gateway', count: 12500 }, { text: 'i', count: incidentCount + 3 }, { text: 'trace-99999', count: 1 }];
+  for (let round = -2; round < sampleCount; round++) {
+    for (let position = 0; position < cases.length; position++) {
+      const item = cases[(position + Math.max(round, 0)) % cases.length];
+      await selectAll();
+      const query = `${item.text}${' '.repeat(round + 3)}`;
+      const start = performance.now();
+      await runtime.handleInput(textInput(query));
+      const feedbackMs = performance.now() - start;
+      await settled();
+      const resultMs = performance.now() - start;
+      const state = runtime.state().searchPicker.state;
+      assert.equal(state.error, null);
+      assert.equal(state.control.editor.input.text, query);
+      assert.equal(state.result.count, item.count);
+      if (round >= 0) trials.push({ query: item.text, count: item.count, round, feedbackMs, resultMs });
+    }
+  }
+  const report = { runtime: process.version, broadOnly: true, setup: setupReport(), sampleCount, writeDelayMs,
+    note: 'Uncached whitespace-equivalent queries, rotated case order, two warmup rounds; accepted full result and input checked', trials };
+  await runtime.dispose(); await clockHost.dispose();
+  if (process.argv[2]) await writeFile(process.argv[2], JSON.stringify(report, null, 2) + '\n');
+  console.log(JSON.stringify(report, null, 2));
+  process.exit(0);
+}
 if (allocationRun) {
   allocationProfiles.setup = await finishAllocationSample('setup');
   await delay(0);
@@ -260,11 +316,7 @@ const report = {
   characterStreamToFinalResultMs: summary(typingFinal),
   characterEventLoopDelayMs: summary(typingEventLoopDelay),
   escapeToCommittedFeedbackMs: summary(cancellation),
-  setup: { moduleImportMs, initialFrameMs, initialTableReadyMs, firstOpenFeedbackMs, firstOpenReadyMs,
-    moduleToInitialFrameMs: initialBegin - moduleBegin + initialFrameMs,
-    moduleToInitialTableReadyMs: initialBegin - moduleBegin + initialTableReadyMs,
-    moduleToFirstOpenReadyMs: firstOpenBegin - moduleBegin + firstOpenReadyMs,
-    clockBoundary: 'moduleTo* starts immediately before the dynamic application-module import and includes host/runtime creation; process launch and earlier static framework/harness imports are excluded. Table preparation and first picker opening overlap.' },
+  setup: setupReport(),
   inputToFirstCommittedFeedbackMs: summary(feedback),
   inputToFinalResultFrameMs: summary(final),
   scheduledSupersedingInputToFinalFrameMs: summary(superseding),
@@ -273,6 +325,7 @@ const report = {
   ...(allocationRun ? { allocation: { samplingIntervalBytes: 32768, retainedHeap,
     profiles: allocationProfiles,
     note: 'Sampled cumulative allocation includes collected objects; reported sites own exclusive bytes. Raw inspector profiles are saved beside the report and released before heap observations. Forced-GC observations retain the active application and source. These are separate from unsampled latency runs.' } } : {}),
+  ...(diagnosticRun ? { rendererDiagnostics: { stages: Object.fromEntries(rendererStages), work: Object.fromEntries(rendererWork), note: 'Inclusive regions contains region_painting/region_snapshot/region_targets; do not sum parent and children. Diagnostic timings are separate from headline latency.' } } : {}),
   sourceUpdates,
   resizeDuringMatching: resizing,
   diagnostics: runtime.diagnostics(),

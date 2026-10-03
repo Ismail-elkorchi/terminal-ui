@@ -30,15 +30,17 @@ export interface PersistentSequencePosition<TValue> {
 interface SequenceNode<TValue> {
   readonly order: bigint;
   readonly item: PersistentSequenceItem<TValue>;
-  readonly left?: SequenceNode<TValue>;
-  readonly right?: SequenceNode<TValue>;
+  readonly left: SequenceNode<TValue> | undefined;
+  readonly right: SequenceNode<TValue> | undefined;
   readonly height: number;
   readonly itemCount: number;
   readonly totalExtent: number;
   readonly enabledCount: number;
 }
 
+/** A singleton HAMT terminal is the identity itself; only full-hash collisions need a leaf array. */
 interface IdIndexEntry {
+  readonly kind: 'entry';
   readonly id: string;
   readonly hash: number;
   readonly order: bigint;
@@ -55,7 +57,7 @@ interface IdIndexBranch {
   readonly children: readonly IdIndexNode[];
 }
 
-type IdIndexNode = IdIndexLeaf | IdIndexBranch;
+type IdIndexNode = IdIndexEntry | IdIndexLeaf | IdIndexBranch;
 
 interface PersistentSequenceData<TValue> {
   readonly sequence?: SequenceNode<TValue>;
@@ -107,12 +109,12 @@ export function* createPersistentSequenceWork<T>(events: Iterable<PersistentSequ
     if (seen.has(item.id)) throw new TypeError('Persistent sequence item ids must be unique.');
     seen.add(item.id);
     const hash = yield* hashIdWork(item.id);
-    identities.push(Object.freeze({ id: item.id, hash, order: BigInt(items.length) }));
+    identities.push(Object.freeze({ kind: 'entry' as const, id: item.id, hash, order: BigInt(items.length) }));
     items.push(item);
     totalExtent = checkedExtentTotal(totalExtent, item.extent);
     yield 4;
   }
-  const sequence = yield* buildSequenceWork(items, 0, items.length);
+  const sequence = yield* buildSequenceWork(items, 0, items.length, identities);
   const ids = identities.length === 0 ? undefined : yield* buildIdIndexWork(identities, 0);
   return persistentSequenceFromIndexes(sequence, ids);
 }
@@ -135,7 +137,7 @@ interface SequenceBuildFrame<T> {
 }
 
 /** Reuse one frame per depth instead of allocating two generators for every node. */
-function* buildSequenceWork<T>(items: readonly PersistentSequenceItem<T>[], start: number, end: number, startOrder = 0n): Generator<number, SequenceNode<T> | undefined> {
+function* buildSequenceWork<T>(items: readonly PersistentSequenceItem<T>[], start: number, end: number, identities: readonly IdIndexEntry[]): Generator<number, SequenceNode<T> | undefined> {
   if (start >= end) return undefined;
   const frames: SequenceBuildFrame<T>[] = [{ start, end, phase: 0, left: undefined }];
   let depth = 0;
@@ -162,7 +164,9 @@ function* buildSequenceWork<T>(items: readonly PersistentSequenceItem<T>[], star
       descend(middle + 1, frame.end);
     } else {
       const item = items[middle];
-      completed = item === undefined ? undefined : sequenceNode(startOrder + BigInt(middle), item, frame.left, completed);
+      // Share the exact immutable order value with the ID index, including append/prepend batches.
+      const identity = identities[middle];
+      completed = item === undefined || identity === undefined ? undefined : sequenceNode(identity.order, item, frame.left, completed);
       depth--;
     }
     if (++operations === 128) { yield operations; operations = 0; }
@@ -174,7 +178,7 @@ interface IdIndexBuildFrame {
   parent: IdIndexBuildFrame | undefined;
   depth: number;
   entries: readonly IdIndexEntry[];
-  groups: IdIndexEntry[][];
+  groups: (IdIndexEntry[] | undefined)[];
   cursor: number;
   slot: number;
   bitmap: number;
@@ -191,7 +195,7 @@ function* buildIdIndexWork(entries: readonly IdIndexEntry[], depth: number): Gen
       frame = { parent, depth: hashDepth, entries: values, groups: [], cursor: 0, slot: 0, bitmap: 0, children: [] };
       frames[hashDepth] = frame;
     } else { frame.parent = parent; frame.depth = hashDepth; frame.entries = values; frame.cursor = 0; frame.slot = 0; frame.bitmap = 0; frame.children = []; }
-    frame.groups = Array.from({ length: 32 }, () => []);
+    frame.groups = new Array<IdIndexEntry[] | undefined>(32);
     return frame;
   };
   let frame = frameFor(entries, depth, undefined);
@@ -199,7 +203,10 @@ function* buildIdIndexWork(entries: readonly IdIndexEntry[], depth: number): Gen
   for (;;) {
     if (frame.cursor < frame.entries.length) {
       const entry = frame.entries[frame.cursor++];
-      if (entry !== undefined) frame.groups[(entry.hash >>> (frame.depth * 5)) & 31]?.push(entry);
+      if (entry !== undefined) {
+        const slot = (entry.hash >>> (frame.depth * 5)) & 31;
+        (frame.groups[slot] ??= []).push(entry);
+      }
     } else if (frame.slot < 32) {
       const slot = frame.slot++;
       const group = frame.groups[slot];
@@ -238,7 +245,7 @@ export function* appendSequenceItemsWork<TValue>(
   const batch = yield* decodeSequenceItemsWork(items, data.ids, startOrder);
   if (batch.items.length === 0) return collection;
   assertTotalExtent(collection.totalExtent, batch.totalExtent);
-  const appended = yield* buildSequenceWork(batch.items, 0, batch.items.length, startOrder);
+  const appended = yield* buildSequenceWork(batch.items, 0, batch.items.length, batch.identities);
   const started = operationCount;
   const result = persistentSequenceFromIndexes(joinSequences(data.sequence, appended), batch.ids);
   yield operationCount - started;
@@ -263,7 +270,7 @@ export function* prependSequenceItemsWork<TValue>(
   const batch = yield* decodeSequenceItemsWork(items, data.ids, startOrder);
   if (batch.items.length === 0) return collection;
   assertTotalExtent(collection.totalExtent, batch.totalExtent);
-  const prepended = yield* buildSequenceWork(batch.items, 0, batch.items.length, startOrder);
+  const prepended = yield* buildSequenceWork(batch.items, 0, batch.items.length, batch.identities);
   const started = operationCount;
   const result = persistentSequenceFromIndexes(joinSequences(prepended, data.sequence), batch.ids);
   yield operationCount - started;
@@ -387,11 +394,13 @@ function* decodeSequenceItemsWork<TValue>(
   startOrder = 0n
 ): Generator<number, {
   readonly items: readonly PersistentSequenceItem<TValue>[];
+  readonly identities: readonly IdIndexEntry[];
   readonly ids?: IdIndexNode;
   readonly totalExtent: number;
 }> {
   assertSequenceItems(supplied);
   const items: PersistentSequenceItem<TValue>[] = [];
+  const identities: IdIndexEntry[] = [];
   let ids = existingIds;
   let totalExtent = 0;
   for (const [index, item] of supplied.entries()) {
@@ -402,17 +411,21 @@ function* decodeSequenceItemsWork<TValue>(
     }
     totalExtent = checkedExtentTotal(totalExtent, decodedItem.extent);
     const order = startOrder + BigInt(index);
-    ids = yield* idIndexSetWork(ids, Object.freeze({ id: decodedItem.id, hash, order }), 0);
+    const identity = Object.freeze({ kind: 'entry' as const, id: decodedItem.id, hash, order });
+    ids = yield* idIndexSetWork(ids, identity, 0);
+    identities.push(identity);
     items.push(decodedItem);
     yield 1;
   }
   return Object.freeze({
     items: Object.freeze(items),
+    identities: Object.freeze(identities),
     ...(ids === undefined ? {} : { ids }),
     totalExtent
   });
 }
 
+// Snapshot caller-owned fields once. These stable items survive AVL path copies and rotations.
 function decodeSequenceItem<TValue>(value: PersistentSequenceItem<TValue>, subject: string): PersistentSequenceItem<TValue> {
   if (!isNonArrayObject(value)) throw new TypeError(`${subject} must be an object.`);
   const id = sequenceItemId(value.id, `${subject}.id`);
@@ -420,7 +433,11 @@ function decodeSequenceItem<TValue>(value: PersistentSequenceItem<TValue>, subje
   if (!Number.isSafeInteger(extent) || extent < 1) {
     throw new RangeError(`${subject}.extent must be a positive safe integer.`);
   }
-  return Object.freeze({ id, value: value.value, extent, ...(value.enabled === undefined ? {} : { enabled: value.enabled }) });
+  const itemValue = value.value;
+  const enabled = value.enabled;
+  return enabled === undefined
+    ? Object.freeze({ id, value: itemValue, extent })
+    : Object.freeze({ id, value: itemValue, extent, enabled });
 }
 
 function sequenceItemId(value: unknown, subject: string): string {
@@ -526,8 +543,8 @@ function sequenceNode<TValue>(
   return Object.freeze({
     order,
     item,
-    ...(left === undefined ? {} : { left }),
-    ...(right === undefined ? {} : { right }),
+    left,
+    right,
     height: Math.max(sequenceHeight(left), sequenceHeight(right)) + 1,
     itemCount: sequenceCount(left) + sequenceCount(right) + 1,
     totalExtent: sequenceExtent(left) + item.extent + sequenceExtent(right),
@@ -795,6 +812,7 @@ function* idIndexGetWork(node: IdIndexNode | undefined, id: string, preparedHash
   let depth = 0;
   while (current !== undefined) {
     operationCount += 1;
+    if (current.kind === 'entry') { yield 1; return current.id === id ? current.order : undefined; }
     if (current.kind === 'leaf') {
       for (const entry of current.entries) {
         const matches = entry.id === id;
@@ -817,7 +835,11 @@ function* idIndexSetWork(
   entry: IdIndexEntry,
   depth: number
 ): Generator<number, IdIndexNode> {
-  if (node === undefined) { yield 1; return idIndexLeaf([entry]); }
+  if (node === undefined) { yield 1; return entry; }
+  if (node.kind === 'entry') {
+    yield 1;
+    return node.id === entry.id ? entry : yield* buildIdIndexWork([node, entry], depth);
+  }
   if (node.kind === 'leaf') {
     const entries: IdIndexEntry[] = [];
     let replaced = false;
@@ -834,7 +856,7 @@ function* idIndexSetWork(
   const childIndex = hashChildIndex(node.bitmap, bit);
   const children = [...node.children];
   if ((node.bitmap & bit) === 0) {
-    children.splice(childIndex, 0, idIndexLeaf([entry]));
+    children.splice(childIndex, 0, entry);
     yield children.length + 1;
     return idIndexBranch((node.bitmap | bit) >>> 0, children);
   }
@@ -850,6 +872,7 @@ function* idIndexDeleteWork(
   depth: number
 ): Generator<number, IdIndexNode | undefined> {
   if (node === undefined) return undefined;
+  if (node.kind === 'entry') { yield 1; return node.id === id ? undefined : node; }
   if (node.kind === 'leaf') {
     const entries: IdIndexEntry[] = [];
     for (const entry of node.entries) { if (entry.id !== id) entries.push(entry); yield 1; }
@@ -867,12 +890,14 @@ function* idIndexDeleteWork(
   else children[childIndex] = nextChild;
   yield children.length + 1;
   if (children.length === 0) return undefined;
-  if (children.length === 1 && children[0]?.kind === 'leaf') return children[0];
+  if (children.length === 1 && children[0]?.kind !== 'branch') return children[0];
   return idIndexBranch(nextChild === undefined ? (node.bitmap & ~bit) >>> 0 : node.bitmap, children);
 }
 
-function idIndexLeaf(entries: readonly IdIndexEntry[]): IdIndexLeaf {
+function idIndexLeaf(entries: readonly IdIndexEntry[]): IdIndexEntry | IdIndexLeaf {
   operationCount += entries.length;
+  const only = entries[0];
+  if (entries.length === 1 && only !== undefined) return only;
   return Object.freeze({ kind: 'leaf', entries: Object.freeze(entries) });
 }
 
@@ -925,26 +950,52 @@ function sequenceEnabledRank<T>(root: SequenceNode<T> | undefined, order: bigint
   return undefined;
 }
 
-/** One cursor owns at most one AVL path; yielded items allocate no recursive iterators. */
-function* sequenceItems<T>(root: SequenceNode<T> | undefined, start: number, end: number): IterableIterator<PersistentSequenceItem<T>> {
-  if (root === undefined || !(start < end)) return;
+/** Internal scans return existing items directly, without an IteratorResult per row. */
+export interface PersistentSequenceCursor<T> {
+  readonly next: () => PersistentSequenceItem<T> | undefined;
+  readonly close: () => void;
+}
+
+export function createPersistentSequenceCursor<T>(
+  collection: PersistentSequence<T>, start = 0, end = collection.itemCount,
+): PersistentSequenceCursor<T> {
+  return sequenceCursor(persistentSequenceData(collection).sequence, Math.max(0, start), Math.min(collection.itemCount, end));
+}
+
+/** One cursor owns at most one AVL path; seeking never scans the preceding prefix. */
+function sequenceCursor<T>(root: SequenceNode<T> | undefined, start: number, end: number): PersistentSequenceCursor<T> {
   const stack: SequenceNode<T>[] = [];
   let node: SequenceNode<T> | undefined = root;
   let skip = Math.ceil(start);
-  let remaining = Math.ceil(end) - skip;
-  // Seek the first requested rank without walking the preceding prefix.
-  while (node !== undefined) {
+  let remaining = start < end ? Math.ceil(end) - skip : 0;
+  while (remaining > 0 && node !== undefined) {
     const left = sequenceCount(node.left);
     if (skip < left) { stack.push(node); node = node.left; }
     else if (skip > left) { skip -= left + 1; node = node.right; }
     else { stack.push(node); break; }
   }
-  while (remaining > 0) {
-    node = stack.pop();
-    if (node === undefined) return;
-    yield node.item;
-    if (--remaining === 0) return;
-    node = node.right;
-    while (node !== undefined) { stack.push(node); node = node.left; }
-  }
+  const close = (): void => { stack.length = 0; remaining = 0; };
+  return {
+    close,
+    next: () => {
+      if (!(remaining > 0)) return undefined;
+      let current = stack.pop();
+      if (current === undefined) { close(); return undefined; }
+      const item = current.item;
+      if (--remaining === 0) close();
+      else {
+        current = current.right;
+        while (current !== undefined) { stack.push(current); current = current.left; }
+      }
+      return item;
+    },
+  };
+}
+
+function* sequenceItems<T>(root: SequenceNode<T> | undefined, start: number, end: number): IterableIterator<PersistentSequenceItem<T>> {
+  const cursor = sequenceCursor(root, start, end);
+  try {
+    let item: PersistentSequenceItem<T> | undefined;
+    while ((item = cursor.next()) !== undefined) yield item;
+  } finally { cursor.close(); }
 }

@@ -1,10 +1,10 @@
 import {
   createPersistentSequenceWork, appendSequenceItemsWork, replaceSequenceValueWork,
-  removeSequenceItemsWork, persistentSequenceItemByIdWork, readPersistentSequence, type PersistentSequence,
+  removeSequenceItemsWork, persistentSequenceItemByIdWork, readPersistentSequence, createPersistentSequenceCursor, type PersistentSequence,
 } from './persistent-sequence.ts';
 
 import { finishWork } from './cooperative-work.ts';
-import type { CollectionOrderReader } from './order-reader.ts';
+import { ownCollectionOrderReader, type CollectionOrderReader } from './order-reader.ts';
 export type OrderedSource<T> = CollectionOrderReader<T>;
 
 export interface OrderedItem<T> { readonly id: string; readonly value: T; readonly disabled?: boolean }
@@ -56,7 +56,7 @@ function wrap<T>(sequence: PersistentSequence<T>): OrderedSource<T> {
     if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end)) throw new RangeError('Collection window bounds must be safe integer ranks.');
     for (const item of reader.items(start, end)) yield item.value;
   };
-  const source = Object.freeze({
+  const source = ownCollectionOrderReader({
     kind: 'ordered-source' as const, count: sequence.itemCount, enabledCount: sequence.enabledCount,
     itemAt: (rank: number) => reader.itemAt(rank)?.value,
     itemById: (id: string) => reader.itemById(id)?.value,
@@ -64,7 +64,19 @@ function wrap<T>(sequence: PersistentSequence<T>): OrderedSource<T> {
     enabledAt: (rank: number) => reader.enabledItemAt(rank)?.value,
     enabledRank: reader.enabledRank,
     window: (start: number, end: number) => Object.freeze(Array.from(values(start, end))), values,
-  }) as OrderedSource<T>;
+  }, 64 + sequence.itemCount * 128, () => {
+    const cursor = createPersistentSequenceCursor(sequence);
+    let value: T | undefined;
+    return {
+      get value() { return value; },
+      advance() {
+        const item = cursor.next();
+        value = item?.value;
+        return item !== undefined;
+      },
+      close() { value = undefined; cursor.close(); },
+    };
+  });
   sequences.set(source, sequence);
   return source;
 }

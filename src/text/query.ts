@@ -1,5 +1,5 @@
 import { isNonArrayObject } from '../foundation/validation.ts';
-import { finishWork, stableSortWork } from '../foundation/cooperative-work.ts';
+import { finishWork, stableSortWork, stableSortAlignedWork, type CollectionScanCursor } from '../foundation/cooperative-work.ts';
 import { sanitizeTerminalTextWork } from './sanitize.ts';
 import type { CompiledTextSearchQuery, TextSearchIndex, TextSearchTokens } from './search-index.ts';
 import {
@@ -355,10 +355,11 @@ export function queryIndexedCandidates(
   return finishWork(queryIndexedCandidatesWork(candidates, query));
 }
 
-/** Cooperative scan and stable merge sort; no full-result native sort. */
-export function* queryIndexedCandidatesWork(
-  candidates: Iterable<QueryIndexOwner>,
+/** Native iterable scan and stable merge sort share the charged matcher. */
+export function* queryIndexedCandidatesWork<T extends QueryIndexOwner>(
+  candidates: Iterable<T | undefined>,
   query: CompiledCollectionQuery,
+  ownerTracking?: QueryOwnerTracking<T>,
 ): Generator<number, readonly QueryMatch[]> {
   const search = compiledQueries.get(query)?.search;
   if (search === undefined) throw new TypeError('query must be created by compileCollectionQuery().');
@@ -367,9 +368,8 @@ export function* queryIndexedCandidatesWork(
   let operations = 0;
   let ordered = true;
   let previousScore = Number.POSITIVE_INFINITY;
-  const source: Iterable<QueryIndexOwner | undefined> = candidates;
   try {
-    for (const candidate of source) {
+    for (const candidate of candidates) {
       if (candidate !== undefined) {
         const data = queryCandidateIndexes.get(candidate);
         if (data === undefined) throw new TypeError('candidate must be created by indexQueryCandidate().');
@@ -382,14 +382,64 @@ export function* queryIndexedCandidatesWork(
           if (match.score > previousScore) ordered = false;
           previousScore = match.score;
           matches.push(match);
+          if (ownerTracking !== undefined) { ownerTracking.owners.push(candidate); operations += 1; }
         }
       }
       if (++operations >= 1024) { yield operations; operations = 0; }
     }
     if (operations !== 0) yield operations;
   } finally { closeCandidateMatch(cursor); }
-  if (ordered) return Object.freeze(matches);
+  if (ordered) {
+    if (ownerTracking !== undefined) { yield ownerTracking.owners.length; Object.freeze(ownerTracking.owners); }
+    return Object.freeze(matches);
+  }
+  if (ownerTracking !== undefined) {
+    const sorted = yield* stableSortAlignedWork(matches, ownerTracking.owners, (left, right) => right.score - left.score);
+    yield sorted.companions.length;
+    ownerTracking.ordered = Object.freeze(sorted.companions);
+    return Object.freeze(sorted.values);
+  }
   return Object.freeze(yield* stableSortWork(matches, (left, right) => right.score - left.score));
+}
+
+interface QueryOwnerTracking<T> {
+  readonly owners: T[];
+  ordered: readonly T[];
+}
+
+/** Keep only winning source references beside unchanged public match records. */
+export function* queryIndexedOwnedScanWork<T extends QueryIndexOwner>(
+  createScan: () => CollectionScanCursor<T>, query: CompiledCollectionQuery,
+): Generator<number, { readonly matches: readonly QueryMatch[]; readonly owners: readonly T[] }> {
+  const owners: T[] = [];
+  const tracking: QueryOwnerTracking<T> = { owners, ordered: owners };
+  const matches = yield* queryIndexedCandidatesWork(ownedQueryCandidates(createScan), query, tracking);
+  return Object.freeze({ matches, owners: tracking.ordered });
+}
+
+function ownedQueryCandidates<T extends QueryIndexOwner>(createScan: () => CollectionScanCursor<T>): Iterable<T | undefined> {
+  return { [Symbol.iterator]: () => new QueryScanIterator(createScan()) };
+}
+
+/** One private reusable result per scan; public values() never exposes it. */
+class QueryScanIterator<T extends QueryIndexOwner> implements Iterator<T | undefined> {
+  private readonly source: CollectionScanCursor<T>;
+  private readonly result = { value: undefined as T | undefined, done: false };
+
+  constructor(source: CollectionScanCursor<T>) { this.source = source; }
+
+  next(): IteratorResult<T | undefined> {
+    if (!this.source.advance()) return this.return();
+    this.result.value = this.source.value;
+    return this.result;
+  }
+
+  return(): IteratorResult<T | undefined> {
+    this.result.done = true;
+    this.result.value = undefined;
+    this.source.close();
+    return this.result;
+  }
 }
 
 /** Locale-independent ordering for built-in collection behavior. */

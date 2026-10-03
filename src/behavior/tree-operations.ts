@@ -1,5 +1,6 @@
+import { createCompactOrderWork } from '../foundation/compact-order.ts';
 import { snapshotArray } from '../foundation/array-snapshot.ts';
-import { orderedItemByIdWork, createOrderedSource, createOrderedSourceWork, appendOrderedItemsWork, replaceOrderedItemWork, removeOrderedItemsWork, type OrderedSource } from '../foundation/ordered-source.ts';
+import { orderedItemByIdWork, createOrderedSource, appendOrderedItemsWork, replaceOrderedItemWork, removeOrderedItemsWork, type OrderedSource } from '../foundation/ordered-source.ts';
 import type { CollectionWindow } from '../collection/snapshot.ts';
 import {
   createCompleteCollection,
@@ -268,7 +269,9 @@ function* createTreeViewWork<TMetadata extends Readonly<Record<string, unknown>>
       yield 1;
     }
   }
-  const collection = yield* createOrderedSourceWork(projectedItems());
+  const collection = yield* createCompactOrderWork(projectedItems());
+  const admitted = retainedTreeViews.get(source)?.get(key) as TreeView<TMetadata> | undefined;
+  if (admitted !== undefined && matchingTreeView(source, request, admitted) !== undefined) return admitted;
   const interactionIndex = createCollectionInteractionIndexFromSource(collection);
   const view = Object.freeze({ kind: 'tree-view' as const, source, collection, interactionIndex });
   // Publication is atomic: aborted preparations never install partial projections.

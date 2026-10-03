@@ -45,6 +45,28 @@ returning, so these targets are not hard preemption guarantees.
   retains the maximum secondary token length, allowing an impossible secondary
   group to be skipped without walking it
 
+## Owned readers and field preparation
+
+Owned-source scans use a depth-bounded private cursor and one reusable iterator
+result per query. Public iterables retain native `for...of` semantics. Both feed
+one matching computation; there is no second matcher or flattened corpus cache.
+Picker/listbox result preparation carries the winning source references through
+the same stable merge kernel as match records. Its optional reference buffers
+are preparation-local, and their movement/finalization is charged. Public match
+records retain their original shape.
+
+Short printable-ASCII cleaning uses a bounded runtime check; general text retains
+the shared sanitizer and source-boundary path. All fields then use the canonical
+index-admission path. An experimental fused admission path reduced construction
+cost but slowed warmed source matching, so it was removed rather than retained as
+an alternate implementation. ASCII index construction does not perform redundant
+Unicode normalization. These are shared synchronous/cooperative computations,
+not a caller-supplied trusted-input flag.
+
+The latest application measurements and trade-offs are in
+[the incident workbench report](incident-workbench.md). The measurements below
+record earlier matcher revisions and are not final whole-application timings.
+
 ## Allocation evidence
 
 A deterministic case with 2,000 candidates, two matching fields each, and the

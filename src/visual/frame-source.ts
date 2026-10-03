@@ -105,18 +105,22 @@ export function decodeFrameCellSource(source: unknown): FrameCellSource {
   }
   const existing = sanitizedFrameSources.get(source);
   if (existing !== undefined) return existing;
-  const normalized: FrameCellSource = {
-    ...optionalTextField('elementId', source['elementId']),
-    ...optionalTextField('elementKind', source['elementKind']),
-    ...optionalTextField('rendererFamily', source['rendererFamily']),
-    ...optionalCellRole(source['cellRole']),
-    ...optionalTextField('partName', source['partName']),
-    ...optionalTextField('partType', source['partType']),
-    ...optionalTextField('itemId', source['itemId']),
-    ...optionalIndex(source['itemIndex']),
-    ...optionalInteractionState(source['interactionState']),
-    ...optionalTextField('description', source['description'])
-  };
+  // Mutate only this private builder: optional-field objects and their spreads
+  // otherwise multiply short-lived allocations for every admitted source.
+  const normalized: MutableFrameCellSource = {};
+  appendTextField(normalized, 'elementId', source['elementId']);
+  appendTextField(normalized, 'elementKind', source['elementKind']);
+  appendTextField(normalized, 'rendererFamily', source['rendererFamily']);
+  const cellRole = optionalCellRole(source['cellRole']);
+  if (cellRole !== undefined) normalized.cellRole = cellRole;
+  appendTextField(normalized, 'partName', source['partName']);
+  appendTextField(normalized, 'partType', source['partType']);
+  appendTextField(normalized, 'itemId', source['itemId']);
+  const itemIndex = optionalIndex(source['itemIndex']);
+  if (itemIndex !== undefined) normalized.itemIndex = itemIndex;
+  const interactionState = optionalInteractionState(source['interactionState']);
+  if (interactionState !== undefined) normalized.interactionState = interactionState;
+  appendTextField(normalized, 'description', source['description']);
   const sanitized = canonicalFrameCellSource(normalized);
   if (Object.isFrozen(source)) sanitizedFrameSources.set(source, sanitized);
   return sanitized;
@@ -137,30 +141,24 @@ export function sameFrameCellSource(left: FrameCellSource | undefined, right: Fr
     && left.description === right.description;
 }
 
-function optionalTextField(
+type MutableFrameCellSource = { -readonly [Key in keyof FrameCellSource]: FrameCellSource[Key] };
+
+function appendTextField(
+  target: MutableFrameCellSource,
   key: 'elementId' | 'elementKind' | 'rendererFamily' | 'partName' | 'partType' | 'itemId' | 'description',
-  value: unknown
-): Partial<FrameCellSource> {
-  if (typeof value !== 'string') return {};
+  value: unknown,
+): void {
+  if (typeof value !== 'string') return;
   const text = sanitizeTerminalText(value).text;
-  if (text.length === 0) return {};
-  switch (key) {
-    case 'elementId': return { elementId: text };
-    case 'elementKind': return { elementKind: text };
-    case 'rendererFamily': return { rendererFamily: text };
-    case 'partName': return { partName: text };
-    case 'partType': return { partType: text };
-    case 'itemId': return { itemId: text };
-    case 'description': return { description: text };
-  }
+  if (text.length > 0) target[key] = text;
 }
 
-function optionalIndex(value: unknown): Pick<FrameCellSource, 'itemIndex'> {
-  if (value === undefined) return {};
+function optionalIndex(value: unknown): number | undefined {
+  if (value === undefined) return undefined;
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
     throw new TypeError('Frame cell source itemIndex must be a non-negative integer.');
   }
-  return { itemIndex: value };
+  return value;
 }
 
 function canonicalFrameCellSource(source: FrameCellSource): FrameCellSource {
@@ -178,7 +176,8 @@ function canonicalFrameCellSource(source: FrameCellSource): FrameCellSource {
   ]);
   const existing = canonicalFrameSources.get(key);
   if (existing !== undefined) return existing;
-  const canonical = Object.freeze({ ...source });
+  // Every caller supplies a fresh private builder, never a caller-owned object.
+  const canonical = Object.freeze(source);
   sanitizedFrameSources.set(canonical, canonical);
   if (key.length > maximumCanonicalFrameSourceKeyLength) return canonical;
   canonicalFrameSources.set(key, canonical);
@@ -195,10 +194,10 @@ function canonicalFrameCellSource(source: FrameCellSource): FrameCellSource {
   return canonical;
 }
 
-function optionalCellRole(value: unknown): Pick<FrameCellSource, 'cellRole'> {
-  if (value === undefined) return {};
+function optionalCellRole(value: unknown): FrameCellRole | undefined {
+  if (value === undefined) return undefined;
   if (isFrameCellRole(value)) {
-    return { cellRole: value };
+    return value;
   }
   throw new TypeError(`Frame cell source cellRole must be one of ${frameCellRoles.join(', ')}.`);
 }
@@ -218,10 +217,10 @@ const interactionStates = [
   'readOnly'
 ] as const satisfies readonly NonNullable<FrameCellSource['interactionState']>[];
 
-function optionalInteractionState(value: unknown): Pick<FrameCellSource, 'interactionState'> {
-  if (value === undefined) return {};
+function optionalInteractionState(value: unknown): FrameCellSource['interactionState'] {
+  if (value === undefined) return undefined;
   if (isFrameCellInteractionState(value)) {
-    return { interactionState: value };
+    return value;
   }
   throw new TypeError(
     `Frame cell source interactionState must be one of ${interactionStates.join(', ')}.`

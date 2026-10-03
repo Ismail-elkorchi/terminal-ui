@@ -33336,8 +33336,12 @@ type · beta · [source](../../src/renderer/contracts.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/renderer` (type only)
 
+Region sub-stages are diagnostic breakdowns of the inclusive `regions` stage.
+`region_targets` and `region_snapshot` may occur multiple times per frame;
+exclude these three sub-stages when summing top-level render durations.
+
 ```ts
-export type RenderStage = 'resolve_element' | 'layout' | 'focus' | 'regions' | 'composition' | 'frame_passes' | 'cursor' | 'hit_targets' | 'accessibility' | 'snapshot';
+export type RenderStage = 'resolve_element' | 'layout' | 'focus' | 'regions' | 'region_painting' | 'region_snapshot' | 'region_targets' | 'composition' | 'frame_passes' | 'cursor' | 'hit_targets' | 'accessibility' | 'snapshot';
 ```
 
 <a id="renderer-renderstagemeasurement"></a>

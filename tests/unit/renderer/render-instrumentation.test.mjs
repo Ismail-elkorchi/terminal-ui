@@ -34,7 +34,8 @@ test('render instrumentation records actual hooks, retained cells and stages', (
   });
   assert.equal(frame.width, 20);
   assert.deepEqual(collected.stages.map((sample) => sample.stage), [
-    'resolve_element', 'layout', 'focus', 'regions', 'composition',
+    'resolve_element', 'layout', 'focus', 'region_painting', 'region_targets',
+    'region_snapshot', 'region_targets', 'regions', 'composition',
     'frame_passes', 'cursor', 'hit_targets', 'accessibility', 'snapshot'
   ]);
   assert.equal(collected.work.get('layout_nodes'), 1);
@@ -42,6 +43,22 @@ test('render instrumentation records actual hooks, retained cells and stages', (
   assert.equal(collected.work.get('snapshot_cells'), frame.cells.length);
   assert.equal(collected.work.get('cell_transfer_calls'), frame.cells.length);
   assert.equal(collected.work.get('region_allocations'), 1);
+});
+
+test('region phase timing is nested within the inclusive regions stage', () => {
+  let clock = 0;
+  const stages = [];
+  const element = text({ content: 'phase timing' });
+  const measured = renderElementFrame(element, { columns: 20, rows: 3 }, {
+    instrumentation: { now: () => clock++, record: sample => stages.push(sample) },
+  });
+  const plain = renderElementFrame(element, { columns: 20, rows: 3 });
+  assert.deepEqual(measured, plain);
+  const region = stages.find(sample => sample.stage === 'regions');
+  const children = stages.filter(sample => ['region_painting', 'region_targets', 'region_snapshot'].includes(sample.stage));
+  assert.equal(children.length, 4);
+  assert.ok(children.every(sample => sample.durationMs >= 0));
+  assert.ok(children.reduce((sum, sample) => sum + sample.durationMs, 0) < region.durationMs);
 });
 
 test('measurement calls and misses follow independent custom hooks and retained cache', () => {

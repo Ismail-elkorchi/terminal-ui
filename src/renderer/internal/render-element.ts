@@ -334,35 +334,41 @@ function renderLayoutRegions<TMessage>(
   instrumentation?: RenderInstrumentation,
   previous?: Pick<InternalRenderResult<TMessage>, 'regions' | 'frame' | 'pointerVisuals' | 'node' | 'layout'>,
 ): readonly RenderRegion<TMessage>[] {
-  const oldFocus = previous?.frame.focusPath;
-  const changedInteraction = previous?.node === renderNode && previous.layout === layout && (
-    !sameOptionalFocusPath(oldFocus, focusPath)
-    || !samePointerVisualSnapshot(previous.pointerVisuals, pointerVisuals)
-  );
-  const affected = changedInteraction
-    ? affectedRegions(renderNode, layout, oldFocus, focusPath, previous.pointerVisuals, pointerVisuals)
-    : undefined;
-  const composer = createRegionComposer<TMessage>(
-    terminalSize, widthProfile, decorativeNodes, budget, instrumentation,
-    previous?.regions,
-    affected,
-  );
-  const path = nodePath(layout, []);
-  if (!composer.reuseFor(renderNode, layout, [])) {
-    renderRenderNodeToRegion(
-      renderNode,
-      layout,
-      [],
-      composer.regionFor(renderNode, layout, path),
-      composer,
-      theme,
-      widthProfile,
-      focusPath,
-      pointerVisuals,
-      instrumentation,
+  const composer = measureRenderStage(instrumentation, 'region_painting', () => {
+    const oldFocus = previous?.frame.focusPath;
+    const changedInteraction = previous?.node === renderNode && previous.layout === layout && (
+      !sameOptionalFocusPath(oldFocus, focusPath)
+      || !samePointerVisualSnapshot(previous.pointerVisuals, pointerVisuals)
     );
-  }
-  const regions = composer.snapshot(createRegionTargetIndex(renderNode, layout, instrumentation), theme, widthProfile);
+    const affected = changedInteraction
+      ? affectedRegions(renderNode, layout, oldFocus, focusPath, previous.pointerVisuals, pointerVisuals)
+      : undefined;
+    const composer = createRegionComposer<TMessage>(
+      terminalSize, widthProfile, decorativeNodes, budget, instrumentation,
+      previous?.regions,
+      affected,
+    );
+    const path = nodePath(layout, []);
+    if (!composer.reuseFor(renderNode, layout, [])) {
+      renderRenderNodeToRegion(
+        renderNode,
+        layout,
+        [],
+        composer.regionFor(renderNode, layout, path),
+        composer,
+        theme,
+        widthProfile,
+        focusPath,
+        pointerVisuals,
+        instrumentation,
+      );
+    }
+    return composer;
+  });
+  const index = measureRenderStage(instrumentation, 'region_targets', () =>
+    createRegionTargetIndex(renderNode, layout, instrumentation)
+  );
+  const regions = composer.snapshot(index, theme, widthProfile);
   composer.painting.commit(regions);
   return regions;
 }
@@ -818,9 +824,16 @@ function createRegionComposer<TMessage>(
       return Object.freeze([...reused, ...regions
         .toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order)
         .map((region): RenderRegion<TMessage> => {
-          const snapshot = region.buffer.snapshot();
+          const snapshot = measureRenderStage(instrumentation, 'region_snapshot', () => region.buffer.snapshot());
           const metadata = frameSnapshotMetadata(snapshot);
           if (metadata === undefined) throw new Error('Framework frame snapshot metadata is unavailable.');
+          const targets = measureRenderStage(instrumentation, 'region_targets', () => ({
+            hitTargets: frameHitTargets(
+              index.layoutTargetsForRegion(region.zIndex, region.bounds),
+              theme, snapshotWidthProfile, region, decorativeNodes, budget,
+            ),
+            focusTargets: index.focusTargetsForRegion(region.zIndex, region.bounds),
+          }));
           return regionSnapshot(snapshot, {
             id: region.id,
             zIndex: region.zIndex,
@@ -830,15 +843,7 @@ function createRegionComposer<TMessage>(
             ...(region.backdropBounds === undefined ? {} : { backdropBounds: region.backdropBounds }),
             graphics: snapshot.graphics,
             metadata,
-            hitTargets: frameHitTargets(
-              index.layoutTargetsForRegion(region.zIndex, region.bounds),
-              theme,
-              snapshotWidthProfile,
-              region,
-              decorativeNodes,
-              budget,
-            ),
-            focusTargets: index.focusTargetsForRegion(region.zIndex, region.bounds)
+            ...targets
           });
         })].toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order));
     }

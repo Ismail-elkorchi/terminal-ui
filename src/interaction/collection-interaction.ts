@@ -1,4 +1,6 @@
-import { assertOrderedSource, createOrderedSource, appendOrderedItems, type OrderedSource } from '../foundation/ordered-source.ts';
+import { assertCollectionOrderReader, collectionOrderReaderStorageBytes, type CollectionOrderReader } from '../foundation/order-reader.ts';
+import { snapshotArray } from '../foundation/array-snapshot.ts';
+import { createCompactOrderWork } from '../foundation/compact-order.ts';
 import { finishWork } from '../foundation/cooperative-work.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
 import type { NavigationPolicy } from './navigation.ts';
@@ -48,8 +50,8 @@ export interface CollectionInteractionIndex {
 }
 
 interface CollectionInteractionIndexData {
+  readonly storageBytes: number;
   readonly count: number;
-  readonly orderCount: number;
   readonly idAt: (rank: number) => string | undefined;
   readonly rank: (id: string) => number | undefined;
   readonly orderRank: (id: string) => number | undefined;
@@ -72,50 +74,27 @@ export function createCollectionInteractionIndex(value: unknown): CollectionInte
 /** Bounded construction shared by cooperative collection projections. */
 export function* createCollectionInteractionIndexWork(value: unknown): Generator<number, CollectionInteractionIndex> {
   if (!Array.isArray(value)) throw new TypeError('Collection interaction ids must be an array.');
-  let source = createOrderedSource<{ readonly id: string }>();
-  for (let position = 0; position < value.length; position += 1) {
-    const id = selectionId(value[position], `Collection interaction ids[${String(position)}]`);
-    source = appendOrderedItems(source, [{ id, value: Object.freeze({ id }) }]);
-    yield 1;
+  const supplied = snapshotArray(value);
+  function* items() {
+    for (let position = 0; position < supplied.length; position += 1) {
+      const id = selectionId(supplied[position], `Collection interaction ids[${String(position)}]`);
+      yield { id, value: Object.freeze({ id }) };
+    }
   }
-  return createCollectionInteractionIndexFromSource(source);
+  return createCollectionInteractionIndexFromSource(yield* createCompactOrderWork(items()));
 }
 
-/** Retains the source's rank/select tree; no duplicate identity maps or enabled arrays. */
-export function createCollectionInteractionIndexFromSource<T extends { readonly id: string }>(source: OrderedSource<T>): CollectionInteractionIndex {
-  assertOrderedSource(source);
+/** Reuses an authenticated runtime-owned reader's rank/select metadata. */
+export function createCollectionInteractionIndexFromSource<T extends { readonly id: string }>(source: CollectionOrderReader<T>): CollectionInteractionIndex {
+  assertCollectionOrderReader(source);
   const index = Object.freeze({}) as CollectionInteractionIndex;
   collectionIndexes.set(index, Object.freeze({
-    count: source.enabledCount, orderCount: source.count,
+    count: source.enabledCount,
     idAt: (rank: number) => source.enabledAt(rank)?.id,
     rank: source.enabledRank, orderRank: source.rank,
+    storageBytes: collectionOrderReaderStorageBytes(source),
   }));
   return index;
-}
-
-/** One ordered projection owns result rank and enabled navigation together. */
-export function createCollectionInteractionOrderBuilder<T>(): {
-  readonly add: (item: T, id: string, disabled?: boolean) => void;
-  readonly has: (id: string) => boolean;
-  readonly finish: () => { readonly items: readonly T[]; readonly index: CollectionInteractionIndex };
-} {
-  const items: T[] = [];
-  let source = createOrderedSource<{ readonly id: string }>();
-  let finished = false;
-  return {
-    has: id => source.rank(id) !== undefined,
-    add(item, value, disabled = false) {
-      if (finished) throw new TypeError('Collection order is already finished.');
-      const id = selectionId(value, 'Collection interaction id');
-      source = appendOrderedItems(source, [{ id, value: Object.freeze({ id }), disabled }]);
-      items.push(item);
-    },
-    finish() {
-      if (finished) throw new TypeError('Collection order is already finished.');
-      finished = true;
-      return { items: Object.freeze(items), index: createCollectionInteractionIndexFromSource(source) };
-    },
-  };
 }
 
 /** Absolute result rank includes disabled items, unlike keyboard navigation rank. */
@@ -123,10 +102,10 @@ export function collectionInteractionOrderPosition(index: CollectionInteractionI
   return collectionInteractionIndexData(index).orderRank(id);
 }
 
-/** Storage retained by an ordered projection, excluding its item payloads. */
+/** Logical retained-storage estimate, excluding shared payloads; not a heap limit. */
 export function collectionInteractionIndexStorageBytes(index: CollectionInteractionIndex): number {
   const data = collectionInteractionIndexData(index);
-  return 64 + data.orderCount * 128;
+  return 64 + data.storageBytes;
 }
 
 export function collectionInteractionIds(index: CollectionInteractionIndex): readonly string[] {
