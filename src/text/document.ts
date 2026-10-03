@@ -37,6 +37,8 @@ interface TextChunkMetrics {
   readonly lineBreaks: number;
   readonly chunkCount: number;
   readonly startsWithLf: boolean;
+  readonly startsWithLowSurrogate: boolean;
+  readonly endsWithHighSurrogate: boolean;
   readonly endsWithCr: boolean;
   readonly terminalTextSafe: boolean;
   readonly terminalControlTextSafe: boolean;
@@ -88,6 +90,8 @@ const EMPTY_LEAF: TextChunkLeaf = Object.freeze({
   lineBreaks: 0,
   chunkCount: 0,
   startsWithLf: false,
+  startsWithLowSurrogate: false,
+  endsWithHighSurrogate: false,
   endsWithCr: false,
   terminalTextSafe: true,
   terminalControlTextSafe: true,
@@ -107,7 +111,7 @@ export function createTextDocument(value: string): TextDocument {
 }
 
 /** Internal cooperative construction shares the direct document's leaf metrics. */
-export function* createTextDocumentWork(value: string): Generator<void, TextDocument> {
+export function* createTextDocumentWork(value: string): Generator<number, TextDocument> {
   if (typeof value !== 'string') throw new TypeError('text document source must be a string.');
   return createDocument(yield* treeFromTextWork(value));
 }
@@ -151,11 +155,17 @@ export function textDocumentSlice(
   start?: number,
   end?: number
 ): string {
+  return finishWork(textDocumentSliceWork(document, start, end));
+}
+
+export function* textDocumentSliceWork(
+  document: TextDocument, start?: number, end?: number,
+): Generator<number, string> {
   const length = textDocumentLength(document);
   const boundedStart = clampOffset(start ?? 0, length);
   const boundedEnd = Math.max(boundedStart, clampOffset(end ?? length, length));
   const output: string[] = [];
-  collectSlice(dataFor(document).root, boundedStart, boundedEnd, output);
+  yield* collectSliceWork(dataFor(document).root, boundedStart, boundedEnd, output);
   return output.join('');
 }
 
@@ -164,10 +174,18 @@ export function textDocumentEdit(
   range: { readonly startOffset: number; readonly endOffsetExclusive: number },
   insertion: string
 ): TextDocumentMutation {
-  const start = normalizeTextDocumentOffset(document, Math.min(range.startOffset, range.endOffsetExclusive));
-  const end = normalizeTextDocumentOffset(document, Math.max(range.startOffset, range.endOffsetExclusive));
+  return finishWork(textDocumentEditWork(document, range, insertion));
+}
+
+export function* textDocumentEditWork(
+  document: TextDocument,
+  range: { readonly startOffset: number; readonly endOffsetExclusive: number },
+  insertion: string,
+): Generator<number, TextDocumentMutation> {
+  const start = yield* normalizeTextDocumentOffsetWork(document, Math.min(range.startOffset, range.endOffsetExclusive));
+  const end = yield* normalizeTextDocumentOffsetWork(document, Math.max(range.startOffset, range.endOffsetExclusive));
   if (typeof insertion !== 'string') throw new TypeError('text document insertion must be a string.');
-  return textDocumentEditAtOffsets(document, start, end, insertion);
+  return yield* textDocumentEditAtOffsetsWork(document, start, end, insertion);
 }
 
 /** Applies an already validated UTF-16 edit without interactive caret normalization. */
@@ -186,17 +204,8 @@ export function* textDocumentEditExactWork(
   startOffset: number,
   endOffsetExclusive: number,
   insertion: string,
-): Generator<void, TextDocumentMutation> {
+): Generator<number, TextDocumentMutation> {
   return yield* textDocumentEditAtOffsetsWork(document, startOffset, endOffsetExclusive, insertion);
-}
-
-function textDocumentEditAtOffsets(
-  document: TextDocument,
-  start: number,
-  end: number,
-  insertion: string
-): TextDocumentMutation {
-  return finishWork(textDocumentEditAtOffsetsWork(document, start, end, insertion));
 }
 
 function* textDocumentEditAtOffsetsWork(
@@ -204,7 +213,7 @@ function* textDocumentEditAtOffsetsWork(
   start: number,
   end: number,
   insertion: string,
-): Generator<void, TextDocumentMutation> {
+): Generator<number, TextDocumentMutation> {
   if (start === end && insertion.length === 0) {
     return {
       document,
@@ -212,7 +221,7 @@ function* textDocumentEditAtOffsetsWork(
       insertedLength: 0
     };
   }
-  if (insertion === textDocumentSlice(document, start, end)) {
+  if (insertion === (yield* textDocumentSliceWork(document, start, end))) {
     return {
       document,
       replaced: { startOffset: start, endOffsetExclusive: end },
@@ -220,10 +229,15 @@ function* textDocumentEditAtOffsetsWork(
     };
   }
   const root = dataFor(document).root;
-  const [before, remainder] = splitChunks(root, start);
-  const [, after] = splitChunks(remainder, end - start);
+  const meter = { operations: 0 };
+  const [before, remainder] = splitChunks(root, start, meter);
+  const [, after] = splitChunks(remainder, end - start, meter);
+  yield meter.operations;
+  meter.operations = 0;
   const inserted = yield* treeFromTextWork(insertion);
-  const next = yield* compactFragmentedChunksWork(joinChunks(joinChunks(before, inserted), after));
+  const joined = joinChunks(joinChunks(before, inserted, meter), after, meter);
+  yield meter.operations;
+  const next = yield* compactFragmentedChunksWork(joined);
   const changes = Object.freeze([Object.freeze({
     startOffset: start,
     endOffsetExclusive: end,
@@ -237,26 +251,29 @@ function* textDocumentEditAtOffsetsWork(
 }
 
 export function textDocumentLineAt(document: TextDocument, lineIndex: number): TextDocumentLine | undefined {
+  return finishWork(textDocumentLineAtWork(document, lineIndex));
+}
+
+export function* textDocumentLineAtWork(document: TextDocument, lineIndex: number): Generator<number, TextDocumentLine | undefined> {
   const lineCount = textDocumentLineCount(document);
   if (!Number.isInteger(lineIndex) || lineIndex < 0 || lineIndex >= lineCount) return undefined;
-  const root = dataFor(document).root;
-  const startOffset = lineIndex === 0 ? 0 : offsetAfterLineBreak(root, lineIndex - 1);
-  const afterBreak = lineIndex < root.lineBreaks ? offsetAfterLineBreak(root, lineIndex) : root.length;
-  const endOffsetExclusive = lineIndex < root.lineBreaks
-    ? Math.max(startOffset, afterBreak - lineTerminatorLength(root, afterBreak))
-    : afterBreak;
   const cached = lineCache.get(document)?.get(lineIndex);
-  if (cached?.startOffset === startOffset
-    && cached.endOffsetExclusive === endOffsetExclusive) {
+  if (cached !== undefined) {
     retainedLines.delete(cached);
     retainedLines.set(cached, new WeakRef(document));
     return cached;
   }
+  const root = dataFor(document).root;
+  const startOffset = lineIndex === 0 ? 0 : yield* offsetAfterLineBreakWork(root, lineIndex - 1);
+  const afterBreak = lineIndex < root.lineBreaks ? yield* offsetAfterLineBreakWork(root, lineIndex) : root.length;
+  const endOffsetExclusive = lineIndex < root.lineBreaks
+    ? Math.max(startOffset, afterBreak - lineTerminatorLength(root, afterBreak))
+    : afterBreak;
   const inherited = inheritedLine(document, lineIndex, startOffset, endOffsetExclusive);
   const line = (endOffsetExclusive - startOffset) * 2 + 96 <= lineCacheLimit / 2
-    ? { lineIndex, startOffset, endOffsetExclusive, text: inherited?.text ?? textDocumentSlice(document, startOffset, endOffsetExclusive) }
+    ? { lineIndex, startOffset, endOffsetExclusive, text: inherited?.text ?? (yield* textDocumentSliceWork(document, startOffset, endOffsetExclusive)) }
     : lazyDocumentLine(root, lineIndex, startOffset, endOffsetExclusive);
-  retainLine(document, line);
+  yield* retainLineWork(document, line);
   return line;
 }
 
@@ -339,7 +356,7 @@ function inheritedLine(
     : undefined;
 }
 
-function retainLine(document: TextDocument, line: TextDocumentLine): void {
+function* retainLineWork(document: TextDocument, line: TextDocumentLine): Generator<number, void> {
   const weight = (line.endOffsetExclusive - line.startOffset) * 2 + 96;
   if (weight > lineCacheLimit / 2) return;
   const lines = lineCache.get(document) ?? new Map<number, TextDocumentLine>();
@@ -359,6 +376,7 @@ function retainLine(document: TextDocument, line: TextDocumentLine): void {
     const owner = oldest[1].deref();
     if (owner !== undefined) lineCache.get(owner)?.delete(oldest[0].lineIndex);
     lineCacheBytes -= oldest[0].text.length * 2 + 96;
+    yield 1;
   }
 }
 
@@ -369,25 +387,45 @@ function retainLine(document: TextDocument, line: TextDocumentLine): void {
 export function textDocumentLines(document: TextDocument): Iterable<TextDocumentLine> {
   const root = dataFor(document).root;
   return Object.freeze({
-    [Symbol.iterator]: () => iterateDocumentLines(root),
+    [Symbol.iterator]: function* () {
+      for (const event of iterateDocumentLineEvents(root)) if (typeof event !== 'number') yield event;
+    },
   });
 }
 
+/** Internal charged line traversal; direct iteration drains this same computation. */
+export function textDocumentLineEvents(document: TextDocument): Generator<number | TextDocumentLine> {
+  return iterateDocumentLineEvents(dataFor(document).root);
+}
+
 export function textDocumentLineIndexAtOffset(document: TextDocument, offset: number): number {
+  return finishWork(textDocumentLineIndexAtOffsetWork(document, offset));
+}
+
+export function* textDocumentLineIndexAtOffsetWork(document: TextDocument, offset: number): Generator<number, number> {
   const root = dataFor(document).root;
-  return lineBreaksBefore(root, clampOffset(offset, root.length));
+  const meter = { operations: 0 };
+  const result = lineBreaksBefore(root, clampOffset(offset, root.length), meter);
+  yield meter.operations;
+  return result;
 }
 
 export function normalizeTextDocumentOffset(document: TextDocument, offset: number): number {
+  return finishWork(normalizeTextDocumentOffsetWork(document, offset));
+}
+
+export function* normalizeTextDocumentOffsetWork(document: TextDocument, offset: number): Generator<number, number> {
   const length = textDocumentLength(document);
   const bounded = clampOffset(offset, length);
   if (bounded > 0 && bounded < length && textDocumentSlice(document, bounded - 1, bounded + 1) === '\r\n') {
     return bounded - 1;
   }
-  const lineIndex = textDocumentLineIndexAtOffset(document, bounded);
-  const line = textDocumentLineAt(document, lineIndex);
+  const lineIndex = yield* textDocumentLineIndexAtOffsetWork(document, bounded);
+  const line = yield* textDocumentLineAtWork(document, lineIndex);
   if (line === undefined || bounded > line.endOffsetExclusive) return bounded;
-  return line.startOffset + normalizeSourceCursor(textDocumentLineBoundaries(document, line), bounded - line.startOffset);
+  const boundaries = textDocumentLineBoundaries(document, line);
+  yield* boundaries.prepareThroughWork(bounded - line.startOffset);
+  return line.startOffset + normalizeSourceCursor(boundaries, bounded - line.startOffset);
 }
 
 export function normalizeTextDocumentRange(
@@ -405,14 +443,22 @@ export function normalizeTextDocumentRange(
 }
 
 export function normalizeTextPosition(document: TextDocument, position: TextPosition): TextPosition {
+  return finishWork(normalizeTextPositionWork(document, position));
+}
+
+export function* normalizeTextPositionWork(document: TextDocument, position: TextPosition): Generator<number, TextPosition> {
   return Object.freeze({
-    offset: normalizeTextDocumentOffset(document, position.offset),
+    offset: yield* normalizeTextDocumentOffsetWork(document, position.offset),
     affinity: position.affinity
   });
 }
 
 export function normalizeTextCaret(document: TextDocument, caret: TextCaret): TextCaret {
-  const position = normalizeTextPosition(document, caret.position);
+  return finishWork(normalizeTextCaretWork(document, caret));
+}
+
+export function* normalizeTextCaretWork(document: TextDocument, caret: TextCaret): Generator<number, TextCaret> {
+  const position = yield* normalizeTextPositionWork(document, caret.position);
   const preferredColumnCells = caret.preferredColumnCells === undefined
     ? undefined
     : Math.max(0, Math.floor(caret.preferredColumnCells));
@@ -426,9 +472,16 @@ export function normalizeTextDocumentSelection(
   document: TextDocument,
   selection: TextDocumentSelection | undefined
 ): TextDocumentSelection | undefined {
+  return finishWork(normalizeTextDocumentSelectionWork(document, selection));
+}
+
+export function* normalizeTextDocumentSelectionWork(
+  document: TextDocument,
+  selection: TextDocumentSelection | undefined,
+): Generator<number, TextDocumentSelection | undefined> {
   if (selection === undefined) return undefined;
-  const anchor = normalizeTextPosition(document, selection.anchor);
-  const focus = normalizeTextPosition(document, selection.focus);
+  const anchor = yield* normalizeTextPositionWork(document, selection.anchor);
+  const focus = yield* normalizeTextPositionWork(document, selection.focus);
   return anchor.offset === focus.offset ? undefined : Object.freeze({ anchor, focus });
 }
 
@@ -509,30 +562,35 @@ export function textDocumentApplyChangesExact(
 export function* textDocumentApplyChangesExactWork(
   document: TextDocument,
   changes: readonly TextDocumentChange[],
-): Generator<void, TextDocument> {
+): Generator<number, TextDocument> {
   if (changes.length === 0) return document;
   const effective: TextDocumentChange[] = [];
-  let operations = 0;
   for (const change of changes) {
-    if (change.insertedText !== textDocumentSlice(document, change.startOffset, change.endOffsetExclusive)) {
+    if (change.insertedText !== (yield* textDocumentSliceWork(document, change.startOffset, change.endOffsetExclusive))) {
       effective.push(Object.freeze({ ...change }));
     }
-    if (++operations % 128 === 0) yield;
+    yield 1;
   }
   if (effective.length === 0) return document;
   let sourceOffset = 0;
   let remainder = dataFor(document).root;
   let result: TextChunkNode = EMPTY_LEAF;
+  const meter = { operations: 0 };
   for (const change of effective) {
-    const [unchanged, afterUnchanged] = splitChunks(remainder, change.startOffset - sourceOffset);
-    const [, afterChange] = splitChunks(afterUnchanged, change.endOffsetExclusive - change.startOffset);
-    result = joinChunks(result, unchanged);
-    result = joinChunks(result, yield* treeFromTextWork(change.insertedText));
+    const [unchanged, afterUnchanged] = splitChunks(remainder, change.startOffset - sourceOffset, meter);
+    const [, afterChange] = splitChunks(afterUnchanged, change.endOffsetExclusive - change.startOffset, meter);
+    yield meter.operations;
+    meter.operations = 0;
+    result = joinChunks(result, unchanged, meter);
+    result = joinChunks(result, yield* treeFromTextWork(change.insertedText), meter);
     remainder = afterChange;
     sourceOffset = change.endOffsetExclusive;
-    if (++operations % 128 === 0) yield;
+    yield meter.operations + 1;
+    meter.operations = 0;
   }
-  result = yield* compactFragmentedChunksWork(joinChunks(result, remainder));
+  result = joinChunks(result, remainder, meter);
+  yield meter.operations;
+  result = yield* compactFragmentedChunksWork(result);
   return createDocument(result, document, Object.freeze(effective));
 }
 
@@ -556,7 +614,7 @@ function createDocument(
   return document;
 }
 
-function* treeFromTextWork(text: string): Generator<void, TextChunkNode> {
+function* treeFromTextWork(text: string): Generator<number, TextChunkNode> {
   if (text.length === 0) return EMPTY_LEAF;
   const leaves: TextChunkNode[] = [];
   let start = 0;
@@ -564,8 +622,8 @@ function* treeFromTextWork(text: string): Generator<void, TextChunkNode> {
     let end = Math.min(text.length, start + MAX_CHUNK_LENGTH);
     if (end < text.length && isLowSurrogate(text.charCodeAt(end))) end -= 1;
     leaves.push(leaf(text.slice(start, end)));
+    yield end - start;
     start = end;
-    if (leaves.length % 8 === 0) yield;
   }
   return yield* balancedTreeWork(leaves, 0, leaves.length, { operations: 0 });
 }
@@ -575,18 +633,20 @@ function* balancedTreeWork(
   startIndex: number,
   endIndexExclusive: number,
   budget: { operations: number },
-): Generator<void, TextChunkNode> {
+): Generator<number, TextChunkNode> {
   const count = endIndexExclusive - startIndex;
   if (count <= 0) return EMPTY_LEAF;
   if (count === 1) return nodes[startIndex] ?? EMPTY_LEAF;
   const middle = startIndex + Math.floor(count / 2);
   const left = yield* balancedTreeWork(nodes, startIndex, middle, budget);
   const right = yield* balancedTreeWork(nodes, middle, endIndexExclusive, budget);
-  if (++budget.operations % 128 === 0) yield;
+  budget.operations += 1;
+  yield 1;
   return branch(left, right);
 }
 
-function leaf(text: string): TextChunkLeaf {
+function leaf(text: string, meter: { operations: number } = { operations: 0 }): TextChunkLeaf {
+  meter.operations += text.length;
   if (text.length === 0) return EMPTY_LEAF;
   let lineBreaks = 0;
   let previousWasCr = false;
@@ -604,6 +664,8 @@ function leaf(text: string): TextChunkLeaf {
     lineBreaks,
     chunkCount: 1,
     startsWithLf: text.charCodeAt(0) === 10,
+    startsWithLowSurrogate: isLowSurrogate(text.charCodeAt(0)),
+    endsWithHighSurrogate: isHighSurrogate(text.charCodeAt(text.length - 1)),
     endsWithCr: text.charCodeAt(text.length - 1) === 13,
     terminalTextSafe: isTerminalTextSafe(text),
     terminalControlTextSafe: isTerminalControlTextSafe(text),
@@ -611,7 +673,8 @@ function leaf(text: string): TextChunkLeaf {
   });
 }
 
-function branch(left: TextChunkNode, right: TextChunkNode): TextChunkNode {
+function branch(left: TextChunkNode, right: TextChunkNode, meter: { operations: number } = { operations: 0 }): TextChunkNode {
+  meter.operations += 1;
   if (left.length === 0) return right;
   if (right.length === 0) return left;
   return Object.freeze({
@@ -619,11 +682,13 @@ function branch(left: TextChunkNode, right: TextChunkNode): TextChunkNode {
     left,
     right,
     length: left.length + right.length,
-    bytes: left.bytes + right.bytes,
+    bytes: left.bytes + right.bytes - (left.endsWithHighSurrogate && right.startsWithLowSurrogate ? 2 : 0),
     lineBreaks: left.lineBreaks + right.lineBreaks
       - Number(left.endsWithCr && right.startsWithLf),
     chunkCount: left.chunkCount + right.chunkCount,
     startsWithLf: left.startsWithLf,
+    startsWithLowSurrogate: left.startsWithLowSurrogate,
+    endsWithHighSurrogate: right.endsWithHighSurrogate,
     endsWithCr: right.endsWithCr,
     terminalTextSafe: left.terminalTextSafe && right.terminalTextSafe,
     terminalControlTextSafe: left.terminalControlTextSafe && right.terminalControlTextSafe,
@@ -631,11 +696,12 @@ function branch(left: TextChunkNode, right: TextChunkNode): TextChunkNode {
   });
 }
 
-function joinChunks(left: TextChunkNode, right: TextChunkNode): TextChunkNode {
+function joinChunks(left: TextChunkNode, right: TextChunkNode, meter: { operations: number } = { operations: 0 }): TextChunkNode {
+  meter.operations += 1;
   if (left.length === 0) return right;
   if (right.length === 0) return left;
-  const leftBoundary = rightmostLeaf(left);
-  const rightBoundary = leftmostLeaf(right);
+  const leftBoundary = rightmostLeaf(left, meter);
+  const rightBoundary = leftmostLeaf(right, meter);
   if (
     leftBoundary.length + rightBoundary.length <= MAX_CHUNK_LENGTH
     && leftBoundary.length === rightBoundary.length
@@ -643,60 +709,79 @@ function joinChunks(left: TextChunkNode, right: TextChunkNode): TextChunkNode {
     // Equal-size joining acts like a binary carry. It prevents one-character
     // appends from copying a growing boundary chunk on every edit while still
     // keeping the number of retained chunks proportional to document length.
-    const removedLeft = removeRightmostLeaf(left);
-    const removedRight = removeLeftmostLeaf(right);
-    const boundary = boundaryChunks(leftBoundary.text + rightBoundary.text);
-    return joinChunks(joinChunks(removedLeft, boundary), removedRight);
+    const removedLeft = removeRightmostLeaf(left, meter);
+    const removedRight = removeLeftmostLeaf(right, meter);
+    const boundary = boundaryChunks(leftBoundary.text + rightBoundary.text, meter);
+    return joinChunks(joinChunks(removedLeft, boundary, meter), removedRight, meter);
   }
-  return joinBalancedChunks(left, right);
+  return joinBalancedChunks(left, right, meter);
 }
 
-function joinBalancedChunks(left: TextChunkNode, right: TextChunkNode): TextChunkNode {
+function joinBalancedChunks(left: TextChunkNode, right: TextChunkNode, meter: { operations: number } = { operations: 0 }): TextChunkNode {
+  meter.operations += 1;
   if (left.length === 0) return right;
   if (right.length === 0) return left;
   if (left.kind === 'leaf' && right.kind === 'leaf'
     && left.length + right.length <= MAX_CHUNK_LENGTH) {
-    return leaf(left.text + right.text);
+    return leaf(left.text + right.text, meter);
   }
   if (left.height > right.height + 1 && left.kind === 'branch') {
-    return balanceChunks(left.left, joinBalancedChunks(left.right, right));
+    return balanceChunks(left.left, joinBalancedChunks(left.right, right, meter), meter);
   }
   if (right.height > left.height + 1 && right.kind === 'branch') {
-    return balanceChunks(joinBalancedChunks(left, right.left), right.right);
+    return balanceChunks(joinBalancedChunks(left, right.left, meter), right.right, meter);
   }
-  return balanceChunks(left, right);
+  return balanceChunks(left, right, meter);
 }
 
-function balanceChunks(left: TextChunkNode, right: TextChunkNode): TextChunkNode {
+function balanceChunks(left: TextChunkNode, right: TextChunkNode, meter: { operations: number } = { operations: 0 }): TextChunkNode {
+  meter.operations += 1;
   if (left.height > right.height + 1 && left.kind === 'branch') {
-    if (left.left.height >= left.right.height) return branch(left.left, branch(left.right, right));
+    if (left.left.height >= left.right.height) return branch(left.left, branch(left.right, right, meter), meter);
     if (left.right.kind === 'branch') {
-      return branch(branch(left.left, left.right.left), branch(left.right.right, right));
+      return branch(branch(left.left, left.right.left, meter), branch(left.right.right, right, meter), meter);
     }
   }
   if (right.height > left.height + 1 && right.kind === 'branch') {
-    if (right.right.height >= right.left.height) return branch(branch(left, right.left), right.right);
+    if (right.right.height >= right.left.height) return branch(branch(left, right.left, meter), right.right, meter);
     if (right.left.kind === 'branch') {
-      return branch(branch(left, right.left.left), branch(right.left.right, right.right));
+      return branch(branch(left, right.left.left, meter), branch(right.left.right, right.right, meter), meter);
     }
   }
-  return branch(left, right);
+  return branch(left, right, meter);
 }
 
 function splitChunks(
   node: TextChunkNode,
   offset: number,
+  meter: { operations: number } = { operations: 0 },
 ): readonly [TextChunkNode, TextChunkNode] {
+  meter.operations += 1;
   const bounded = clampOffset(offset, node.length);
   if (bounded === 0) return [EMPTY_LEAF, node];
   if (bounded === node.length) return [node, EMPTY_LEAF];
-  if (node.kind === 'leaf') return [leaf(node.text.slice(0, bounded)), leaf(node.text.slice(bounded))];
+  if (node.kind === 'leaf') return [leaf(node.text.slice(0, bounded), meter), leaf(node.text.slice(bounded), meter)];
   if (bounded < node.left.length) {
-    const [before, after] = splitChunks(node.left, bounded);
-    return [before, joinBalancedChunks(after, node.right)];
+    const [before, after] = splitChunks(node.left, bounded, meter);
+    return [before, joinBalancedChunks(after, node.right, meter)];
   }
-  const [before, after] = splitChunks(node.right, bounded - node.left.length);
-  return [joinBalancedChunks(node.left, before), after];
+  const [before, after] = splitChunks(node.right, bounded - node.left.length, meter);
+  return [joinBalancedChunks(node.left, before, meter), after];
+}
+
+function* collectSliceWork(
+  node: TextChunkNode, startOffset: number, endOffsetExclusive: number, output: string[],
+): Generator<number, void> {
+  if (startOffset >= endOffsetExclusive || endOffsetExclusive <= 0 || startOffset >= node.length) return;
+  if (node.kind === 'leaf') {
+    const start = Math.max(0, startOffset);
+    const end = Math.min(node.length, endOffsetExclusive);
+    output.push(node.text.slice(start, end));
+    yield end - start;
+    return;
+  }
+  yield* collectSliceWork(node.left, startOffset, Math.min(endOffsetExclusive, node.left.length), output);
+  yield* collectSliceWork(node.right, startOffset - node.left.length, endOffsetExclusive - node.left.length, output);
 }
 
 function collectSlice(
@@ -705,24 +790,10 @@ function collectSlice(
   endOffsetExclusive: number,
   output: string[],
 ): void {
-  if (startOffset >= endOffsetExclusive || endOffsetExclusive <= 0 || startOffset >= node.length) return;
-  if (node.kind === 'leaf') {
-    output.push(node.text.slice(
-      Math.max(0, startOffset),
-      Math.min(node.length, endOffsetExclusive)
-    ));
-    return;
-  }
-  collectSlice(node.left, startOffset, Math.min(endOffsetExclusive, node.left.length), output);
-  collectSlice(
-    node.right,
-    startOffset - node.left.length,
-    endOffsetExclusive - node.left.length,
-    output
-  );
+  finishWork(collectSliceWork(node, startOffset, endOffsetExclusive, output));
 }
 
-function* iterateDocumentLines(root: TextChunkNode): Generator<TextDocumentLine> {
+function* iterateDocumentLineEvents(root: TextChunkNode): Generator<number | TextDocumentLine> {
   let absoluteOffset = 0;
   let lineIndex = 0;
   let lineStartOffset = 0;
@@ -747,7 +818,9 @@ function* iterateDocumentLines(root: TextChunkNode): Generator<TextDocumentLine>
     }
 
     let segmentStart = index;
+    let charged = index;
     for (; index < text.length; index += 1) {
+      if (index - charged >= 256) { yield index - charged; charged = index; }
       const code = text.charCodeAt(index);
       if (code !== 10 && code !== 13) continue;
       lineParts.push(text.slice(segmentStart, index));
@@ -772,6 +845,7 @@ function* iterateDocumentLines(root: TextChunkNode): Generator<TextDocumentLine>
     if (!carriageReturnAtChunkEnd && segmentStart < text.length) {
       lineParts.push(text.slice(segmentStart));
     }
+    yield text.length - charged;
     absoluteOffset += text.length;
   }
 
@@ -807,22 +881,24 @@ function* chunkTexts(root: TextChunkNode): Generator<string> {
   }
 }
 
-function lineBreaksBefore(node: TextChunkNode, offset: number): number {
+function lineBreaksBefore(node: TextChunkNode, offset: number, meter = { operations: 0 }): number {
   const bounded = clampOffset(offset, node.length);
   if (bounded === 0) return 0;
-  return prefixLineBreakCount(node, bounded)
+  return prefixLineBreakCount(node, bounded, meter)
     - Number(
       characterCodeAt(node, bounded - 1) === 13
       && characterCodeAt(node, bounded) === 10,
     );
 }
 
-function prefixLineBreakCount(node: TextChunkNode, offset: number): number {
+function prefixLineBreakCount(node: TextChunkNode, offset: number, meter: { operations: number }): number {
+  meter.operations += 1;
   if (offset >= node.length) return node.lineBreaks;
   if (node.kind === 'leaf') {
     let lineBreaks = 0;
     let previousWasCr = false;
     for (let index = 0; index < Math.max(0, offset); index += 1) {
+      meter.operations += 1;
       const code = node.text.charCodeAt(index);
       if (code === 13) lineBreaks += 1;
       else if (code === 10 && !previousWasCr) lineBreaks += 1;
@@ -830,20 +906,23 @@ function prefixLineBreakCount(node: TextChunkNode, offset: number): number {
     }
     return lineBreaks;
   }
-  if (offset <= node.left.length) return prefixLineBreakCount(node.left, offset);
+  if (offset <= node.left.length) return prefixLineBreakCount(node.left, offset, meter);
   const rightOffset = offset - node.left.length;
   return node.left.lineBreaks
-    + prefixLineBreakCount(node.right, rightOffset)
+    + prefixLineBreakCount(node.right, rightOffset, meter)
     - Number(node.left.endsWithCr && node.right.startsWithLf && rightOffset > 0);
 }
 
-function offsetAfterLineBreak(node: TextChunkNode, breakIndex: number): number {
+function* offsetAfterLineBreakWork(node: TextChunkNode, breakIndex: number): Generator<number, number> {
+  const meter = { operations: 0 };
   let low = 1;
   let high = node.length;
   while (low < high) {
     const middle = Math.floor((low + high) / 2);
-    if (lineBreaksBefore(node, middle) > breakIndex) high = middle;
+    if (lineBreaksBefore(node, middle, meter) > breakIndex) high = middle;
     else low = middle + 1;
+    yield meter.operations;
+    meter.operations = 0;
   }
   return low;
 }
@@ -863,47 +942,51 @@ function characterCodeAt(node: TextChunkNode, offset: number): number | undefine
     : characterCodeAt(node.right, offset - node.left.length);
 }
 
-function leftmostLeaf(node: TextChunkNode): TextChunkLeaf {
+function leftmostLeaf(node: TextChunkNode, meter: { operations: number } = { operations: 0 }): TextChunkLeaf {
+  meter.operations += 1;
   let current = node;
-  while (current.kind === 'branch') current = current.left;
+  while (current.kind === 'branch') { current = current.left; meter.operations += 1; }
   return current;
 }
 
-function rightmostLeaf(node: TextChunkNode): TextChunkLeaf {
+function rightmostLeaf(node: TextChunkNode, meter: { operations: number } = { operations: 0 }): TextChunkLeaf {
+  meter.operations += 1;
   let current = node;
-  while (current.kind === 'branch') current = current.right;
+  while (current.kind === 'branch') { current = current.right; meter.operations += 1; }
   return current;
 }
 
-function removeLeftmostLeaf(node: TextChunkNode): TextChunkNode {
+function removeLeftmostLeaf(node: TextChunkNode, meter: { operations: number } = { operations: 0 }): TextChunkNode {
+  meter.operations += 1;
   if (node.kind === 'leaf') return EMPTY_LEAF;
-  return joinBalancedChunks(removeLeftmostLeaf(node.left), node.right);
+  return joinBalancedChunks(removeLeftmostLeaf(node.left, meter), node.right, meter);
 }
 
-function removeRightmostLeaf(node: TextChunkNode): TextChunkNode {
+function removeRightmostLeaf(node: TextChunkNode, meter: { operations: number } = { operations: 0 }): TextChunkNode {
+  meter.operations += 1;
   if (node.kind === 'leaf') return EMPTY_LEAF;
-  return joinBalancedChunks(node.left, removeRightmostLeaf(node.right));
+  return joinBalancedChunks(node.left, removeRightmostLeaf(node.right, meter), meter);
 }
 
-function boundaryChunks(text: string): TextChunkNode {
-  if (text.length <= MAX_CHUNK_LENGTH) return leaf(text);
+function boundaryChunks(text: string, meter: { operations: number } = { operations: 0 }): TextChunkNode {
+  meter.operations += 1;
+  if (text.length <= MAX_CHUNK_LENGTH) return leaf(text, meter);
   let middle = Math.floor(text.length / 2);
   if (isLowSurrogate(text.charCodeAt(middle))) middle -= 1;
-  return branch(leaf(text.slice(0, middle)), leaf(text.slice(middle)));
+  return branch(leaf(text.slice(0, middle), meter), leaf(text.slice(middle), meter), meter);
 }
 
-function* compactFragmentedChunksWork(root: TextChunkNode): Generator<void, TextChunkNode> {
+function* compactFragmentedChunksWork(root: TextChunkNode): Generator<number, TextChunkNode> {
   const maximumChunkCount = Math.max(64, Math.ceil(root.length / MIN_CHUNK_LENGTH));
   if (root.chunkCount <= maximumChunkCount) return root;
   const parts: string[] = [];
   const pending = [root];
-  let operations = 0;
   while (pending.length > 0) {
     const node = pending.pop();
     if (node === undefined) break;
     if (node.kind === 'leaf') parts.push(node.text);
     else pending.push(node.right, node.left);
-    if (++operations % 128 === 0) yield;
+    yield 1;
   }
   // Joining immutable strings is native allocation; rebuilding leaf metrics is
   // bounded and resumable rather than one framework-owned whole-document loop.
@@ -922,4 +1005,8 @@ function clampOffset(value: number, max: number): number {
 
 function isLowSurrogate(value: number): boolean {
   return value >= 0xdc00 && value <= 0xdfff;
+}
+
+function isHighSurrogate(value: number): boolean {
+  return value >= 0xd800 && value <= 0xdbff;
 }

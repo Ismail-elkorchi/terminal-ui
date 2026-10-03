@@ -1,6 +1,8 @@
+import { createSuggestionFixture } from '../../support/collection-fixtures.mjs';
+import { createTableCollection } from '../../../dist/behavior/index.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createScrollState, createCommandSuggestions, createLogHistory } from '../../../dist/behavior/index.js';
+import { createScrollState, createLogHistory } from '../../../dist/behavior/index.js';
 import { ignoreMessage } from '../../../dist/component/index.js';
 
 import {
@@ -145,12 +147,11 @@ test('theme matrix snapshots cover core components with packs high contrast and 
         ]
       }),
       dataGrid({ meta: { accessibleName: "Data grid" },
-    getRowId: (_row, index) => String(index),
     id: `dataGrid-${theme.name}`,
         columns: [{
           value: (row) => Array.isArray(row) ? row[0] : row, id: 'key', header: 'Key' }, {
           value: (row) => Array.isArray(row) ? row[1] : undefined, id: 'value', header: 'Value' }],
-        rows: [{ key: 'focus', value: 'visible' }],
+        collection: createTableCollection([{ key: 'focus', value: 'visible' }], (_row, index) => String(index)),
         state: {
           interaction: {
             kind: 'row', activeRowId: '0', selection: { mode: 'single', selectedRowId: '0' },
@@ -195,7 +196,7 @@ test('default theme specimen composes surface control text command log and data 
       view: {
         input: { text: '/open readme', cursor: 0 },
         open: true,
-        suggestions: createCommandSuggestions([{ id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: 12 }, text: '/open' }, label: 'Open File' }]),
+        ...createSuggestionFixture([{ id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: 12 }, text: '/open' }, label: 'Open File' }]),
         activeSuggestionId: 'open'
       },
       display: 'expanded',
@@ -242,7 +243,6 @@ test('default theme specimen composes surface control text command log and data 
       ]
     }),
     dataGrid({ meta: { accessibleName: "Data grid" },
-    getRowId: (_row, index) => String(index),
     id: 'specimen-dataGrid',
       state: {
         interaction: {
@@ -253,7 +253,7 @@ test('default theme specimen composes surface control text command log and data 
       columns: [{
         value: (row) => Array.isArray(row) ? row[0] : row, id: 'name', header: 'Name' }, {
         value: (row) => Array.isArray(row) ? row[1] : undefined, id: 'status', header: 'Status' }],
-      rows: [{ name: 'Atlas', status: 'Active' }]
+      collection: createTableCollection([{ name: 'Atlas', status: 'Active' }], (_row, index) => String(index))
     }),
     helpBar({
       id: 'specimen-help',

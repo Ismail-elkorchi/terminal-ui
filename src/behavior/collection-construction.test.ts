@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { prepareTableCollection, prepareTableRows, sortTableRows } from './table-operations.ts';
+import { createTableCollection, prepareTableCollection, prepareTableRows, sortTableRows } from './table-operations.ts';
 import { createTreeSource, prepareTreeSource, createTreeView, prepareTreeView } from './tree-operations.ts';
 import { createLogHistory, prepareLogHistory, prepareAppendLogHistory, logHistoryEntries } from './log-history.ts';
 import { prepareLogViewerView } from './log-viewer-view.ts';
@@ -11,13 +11,13 @@ void test('tree construction cooperates within one long label and owns source be
   assert.ok(node);
   const expected = createTreeSource(nodes);
   let yields = 0;
-  const actual = await prepareTreeSource(nodes, {
+  const actual = await prepareTreeSource([nodes.map(node => ({ node }))], {
     signal: new AbortController().signal,
     yield: () => { yields += 1; node.label = 'mutated'; return Promise.resolve(); },
   });
   assert.ok(yields > 1);
-  assert.deepEqual(createTreeView(actual, { expandedIds: [], selection: { mode: 'none' } }),
-    createTreeView(expected, { expandedIds: [], selection: { mode: 'none' } }));
+  assert.deepEqual(createTreeView(actual, { expandedIds: [], selection: { mode: 'none' } }).collection.window(0, 1),
+    createTreeView(expected, { expandedIds: [], selection: { mode: 'none' } }).collection.window(0, 1));
 });
 
 void test('log construction and append share normalization while cancellation preserves previous history', async () => {
@@ -26,13 +26,13 @@ void test('log construction and append share normalization while cancellation pr
   const entry = entries[0];
   assert.ok(entry);
   const expected = createLogHistory(entries);
-  const actual = await prepareLogHistory(entries, {
+  const actual = await prepareLogHistory([entries], {
     signal: new AbortController().signal,
     yield: () => { entry.text = 'mutated'; entry.metadata.source = 'mutated'; return Promise.resolve(); },
   });
   assert.deepEqual(logHistoryEntries(actual), logHistoryEntries(expected));
   const controller = new AbortController();
-  await assert.rejects(prepareAppendLogHistory(history, [{ id: 'second', text: 'x'.repeat(20_000) }], {
+  await assert.rejects(prepareAppendLogHistory(history, [[{ id: 'second', text: 'x'.repeat(20_000) }]], {
     signal: controller.signal,
     yield: () => { controller.abort(new Error('replaced')); return Promise.resolve(); },
   }), /replaced/u);
@@ -53,10 +53,10 @@ void test('table construction and stable sorting cooperate and preserve source m
   const rows = Array.from({ length: 2048 }, (_, i) => Object.freeze({ id: String(i), rank: 2048 - i }));
   const sort = { columnId: 'rank', direction: 'ascending' } as const;
   const context = { signal: new AbortController().signal, yield: () => Promise.resolve() };
-  const result = await prepareTableRows(rows, sort, row => row.rank, context);
+  const result = await prepareTableRows(createTableCollection(rows, row => row.id), sort, row => row.rank, context);
   assert.deepEqual(result, sortTableRows(rows, sort, row => row.rank));
   const controller = new AbortController();
-  await assert.rejects(prepareTableCollection(rows, row => row.id, {
+  await assert.rejects(prepareTableCollection(Array.from({ length: 8 }, (_, i) => rows.slice(i * 256, (i + 1) * 256)), row => row.id, {
     signal: controller.signal,
     yield: () => { controller.abort(new Error('changed')); return Promise.resolve(); },
   }), /changed/u);
@@ -84,7 +84,7 @@ void test('framework normalization cooperates inside long tab and control-sequen
   for (const text of ['a\t'.repeat(20_000), '\u001b[31ma'.repeat(20_000)]) {
     const controller = new AbortController();
     let yields = 0;
-    await assert.rejects(prepareLogHistory([{ id: 'one', text }], {
+    await assert.rejects(prepareLogHistory([[{ id: 'one', text }]], {
       signal: controller.signal,
       yield: () => { yields += 1; controller.abort(new Error('new source')); return Promise.resolve(); },
     }), /new source/u);

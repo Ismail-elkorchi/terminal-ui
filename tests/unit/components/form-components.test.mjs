@@ -1,3 +1,4 @@
+import { createOptionsFixture } from '../../support/collection-fixtures.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -86,10 +87,10 @@ test('form components render settings and setup-wizard shapes with scoped state'
       id: 'region',
       label: 'Region',
       state: { kind: 'select', open: false, interaction: { selection: { mode: 'single', selectedId: 'eu' } } },
-      options: [
+      ...createOptionsFixture([
         { id: 'eu', label: 'Europe', value: 'eu' },
         { id: 'us', label: 'United States', value: 'us' }
-      ],
+      ]),
       onTransition: (action) => ({ kind: 'region', action })
     }),
     numberInput({ meta: { accessibleName: "Number input" },
@@ -133,11 +134,11 @@ test('open combobox renders a bounded popup with painted option targets only', (
         selection: { mode: 'single', selectedId: 'eu' }
       }
     },
-    options: [
+    ...createOptionsFixture([
       { id: 'eu', label: 'Europe', value: 'eu' },
       { id: 'disabled', label: 'Unavailable', value: 'disabled', disabled: true },
       { id: 'us', label: 'United States', value: 'us' }
-    ],
+    ]),
     onTransition: (action) => ({ kind: 'region', action })
   }), { columns: 24, rows: 8 });
   const output = renderFramePlain(frame);
@@ -165,10 +166,10 @@ test('closed combobox renders only its trigger and hides popup accessibility chi
     id: 'region',
     label: 'Region',
     state: { kind: 'select', open: false, interaction: { selection: { mode: 'single', selectedId: 'eu' } } },
-    options: [
+    ...createOptionsFixture([
       { id: 'eu', label: 'Europe', value: 'eu' },
       { id: 'us', label: 'United States', value: 'us' }
-    ],
+    ]),
     onTransition: (action) => ({ kind: 'region', action })
   }), { columns: 24, rows: 4 });
 
@@ -204,7 +205,7 @@ test('autocomplete combobox shares editable popup state without changing select-
   const frame = renderElementFrame(combobox({
     id: 'language',
     label: 'Language',
-    options: [options[1]],
+    ...createOptionsFixture([options[1]]),
     view,
     onTransition: () => ({ kind: 'transition' }),
     onCommit: () => ({ kind: 'commit' }),
@@ -228,7 +229,7 @@ test('autocomplete combobox exposes shared word-selection and context-menu seman
   const regions = renderElementRegions(combobox({
     id: 'autocomplete-pointer-semantics',
     label: 'Language',
-    options: [],
+    ...createOptionsFixture([]),
     view: {
       kind: 'autocomplete',
       open: false,
@@ -291,7 +292,7 @@ test('autocomplete combobox keeps long input rendering cursor and pointer geomet
   const options = {
     id: 'windowed-autocomplete',
     label: 'Q',
-    options: [],
+    ...createOptionsFixture([]),
     view: {
       kind: 'autocomplete',
       open: false,
@@ -366,7 +367,7 @@ test('controlled combobox pages and commits through its public behavior operatio
     view: (state) => combobox({
       id: 'choice',
       label: 'Choice',
-      options,
+      ...createOptionsFixture(options),
       state: state.combobox,
       maxVisibleOptions: behavior.pageSize,
       onTransition: (transition) => ({ kind: 'transition', transition }),

@@ -28,13 +28,17 @@ they do not count literal Intl iterator calls. Source boundaries can be reused e
 when a different width policy requires new geometry.
 Snapshot counters report rebuilt final-frame rows and cells.
 
-The runtime retains paint commands for framework leaf components and spans for
-unchanged table rows. Paint dependencies include geometry, theme, width profile,
-styles and interaction state. Hit targets and callbacks are refreshed on redraw.
-Custom painters execute on every render unless they explicitly opt into the
-immutable-input retainPaint contract. Cache checks compare declared geometry and
-style fields plus owned model/resource identities; they never walk arbitrary
-application data. Immutable cells can be shared without sharing mutable buffers.
+The runtime retains declared leaf paint commands and spans for unchanged table
+rows. Component definitions independently opt into measurement, layout, paint and
+accessibility reuse through `reuse` tuple selectors. Built-in and external
+components use the same contract. Renderer comparisons inspect at most 128 owned
+tuple slots per phase, never arbitrary application object graphs; the bound does
+not constrain user selector execution. Geometry, theme, width profile, styles,
+interaction state, named slots and child phase results remain explicit renderer
+dependencies. Layout reuse also requires matching intrinsic measurement, and
+current semantic output still passes global validation. Hit targets, callbacks and
+accepted-layout notifications stay current. Immutable cells can be shared without
+sharing mutable buffers.
 
 Log searches use compact text indexes and lazily create case-folded tokens.
 Applications explicitly prepare `LogViewerView` values in cancellable effects

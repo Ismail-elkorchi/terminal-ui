@@ -1,3 +1,4 @@
+import { createSuggestionFixture } from '../../support/collection-fixtures.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ignoreMessage, measureConstrainedBox } from '../../../dist/component/index.js';
@@ -18,11 +19,7 @@ import {
   surface,
 } from '../../../dist/layout/index.js';
 import { createTextDocument, textCaretAt } from '../../../dist/text/index.js';
-import {
-  createCommandSuggestions,
-  createSearchPickerIndex,
-  querySearchPickerIndex
-} from '../../../dist/behavior/index.js';
+import { createSearchPickerIndex, querySearchPickerIndex } from '../../../dist/behavior/index.js';
 import { createMeasuredCollection, measuredWindow } from '../../../dist/collection/index.js';
 
 test('anonymous accessibility identities remain unique when layout collapses siblings', () => {
@@ -153,7 +150,7 @@ test('grid and splitPane layouts arrange common app frames', () => {
     text({ content: 'status', id: 'status' }),
     commandInput({ meta: { accessibleName: "Command input" },
       id: 'command',
-      view: { input: { text: '/help', cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
+      view: { input: { text: '/help', cursor: 0 }, open: false, ...createSuggestionFixture([]) },
       onTransition: (action) => action
     })
   ], {
@@ -295,7 +292,7 @@ test('interactive row fills do not inflate intrinsic content tracks', () => {
     button({ id: 'forward', label: 'Forward', onPress: () => ignoreMessage() }),
     surface(commandInput({ meta: { accessibleName: "Command input" },
       id: 'address',
-      view: { input: { text: 'example.test', cursor: 12 }, open: false, suggestions: createCommandSuggestions([]) },
+      view: { input: { text: 'example.test', cursor: 12 }, open: false, ...createSuggestionFixture([]) },
       onTransition: (action) => action
     }), { appearance: 'inset' }),
     button({ id: 'menu', label: 'Menu', onPress: () => ignoreMessage() })

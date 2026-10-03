@@ -1,9 +1,11 @@
+import { TerminalUiError } from '../../errors.ts';
+import { assertRuntimeLimit } from './runtime-policy.ts';
 import { cancellationMatches, removedWork } from './work-ownership.ts';
 import type { TerminalDiagnostic } from '../../diagnostics.ts';
 import { diagnostic } from '../../diagnostics.ts';
 import type { TuiMessageSource } from '../../interaction/message.ts';
 import { isIgnoredMessage } from '../../interaction/message.ts';
-import { decodeTuiEventSources } from '../hook-results.ts';
+import { decodeTuiEventSources, decodeMessageResolution } from '../hook-results.ts';
 import type { ProducerAdmissionLease } from './producer-admission.ts';
 import { createProducerAdmissionLease } from './producer-admission.ts';
 import type { TuiSourceChannel } from './source-channel.ts';
@@ -28,6 +30,15 @@ interface ActiveTuiEventSource<TMessage> {
   metricsRetained: boolean;
   completion: Promise<void>;
   disposal?: Promise<void>;
+  physicallySettled: boolean;
+  readonly token: SourceObligation;
+}
+
+interface SourceObligation {
+  readonly capacity: number;
+  released: boolean;
+  creditReserved: boolean;
+  source?: { readonly lease: ProducerAdmissionLease; readonly physicallySettled: boolean };
 }
 
 interface TerminalSourceGeneration {
@@ -39,20 +50,26 @@ interface TerminalSourceGeneration {
 export interface TuiSubscriptionPlan<TMessage> {
   readonly context: TuiContext;
   readonly sources: readonly TuiEventSource<TMessage>[];
+  activate(): void;
+  release(): void;
 }
 
 export interface TuiSubscriptionManager<TState, TMessage> {
-  plan(state: TState, context?: TuiContext): Promise<TuiSubscriptionPlan<TMessage>>;
+  plan(state: TState, context?: TuiContext, cancel?: readonly TuiCancellation[], completing?: ProducerAdmissionLease): Promise<TuiSubscriptionPlan<TMessage>>;
   activate(plan: TuiSubscriptionPlan<TMessage>, cancel?: readonly TuiCancellation[]): void;
   cancelRequests(requests: readonly TuiCancellation[]): void;
   reconcile(state: TState): Promise<void>;
   cancel(): void;
   dispose(): Promise<void>;
-  metrics(): TuiSourceChannelMetrics;
+  metrics(): TuiSourceChannelMetrics & { readonly owned: number; readonly capacity: number; readonly retiring: number };
 }
 
 export interface TuiSubscriptionManagerOptions<TState, TMessage> {
   readonly subscriptions?: TuiSubscriptions<TState, TMessage>;
+  readonly maxOwned?: number;
+  readonly maxCapacity?: number;
+  readonly maxBatchMessages?: number;
+  readonly fatal?: (cause: unknown) => void;
   readonly dispatchMany: (
     messages: readonly TMessage[],
     source: TuiMessageSource,
@@ -65,25 +82,57 @@ export interface TuiSubscriptionManagerOptions<TState, TMessage> {
 export function createTuiSubscriptionManager<TState, TMessage>(
   options: TuiSubscriptionManagerOptions<TState, TMessage>
 ): TuiSubscriptionManager<TState, TMessage> {
+  const owned = new Set<SourceObligation>();
+  const requested = new Map<string, string | number>();
   const active = new Map<string, ActiveTuiEventSource<TMessage>>();
   const terminal = new Map<string, TerminalSourceGeneration>();
   const retiring = new Set<Promise<void>>();
   const retiringSources = new Set<ActiveTuiEventSource<TMessage>>();
-  const retirementFailures: unknown[] = [];
+  let retirementFailure: unknown;
   const retainedMetrics = emptySourceMetrics();
   let disposed = false;
 
   return {
-    async plan(state, suppliedContext) {
+    async plan(state, suppliedContext, cancel = [], completing) {
       const context = suppliedContext ?? await options.context();
       const supplied: unknown = options.subscriptions?.(state, context) ?? [];
-      const sources = decodeTuiEventSources<TMessage>(supplied);
+      const sources = decodeTuiEventSources<TMessage>(supplied, options.maxOwned ?? 64)
+        .filter((source) => !removedWork(source, cancel));
       assertUniqueSourceIds(sources, options.reportDiagnostic);
-      return { context, sources };
+      const additions = sources.filter((source) => active.get(source.id)?.generation !== source.generation
+        && terminal.get(source.id)?.generation !== source.generation);
+      const credit = completing === undefined ? undefined : [...owned].find((token) =>
+        !token.creditReserved && token.source?.lease === completing && token.source.physicallySettled);
+      const capacity = additions.reduce((sum, source) => sum + (source.channel?.capacity ?? 64), 0);
+      const retainedCapacity = [...owned].reduce((sum, token) => sum + token.capacity, 0);
+      const needsCredit = additions.length > 0 && (owned.size + additions.length > (options.maxOwned ?? 64)
+        || retainedCapacity + capacity > (options.maxCapacity ?? 4_096)) ? credit : undefined;
+      assertRuntimeLimit('owned_sources', owned.size + additions.length - Number(needsCredit !== undefined), options.maxOwned ?? 64);
+      assertRuntimeLimit('source_capacity', retainedCapacity + capacity - (needsCredit?.capacity ?? 0), options.maxCapacity ?? 4_096);
+      if (needsCredit !== undefined) needsCredit.creditReserved = true;
+      const reservations = new Map<TuiEventSource<TMessage>, SourceObligation>();
+      for (const source of additions) {
+        const token = { capacity: source.channel?.capacity ?? 64, released: false, creditReserved: false };
+        owned.add(token); reservations.set(source, token);
+      }
+      let pending = true;
+      return {
+        context, sources,
+        activate() {
+          if (!pending) return;
+          pending = false;
+          if (needsCredit !== undefined) release(needsCredit);
+          applyPlan({ context, sources }, reservations);
+        },
+        release() {
+          if (!pending) return;
+          pending = false;
+          if (needsCredit !== undefined) needsCredit.creditReserved = false;
+          for (const token of reservations.values()) release(token);
+        },
+      };
     },
-    activate(plan, cancel = []) {
-      applyPlan({ ...plan, sources: plan.sources.filter((source) => !removedWork(source, cancel)) });
-    },
+    activate(plan) { plan.activate(); },
     cancelRequests(requests) {
       for (const [id, source] of active) {
         if (!requests.some((request) => request.kind === 'child' && cancellationMatches(request, source.source))) continue;
@@ -94,7 +143,7 @@ export function createTuiSubscriptionManager<TState, TMessage>(
     },
     async reconcile(state) {
       const plan = await this.plan(state);
-      applyPlan(plan);
+      plan.activate();
     },
     cancel() {
       retireAll();
@@ -104,8 +153,7 @@ export function createTuiSubscriptionManager<TState, TMessage>(
       disposed = true;
       retireAll();
       await Promise.all([...retiring]);
-      const failures = retirementFailures.splice(0);
-      if (failures.length > 0) throw new AggregateError(failures, 'TUI subscription disposal failed.');
+      if (retirementFailure !== undefined) throw new AggregateError([retirementFailure], 'TUI subscription disposal failed.');
     },
     metrics() {
       const result = { ...retainedMetrics };
@@ -115,12 +163,25 @@ export function createTuiSubscriptionManager<TState, TMessage>(
       for (const source of retiringSources) {
         if (!source.metricsRetained) addSourceMetrics(result, source.channel.metrics());
       }
-      return Object.freeze(result);
+      return Object.freeze({ ...result,
+        owned: [...owned].filter((token) => !token.creditReserved).length,
+        capacity: [...owned].reduce((sum, token) => sum + (token.creditReserved ? 0 : token.capacity), 0),
+        retiring: retiringSources.size,
+      });
     },
   };
 
-  function applyPlan(plan: TuiSubscriptionPlan<TMessage>): void {
-    if (disposed) return;
+  function release(token: SourceObligation): void {
+    if (token.released) return;
+    token.released = true;
+    owned.delete(token);
+  }
+
+  function applyPlan(plan: Pick<TuiSubscriptionPlan<TMessage>, 'context' | 'sources'>,
+    reservations: ReadonlyMap<TuiEventSource<TMessage>, SourceObligation>): void {
+    if (disposed) { for (const token of reservations.values()) release(token); return; }
+    requested.clear();
+    for (const source of plan.sources) requested.set(source.id, source.generation);
     const requestedIds = new Set(plan.sources.map((source) => source.id));
     for (const id of terminal.keys()) {
       if (!requestedIds.has(id)) terminal.delete(id);
@@ -138,20 +199,24 @@ export function createTuiSubscriptionManager<TState, TMessage>(
       const outcome = terminal.get(id);
       if (outcome?.generation === source.generation) continue;
       terminal.delete(id);
-      const activeSource = startSource(source, plan.context);
+      const token = reservations.get(source);
+      if (token === undefined) continue;
+      const activeSource = startSource(source, plan.context, token);
       active.set(id, activeSource);
     }
   }
 
   function startSource(
     source: TuiEventSource<TMessage>,
-    baseContext: TuiContext
+    baseContext: TuiContext,
+    token: SourceObligation,
   ): ActiveTuiEventSource<TMessage> {
     const controller = new AbortController();
     const id = source.id;
     const lease = createProducerAdmissionLease('subscription', `${id}:${String(source.generation)}`, controller.signal);
     const sourceName = source.source ?? 'external';
     const channel = createTuiSourceChannel<TMessage>({
+      ...(options.maxBatchMessages === undefined ? {} : { maxBatchMessages: options.maxBatchMessages }),
       ...(source.channel === undefined ? {} : { capacity: source.channel.capacity }),
       ...(source.channel?.cadenceMs === undefined ? {} : {
         cadence: { intervalMs: source.channel.cadenceMs, clock: baseContext.clock },
@@ -166,12 +231,15 @@ export function createTuiSubscriptionManager<TState, TMessage>(
       source,
       channel,
       metricsRetained: false,
+      physicallySettled: false,
+      token,
       completion: Promise.resolve()
     };
+    token.source = activeSource;
     const context: TuiSubscriptionContext = { ...baseContext, signal: controller.signal };
     activeSource.completion = pumpSource(activeSource, context)
       .then(async (outcome) => {
-        if (active.get(id) === activeSource && !context.signal.aborted) {
+        if (active.get(id) === activeSource && !context.signal.aborted && requested.get(id) === source.generation) {
           terminal.set(id, { generation: source.generation, outcome });
         }
         await disposeSource(activeSource);
@@ -179,12 +247,14 @@ export function createTuiSubscriptionManager<TState, TMessage>(
       })
       .catch((cause: unknown) => {
         if (active.get(id) === activeSource) active.delete(id);
-        retirementFailures.push(cause);
+        retirementFailure ??= cause;
+        options.fatal?.(cause);
       })
       .finally(() => {
         activeSource.lease.revoke();
         retainSourceMetrics(activeSource);
         retiringSources.delete(activeSource);
+        release(token);
       });
     return activeSource;
   }
@@ -194,6 +264,7 @@ export function createTuiSubscriptionManager<TState, TMessage>(
     context: TuiSubscriptionContext
   ): Promise<'completed' | 'failed'> {
     const sourceName = activeSource.source.source ?? 'external';
+    let lifecycleStarted = false;
     try {
       let emissionIndex = 0;
       await activeSource.source.run(context, Object.freeze({
@@ -208,7 +279,9 @@ export function createTuiSubscriptionManager<TState, TMessage>(
         },
       }));
       await activeSource.channel.close();
+      await settleSourceWork(activeSource);
       if (context.signal.aborted) return 'completed';
+      lifecycleStarted = true;
       await dispatchLifecycle(activeSource.source, {
         kind: 'completed',
         id: activeSource.id,
@@ -217,7 +290,12 @@ export function createTuiSubscriptionManager<TState, TMessage>(
       return 'completed';
     } catch (cause) {
       activeSource.channel.cancel();
+      await settleSourceWork(activeSource);
       if (context.signal.aborted) return 'completed';
+      if (lifecycleStarted) {
+        options.fatal?.(new TerminalUiError('TUI source completion settlement failed.', { code: 'TUI_RUNTIME_FAULT', reason: 'source_lifecycle', cause }));
+        return 'failed';
+      }
       const provisional = sourceFailure(activeSource, cause);
       let finalCause = cause;
       try {
@@ -228,7 +306,10 @@ export function createTuiSubscriptionManager<TState, TMessage>(
           diagnostic: provisional
         }, sourceName, activeSource.lease, options.dispatchMany);
       } catch (lifecycleCause) {
-        finalCause = new AggregateError([cause, lifecycleCause], 'TUI source and its lifecycle mapper failed.');
+        finalCause = new TerminalUiError('TUI source lifecycle settlement failed.', {
+          code: 'TUI_RUNTIME_FAULT', reason: 'source_lifecycle', cause: lifecycleCause,
+        });
+        options.fatal?.(finalCause);
       }
       options.reportDiagnostic(sourceFailure(activeSource, finalCause));
       return 'failed';
@@ -249,7 +330,7 @@ export function createTuiSubscriptionManager<TState, TMessage>(
     source.channel.cancel();
     void disposeSource(source);
     const cleanup = settleSource(source).catch((cause: unknown) => {
-      retirementFailures.push(cause);
+      retirementFailure ??= cause;
     });
     retiring.add(cleanup);
     void cleanup.then(() => retiring.delete(cleanup));
@@ -257,7 +338,7 @@ export function createTuiSubscriptionManager<TState, TMessage>(
 
   function disposeSource(source: ActiveTuiEventSource<TMessage>): Promise<void> {
     source.disposal ??= invokeSourceDisposer(source).catch((cause: unknown) => {
-      retirementFailures.push(cause);
+      retirementFailure ??= cause;
       options.reportDiagnostic(diagnostic('TUI_SOURCE_FAILED', `TUI event source ${source.id} cleanup failed.`, {
         target: source.id,
         cause,
@@ -265,6 +346,15 @@ export function createTuiSubscriptionManager<TState, TMessage>(
       }));
     });
     return source.disposal;
+  }
+
+  async function settleSourceWork(source: ActiveTuiEventSource<TMessage>): Promise<void> {
+    // The producer has returned, but cancel/failed close can precede its physical
+    // dispatch drain. Keep its obligation until both drain and disposer settle,
+    // even when a cleanup diagnostic callback throws.
+    const [disposal] = await Promise.allSettled([disposeSource(source), source.channel.settle()]);
+    source.physicallySettled = true;
+    if (disposal.status === 'rejected') throw disposal.reason;
   }
 
   function retainSourceMetrics(source: ActiveTuiEventSource<TMessage>): void {
@@ -286,7 +376,7 @@ async function dispatchLifecycle<TMessage>(
   dispatchMany: (messages: readonly TMessage[], source: TuiMessageSource, lease: ProducerAdmissionLease) => Promise<void>
 ): Promise<void> {
   if (source.onLifecycle === undefined) return;
-  const message = source.onLifecycle(event);
+  const message = decodeMessageResolution<TMessage>(source.onLifecycle(event), 'TUI source lifecycle message');
   if (!isIgnoredMessage(message)) await dispatchMany([message], sourceName, lease);
 }
 

@@ -1,0 +1,124 @@
+{
+  "baselineCommit": "922a4d1e280f5cc38942a806eca0902159e66915",
+  "baselineSourceFilesVerifiedAgainstGitArchive": 625,
+  "candidateBaseCommit": "922a4d1e280f5cc38942a806eca0902159e66915",
+  "runtime": "v24.19.0",
+  "measurementBoundary": "Immediately before dynamic application-module import; excludes process launch and static framework/harness imports. Module-to-readiness includes host/runtime creation. Memory host commit is not physical terminal presentation.",
+  "sampleCounts": {
+    "headlinePerQueryScenario": 40,
+    "headlineCharacterEvents": 440,
+    "allocationPerQueryScenario": 20,
+    "sourceUpdateQualificationPerQueryScenario": 20
+  },
+  "quietHost": "After final aggregate EXIT0; project checks/builds paused; fresh processes run sequentially. Other shared-host users are not isolated.",
+  "candidate": {
+    "source": {
+      "sha256": "71d7e7b67e3385be7224dc1810a240d656a32522df82589271cf3d9ec3cceebf",
+      "files": 650,
+      "method": "SHA256(sorted relative path + NUL + file SHA256 + newline)"
+    },
+    "dist": {
+      "sha256": "c37fa6a2fc6bdcbafcf7b49150306259589238edf0e72aca2bf7050bb3635946",
+      "files": 1162,
+      "method": "SHA256(sorted relative path + NUL + file SHA256 + newline)"
+    }
+  },
+  "baseline": {
+    "source": {
+      "sha256": "52e4b378e765a025965a6c9c4aaa38031c333810664b311eefe5d69c2775aa72",
+      "files": 622,
+      "method": "SHA256(sorted relative path + NUL + file SHA256 + newline)"
+    },
+    "dist": {
+      "sha256": "4a7e8f76e8f308909fb44acc4396a1f3dc95d7c6bf53fb58cfe4f034b04e9626",
+      "files": 1136,
+      "method": "SHA256(sorted relative path + NUL + file SHA256 + newline)"
+    }
+  },
+  "harness": {
+    "candidateSha256": "e39b52b7fc63a6342f0a35c266dee78265f2af1b1b61354652cdfd20416fbfe9",
+    "baselineSha256": "987acf4d75e5ecbec2ae1db6317129dd81c013393e971a58be0ce5003f506dc5",
+    "baselineAdapter": "Replace tableReadiness async state polling with Promise.resolve(initialFrameMs), because 922a4d1 constructs the table synchronously before the initial committed frame. No workload changes."
+  },
+  "results": [
+    {
+      "file": "workbench-pre-tuning-baseline.json",
+      "sha256": "b51a7ba4481070f407f3d3dfeefb3ff08c0139c6fe3a35cdf9d8a8683886627e",
+      "measuredAt": "2026-10-02T23:07:53.434Z",
+      "allocationSampling": false
+    },
+    {
+      "file": "workbench-pre-tuning-after.json",
+      "sha256": "0e02e5e96948b8c613cb9a911b0e2220e66a82da3af57cd7fd4121f0d926beb2",
+      "measuredAt": "2026-10-02T23:08:45.014Z",
+      "allocationSampling": false
+    },
+    {
+      "file": "workbench-pre-tuning-baseline-slow.json",
+      "sha256": "5a364b1a06951de99fb25cf3636af7e84b5446ca34f1bc8af4dde41d249a62e4",
+      "measuredAt": "2026-10-02T23:09:10.015Z",
+      "allocationSampling": false
+    },
+    {
+      "file": "workbench-pre-tuning-after-slow.json",
+      "sha256": "7f5f6812be0a4f67a120b42e7c14dda6f4d5573693030bf5132d027f7695e3b0",
+      "measuredAt": "2026-10-02T23:10:12.135Z",
+      "allocationSampling": false
+    },
+    {
+      "file": "workbench-pre-tuning-baseline-allocation.json",
+      "sha256": "aa8c46d5b3af5a30fff3a40c72d6b8d0ce0c504c9c041a1bab77e8b0a38e7044",
+      "measuredAt": "2026-10-02T23:10:52.262Z",
+      "allocationSampling": true
+    },
+    {
+      "file": "workbench-pre-tuning-after-allocation.json",
+      "sha256": "519061d714c79ce2b1530c01fbf247838312791cfe430afbe102f8c1eeb8204b",
+      "measuredAt": "2026-10-02T23:11:28.916Z",
+      "allocationSampling": true
+    },
+    {
+      "file": "workbench-pre-tuning-source-updates.json",
+      "sha256": "fa812a914a2ba597b76393da7bd58194741948727249650d067947b6486460ca",
+      "measuredAt": "2026-10-02T23:11:58.662Z",
+      "allocationSampling": false
+    },
+    {
+      "file": "workbench-pre-tuning-pty.json",
+      "sha256": "edc250df4c14a0905f4d683cc5b75c342cf9952a4523efceb8757f745381703b",
+      "measuredAt": "2026-10-02T23:12:04Z",
+      "allocationSampling": false
+    }
+  ],
+  "rawInspectorProfiles": [
+    {
+      "variant": "baseline",
+      "phase": "setup",
+      "localPath": "/tmp/tui-plan-pre-tuning-profiles/workbench-final-baseline-allocation.json.setup.heapprofile",
+      "bytes": 2750375,
+      "sha256": "fa08c02adf9c434e1975cd268b9d23ea98dcb9a96ff2efc888b38254744659fd"
+    },
+    {
+      "variant": "baseline",
+      "phase": "interaction",
+      "localPath": "/tmp/tui-plan-pre-tuning-profiles/workbench-final-baseline-allocation.json.interaction.heapprofile",
+      "bytes": 11687846,
+      "sha256": "2863bcdded3bf5445b20ab46577ce1f00b439ec986f1adf15efdc8186948e12a"
+    },
+    {
+      "variant": "after",
+      "phase": "setup",
+      "localPath": "/tmp/tui-plan-pre-tuning-profiles/workbench-final-after-allocation.json.setup.heapprofile",
+      "bytes": 4381206,
+      "sha256": "be917ff1cb05cdd036441cfc8ef3d6bc4466b6347b7239c7732ad9965ad458c1"
+    },
+    {
+      "variant": "after",
+      "phase": "interaction",
+      "localPath": "/tmp/tui-plan-pre-tuning-profiles/workbench-final-after-allocation.json.interaction.heapprofile",
+      "bytes": 21548715,
+      "sha256": "4dd2470eb5c2f142881d533ecb14b1b5e7e1f76ee933f79804e5994186535b95"
+    }
+  ],
+  "rawInspectorProfileNote": "Raw inspector sample graphs are retained locally outside the repository/package; complete sampled site summaries and forced-GC observations are in the allocation JSON reports. Copying report JSON does not copy its adjacent raw graph files."
+}

@@ -84,13 +84,17 @@ export class OwnedWordBoundaryIndex implements WordBoundaryIndex {
     return new OwnedWordBoundaryIndex(source, this.locale, this.state);
   }
 
-  *prepareThroughWork(offset: number): Generator<void, void> {
+  *prepareThroughWork(offset: number): Generator<number, void> {
     const bounded = clampTextOffset(offset, this.source.source.length);
     // Materializing a native locale segmenter's input and each native callback
     // are indivisible. The iterator and accepted numeric state survive yields.
     let operations = 0;
     while (!this.state.complete && (this.state.ends.at(-1) ?? -1) <= bounded) {
-      this.state.iterator ??= wordSegmenter(this.locale).segment(this.source.source.slice(0))[Symbol.iterator]();
+      if (this.state.iterator === undefined) {
+        this.state.iterator = wordSegmenter(this.locale).segment(this.source.source.slice(0))[Symbol.iterator]();
+        yield this.source.source.length;
+        continue;
+      }
       if (this.state.pending === undefined) {
         const next = this.state.iterator.next();
         if (next.done === true) {
@@ -98,6 +102,7 @@ export class OwnedWordBoundaryIndex implements WordBoundaryIndex {
           this.state.iterator = undefined;
           break;
         }
+        operations += next.value.segment.length;
         if (next.value.isWordLike === true) {
           this.state.pending = { start: next.value.index, end: next.value.index + next.value.segment.length };
         }
@@ -120,8 +125,9 @@ export class OwnedWordBoundaryIndex implements WordBoundaryIndex {
           this.state.iterator = undefined;
         }
       }
-      if (++operations % 256 === 0) yield;
+      if (++operations >= 256) { yield operations; operations = 0; }
     }
+    if (operations !== 0) yield operations;
   }
 
   previous(offset: number): number {

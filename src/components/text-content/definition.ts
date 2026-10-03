@@ -20,7 +20,6 @@ import {
   inlineSegmentText,
   normalizeInlineContent,
 } from '../../visual/inline-content.ts';
-import { ownModelDependencies } from '../../visual/model-dependencies.ts';
 import type { RenderLine, RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
 import { line, measureRenderSpans, span, wrapRenderSpans } from '../../visual/render-content.ts';
 import { withoutTransitionCallback } from '../shared/form-control-helpers.ts';
@@ -38,7 +37,7 @@ interface TextModel {
   readonly headingLevel?: number;
 }
 
-const textPaintDescriptor = Symbol('text paint');
+const textDependencies = (model: Readonly<TextModel>) => [model.content, model.textRole, model.headingLevel] as const;
 
 export const text: SemanticLeafComponentFactory<
   Pick<TextOptions, 'content' | 'textRole' | 'headingLevel'>,
@@ -76,10 +75,7 @@ export const text: SemanticLeafComponentFactory<
       textRole: textRole ?? 'body',
       ...(headingLevel === undefined ? {} : { headingLevel }),
     };
-    const dependencies = [textPaintDescriptor, model.content, model.textRole, model.headingLevel];
-    return ownModelDependencies(model, {
-      paint: dependencies, measurement: dependencies, layout: dependencies, accessibility: dependencies,
-    });
+    return Object.freeze(model);
   },
   measure({ model, widthProfile }) {
     const lines = model.content.split('\n');
@@ -93,7 +89,10 @@ export const text: SemanticLeafComponentFactory<
       preferredHeight: lines.length,
     };
   },
-  retainPaint: true,
+  reuse: {
+    measurement: textDependencies, layout: textDependencies,
+    paint: textDependencies, accessibility: textDependencies,
+  },
   render: ({ model, target, style, frameSource }: ComponentRenderInput<TextModel, TextStylePart>) => {
     const contentStyle = style({
       part: 'content',

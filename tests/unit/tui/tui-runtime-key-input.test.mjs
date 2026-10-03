@@ -1,3 +1,4 @@
+import { createListboxFixture } from '../../support/collection-fixtures.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui, tuiBindingHelp } from '../../../dist/tui/index.js';
@@ -184,7 +185,7 @@ test('editable controls opt cursor movement into Kitty key repeat', async () => 
 
 test('TUI runtime resolves each Kitty repeat against the preceding committed state', async () => {
   const items = Array.from({ length: 10 }, (_value, index) => `item-${String(index)}`);
-  const reducerOptions = { items, toOption: (item) => ({ id: item, label: item }) };
+  const reducerOptions = createListboxFixture(items, (item) => ({ id: item, label: item }));
   const app = defineTui({
     id: 'kitty-repeat-burst',
     init: () => ({
@@ -198,8 +199,7 @@ test('TUI runtime resolves each Kitty repeat against the preceding committed sta
     view: (state) => listbox({
       id: 'repeat-listbox',
       meta: { accessibleName: 'Repeat navigation' },
-      items,
-      toOption: reducerOptions.toOption,
+      ...reducerOptions,
       state,
       onTransition: (transition) => transition
     })

@@ -5,4 +5,4 @@ export declare function peerBadge(options: {
   readonly label: string;
 }): Element;
 
-export declare function peerBadgeMetrics(): { readonly paints: number };
+export declare function peerBadgeMetrics(): { readonly paints: number; readonly measurements: number; readonly semantics: number };

@@ -1,3 +1,5 @@
+import { inferTableColumns } from '../../../dist/components/index.js';
+import { createListboxFixture } from '../../support/collection-fixtures.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -28,25 +30,22 @@ async function clickAt(runtime, row, column) {
 test('listbox and data grid reject invalid stable identities and interaction targets', () => {
   assert.throws(() => listbox({ meta: { accessibleName: "List" },
     id: 'duplicate-listbox',
-    items: ['alpha', 'alpha'],
-    toOption: (item) => ({ id: item, label: item }),
+    ...createListboxFixture(['alpha', 'alpha'], (item) => ({ id: item, label: item })),
     state: { selection: { mode: 'none' } },
     onTransition: (transition) => transition
   }), /ids must be unique/u);
 
   assert.throws(() => dataGrid({ meta: { accessibleName: "Data grid" },
     id: 'empty-grid-id',
-    rows: [['alpha']],
-    getRowId: () => '',
+    collection: createTableCollection([['alpha']], () => ''),
     columns: [{ id: 'value', header: 'Value', value: (row) => row[0] }],
     state: { interaction: { kind: 'row', selection: { mode: 'single' } } },
     onTransition: (transition) => transition
-  }), /id must be non-empty/u);
+  }), /id must be a non-empty string/u);
 
   assert.throws(() => dataGrid({ meta: { accessibleName: "Data grid" },
     id: 'invalid-cell',
-    rows: [['alpha']],
-    getRowId: () => 'alpha',
+    collection: createTableCollection([['alpha']], () => 'alpha'),
     columns: [{ id: 'value', value: (row) => row[0] }],
     state: {
       interaction: {
@@ -62,8 +61,7 @@ test('listbox and data grid reject invalid stable identities and interaction tar
 test('passive table renders tabular information without focus or selection targets', () => {
   const frame = renderElementFrame(table({ meta: { accessibleName: "Table" },
     id: 'summary',
-    rows: [{ id: 'alpha', name: 'Alpha', score: 10 }],
-    getRowId: (row) => row.id,
+    collection: createTableCollection([{ id: 'alpha', name: 'Alpha', score: 10 }], (row) => row.id),
     columns: [
       { id: 'name', header: 'Name', value: (row) => row.name },
       { id: 'score', header: 'Score', value: (row) => row.score }
@@ -79,11 +77,10 @@ test('passive table renders tabular information without focus or selection targe
 test('data grid renders stable row selection independently from active position', () => {
   const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     id: 'fleet-grid',
-    rows: [
+    collection: createTableCollection([
       { id: 'alpha', name: 'Alpha', score: 10 },
       { id: 'bravo', name: 'Bravo', score: 20 }
-    ],
-    getRowId: (row) => row.id,
+    ], (row) => row.id),
     columns: [
       { id: 'name', header: 'Name', value: (row) => row.name, width: 7 },
       { id: 'score', header: 'Score', value: (row) => row.score, width: 5 }
@@ -155,8 +152,7 @@ test('pressing another row commits its selection before transient pressed stylin
 test('cell grids address cells with stable row and column ids', () => {
   const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     id: 'cell-grid',
-    rows: [{ id: 'atlas', name: 'Atlas', score: 89 }],
-    getRowId: (row) => row.id,
+    collection: createTableCollection([{ id: 'atlas', name: 'Atlas', score: 89 }], (row) => row.id),
     columns: [
       { id: 'name', header: 'Name', value: (row) => row.name, width: 7 },
       { id: 'score', header: 'Score', value: (row) => row.score, width: 5 }
@@ -190,8 +186,7 @@ test('pointer focus transitions and activation events use separate callbacks', a
     update: (state, event) => ({ state: { events: [...state.events, event] } }),
     view: () => dataGrid({ meta: { accessibleName: "Data grid" },
       id: 'pointer-grid',
-      rows: [{ id: 'alpha', name: 'Alpha' }],
-      getRowId: (row) => row.id,
+      collection: createTableCollection([{ id: 'alpha', name: 'Alpha' }], (row) => row.id),
       columns: [{ id: 'name', value: (row) => row.name }],
       state: { interaction: { kind: 'row', selection: { mode: 'single' } } },
       onTransition: (transition) => ({ channel: 'transition', transition }),
@@ -219,8 +214,7 @@ test('data grid evaluates cells once per instance and preserves renderer spans',
   let calls = 0;
   const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     id: 'cell-evaluation',
-    rows: [{ id: 'row', value: 7 }],
-    getRowId: (row) => row.id,
+    collection: createTableCollection([{ id: 'row', value: 7 }], (row) => row.id),
     columns: [tableColumn({
       id: 'value',
       value: (row) => row.value,
@@ -241,12 +235,11 @@ test('data grid evaluates cells once per instance and preserves renderer spans',
 test('data grid renders sorting, controlled widths, sticky headers, and both-axis scrolling', () => {
   const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     id: 'scroll-grid',
-    rows: Array.from({ length: 8 }, (_value, index) => ({
+    collection: createTableCollection(Array.from({ length: 8 }, (_value, index) => ({
       id: `row-${String(index)}`,
       name: `Vessel ${String(index)}`,
       score: index * 10
-    })),
-    getRowId: (row) => row.id,
+    })), (row) => row.id),
     columns: [
       { id: 'name', header: 'Name', value: (row) => row.name, width: 12, sortable: true, resizable: true },
       { id: 'score', header: 'Score', value: (row) => row.score, width: 8 }
@@ -296,7 +289,7 @@ test('windowed table collections retain global accessibility windows', () => {
   });
 });
 
-test('complete table collections retain inferred structure by collection identity', () => {
+test('explicitly inferred table columns are retained without repeated shape reads', () => {
   let shapeReads = 0;
   const rows = Array.from({ length: 20 }, (_value, index) => new Proxy(
     [`Row ${String(index)}`, index],
@@ -309,8 +302,10 @@ test('complete table collections retain inferred structure by collection identit
   ));
   const collection = createTableCollection(rows, (_row, index) => String(index));
 
-  renderElementFrame(table({ meta: { accessibleName: "Table" }, id: 'inferred-once', collection }), { columns: 24, rows: 4 });
-  renderElementFrame(table({ meta: { accessibleName: "Table" }, id: 'inferred-again', collection }), { columns: 30, rows: 5 });
+  const columns = inferTableColumns(rows);
+  assert.equal(shapeReads, rows.length);
+  renderElementFrame(table({ meta: { accessibleName: "Table" }, id: 'inferred-once', collection, columns }), { columns: 24, rows: 4 });
+  renderElementFrame(table({ meta: { accessibleName: "Table" }, id: 'inferred-again', collection, columns }), { columns: 30, rows: 5 });
 
   assert.equal(shapeReads, rows.length);
 });
@@ -331,7 +326,7 @@ test('windowed table collections require explicit structure without scanning row
 
   assert.throws(
     () => table({ meta: { accessibleName: "Table" }, id: 'missing-window-columns', collection }),
-    /windowed table collections require explicit columns/u,
+    /Table columns must be supplied explicitly/u,
   );
   renderElementFrame(table({ meta: { accessibleName: "Table" },
     id: 'explicit-window-columns',
@@ -347,8 +342,7 @@ test('table and pagination compose explicitly over a bounded page', () => {
   const frame = renderElementFrame(column([
     table({ meta: { accessibleName: "Table" },
       id: 'page-table',
-      rows: rows.slice(page.startIndex, page.endIndexExclusive),
-      getRowId: (row) => row,
+      collection: createTableCollection(rows.slice(page.startIndex, page.endIndexExclusive), (row) => row),
       columns: [{ id: 'name', header: 'Name', value: (row) => row }]
     }),
     pagination({ meta: { accessibleName: "Pagination" },
@@ -369,8 +363,7 @@ test('table and pagination compose explicitly over a bounded page', () => {
 test('data grid disabled state removes semantic and pointer interaction', () => {
   const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     id: 'disabled-grid',
-    rows: [{ id: 'row', name: 'Row' }],
-    getRowId: (row) => row.id,
+    collection: createTableCollection([{ id: 'row', name: 'Row' }], (row) => row.id),
     columns: [{ id: 'name', value: (row) => row.name }],
     state: { interaction: {
       kind: 'row', activeRowId: 'row', selection: { mode: 'single' },

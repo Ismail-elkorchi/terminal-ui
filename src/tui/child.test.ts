@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { diagnostic } from '../diagnostics.ts';
 import { button, text } from '../components/index.ts';
 import { failedTerminalWrite } from '../host/write-receipt.ts';
 import { createMemoryTerminalHost } from '../host/memory.ts';
 import { column } from '../layout/index.ts';
 import { renderElementFrame } from '../renderer/index.ts';
 import { keyInput } from '../testing/input-events.ts';
+import { combineTuiResults, liftTuiResult } from './result.ts';
+import { decodeTuiUpdateResult } from './hook-results.ts';
 import { createTuiChild } from './child.ts';
 import type { TuiChildMessage, TuiChildState } from './child.ts';
 import { defineTui } from './definition.ts';
@@ -18,38 +19,44 @@ async function context(): Promise<TuiContext> {
   return { terminalSize: host.getTerminalSize(), capabilities: await host.getCapabilities(), diagnostics: [], clock: host.clock };
 }
 
-void test('child composition scopes work, local cancellations, focus and every effect output', async () => {
+void test('child composition exposes opaque work and routes every effect output through the runtime', async () => {
   const localEffect: TuiEffect<number> = {
-    id: 'read', concurrency: 'replace',
-    run: async () => ({ kind: 'messages', messages: [1, 2] }),
-    onError: (failure) => ({ kind: 'message', message: failure.id === 'read' ? 3 : -1 }),
+    id: 'read', concurrency: 'replace', run: async () => ({ kind: 'messages', messages: [1, 2] }),
   };
   const child = createTuiChild({
     init: () => ({ state: 0, effects: [localEffect], focus: { kind: 'element' as const, elementId: 'editor' } }),
     update: (state: number, message: number) => ({ state: state + message, cancel: [{ kind: 'effect' as const, id: 'read' }], outputs: ['changed'] }),
     view: () => button({ id: 'editor', label: 'Edit', onPress: () => 1 }),
-  }, (message) => message);
+  }, message => message);
   const ctx = await context();
   const first = child.init({ id: 'left', generation: 1 }, ctx);
   const second = child.init({ id: 'right', generation: 1 }, ctx);
-  assert.notEqual(first.effects?.[0]?.id, second.effects?.[0]?.id);
-  assert.equal(first.focus?.kind, 'element');
-  const effect = first.effects?.[0];
-  assert.ok(effect);
-  const effectContext = { ...ctx, signal: new AbortController().signal, withTerminalSuspended: async <T>(operation: () => Promise<T>) => operation(), copySelectedText: async () => { throw new Error('unused'); } };
-  // Test the mapper independently of terminal suspension and clipboard facilities.
-  const output = await effect.run(effectContext);
-  assert.deepEqual(output, { kind: 'messages', messages: [1, 2].map((message) => ({ id: 'left', generation: 1, message })) });
-  const update = child.update(first.state, { id: 'left', generation: 1, message: 4 }, ctx);
-  assert.equal(update.state.state, 4);
-  assert.deepEqual(update.cancel, [{ kind: 'effect', id: effect.id }]);
-  assert.deepEqual(child.remove(first.state), { kind: 'child', id: 'left', generation: 1 });
-  assert.deepEqual(update.outputs, ['changed']);
-  assert.equal(child.update(first.state, { id: 'left', generation: 0, message: 99 }, ctx).state, first.state);
-  assert.equal(child.update(first.state, { id: 'right', generation: 1, message: 99 }, ctx).state, first.state);
-  assert.doesNotThrow(() => renderElementFrame(column([child.view(first.state, ctx), child.view(second.state, ctx)]), { columns: 30, rows: 4 }));
-  assert.throws(() => child.init({ id: '', generation: 1 }, ctx), /id/u);
-  assert.throws(() => child.init({ id: 'left', generation: Number.NaN }, ctx), /generation/u);
+  assert.deepEqual(Object.keys(first).sort(), ['contribution', 'state']);
+  assert.deepEqual(Object.keys(first.contribution ?? {}), []);
+  assert.throws(() => decodeTuiUpdateResult({ ...first, contribution: { ...first.contribution } }), /owned/u);
+  const runtime = createTuiRuntime({ host: createMemoryTerminalHost(), app: defineTui({
+    init: () => combineTuiResults({ left: first.state, right: second.state }, first, second),
+    update(state, message: TuiChildMessage<number>, context) {
+      const field = message.id === 'left' ? 'left' : 'right';
+      return liftTuiResult(state, field, child.update(state[field], message, context));
+    },
+    view: (state, context) => column([child.view(state.left, context), child.view(state.right, context)]),
+  }) });
+  try {
+    await runtime.start();
+    await settleUntil(() => runtime.state().left.state === 3 && runtime.state().right.state === 3);
+    await runtime.dispatch({ id: 'left', generation: 1, message: 4 });
+    assert.equal(runtime.state().left.state, 7);
+    assert.equal(runtime.state().right.state, 3);
+    const update = child.update(first.state, { id: 'left', generation: 1, message: 4 }, ctx);
+    assert.deepEqual(update.outputs, ['changed']);
+    assert.equal(child.remove(first.state).state, undefined);
+    assert.equal(child.update(first.state, { id: 'left', generation: 0, message: 99 }, ctx).state, first.state);
+    assert.equal(child.update(first.state, { id: 'right', generation: 1, message: 99 }, ctx).state, first.state);
+    assert.doesNotThrow(() => renderElementFrame(column([child.view(first.state, ctx), child.view(second.state, ctx)]), { columns: 30, rows: 4 }));
+    assert.throws(() => child.init({ id: '', generation: 1 }, ctx), /id/u);
+    assert.throws(() => child.init({ id: 'left', generation: Number.NaN }, ctx), /generation/u);
+  } finally { await runtime.dispose(); }
 });
 
 void test('two child instances route input independently through their parent runtime', async () => {
@@ -91,10 +98,10 @@ void test('hiding preserves owned work; removal cancels effects and sources and 
   interface State { readonly child?: TuiChildState<number>; readonly hidden: boolean; }
   type Message = { readonly kind: 'child'; readonly child: TuiChildMessage<number> } | { readonly kind: 'hide' } | { readonly kind: 'remove' } | { readonly kind: 'reopen' };
   const runtime = createTuiRuntime({ host: createMemoryTerminalHost(), app: defineTui<State, Message>({
-    init(ctx) { const initial = child.init({ id: 'notes', generation: 1 }, ctx); return { state: { child: initial.state, hidden: false }, effects: initial.effects ?? [] }; },
+    init(ctx) { const initial = child.init({ id: 'notes', generation: 1 }, ctx); return { ...initial, state: { child: initial.state, hidden: false } }; },
     update(state, message, ctx) {
       if (message.kind === 'hide') return { state: { ...state, hidden: true } };
-      if (message.kind === 'remove') return { state: { hidden: false }, cancel: state.child === undefined ? [] : [child.remove(state.child)] };
+      if (message.kind === 'remove') return state.child === undefined ? { state } : { ...child.remove(state.child), state: { hidden: false } };
       if (message.kind === 'reopen') return { state: { hidden: false, child: child.init({ id: 'notes', generation: 2 }, ctx).state } };
       if (state.child === undefined) return { state };
       const updated = child.update(state.child, message.child, ctx);
@@ -125,41 +132,39 @@ void test('hiding preserves owned work; removal cancels effects and sources and 
   assert.equal(disposals, 2);
 });
 
-void test('child maps errors and source lifecycle locally while preserving source ownership', async () => {
-  const ctx = await context();
+void test('child maps effect failures and source lifecycle through ordinary completion messages', async () => {
   let disposed = 0;
+  const failures: string[] = [];
+  const completed: string[] = [];
   const child = createTuiChild({
-    init: () => ({ state: 0, effects: [{
-      id: 'work', concurrency: 'enqueue' as const,
-      run: async () => ({ kind: 'none' as const }),
-      onError(failure) { return { kind: 'message' as const, message: failure.id.length }; },
+    init: () => ({ state: 0, effects: [{ id: 'work', concurrency: 'enqueue' as const,
+      run: async () => { throw new Error('expected'); },
+      onError(failure) { failures.push(failure.id); return { kind: 'message' as const, message: failure.id.length }; },
     }] }),
     update: (state: number, message: number) => ({ state: state + message }),
     view: () => text({ content: 'child' }),
-    subscriptions: () => [{
-      id: 'feed', generation: 'revision', source: 'timer' as const, channel: { capacity: 2 },
+    subscriptions: () => [{ id: 'feed', generation: 'revision', source: 'timer' as const, channel: { capacity: 2 },
       async run(_ctx, sink) { await sink.emit({ kind: 'replaceable', key: 'latest', message: 2 }); },
-      onLifecycle(event) { return event.id.length; },
+      onLifecycle(event) { completed.push(event.id); return event.id.length; },
       dispose() { disposed += 1; },
     }],
-  }, (message) => message);
-  const initialized = child.init({ id: 'scope', generation: 'mount' }, ctx);
-  const effect = initialized.effects?.[0];
-  assert.ok(effect);
-  const failure = { id: 'scoped work', diagnostic: diagnostic('TUI_EFFECT_FAILED', 'failure') };
-  assert.deepEqual(effect.onError?.(failure), { kind: 'message', message: { id: 'scope', generation: 'mount', message: 4 } });
-  assert.deepEqual(await effect.run({ ...ctx, signal: new AbortController().signal, withTerminalSuspended: async (operation) => operation(), copySelectedText: async () => { throw new Error('unused'); } }), { kind: 'none' });
-  const source = child.subscriptions(initialized.state, ctx)[0];
-  assert.ok(source);
-  assert.equal(source.source, 'timer');
-  assert.deepEqual(source.channel, { capacity: 2 });
-  const emissions: unknown[] = [];
-  await source.run({ ...ctx, signal: new AbortController().signal }, { emit: async (emission) => { emissions.push(emission); } });
-  assert.deepEqual(emissions, [{ kind: 'replaceable', key: 'latest', message: { id: 'scope', generation: 'mount', message: 2 } }]);
-  assert.deepEqual(source.onLifecycle?.({ kind: 'completed', id: source.id, generation: source.generation }), { id: 'scope', generation: 'mount', message: 4 });
-  await source.dispose?.();
+  }, message => message);
+  const runtime = createTuiRuntime({ host: createMemoryTerminalHost(), app: defineTui({
+    init: context => child.init({ id: 'scope', generation: 'mount' }, context),
+    update: (state, message: TuiChildMessage<number>, context) => child.update(state, message, context),
+    view: (state, context) => child.view(state, context),
+    subscriptions: (state, context) => child.subscriptions(state, context),
+  }) });
+  try {
+    await runtime.start();
+    await settleUntil(() => runtime.state().state === 10);
+    assert.deepEqual(failures, ['work']);
+    assert.deepEqual(completed, ['feed']);
+    const subscriptions = child.subscriptions(runtime.state(), await context());
+    assert.deepEqual(Object.keys(subscriptions[0] ?? {}), []);
+    assert.deepEqual(child.subscriptions(undefined, await context()), []);
+  } finally { await runtime.dispose(); }
   assert.equal(disposed, 1);
-  assert.deepEqual(child.subscriptions(child.init({ id: 'another', generation: 1 }, ctx).state, ctx)[0]?.generation, 'revision');
 });
 
 void test('child no-op preserves its state identity while forwarding work, focus, cancellation and outputs', async () => {
@@ -179,9 +184,9 @@ void test('child no-op preserves its state identity while forwarding work, focus
   for (let index = 0; index < 2_000; index += 1) {
     const result = child.update(initial, { id: 'panel', generation: 1, message: index }, ctx);
     assert.equal(result.state, initial);
-    assert.equal(result.effects?.length, 1);
-    assert.equal(result.cancel?.length, 1);
-    assert.equal(result.focus?.kind, 'element');
+    assert.ok(result.contribution);
+    assert.deepEqual(Object.keys(result.contribution), []);
+    assert.deepEqual(Object.keys(result).sort(), ['contribution', 'outputs', 'state']);
     assert.deepEqual(result.outputs, [index]);
   }
   assert.deepEqual(Object.keys(initial).sort(), ['generation', 'id', 'state']);
@@ -209,7 +214,7 @@ void test('a rejected candidate does not retire the committed lifetime or start 
     update(state: TuiChildState<number>, _message: TuiChildMessage<number>, ctx) {
       void _message;
       const replacement = child.init({ id: 'panel', generation: 2 }, ctx);
-      return { ...replacement, cancel: [child.remove(state)] };
+      return combineTuiResults(replacement.state, child.remove(state), replacement);
     },
     view: (state: TuiChildState<number>) => text({ content: `generation ${String(state.generation)}` }),
   }) });
@@ -249,7 +254,7 @@ void test('accepted removal revokes a completion already queued behind a delayed
   const runtime = createTuiRuntime({ host, app: defineTui<State, Message>({
     init(ctx) { return child.init({ id: 'panel', generation: 1 }, ctx); },
     update(state, message, ctx) {
-      if (message.kind === 'remove') return { state: undefined, cancel: state === undefined ? [] : [child.remove(state)] };
+      if (message.kind === 'remove') return state === undefined ? { state } : child.remove(state);
       if (message.kind === 'tick') return { state };
       reductions += 1;
       return state === undefined ? { state } : child.update(state, message.message, ctx);
@@ -284,7 +289,7 @@ void test('mount and removal in one accepted batch never activate work from the 
         const mounted = child.init({ id: 'child', generation: 1 }, ctx);
         return mounted;
       }
-      return { state: undefined, cancel: state === undefined ? [] : [child.remove(state)] };
+      return state === undefined ? { state } : child.remove(state);
     },
     view: () => text({ content: 'application' }),
   }) });
@@ -293,3 +298,11 @@ void test('mount and removal in one accepted batch never activate work from the 
   assert.equal(launches, 0);
   await runtime.dispose();
 });
+
+async function settleUntil(done: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (done()) return;
+    await new Promise<void>(resolve => setImmediate(resolve));
+  }
+  assert.fail('Expected completion was not admitted.');
+}

@@ -8,7 +8,8 @@ import type {
   ScrollableComboboxState,
   UnscrolledComboboxState,
 } from '../../behavior/combobox.ts';
-import type { ChoiceItem } from '../../collection/item.ts';
+import type { CompleteListboxCollection, ListboxView, WindowedListboxCollection } from '../../behavior/listbox.ts';
+import type { CollectionQuery } from '../../text/query.ts';
 import type { ComponentMessage } from '../../component/message.ts';
 import type { ElementMeta } from '../../element/metadata.ts';
 import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
@@ -19,10 +20,13 @@ import type { RetainedCallbacks } from '../shared/availability.ts';
 import type { ComboboxStylePart } from '../style-parts.ts';
 
 
-interface ComboboxOptionsBase<TValue> {
+type ComboboxOptionsBase<TValue> = (
+  | { readonly collection: CompleteListboxCollection<TValue>; readonly query?: CollectionQuery }
+  | { readonly collection: WindowedListboxCollection<TValue>; readonly query?: never }
+) & {
   readonly id: string;
   readonly label: string;
-  readonly options: readonly ChoiceItem<TValue>[];
+  readonly optionsView: ListboxView<TValue> | null;
   readonly placeholder?: string;
   readonly placement?: AnchoredSurfacePlacement;
   readonly maxVisibleOptions?: number;
@@ -30,7 +34,7 @@ interface ComboboxOptionsBase<TValue> {
   readonly error?: string;
   readonly styles?: import('../../element/metadata.ts').ElementStyles<ComboboxStylePart, 'focused' | 'hovered' | 'pressed' | 'active' | 'selected' | 'disabled' | 'busy' | 'readOnly'>;
   readonly meta?: Pick<ElementMeta, 'focus' | 'layer'>;
-}
+};
 
 interface ActiveComboboxCallbacks<TTransition, TMessage extends ComponentMessage> {
   readonly onTransition: (transition: TTransition) => MessageResolution<TMessage>;

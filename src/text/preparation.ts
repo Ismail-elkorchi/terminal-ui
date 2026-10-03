@@ -80,7 +80,7 @@ export function prepareTextDocumentLine(
   return prepareWork(prepareTextSourceWork(source, adopted, Object.freeze({ document, lineIndex, request: adopted })), context);
 }
 
-function* prepareTextSourceWork<T>(source: SourceBoundaryIndex, request: PreparedTextRequest, result: T): Generator<void, T> {
+function* prepareTextSourceWork<T>(source: SourceBoundaryIndex, request: PreparedTextRequest, result: T): Generator<number, T> {
   yield* source.prepareThroughWork(request.throughOffset);
   if (request.words) yield* ownedWordBoundaryIndex(source, request).prepareThroughWork(request.throughOffset);
   if (request.geometry) yield* sourceGeometry(source, request).prepareOffsetWork(request.throughOffset);

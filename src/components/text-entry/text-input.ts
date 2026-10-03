@@ -176,7 +176,7 @@ function textEntryDefinition<
         preferredHeight: 1 + (input.model.error === '' ? 0 : 1),
       };
     },
-    retainPaint: true as const,
+    reuse: { paint: (model: object) => [model] as const },
   render: paintTextEntry,
     keys: ({ model, readOnly }) => controlKeyBindings<TextInputKeyAction, TextEntryComponentAction>(model.keymap, {
       ...textEditingHandlers(readOnly),

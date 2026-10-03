@@ -45,13 +45,13 @@ test('a simultaneous state and focus change refreshes other layers', () => {
   assert.deepEqual(next.frame, fresh.frame);
 });
 
-function retentionProbe(retainPaint, painted = () => {}) {
+function retentionProbe(reusePaint, painted = () => {}) {
   return defineComponent({
     name: 'terminal-ui-tests/paint-dependencies',
     identity: 'required', structure: 'leaf', semantics: 'semantic', accessibleRole: 'text',
     metadata: ['styles', 'layer', 'focus'],
     createModel: options => options.model,
-    retainPaint,
+    ...(reusePaint ? { reuse: { paint: model => [model] } } : {}),
     measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 8, preferredHeight: 1 }),
     render({ model, target, disabled, pointerState, widthProfile }) {
       painted();

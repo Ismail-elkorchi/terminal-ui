@@ -20,6 +20,7 @@ import { column, overlay, viewport } from '../../../dist/layout/index.js';
 import { createTextDocument, textCaretAt } from '../../../dist/text/index.js';
 
 const emptySourceMetrics = Object.freeze({
+  owned: 0, capacity: 0, retiring: 0,
   reliableAdmissions: 0,
   replaceableAdmissions: 0,
   replacements: 0,
@@ -556,7 +557,7 @@ test('TUI runtime coalesces compatible wheel packets across terminal reads', asy
     dispatchedMessages: 0,
     frameCommits: 1,
     diagnostics: { retained: 0, omitted: 0 },
-    effects: { active: 0, queued: 0, rejected: 0 },
+    effects: { active: 0, queued: 0, rejected: 0, owned: 0 },
     sources: emptySourceMetrics
   });
 
@@ -572,7 +573,7 @@ test('TUI runtime coalesces compatible wheel packets across terminal reads', asy
     dispatchedMessages: 1,
     frameCommits: 2,
     diagnostics: { retained: 0, omitted: 0 },
-    effects: { active: 0, queued: 0, rejected: 0 },
+    effects: { active: 0, queued: 0, rejected: 0, owned: 0 },
     sources: emptySourceMetrics
   });
   assert.equal(harness.frames().length, 2);
@@ -618,7 +619,7 @@ test('TUI runtime flushes pending wheel input before keyboard input', async () =
     dispatchedMessages: 2,
     frameCommits: 3,
     diagnostics: { retained: 0, omitted: 0 },
-    effects: { active: 0, queued: 0, rejected: 0 },
+    effects: { active: 0, queued: 0, rejected: 0, owned: 0 },
     sources: emptySourceMetrics
   });
 });

@@ -1,3 +1,4 @@
+import { TerminalUiError, errorFromUnknown } from '../../errors.ts';
 import type { TerminalClock, TerminalInputChunk } from '../../host/types.ts';
 import { createInputAmbiguityDeadline } from '../../input/ambiguity-deadline.ts';
 import { InputDecodeError } from '../../input/decode-error.ts';
@@ -16,6 +17,8 @@ import { createWheelInputCoordinator } from './wheel-input-coordinator.ts';
 interface RuntimeInputSessionOptions<TState> {
   readonly clock: TerminalClock;
   readonly pipeline?: InputPipelineOptions;
+  readonly maxPendingOperations?: number;
+  readonly reserveOperation?: () => () => void;
   readonly transaction: SerializedDispatchQueue;
   readonly assertOperational: () => void;
   readonly dispatch: (event: InputEvent, occurredAt: number) => Promise<TuiInputResult<TState>>;
@@ -37,27 +40,46 @@ export function createRuntimeInputSession<TState>(options: RuntimeInputSessionOp
     clock, inputPipeline.profile.escapeDelayMs,
   );
   let pendingCharacterText = '';
-  const inputQueue = createSerializedDispatchQueue();
+  const maxPendingOperations = options.maxPendingOperations ?? 256;
+  if (!Number.isSafeInteger(maxPendingOperations) || maxPendingOperations <= 0) {
+    throw new RangeError('Input maxPendingOperations must be a positive safe integer.');
+  }
+  let outstanding = 0;
+  let closed: Error | undefined;
+  const inputQueue = createSerializedDispatchQueue(
+    Math.min(Number.MAX_SAFE_INTEGER, maxPendingOperations + 1)
+  );
   const handleInputImmediately = (event: InputEvent, occurredAt: number) =>
     dispatchQueue.run(() => options.dispatch(event, occurredAt));
   return {
     diagnostics: () => inputPipeline.profile.diagnostics,
     drain: () => inputQueue.drain(),
-    handleInput: async (rawEvent: InputEvent) => {
+    handleInput: (rawEvent: InputEvent) => enqueueInput(() => {
       const decoded = decodeInputEvent(rawEvent);
+      if (decoded.kind === 'text' || decoded.kind === 'paste') {
+        const limit = inputPipeline.profile.limits.maxHostChunkBytes;
+        const bytes = inputStringBytes(decoded.text, limit);
+        if (bytes > limit) throw new TerminalUiError('TUI runtime input event capacity exceeded.', {
+          code: 'TUI_OVERLOAD', reason: 'input_event', limit, observed: bytes,
+        });
+      }
       if (decoded.kind === 'resize' || decoded.kind === 'signal' || decoded.kind === 'end') {
         throw new TypeError(`TUI runtime handleInput() does not accept ${decoded.kind} events.`);
       }
       const occurredAt = clock.monotonicNow();
-      return inputQueue.run(() => handleDecodedInput(decoded, occurredAt));
-    },
-    handleInputChunk: async (chunk: TerminalInputChunk) => {
-      const owned = snapshotInputChunk(chunk);
+      return () => handleDecodedInput(decoded, occurredAt);
+    }),
+    handleInputChunk: (chunk: TerminalInputChunk) => enqueueInput(() => {
+      const owned = snapshotInputChunk(chunk, inputPipeline.profile.limits.maxHostChunkBytes);
       const occurredAt = clock.monotonicNow();
-      return inputQueue.run(() => handleInputChunkInternal(owned, occurredAt));
+      return () => handleInputChunkInternal(owned, occurredAt);
+    }, (batch) => batch.pending),
+    flush: () => enqueueInput(() => flushInputInternal),
+    cancel(cause?: Error) {
+      inputAmbiguity.cancel();
+      closed ??= cause ?? new TerminalUiError('TUI runtime input is unavailable.');
+      inputQueue.close(closed);
     },
-    flush: () => inputQueue.run(flushInputInternal),
-    cancel: () => { inputAmbiguity.cancel(); },
     reset() {
       inputAmbiguity.cancel();
       inputPipeline.reset();
@@ -78,6 +100,41 @@ export function createRuntimeInputSession<TState>(options: RuntimeInputSessionOp
       inputAmbiguity = createInputAmbiguityDeadline(clock, inputPipeline.profile.escapeDelayMs);
     },
   };
+
+  function enqueueInput<TValue>(
+    prepare: () => () => Promise<TValue>,
+    pending?: (value: TValue) => Promise<unknown> | undefined
+  ): Promise<TValue> {
+    if (closed !== undefined) return Promise.reject(closed);
+    if (outstanding >= maxPendingOperations) {
+      return Promise.reject(new TerminalUiError('TUI runtime input operation capacity exceeded.', {
+        code: 'TUI_OVERLOAD', reason: 'input_operations', limit: maxPendingOperations,
+        observed: outstanding + 1
+      }));
+    }
+    // Reserve before decoding or copying caller-owned data, and before awaiting
+    // queue admission. Pending wheel, motion, and ambiguity continuations also
+    // retain their reservation until they settle.
+    let releaseShared: (() => void) | undefined;
+    try { releaseShared = options.reserveOperation?.(); }
+    catch (cause) { return Promise.reject(errorFromUnknown(cause)); }
+    outstanding += 1;
+    const release = (): void => { outstanding -= 1; releaseShared?.(); };
+    try {
+      return inputQueue.run(prepare()).then((value) => {
+        const continuation = pending?.(value);
+        if (continuation === undefined) release();
+        else void continuation.then(release, release);
+        return value;
+      }, (cause: unknown) => {
+        release();
+        throw errorFromUnknown(cause);
+      });
+    } catch (cause) {
+      release();
+      return Promise.reject(errorFromUnknown(cause));
+    }
+  }
 
   async function handleDecodedInput(
     event: InputEvent,
@@ -106,7 +163,7 @@ export function createRuntimeInputSession<TState>(options: RuntimeInputSessionOp
     options.recordDecoded(batch.events.length);
     const decoded = await processInputEvents(batch.events, occurredAt);
     const terminalAmbiguous = isAmbiguousInput(batch.pending.kind);
-    if (!terminalAmbiguous && pendingCharacterText.length === 0) return decoded;
+    if (closed !== undefined || !terminalAmbiguous && pendingCharacterText.length === 0) return decoded;
     const pendingAmbiguity = inputAmbiguity.schedule(() => inputQueue.run(async () => {
       const expired = terminalAmbiguous
         ? inputPipeline.flush()
@@ -207,12 +264,9 @@ export function createRuntimeInputSession<TState>(options: RuntimeInputSessionOp
       const segments: { text: string; startOffset: number; endOffsetExclusive: number }[] = [];
       let offset = 0;
       for (const point of combined) {
+        if (segments.length >= limit) throw new InputDecodeError('event_batch_limit_exceeded', limit, segments.length + 1);
         segments.push({ text: point, startOffset: offset, endOffsetExclusive: offset + point.length });
         offset += point.length;
-      }
-      // Reject an oversized expansion before applying any of its messages.
-      if (segments.length > limit) {
-        throw new InputDecodeError('event_batch_limit_exceeded', limit, segments.length);
       }
       const boundaryToIndex = new Map(segments.map((segment, index) => [segment.endOffsetExclusive, index + 1]));
       let index = 0;
@@ -308,10 +362,38 @@ export function createRuntimeInputSession<TState>(options: RuntimeInputSessionOp
   }
 }
 
-function snapshotInputChunk(chunk: TerminalInputChunk): TerminalInputChunk {
-  return {
-    data: typeof chunk.data === 'string' ? chunk.data : chunk.data.slice()
-  };
+function snapshotInputChunk(chunk: TerminalInputChunk, limit: number): TerminalInputChunk {
+  const candidate: unknown = chunk;
+  if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate)) {
+    throw new TypeError('Terminal input chunk must be an object.');
+  }
+  const fields = Object.keys(candidate);
+  if (fields.length !== 1 || fields[0] !== 'data') {
+    throw new TypeError('Terminal input chunk must contain only data.');
+  }
+  const data = chunk.data;
+  if (typeof data !== 'string' && !(data instanceof Uint8Array)) {
+    throw new TypeError('Terminal input chunk data must be a string or Uint8Array.');
+  }
+  const bytes = typeof data === 'string' ? inputStringBytes(data, limit) : data.byteLength;
+  if (bytes > limit) {
+    throw new TerminalUiError('TUI runtime input chunk capacity exceeded.', {
+      code: 'TUI_OVERLOAD', reason: 'input_chunk', limit, observed: bytes
+    });
+  }
+  return { data: typeof data === 'string' ? data : new Uint8Array(data) };
+}
+
+function inputStringBytes(value: string, limit: number): number {
+  // Avoid allocating an encoded copy just to reject an oversized string.
+  if (value.length > limit) return value.length;
+  let bytes = 0;
+  for (const point of value) {
+    const codePoint = point.codePointAt(0) ?? 0;
+    bytes += codePoint <= 0x7f ? 1 : codePoint <= 0x7ff ? 2 : codePoint <= 0xffff ? 3 : 4;
+    if (bytes > limit) return bytes;
+  }
+  return bytes;
 }
 
 function isWheelInputEvent(event: InputEvent): event is MouseWheelEvent {

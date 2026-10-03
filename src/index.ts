@@ -1,10 +1,12 @@
+export { defaultTuiRuntimePolicy } from './tui/lifecycle/runtime-policy.ts';
+export type { TuiContribution, TuiScopedSource } from './tui/contribution-types.ts';
 export { createTuiForm } from './tui/form.ts';
 export type { TuiForm, TuiFormErrors, TuiFormState, TuiFormMessage } from './tui/form.ts';
 export { updateTuiNavigation } from './tui/navigation.ts';
 export type { TuiNavigationScreen } from './tui/navigation.ts';
 export { createTuiCommands } from './tui/commands.ts';
 export type { TuiCommand, TuiCommands } from './tui/commands.ts';
-export { liftTuiResult } from './tui/result.ts';
+export { liftTuiResult, combineTuiResults, reconcileTuiChildren } from './tui/result.ts';
 export { createTuiControls } from './tui/controls.ts';
 export type { TuiControlMessage, TuiControlReducers, TuiControls, TuiControlTransitionMessage } from './tui/controls.ts';
 export { createTuiPreparedQuery } from './tui/prepared-query.ts';
@@ -12,7 +14,7 @@ export type { TuiPreparedQuery, TuiPreparedQueryState, TuiPreparedQueryMessage }
 export type { ElementState } from './element/metadata.ts';
 export type { TextAreaLayoutSnapshot } from './components/text-area/contracts.ts';
 export { createTuiChild } from './tui/child.ts';
-export type { TuiChild, TuiChildDefinition, TuiChildIdentity, TuiChildMessage, TuiChildResult, TuiChildState } from './tui/child.ts';
+export type { TuiChild, TuiChildDefinition, TuiChildIdentity, TuiChildMessage, TuiChildResult, TuiChildState, TuiScopedResult } from './tui/child.ts';
 export { createDataGridKeymap } from './components/keymaps.ts';
 export type { DataGridKeyAction } from './components/keymaps.ts';
 export { createListboxKeymap, createTreeKeymap, createSearchPickerKeymap, createTextInputKeymap, createTextAreaKeymap } from './components/keymaps.ts';
@@ -37,6 +39,7 @@ export type {
 export type { ElementStyles } from './element/metadata.ts';
 export { mergeElementStyles } from './element/styles.ts';
 export { TerminalUiError } from './errors.ts';
+export type { TerminalUiErrorOptions } from './errors.ts';
 export type { JsonPrimitive, JsonValue } from './foundation/json.ts';
 export { failure, success } from './result.ts';
 export type { Result } from './result.ts';
@@ -672,3 +675,6 @@ export type {
   InlineTextSegment,
 } from './visual/inline-content.ts';
 export { measureElement } from './renderer/measure-element.ts';
+
+export { createTuiControlledEditor } from './tui/controlled-editor.ts';
+export type { TuiControlledEditor, TuiControlledEditorState, TuiControlledEditorMessage, TuiControlledEditorOutput, TuiControlledEditorResult, TuiEditorIntent, TuiEditorIntentOrigin, TuiEditorOperation, TuiEditorSnapshot, TuiEditorPreparedLayout } from './tui/controlled-editor.ts';

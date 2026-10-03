@@ -6,7 +6,10 @@ import type {
   ComboboxTransition,
   ScrollableComboboxState,
 } from '../../behavior/combobox.ts';
-import type { ListboxTransition } from '../../behavior/listbox.ts';
+import type { ListboxCollection, ListboxOption, ListboxTransition, ListboxView } from '../../behavior/listbox.ts';
+import { readListboxSource } from '../../behavior/listbox-source.ts';
+import { matchingListboxView } from '../../behavior/listbox-view.ts';
+import { ownCollectionQueryRequest, type CollectionQuery } from '../../text/query.ts';
 import type {
   ComponentAccessibilityInput,
   ComponentRenderInput,
@@ -59,18 +62,14 @@ import type {
   UnscrolledComboboxOptions,
 } from './options.ts';
 
-interface ComboboxOptionModel {
-  readonly id: string;
-  readonly label: string;
-  readonly description?: string;
-  readonly disabled: boolean;
-}
 
 type ComboboxRenderState = ComboboxState | AutocompleteComboboxView;
 
 interface ComboboxModel {
   readonly label: string;
-  readonly options: readonly ComboboxOptionModel[];
+  readonly collection: ListboxCollection<unknown>;
+  readonly optionsView: ListboxView<unknown> | undefined;
+  readonly query?: CollectionQuery;
   readonly state: ComboboxRenderState;
   readonly placeholder: string;
   readonly placement: AnchoredSurfacePlacement;
@@ -131,7 +130,7 @@ const instantiateCombobox = defineComponent<ComboboxModel, ComboboxComponentActi
       value: model.state.kind === 'autocomplete'
         ? inspectTextValue(model.state.input.text)
         : null,
-      ...(activeId === undefined ? {} : { active: activeId }),
+      ...(activeId === undefined || model.optionsView === undefined ? {} : { active: activeId }),
       selection: {
         mode: 'single',
         ...(selectedId === undefined ? {} : { selectedId }),
@@ -149,9 +148,9 @@ const instantiateCombobox = defineComponent<ComboboxModel, ComboboxComponentActi
         : {}),
       validation: inspectValidation(model.required, model.error),
       collection: {
-        startIndex: 0,
-        totalCount: model.options.length,
-        visibleCount: model.options.length,
+        startIndex: model.optionsView?.startIndex ?? 0,
+        totalCount: model.optionsView?.totalCount ?? 0,
+        visibleCount: model.optionsView?.count ?? 0,
       },
     };
   },
@@ -162,8 +161,10 @@ const instantiateCombobox = defineComponent<ComboboxModel, ComboboxComponentActi
     const selectedId = comboboxSelectedId(input.model.state);
     const common = {
       id: `${id}:popup:list`,
-      items: input.model.options,
-      toOption: (option: ComboboxOptionModel) => option,
+      ...(input.model.collection.kind === 'window'
+        ? { collection: input.model.collection }
+        : { collection: input.model.collection, ...(input.model.query === undefined ? {} : { query: input.model.query }) }),
+      view: input.model.optionsView ?? null,
       ...(input.styles === undefined ? {} : { styles: comboboxPopupStyles(input.styles) }),
       meta: {
         focus: { disabled: true },
@@ -171,7 +172,7 @@ const instantiateCombobox = defineComponent<ComboboxModel, ComboboxComponentActi
     };
     const scroll = comboboxScroll(input.model.state);
     const popupList = scroll === undefined
-      ? listbox<ComboboxOptionModel, ComponentMessage>({
+      ? listbox<unknown, ComponentMessage>({
         ...common,
         state: {
           ...(highlighted === undefined ? {} : { activeId: highlighted }),
@@ -184,7 +185,7 @@ const instantiateCombobox = defineComponent<ComboboxModel, ComboboxComponentActi
           ? ignoreMessage()
           : input.emit({ kind: 'commit', event: { kind: 'commit', id: event.id } }),
       })
-      : listbox<ComboboxOptionModel, ComponentMessage>({
+      : listbox<unknown, ComponentMessage>({
         ...common,
         state: {
           ...(highlighted === undefined ? {} : { activeId: highlighted }),
@@ -250,7 +251,7 @@ const instantiateCombobox = defineComponent<ComboboxModel, ComboboxComponentActi
       (action: import('../../interaction/index.ts').MessageResolution<ComboboxComponentAction>) =>
       (event: { readonly focusPath: readonly string[] }) =>
         event.focusPath.at(-1) === id ? action : ignoreMessage();
-    const highlighted = model.state.open
+    const highlighted = model.state.open && model.optionsView !== undefined
       ? comboboxActiveId(model.state)
       : undefined;
     const triggers = model.state.kind !== 'autocomplete'
@@ -276,14 +277,18 @@ const instantiateCombobox = defineComponent<ComboboxModel, ComboboxComponentActi
         ];
     return {
       ...(triggers === undefined ? {} : { triggers }),
-      arrowDown: whenSelf(comboboxComponentTransition({ kind: 'moveActive', delta: 1 })),
-      arrowUp: whenSelf(comboboxComponentTransition({ kind: 'moveActive', delta: -1 })),
-      pageDown: whenSelf(comboboxComponentTransition({ kind: 'pageActive', delta: 1 })),
-      pageUp: whenSelf(comboboxComponentTransition({ kind: 'pageActive', delta: -1 })),
+      ...(model.optionsView === undefined ? {} : {
+        arrowDown: whenSelf(comboboxComponentTransition({ kind: 'moveActive', delta: 1 })),
+        arrowUp: whenSelf(comboboxComponentTransition({ kind: 'moveActive', delta: -1 })),
+        pageDown: whenSelf(comboboxComponentTransition({ kind: 'pageActive', delta: 1 })),
+        pageUp: whenSelf(comboboxComponentTransition({ kind: 'pageActive', delta: -1 })),
+      }),
       ...(model.state.kind === 'select'
         ? {
-            home: whenSelf(comboboxComponentTransition({ kind: 'firstActive' })),
-            end: whenSelf(comboboxComponentTransition({ kind: 'lastActive' })),
+            ...(model.optionsView === undefined ? {} : {
+              home: whenSelf(comboboxComponentTransition({ kind: 'firstActive' })),
+              end: whenSelf(comboboxComponentTransition({ kind: 'lastActive' })),
+            }),
             space: whenSelf(comboboxComponentTransition({ kind: 'toggle' })),
           }
         : {}),
@@ -535,8 +540,9 @@ function isAutocompleteOnlyTransition(
     || transition.kind === 'setText';
 }
 
-function selectedComboboxOption(model: ComboboxModel): ComboboxOptionModel | undefined {
-  return model.options.find((option) => option.id === comboboxSelectedId(model.state));
+function selectedComboboxOption(model: ComboboxModel): ListboxOption | undefined {
+  const id = comboboxSelectedId(model.state);
+  return id === undefined ? undefined : readListboxSource(model.collection).itemById(id)?.option;
 }
 
 interface AutocompleteComboboxInputVisual {
@@ -731,7 +737,11 @@ function comboboxAccessibility(
     .filter((part) => part.length > 0)
     .join(' ');
   const open = input.model.state.open ? input.model.state : undefined;
-  const activeId = open === undefined ? undefined : comboboxActiveId(open);
+  const options = comboboxVisibleEntries(input.model);
+  const highlighted = open === undefined ? undefined : comboboxActiveId(open);
+  const activeId = options.some(entry => entry.id === highlighted) ? highlighted : undefined;
+  const startIndex = options[0]?.visibleIndex ?? input.model.optionsView?.startIndex ?? 0;
+  const totalCount = input.model.optionsView?.totalCount ?? 0;
   const relationship = popupRelationship(input.id);
   return {
     id: input.id,
@@ -767,11 +777,19 @@ function comboboxAccessibility(
         id: relationship.popupId,
         role: 'listbox' as const,
         ...(input.model.label === '' ? {} : { label: `${input.model.label} options` }),
-        children: input.model.options.map((option) => ({
+        window: {
+          startIndex,
+          endIndexExclusive: startIndex + options.length,
+          totalCount,
+          omittedBefore: startIndex,
+          omittedAfter: Math.max(0, totalCount - startIndex - options.length),
+        },
+        children: options.map(({ option, visibleIndex }) => ({
           id: `${relationship.popupId}:item:${option.id}`,
           role: 'option' as const,
           label: option.label,
           selected: option.id === comboboxSelectedId(open),
+          position: { positionInSet: visibleIndex + 1, setSize: totalCount },
           ...(option.description === undefined ? {} : { description: option.description }),
           ...(option.disabled ? { disabled: true } : {}),
         })),
@@ -780,6 +798,18 @@ function comboboxAccessibility(
         : [{ id: `${input.id}:error`, role: 'status' as const, label: input.model.error }])],
     }),
   };
+}
+
+function comboboxVisibleEntries(model: ComboboxModel) {
+  const view = model.optionsView;
+  if (view === undefined) return [];
+  const activeId = comboboxActiveId(model.state);
+  const activeIndex = activeId === undefined ? undefined : view.entryById(activeId)?.visibleIndex;
+  const requestedStart = comboboxScroll(model.state)?.offsetRow ?? (
+    activeIndex === undefined ? view.startIndex : Math.max(view.startIndex, activeIndex - Math.floor(model.maxVisibleOptions / 2))
+  );
+  const start = Math.max(0, Math.min(Math.max(0, view.count - model.maxVisibleOptions), requestedStart - view.startIndex));
+  return view.window(start, start + model.maxVisibleOptions);
 }
 
 function comboboxTransitionForListbox(transition: ListboxTransition): ComboboxComponentAction {
@@ -829,39 +859,12 @@ function createComboboxModel<TValue, TMessage extends ComponentMessage>(
 ): ComboboxModel {
   const label = value.label;
   if (typeof label !== 'string') throw new TypeError('combobox label must be a string.');
-  const rawOptions = value.options;
-  if (!Array.isArray(rawOptions)) throw new TypeError('combobox options must be an array.');
-  const ids = new Set<string>();
-  const options = rawOptions.map((raw, index): ComboboxOptionModel => {
-    if (!isNonArrayObject(raw)) {
-      throw new TypeError(`combobox options[${String(index)}] must be an object.`);
-    }
-    const id = raw['id'];
-    const optionLabel = raw['label'];
-    if (typeof id !== 'string' || id.trim() === '') {
-      throw new TypeError('combobox option id must be non-empty.');
-    }
-    if (ids.has(id)) throw new TypeError(`combobox contains duplicate option id "${id}".`);
-    ids.add(id);
-    if (typeof optionLabel !== 'string') {
-      throw new TypeError('combobox option label must be a string.');
-    }
-    if (raw['description'] !== undefined && typeof raw['description'] !== 'string') {
-      throw new TypeError('combobox option description must be a string.');
-    }
-    if (raw['disabled'] !== undefined && typeof raw['disabled'] !== 'boolean') {
-      throw new TypeError('combobox option disabled must be a boolean.');
-    }
-    return {
-      id,
-      label: sanitizeTerminalText(optionLabel).text,
-      ...(raw['description'] === undefined
-        ? {}
-        : { description: sanitizeTerminalText(raw['description']).text }),
-      disabled: raw['disabled'] === true,
-    };
-  });
-  const state = decodeComboboxState('view' in value ? value.view : value.state, options);
+  const optionsView = matchingListboxView(value.collection, value.query, value.optionsView);
+  const state = decodeComboboxState(
+    'view' in value ? value.view : value.state,
+    value.collection,
+    optionsView,
+  );
   if (value.disabled === true && state.open) {
     throw new TypeError('combobox cannot be open while disabled.');
   }
@@ -899,7 +902,9 @@ function createComboboxModel<TValue, TMessage extends ComponentMessage>(
   }
   return {
     label: sanitizeTerminalText(label).text,
-    options,
+    collection: value.collection,
+    optionsView,
+    ...(value.query === undefined ? {} : { query: ownCollectionQueryRequest(value.query) }),
     state,
     placeholder: sanitizeTerminalText(placeholder ?? 'Select…').text,
     placement: placement ?? 'auto',
@@ -912,7 +917,8 @@ function createComboboxModel<TValue, TMessage extends ComponentMessage>(
 
 function decodeComboboxState(
   value: ComboboxRenderState,
-  options: readonly ComboboxOptionModel[],
+  collection: ListboxCollection<unknown>,
+  optionsView: ListboxView<unknown> | undefined,
 ): ComboboxRenderState {
   const candidate: unknown = value;
   if (!isNonArrayObject(candidate) || typeof candidate['open'] !== 'boolean' ||
@@ -920,13 +926,14 @@ function decodeComboboxState(
     throw new TypeError('combobox state is invalid.');
   }
   return value.kind === 'autocomplete'
-    ? decodeAutocompleteComboboxState(value, options)
-    : decodeSelectComboboxState(value, options);
+    ? decodeAutocompleteComboboxState(value, collection, optionsView)
+    : decodeSelectComboboxState(value, collection, optionsView);
 }
 
 function decodeAutocompleteComboboxState(
   value: Extract<ComboboxRenderState, { readonly kind: 'autocomplete' }>,
-  options: readonly ComboboxOptionModel[],
+  collection: ListboxCollection<unknown>,
+  optionsView: ListboxView<unknown> | undefined,
 ): ComboboxRenderState {
   if (!isNonArrayObject(value.input) || typeof value.input.text !== 'string' ||
     typeof value.input.cursor !== 'number' || !Number.isSafeInteger(value.input.cursor) ||
@@ -941,7 +948,7 @@ function decodeAutocompleteComboboxState(
   if (selection.mode !== 'single') throw new TypeError('autocomplete combobox selection must use single mode.');
   const selectedId = decodeOptionalComboboxId(selection.selectedId, 'autocomplete combobox selectedId');
   const activeId = decodeOptionalComboboxId(value.activeId, 'autocomplete combobox activeId');
-  assertComboboxOptionReference(activeId, options, true, 'autocomplete combobox activeId');
+  assertComboboxOptionReference(activeId, collection, optionsView, true, 'autocomplete combobox activeId');
   const scroll = decodeScrollState(value.scroll, 'autocomplete combobox state scroll');
   return {
     kind: 'autocomplete',
@@ -961,7 +968,8 @@ function decodeAutocompleteComboboxState(
 
 function decodeSelectComboboxState(
   value: Extract<ComboboxRenderState, { readonly kind: 'select' }>,
-  options: readonly ComboboxOptionModel[],
+  collection: ListboxCollection<unknown>,
+  optionsView: ListboxView<unknown> | undefined,
 ): ComboboxRenderState {
   if (!isNonArrayObject(value.interaction)) {
     throw new TypeError('combobox interaction is invalid.');
@@ -974,9 +982,9 @@ function decodeSelectComboboxState(
     throw new TypeError('combobox interaction selection must use single mode.');
   }
   const selectedId = decodeOptionalComboboxId(selection.selectedId, 'combobox selectedId');
-  assertComboboxOptionReference(selectedId, options, false, 'combobox selectedId');
+  assertComboboxOptionReference(selectedId, collection, optionsView, false, 'combobox selectedId');
   const activeId = decodeOptionalComboboxId(value.interaction.activeId, 'combobox activeId');
-  assertComboboxOptionReference(activeId, options, true, 'combobox activeId');
+  assertComboboxOptionReference(activeId, collection, optionsView, true, 'combobox activeId');
   const scroll = decodeScrollState(value.scroll, 'combobox state scroll');
   return {
     kind: 'select',
@@ -998,12 +1006,16 @@ function decodeOptionalComboboxId(value: unknown, owner: string): string | undef
 
 function assertComboboxOptionReference(
   id: string | undefined,
-  options: readonly ComboboxOptionModel[],
+  collection: ListboxCollection<unknown>,
+  optionsView: ListboxView<unknown> | undefined,
   requireEnabled: boolean,
   owner: string,
 ): void {
   if (id === undefined) return;
-  const option = options.find((candidate) => candidate.id === id);
+  if (requireEnabled && optionsView === undefined) return;
+  const option = requireEnabled
+    ? optionsView?.entryById(id)?.option
+    : readListboxSource(collection).itemById(id)?.option;
   if (option === undefined || (requireEnabled && option.disabled)) {
     throw new TypeError(`${owner} must reference ${requireEnabled ? 'an enabled option' : 'an option'}.`);
   }

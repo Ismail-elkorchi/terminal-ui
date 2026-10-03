@@ -1,3 +1,4 @@
+import { combineTuiResults } from './result.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { textArea } from '../components/index.ts';
@@ -24,7 +25,10 @@ void test('committed layout messages keep sibling scopes and reject removed chil
   const runtime = createTuiRuntime({ host: createMemoryTerminalHost({ terminalSize: { columns: 40, rows: 6 } }), app: defineTui<State, Message>({
     init: context => ({ state: { left: child.init({ id: 'left', generation: 1 }, context).state, right: child.init({ id: 'right', generation: 1 }, context).state } }),
     update(state, message, context) {
-      if (message.kind === 'reopen') return { state: { ...state, left: child.init({ id: 'left', generation: 2 }, context).state }, cancel: [child.remove(state.left)] };
+      if (message.kind === 'reopen') {
+        const mounted = child.init({ id: 'left', generation: 2 }, context);
+        return combineTuiResults({ ...state, left: mounted.state }, child.remove(state.left), mounted);
+      }
       const key = message.child.id === 'left' ? 'left' : 'right';
       const updated = child.update(state[key], message.child, context);
       return { ...updated, state: { ...state, [key]: updated.state } };

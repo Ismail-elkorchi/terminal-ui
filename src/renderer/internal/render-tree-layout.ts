@@ -319,7 +319,7 @@ function prepareRetention(node: RenderNode, layout: LayoutNode, reusable: WeakMa
   // Measured viewports resolve a new private render tree from current input.
   if (node.kind === 'viewport' && node.props.measured === true) geometry = measurement = false;
   if (measurement && previous !== undefined) retainRenderMeasurements(node, previous);
-  reusable.set(node, geometry);
+  reusable.set(node, geometry && measurement);
   return measurement;
 }
 

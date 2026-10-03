@@ -75,7 +75,7 @@ test('tree source rejects duplicate identities across nested branches', () => {
 test('tree source validates every retained node during construction', () => {
   assert.throws(
     () => createTreeSource([{ id: 'invalid', label: 42, kind: 'leaf' }]),
-    /tree nodes\[0\]\.label must be a string/u
+    /Tree id and label must be strings/u
   );
 });
 

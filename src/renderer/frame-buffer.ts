@@ -361,13 +361,7 @@ class CellFrameBuffer implements FrameBuffer {
           continue;
         }
         if (this.containsCell(row, nextColumn) && this.containsCell(row, nextColumn + segment.cells - 1)) {
-          this.writeGrapheme(row, nextColumn, {
-            text: segment.text,
-            width: segment.cells,
-            ...(style === undefined ? {} : { style }),
-            ...(link === undefined ? {} : { link }),
-            ...(source === undefined ? {} : { source })
-          });
+          this.writeGrapheme(row, nextColumn, segment.text, segment.cells, style, link, source);
         }
         nextColumn += segment.cells;
       }
@@ -454,11 +448,14 @@ class CellFrameBuffer implements FrameBuffer {
     this.occludeGraphics(clipped);
     for (const [row, cells] of this.rows) {
       if (row < clipped.row || row >= clipped.row + clipped.height) continue;
-      const affected = [...cells.values()].filter((cell) =>
-        cell.column < clipped.column + clipped.width
-        && cell.column + Math.max(1, cell.width) > clipped.column
-      );
-      for (const cell of affected) this.clearCellGroup(row, cell.column, 'none');
+      // Clearing only removes entries; an iterator is safe for both an owned row
+      // and a sealed row that is copied on its first deletion.
+      for (const cell of cells.values()) {
+        if (cell.column < clipped.column + clipped.width
+          && cell.column + Math.max(1, cell.width) > clipped.column) {
+          this.clearCellGroup(row, cell.column, 'none');
+        }
+      }
     }
   }
 
@@ -548,13 +545,8 @@ class CellFrameBuffer implements FrameBuffer {
       ? undefined
       : decodeTerminalStyle(cell.style, 'Frame cell style');
     const link = cell.link === undefined ? undefined : decodeTerminalLink(cell.link);
-    this.writeGrapheme(cell.row, cell.column, {
-      text,
-      width: cell.width,
-      ...(style === undefined ? {} : { style }),
-      ...(link === undefined ? {} : { link }),
-      ...(cell.source === undefined ? {} : { source: frameCellSource(cell.source) })
-    });
+    this.writeGrapheme(cell.row, cell.column, text, cell.width, style, link,
+      cell.source === undefined ? undefined : frameCellSource(cell.source));
   }
 
   [transferCell](cell: FrameCell): void {
@@ -566,13 +558,7 @@ class CellFrameBuffer implements FrameBuffer {
       this.setCell(cell.row, cell.column, cell);
       return;
     }
-    this.writeGrapheme(cell.row, cell.column, {
-      text: cell.text,
-      width: cell.width,
-      ...(cell.style === undefined ? {} : { style: cell.style }),
-      ...(cell.link === undefined ? {} : { link: cell.link }),
-      ...(cell.source === undefined ? {} : { source: cell.source })
-    });
+    this.writeGrapheme(cell.row, cell.column, cell.text, cell.width, cell.style, cell.link, cell.source);
   }
 
   [transferSpans](row: number, column: number, spans: readonly FrameBufferSpan[]): void {
@@ -589,45 +575,43 @@ class CellFrameBuffer implements FrameBuffer {
           continue;
         }
         if (this.containsCell(row, nextColumn) && this.containsCell(row, nextColumn + grapheme.cells - 1)) {
-          this.writeGrapheme(row, nextColumn, {
-            text: grapheme.text,
-            width: grapheme.cells,
-            ...(currentSpan.style === undefined ? {} : { style: currentSpan.style }),
-            ...(currentSpan.link === undefined ? {} : { link: currentSpan.link }),
-            ...(currentSpan.source === undefined ? {} : { source: currentSpan.source }),
-          });
+          this.writeGrapheme(row, nextColumn, grapheme.text, grapheme.cells,
+            currentSpan.style, currentSpan.link, currentSpan.source);
         }
         nextColumn += grapheme.cells;
       }
     }
   }
 
-  /** Admit an unobstructed run once, reusing immutable cells before allocating replacements. */
+  /** Admit a width-one run once; wide occupants keep their overlap/clear path. */
   private writeSimpleSpan(row: number, column: number, span: FrameBufferSpan): boolean {
     const width = span.graphemes.length;
     if (width === 0 || !this.containsCell(row, column) || !this.containsCell(row, column + width - 1)) return false;
     const stored = this.rows.get(row);
     for (let offset = 0; offset < width; offset += 1) {
-      if (span.graphemes[offset]?.cells !== 1 || stored?.has(column + offset) === true) return false;
+      const current = stored?.get(column + offset);
+      if (span.graphemes[offset]?.cells !== 1 || current !== undefined && current.width !== 1) return false;
+      // Preserve the established per-cell graphic fragmentation when replacing
+      // occupants; the existing empty-run path can still occlude as one span.
+      if (current !== undefined && this.graphics.size > 0) return false;
     }
-    this.occludeGraphics({ row, column, width, height: 1 });
+    if (this.graphics.size > 0) this.occludeGraphics({ row, column, width, height: 1 });
     this.recordWriteSpan(row, column, width);
     const cells = this.mutableRow(row);
     const previous = this.previousRows.get(row)?.cells;
-    for (const [offset, grapheme] of span.graphemes.entries()) {
+    for (let offset = 0; offset < width; offset += 1) {
+      const grapheme = span.graphemes[offset];
+      if (grapheme === undefined) continue;
       const position = column + offset;
-      const old = previous?.get(position);
+      const current = cells.get(position);
+      const style = inheritedCellStyle(this.inheritBackground, current, span.style);
+      const old = current ?? previous?.get(position);
       const cell = old?.width === 1 && old.text === grapheme.text
-        && sameTerminalStyle(old.style, span.style) && sameTerminalLink(old.link, span.link)
+        && sameTerminalStyle(old.style, style) && sameTerminalLink(old.link, span.link)
         && sameFrameCellSource(old.source, span.source)
         ? old
-        : Object.freeze({ row, column: position, text: grapheme.text, width: 1,
-            ...(span.style === undefined ? {} : { style: span.style }),
-            ...(span.link === undefined ? {} : { link: span.link }),
-            ...(span.source === undefined ? {} : { source: span.source }),
-          });
+        : admittedFrameCell(row, position, grapheme.text, 1, style, span.link, span.source);
       cells.set(position, cell);
-
     }
     return true;
   }
@@ -644,7 +628,7 @@ class CellFrameBuffer implements FrameBuffer {
       : effectiveCellStyle(this.canvasStyleOverride, backdrop);
     for (const [row, cells] of this.rows) {
       if (row < clipped.row || row >= clipped.row + clipped.height) continue;
-      for (const cell of [...cells.values()]) {
+      for (const cell of cells.values()) {
         if (cell.column < clipped.column || cell.column >= clipped.column + clipped.width) continue;
         const style = cell.style === undefined ? backdrop : effectiveCellStyle(cell.style, backdrop);
         if (style === cell.style && cell.link === undefined) continue;
@@ -661,11 +645,18 @@ class CellFrameBuffer implements FrameBuffer {
 
   [mergeableCells](): readonly FrameCell[] {
     this.mutableRows.clear();
-    return Object.freeze([...this.rows.values()].flatMap(row => {
+    const output: FrameCell[] = [];
+    for (const row of this.rows.values()) {
       let cells = mergeableByRow.get(row);
-      if (cells === undefined) { cells = Object.freeze([...row.values()].filter(isMergeableFrameCell)); mergeableByRow.set(row, cells); }
-      return cells;
-    }).toSorted((left, right) => left.row - right.row || left.column - right.column));
+      if (cells === undefined) {
+        const selected: FrameCell[] = [];
+        for (const cell of row.values()) if (isMergeableFrameCell(cell)) selected.push(cell);
+        cells = Object.freeze(selected);
+        mergeableByRow.set(row, cells);
+      }
+      for (const cell of cells) output.push(cell);
+    }
+    return Object.freeze(output.sort((left, right) => left.row - right.row || left.column - right.column));
   }
 
   [captureDamage](operation: () => void): DirtyRegionSet {
@@ -680,7 +671,8 @@ class CellFrameBuffer implements FrameBuffer {
   }
 
   [retainRows](rows: readonly FrameSnapshotRowIndex[]): void {
-    this.previousRows = new Map(rows.map(row => [row.row, row]));
+    this.previousRows = new Map();
+    for (const row of rows) this.previousRows.set(row.row, row);
   }
 
   [checkpointStorage](): FrameBufferCheckpoint {
@@ -819,12 +811,13 @@ class CellFrameBuffer implements FrameBuffer {
     const work = { rows: 0, cells: 0 };
     const rowFingerprints: FrameRowFingerprint[] = [];
     const rowIndexes: FrameSnapshotRowIndex[] = [];
-    for (const [row, cells] of [...this.rows].sort(([left], [right]) => left - right)) {
+    for (const row of [...this.rows.keys()].sort((left, right) => left - right)) {
+      const cells = this.rows.get(row);
+      if (cells === undefined) continue;
       const cached = snapshotsByRow.get(cells)?.get(canvasStyle);
       const previous = this.previousRows.get(row);
       let snapshot = cached;
-      if (snapshot === undefined && cells.size === previous?.cells.size
-        && [...cells.values()].every(cell => sameFrameCell(previous.cells.get(cell.column), effectiveCanvasCell(cell, canvasStyle)))) {
+      if (snapshot === undefined && previous !== undefined && sameProjectedRow(cells, previous.cells, canvasStyle)) {
         snapshot = previous;
         if (canvasStyle === undefined) this.rows.set(row, previous.cells);
       }
@@ -865,42 +858,23 @@ class CellFrameBuffer implements FrameBuffer {
   private writeGrapheme(
     row: number,
     column: number,
-    cell: Omit<FrameCell, 'row' | 'column'>
+    text: string,
+    width: number,
+    admittedStyle: TerminalStyle | undefined,
+    link: TerminalLink | undefined,
+    source: FrameCellSource | undefined,
   ): void {
-    this.occludeGraphics({ row, column, width: Math.max(1, cell.width), height: 1 });
-    const existingBackground = this.inheritBackground && cell.style?.bg === undefined
-      ? this.cellAt(row, column)?.style?.bg
-      : undefined;
-    for (let offset = 0; offset < cell.width; offset += 1) {
+    if (this.graphics.size > 0) this.occludeGraphics({ row, column, width: Math.max(1, width), height: 1 });
+    const style = inheritedCellStyle(this.inheritBackground, this.cellAt(row, column), admittedStyle);
+    for (let offset = 0; offset < width; offset += 1) {
       if (this.cellAt(row, column + offset) !== undefined) {
         this.clearCellGroup(row, column + offset, 'write');
       }
     }
-    this.recordWriteSpan(row, column, Math.max(1, cell.width));
-    const style = existingBackground === undefined
-      ? cell.style
-      : effectiveCellStyle(backgroundStyle(existingBackground), cell.style);
-    const mainCell: FrameCell = {
-      row,
-      column,
-      text: cell.text,
-      width: cell.width,
-      ...(style === undefined ? {} : { style }),
-      ...(cell.link === undefined ? {} : { link: cell.link }),
-      ...(cell.source === undefined ? {} : { source: cell.source })
-    };
-    this.setCell(row, column, mainCell);
-    for (let offset = 1; offset < cell.width; offset += 1) {
-      this.setCell(row, column + offset, {
-        row,
-        column: column + offset,
-        text: '',
-        width: 0,
-        ...(style === undefined ? {} : { style }),
-        ...(cell.link === undefined ? {} : { link: cell.link }),
-        ...(cell.source === undefined ? {} : { source: cell.source }),
-        continuation: true
-      });
+    this.recordWriteSpan(row, column, Math.max(1, width));
+    this.setCell(row, column, admittedFrameCell(row, column, text, width, style, link, source));
+    for (let offset = 1; offset < width; offset += 1) {
+      this.setCell(row, column + offset, admittedFrameCell(row, column + offset, '', 0, style, link, source, true));
     }
   }
 
@@ -1078,6 +1052,13 @@ function backgroundStyle(background: TerminalColor): TerminalStyle {
     backgroundStyles.set(background, style);
   }
   return style;
+}
+
+function inheritedCellStyle(
+  inheritBackground: boolean, current: FrameCell | undefined, style: TerminalStyle | undefined,
+): TerminalStyle | undefined {
+  const background = inheritBackground && style?.bg === undefined ? current?.style?.bg : undefined;
+  return background === undefined ? style : effectiveCellStyle(backgroundStyle(background), style);
 }
 
 function effectiveCellStyle(canvasStyle: TerminalStyle, cellStyle: TerminalStyle | undefined): TerminalStyle {
@@ -1271,10 +1252,34 @@ function hashToString(hash: number): string {
   return hash.toString(16).padStart(8, '0');
 }
 
+/** Values have already crossed the public decoder or a private admitted boundary. */
+function admittedFrameCell(
+  row: number, column: number, text: string, width: number,
+  style: TerminalStyle | undefined, link: TerminalLink | undefined, source: FrameCellSource | undefined,
+  continuation = false,
+): FrameCell {
+  const cell: { -readonly [Key in keyof FrameCell]: FrameCell[Key] } = { row, column, text, width };
+  if (style !== undefined) cell.style = style;
+  if (link !== undefined) cell.link = link;
+  if (source !== undefined) cell.source = source;
+  if (continuation) cell.continuation = true;
+  return Object.freeze(cell);
+}
+
+function sameProjectedRow(cells: StoredRow, previous: StoredRow, canvasStyle: TerminalStyle | undefined): boolean {
+  if (cells.size !== previous.size) return false;
+  for (const cell of cells.values()) {
+    if (!sameFrameCell(previous.get(cell.column), effectiveCanvasCell(cell, canvasStyle))) return false;
+  }
+  return true;
+}
+
 function sameStoredRow(left: StoredRow | undefined, right: StoredRow | undefined): boolean {
   if (left === right) return true;
   if ((left?.size ?? 0) !== (right?.size ?? 0)) return false;
-  for (const [column, cell] of left ?? []) if (!sameFrameCell(cell, right?.get(column))) return false;
+  if (left !== undefined) for (const cell of left.values()) {
+    if (!sameFrameCell(cell, right?.get(cell.column))) return false;
+  }
   return true;
 }
 
@@ -1295,7 +1300,9 @@ function snapshotCellMaterializer(
   let output: readonly FrameCell[] | undefined;
   return () => {
     if (output !== undefined) return output;
-    output = Object.freeze(rows.flatMap(row => [...row.cells.values()]));
+    const cells: FrameCell[] = [];
+    for (const row of rows) for (const cell of row.cells.values()) cells.push(cell);
+    output = Object.freeze(cells);
     instrumentation?.recordWork?.({ kind: 'snapshot_materializations', count: 1 });
     instrumentation?.recordWork?.({ kind: 'snapshot_materialized_cells', count: output.length });
     return output;

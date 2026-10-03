@@ -1,3 +1,4 @@
+import { TerminalUiError } from '../../errors.ts';
 import { isNonArrayObject } from '../../foundation/validation.ts';
 import type { TerminalClock } from '../../host/types.ts';
 import type { TuiSourceChannelMetrics, TuiSourceEmission } from '../types.ts';
@@ -57,15 +58,30 @@ export interface TuiSourceChannel<TMessage> {
   admit(emission: TuiSourceEmission<TMessage>): Promise<void>;
   close(): Promise<void>;
   cancel(): void;
+  /** Wait for terminal channel work to physically settle, including cancelled dispatches. */
+  settle(): Promise<void>;
   metrics(): TuiSourceChannelMetrics;
+}
+
+interface ReplaceableEmission<TMessage> {
+  readonly kind: 'replaceable';
+  readonly key: string;
+  message: TMessage;
 }
 
 type BufferedEmission<TMessage> =
   | { readonly kind: 'reliable'; readonly message: TMessage }
-  | { readonly kind: 'replaceable'; readonly key: string };
+  | ReplaceableEmission<TMessage>;
+
+interface PendingAdmission<TMessage> {
+  readonly emission: TuiSourceEmission<TMessage>;
+  readonly resolve: () => void;
+  readonly reject: (cause: unknown) => void;
+}
 
 export function createTuiSourceChannel<TMessage>(options: {
   readonly capacity?: number;
+  readonly maxBatchMessages?: number;
   readonly cadence?: { readonly intervalMs: number; readonly clock: TerminalClock };
   readonly dispatchMany: (messages: readonly TMessage[]) => Promise<void>;
 }): TuiSourceChannel<TMessage> {
@@ -73,16 +89,24 @@ export function createTuiSourceChannel<TMessage>(options: {
   if (!Number.isSafeInteger(capacity) || capacity < 1) {
     throw new RangeError('TUI source channel capacity must be a positive safe integer.');
   }
+  if (options.maxBatchMessages !== undefined && (!Number.isSafeInteger(options.maxBatchMessages) || options.maxBatchMessages < 1)) {
+    throw new RangeError('TUI source batch limit must be a positive safe integer.');
+  }
   const queue: BufferedEmission<TMessage>[] = [];
-  const replaceableValues = new Map<string, TMessage>();
-  const cadencedKeys: string[] = [];
-  const cadencedValues = new Map<string, TMessage>();
-  const capacityWaiters: (() => void)[] = [];
-  const closeWaiters: { readonly resolve: () => void; readonly reject: (cause: unknown) => void }[] = [];
+  // Only nodes in the latest contiguous replaceable segment can be replaced.
+  const replaceableValues = new Map<string, ReplaceableEmission<TMessage>>();
+  const cadenced: ReplaceableEmission<TMessage>[] = [];
+  let pendingAdmission: PendingAdmission<TMessage> | undefined;
+  let inFlight = 0;
   let drain: Promise<void> | undefined;
   let cadence: Promise<void> | undefined;
   let cadenceController: AbortController | undefined;
+  let closePromise: Promise<void> | undefined;
+  let closeWaiter: { readonly resolve: () => void; readonly reject: (cause: unknown) => void } | undefined;
+  let settlement: Promise<void> | undefined;
+  let settleWaiter: (() => void) | undefined;
   let state: SourceChannelState = { kind: 'open' };
+  const closedError = new TerminalUiError('TUI source channel is closed.');
   const counters = {
     reliableAdmissions: 0,
     replaceableAdmissions: 0,
@@ -96,59 +120,84 @@ export function createTuiSourceChannel<TMessage>(options: {
   return {
     async admit(emission) {
       assertAdmissionOpen();
-      if (emission.kind === 'replaceable' && (
-        replaceableValues.has(emission.key) || cadencedValues.has(emission.key)
-      )) {
-        if (cadencedValues.has(emission.key)) cadencedValues.set(emission.key, emission.message);
-        else replaceableValues.set(emission.key, emission.message);
-        counters.replaceableAdmissions += 1;
-        counters.replacements += 1;
-        return;
-      }
-      while (bufferedCount() >= capacity) {
-        await new Promise<void>((resolve) => capacityWaiters.push(resolve));
-        assertAdmissionOpen();
-      }
-      if (emission.kind === 'reliable') {
-        counters.reliableAdmissions += 1;
-        queue.push({ kind: 'reliable', message: emission.message });
-      } else {
-        counters.replaceableAdmissions += 1;
-        if (options.cadence === undefined) {
-          replaceableValues.set(emission.key, emission.message);
-          queue.push({ kind: 'replaceable', key: emission.key });
-        } else {
-          cadencedValues.set(emission.key, emission.message);
-          cadencedKeys.push(emission.key);
-          ensureCadence();
+      if (emission.kind === 'replaceable') {
+        const previous = replaceableValues.get(emission.key);
+        if (previous !== undefined) {
+          previous.message = emission.message;
+          counters.replaceableAdmissions += 1;
+          counters.replacements += 1;
+          return;
         }
       }
-      counters.maximumBuffered = Math.max(counters.maximumBuffered, bufferedCount());
-      ensureDrain();
+      if (pendingAdmission !== undefined) {
+        throw new TerminalUiError('TUI source channel already has a blocked emission; await sink.emit() before emitting again.', {
+          code: 'TUI_OVERLOAD', reason: 'source_blocked_emission', limit: 1, observed: 2,
+        });
+      }
+      if (emission.kind === 'reliable') sealReplaceableSegment();
+      if (bufferedCount() >= capacity) {
+        await new Promise<void>((resolve, reject) => {
+          pendingAdmission = { emission, resolve, reject };
+        });
+        return;
+      }
+      enqueue(emission);
     },
     close() {
-      if (state.kind === 'closed') return Promise.resolve();
-      if (state.kind === 'failed' || state.kind === 'cancelled') {
-        return Promise.reject(state.error);
+      if (closePromise !== undefined) return closePromise;
+      closePromise = new Promise<void>((resolve, reject) => {
+        closeWaiter = { resolve, reject };
+      });
+      if (state.kind === 'open') {
+        state = { kind: 'closing' };
+        releaseCapacity();
+        flushCadenced();
       }
-      state = { kind: 'closing' };
-      flushCadenced();
       settleClose();
-      if (closed()) return Promise.resolve();
-      return new Promise<void>((resolve, reject) => closeWaiters.push({ resolve, reject }));
+      return closePromise;
     },
     cancel() {
       if (isTerminal()) return;
-      terminate({ kind: 'cancelled', error: new Error('TUI source channel was cancelled.') });
+      terminate({ kind: 'cancelled', error: new TerminalUiError('TUI source channel was cancelled.') });
+    },
+    settle() {
+      settlement ??= new Promise<void>((resolve) => { settleWaiter = resolve; });
+      settleClose();
+      return settlement;
     },
     metrics() {
       return Object.freeze({ ...counters });
     },
   };
 
+  function enqueue(emission: TuiSourceEmission<TMessage>): void {
+    if (emission.kind === 'reliable') {
+      counters.reliableAdmissions += 1;
+      queue.push(emission);
+    } else {
+      counters.replaceableAdmissions += 1;
+      const buffered: ReplaceableEmission<TMessage> = { ...emission };
+      replaceableValues.set(emission.key, buffered);
+      if (options.cadence === undefined) queue.push(buffered);
+      else {
+        cadenced.push(buffered);
+        ensureCadence();
+      }
+    }
+    counters.maximumBuffered = Math.max(counters.maximumBuffered, bufferedCount());
+    ensureDrain();
+  }
+
+  function sealReplaceableSegment(): void {
+    replaceableValues.clear();
+    flushCadenced();
+  }
+
   function ensureDrain(): void {
     if (drain !== undefined || !canDrain() || queue.length === 0) return;
-    drain = drainQueued()
+    // Schedule after installing the owner so synchronous dispatch callbacks cannot
+    // start a second drain or release capacity belonging to the first one.
+    drain = Promise.resolve().then(drainQueued)
       .catch((cause: unknown) => {
         fail(cause);
       })
@@ -162,11 +211,11 @@ export function createTuiSourceChannel<TMessage>(options: {
 
   function assertAdmissionOpen(): void {
     if (state.kind === 'failed' || state.kind === 'cancelled') throw state.error;
-    if (state.kind !== 'open') throw new Error('TUI source channel is closed.');
+    if (state.kind !== 'open') throw closedError;
   }
 
   function ensureCadence(): void {
-    if (options.cadence === undefined || cadence !== undefined || cadencedKeys.length === 0 || state.kind !== 'open') return;
+    if (options.cadence === undefined || cadence !== undefined || cadenced.length === 0 || state.kind !== 'open') return;
     const controller = new AbortController();
     cadenceController = controller;
     cadence = options.cadence.clock.sleep(options.cadence.intervalMs, controller.signal)
@@ -179,58 +228,75 @@ export function createTuiSourceChannel<TMessage>(options: {
       .finally(() => {
         if (cadenceController === controller) cadenceController = undefined;
         cadence = undefined;
-        if (state.kind === 'open' && cadencedKeys.length > 0) ensureCadence();
+        if (state.kind === 'open' && cadenced.length > 0) ensureCadence();
         else settleClose();
       });
   }
 
   function flushCadenced(): void {
-    if (!canDrain() || cadencedKeys.length === 0) return;
+    if (!canDrain() || cadenced.length === 0) return;
     cadenceController?.abort();
-    for (const key of cadencedKeys.splice(0)) {
-      const message = cadencedValues.get(key);
-      cadencedValues.delete(key);
-      if (message === undefined) continue;
-      replaceableValues.set(key, message);
-      queue.push({ kind: 'replaceable', key });
-    }
+    for (const item of cadenced) queue.push(item);
+    cadenced.length = 0;
     counters.cadenceFlushes += 1;
     ensureDrain();
   }
 
   async function drainQueued(): Promise<void> {
     while (canDrain() && queue.length > 0) {
-      const buffered = queue.splice(0, queue.length);
-      const messages = buffered.flatMap((item): readonly TMessage[] => {
-        if (item.kind === 'reliable') return [item.message];
-        const message = replaceableValues.get(item.key);
-        replaceableValues.delete(item.key);
-        return message === undefined ? [] : [message];
+      // Reliable emissions commit separately; replaceable batches cannot span one.
+      const boundary = queue.findIndex((item) => item.kind === 'reliable');
+      const count = Math.min(options.maxBatchMessages ?? capacity, boundary === 0 ? 1 : boundary === -1 ? queue.length : boundary);
+      const buffered = queue.splice(0, count);
+      const messages = buffered.map((item) => {
+        if (item.kind === 'replaceable' && replaceableValues.get(item.key) === item) {
+          replaceableValues.delete(item.key);
+        }
+        return item.message;
       });
+      inFlight = messages.length;
+      try {
+        await options.dispatchMany(Object.freeze(messages));
+        counters.dispatchedMessages += messages.length;
+        counters.dispatchedBatches += 1;
+      } finally {
+        inFlight = 0;
+      }
       releaseCapacity();
-      if (messages.length === 0) continue;
-      await options.dispatchMany(Object.freeze(messages));
-      counters.dispatchedMessages += messages.length;
-      counters.dispatchedBatches += 1;
     }
   }
 
   function releaseCapacity(): void {
-    for (const resolve of capacityWaiters.splice(0)) resolve();
+    const pending = pendingAdmission;
+    if (pending === undefined) return;
+    if (state.kind !== 'open') {
+      pendingAdmission = undefined;
+      pending.reject(state.kind === 'failed' || state.kind === 'cancelled' ? state.error : closedError);
+    } else if (bufferedCount() < capacity) {
+      pendingAdmission = undefined;
+      enqueue(pending.emission);
+      pending.resolve();
+    }
   }
 
   function bufferedCount(): number {
-    return queue.length + cadencedKeys.length;
+    return queue.length + cadenced.length + inFlight;
   }
 
   function settleClose(): void {
-    if (state.kind === 'closing' && queue.length === 0 && cadencedKeys.length === 0 && drain === undefined) {
+    if (state.kind === 'closing' && bufferedCount() === 0 && drain === undefined) {
       state = { kind: 'closed' };
     }
     if (state.kind !== 'closed' && state.kind !== 'failed' && state.kind !== 'cancelled') return;
-    for (const waiter of closeWaiters.splice(0)) {
-      if (state.kind === 'closed') waiter.resolve();
-      else waiter.reject(state.error);
+    const waiter = closeWaiter;
+    closeWaiter = undefined;
+    if (state.kind === 'closed') waiter?.resolve();
+    else waiter?.reject(state.error);
+    // Admission and close reject promptly on cancellation; ownership must wait
+    // for the already-started dispatch and an abort-ignoring clock to finish.
+    if (drain === undefined && cadence === undefined) {
+      settleWaiter?.();
+      settleWaiter = undefined;
     }
   }
 
@@ -240,10 +306,6 @@ export function createTuiSourceChannel<TMessage>(options: {
 
   function isTerminal(): boolean {
     return state.kind === 'closed' || state.kind === 'failed' || state.kind === 'cancelled';
-  }
-
-  function closed(): boolean {
-    return state.kind === 'closed';
   }
 
   function fail(cause: unknown): void {
@@ -256,8 +318,7 @@ export function createTuiSourceChannel<TMessage>(options: {
     cadenceController?.abort();
     queue.length = 0;
     replaceableValues.clear();
-    cadencedKeys.length = 0;
-    cadencedValues.clear();
+    cadenced.length = 0;
     releaseCapacity();
     settleClose();
   }

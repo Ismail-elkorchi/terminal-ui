@@ -1,3 +1,5 @@
+import { createListboxFixture } from '../../support/collection-fixtures.mjs';
+import { createTableCollection } from '../../../dist/behavior/index.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
@@ -63,7 +65,7 @@ test('keymap mistakes and ambiguous chords fail before an app starts', () => {
 test('listbox remaps only focused control; neighboring editor keeps printable input', async () => {
   const keymap = createListboxKeymap({ next: [key('j')], previous: null });
   const { runtime, messages } = await session(() => column([
-    listbox({ meta: { accessibleName: 'Test control' }, id: 'list', keymap, items: ['one', 'two'], toOption: (value) => ({ id: value, label: value, value }),
+    listbox({ meta: { accessibleName: 'Test control' }, id: 'list', keymap, ...createListboxFixture(['one', 'two'], (value) => ({ id: value, label: value, value })),
       state: { activeId: 'one', selection: { mode: 'none' } }, onTransition: (value) => ({ list: value }) }),
     textInput({ meta: { accessibleName: 'Test control' }, id: 'editor', state: { text: '', cursor: 0 }, onTransition: (value) => ({ editor: value }) }),
   ]));
@@ -138,8 +140,8 @@ test('tree and search picker resolve reused keymaps into existing domain transit
 });
 
 test('data grid configurable keys preserve row mode and sort/resize eligibility', async () => {
-  const { runtime, messages } = await session(() => dataGrid({ meta: { accessibleName: 'Test control' }, id: 'grid', rows: [{ meta: { accessibleName: 'Test control' }, id: 'one', value: 1 }],
-    getRowId: (row) => row.id, columns: [{ meta: { accessibleName: 'Test control' }, id: 'value', value: (row) => row.value }],
+  const { runtime, messages } = await session(() => dataGrid({ meta: { accessibleName: 'Test control' }, id: 'grid', collection: createTableCollection([{ meta: { accessibleName: 'Test control' }, id: 'one', value: 1 }], (row) => row.id),
+     columns: [{ meta: { accessibleName: 'Test control' }, id: 'value', value: (row) => row.value }],
     state: { interaction: { kind: 'row', activeRowId: 'one', selection: { mode: 'none' } } },
     keymap: createDataGridKeymap({ nextRow: [key('j')], sort: [key('s')], nextColumn: [key('l')] }),
     onTransition: (value) => value }));
@@ -170,7 +172,7 @@ test('remapped editing keys distinguish paste from shortcuts and opt into repeat
 for (const state of [{ disabled: true }, { busy: true }, { inert: true }]) {
   test(`custom listbox keys preserve ${Object.keys(state)[0]} gating`, async () => {
     const { runtime, messages } = await session(() => listbox({ meta: { accessibleName: 'List' },
-      id: 'list', ...state, items: ['one'], toOption: (value) => ({ id: value, label: value }),
+      id: 'list', ...state, ...createListboxFixture(['one'], (value) => ({ id: value, label: value })),
       keymap: createListboxKeymap({ next: [key('j')] }), state: { selection: { mode: 'none' } },
       onTransition: (value) => value }));
     try {

@@ -20,7 +20,6 @@ const unsafeTerminalSequenceParts = [
   String.raw`[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]`
 ];
 const unsafeTerminalSequence = new RegExp(unsafeTerminalSequenceParts.join('|'), 'gu');
-const unsafeTerminalTextCharacters = new RegExp(String.raw`[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]`, 'u');
 const sanitizeCacheWeightLimit = 65_536;
 const sanitizeCacheMaxTextLength = 256;
 const sanitizeCache = new Map<string, SanitizedTerminalText>();
@@ -48,14 +47,14 @@ export function sanitizeTerminalControlText(text: string): SanitizedTerminalText
 }
 
 /** Cooperative form of the same sanitizer used by direct text operations. */
-export function* sanitizeTerminalTextWork(text: string, options: SanitizeTerminalTextOptions = {}): Generator<void, SanitizedTerminalText> {
+export function* sanitizeTerminalTextWork(text: string, options: SanitizeTerminalTextOptions = {}): Generator<number, SanitizedTerminalText> {
   const adopted = { ...options, ...(options.widthProfile === undefined ? {} : { widthProfile: { ...options.widthProfile } }) };
   const result = sanitization(text, adopted, 'multiline');
   return 'text' in result ? result : yield* result;
 }
 
 /** Cooperative source-preserving control stripping for projected editors. */
-export function* sanitizeTerminalControlTextWork(text: string): Generator<void, SanitizedTerminalText> {
+export function* sanitizeTerminalControlTextWork(text: string): Generator<number, SanitizedTerminalText> {
   const result = sanitization(text, {}, 'control');
   return 'text' in result ? result : yield* result;
 }
@@ -190,16 +189,13 @@ function sanitize(
   return 'text' in result ? result : finishWork(result);
 }
 
-/** Validate every request before cache admission; cache hits need no work iterator. */
+/** Cache keys include validated replacement content; hits need no work iterator. */
 function sanitization(
   text: string,
   options: SanitizeTerminalTextOptions,
   mode: SanitizationMode,
-): SanitizedTerminalText | Generator<void, SanitizedTerminalText> {
+): SanitizedTerminalText | Generator<number, SanitizedTerminalText> {
   const replacement = options.replacement ?? '';
-  if (replacement !== '' && (hasUnsafeTerminalText(replacement) || /[\t\r\n]/u.test(replacement))) {
-    throw new TypeError('Terminal text replacement must not contain control characters or terminal sequences.');
-  }
   const cacheKey = sanitizeCacheKey(text, replacement, mode, options);
   if (cacheKey !== undefined) {
     const cached = sanitizeCache.get(cacheKey);
@@ -214,8 +210,17 @@ function* sanitizeWork(
   mode: SanitizationMode,
   replacement: string,
   cacheKey: string | undefined,
-): Generator<void, SanitizedTerminalText> {
-  if ((yield* terminalTextSafetyWork(text, true)) && (mode === 'multiline' || !text.includes('\n'))) {
+): Generator<number, SanitizedTerminalText> {
+  if (replacement !== '') {
+    const safeReplacement = yield* terminalTextSafetyWork(replacement, true);
+    const hasLineFeed = replacement.includes('\n');
+    yield replacement.length;
+    if (!safeReplacement || hasLineFeed) throw new TypeError('Terminal text replacement must not contain control characters or terminal sequences.');
+  }
+  const safe = yield* terminalTextSafetyWork(text, true);
+  let preservesLines = mode === 'multiline';
+  if (safe && !preservesLines) { preservesLines = !text.includes('\n'); yield text.length; }
+  if (safe && preservesLines) {
     const result = Object.freeze({
       text,
       changed: false,
@@ -238,16 +243,21 @@ function* sanitizeWork(
     const sequence = match[0];
     const codeUnitOffset = match.index;
     pieces.push(text.slice(cursor, codeUnitOffset), replacement);
+    operations += codeUnitOffset + sequence.length - cursor;
     cursor = codeUnitOffset + sequence.length;
     removedControlSequences.push(Object.freeze({ sequence, codeUnitOffset,
       kind: isTerminalEscape(sequence) ? 'escape' : 'control' }));
-    if (++operations % 256 === 0) yield;
+    if (++operations >= 256) { yield operations; operations = 0; }
   }
   pieces.push(text.slice(cursor));
+  yield operations + text.length - cursor;
   const stripped = pieces.join('');
+  yield stripped.length;
   const normalized = stripped.replace(/\r\n?/gu, '\n');
+  yield stripped.length;
   const multiline = mode === 'control' ? normalized : yield* expandTerminalTabsWork(normalized, options);
   const sanitized = mode === 'multiline' || mode === 'control' ? multiline : multiline.replace(/\n/gu, mode === 'single-line' ? ' ' : '');
+  yield sanitized.length;
   const result = Object.freeze({
     text: sanitized,
     changed: removedControlSequences.length > 0 || sanitized !== text,
@@ -271,13 +281,11 @@ export function isTerminalControlTextSafe(text: string): boolean {
   return finishWork(terminalTextSafetyWork(text, false));
 }
 
-function* terminalTextSafetyWork(text: string, multiline: boolean): Generator<void, boolean> {
-  if (text.length <= 2048) {
-    return !unsafeTerminalTextCharacters.test(text)
-      && (!multiline || !/[\t\r]/u.test(text));
-  }
+function* terminalTextSafetyWork(text: string, multiline: boolean): Generator<number, boolean> {
+  let operations = 0;
   for (let index = 0; index < text.length; index += 1) {
     const code = text.charCodeAt(index);
+    operations += 1;
     if ((multiline && (code === 9 || code === 13))
       || code === 0x1b
       || code <= 0x08
@@ -285,14 +293,14 @@ function* terminalTextSafetyWork(text: string, multiline: boolean): Generator<vo
       || code === 0x0c
       || (code >= 0x0e && code <= 0x1f)
       || (code >= 0x7f && code <= 0x9f)) {
+      yield operations;
       return false;
     }
-    if ((index + 1) % 2048 === 0) yield;
+    if (operations === 256) { yield operations; operations = 0; }
   }
+  if (operations !== 0) yield operations;
   return true;
 }
-
-const hasUnsafeTerminalText = (text: string): boolean => !isTerminalControlTextSafe(text);
 
 function isTerminalEscape(sequence: string): boolean {
   if (sequence.startsWith(escape)) return true;

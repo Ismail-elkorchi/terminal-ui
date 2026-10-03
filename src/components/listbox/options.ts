@@ -4,7 +4,7 @@ import type {
   CompleteListboxCollection,
   ListboxActivateEvent,
   ListboxControlTransition,
-  ListboxOptionMapper,
+  ListboxView,
   ListboxTransition,
   ScrollableListboxState,
   UnscrolledListboxState,
@@ -27,25 +27,12 @@ type ListboxCommonOptions<TValue> = ListboxDataOptions<TValue> & {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles']>;
 };
 
-type ListboxDataOptions<TValue> =
-  | {
-      readonly items: readonly TValue[];
-      readonly toOption: ListboxOptionMapper<TValue>;
-      readonly collection?: never;
-      readonly query?: import('../../text/query.ts').CollectionQuery;
-    }
-  | {
-      readonly collection: CompleteListboxCollection<TValue>;
-      readonly items?: never;
-      readonly toOption?: never;
-      readonly query?: import('../../text/query.ts').CollectionQuery;
-    }
-  | {
-      readonly collection: WindowedListboxCollection<TValue>;
-      readonly items?: never;
-      readonly toOption?: never;
-      readonly query?: never;
-    };
+type ListboxDataOptions<TValue> = {
+  readonly view: ListboxView<TValue> | null;
+} & (
+  | { readonly collection: CompleteListboxCollection<TValue>; readonly query?: import('../../text/query.ts').CollectionQuery }
+  | { readonly collection: WindowedListboxCollection<TValue>; readonly query?: never }
+);
 
 interface ActiveListboxCallbacks<TMessage extends ComponentMessage> {
   readonly disabled?: boolean;

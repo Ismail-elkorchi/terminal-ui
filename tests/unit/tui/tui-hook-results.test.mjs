@@ -33,9 +33,9 @@ test('TUI update results are admitted and owned at the update boundary', () => {
   });
   cancel.push({ kind: 'effect', id: 'late' });
 
-  assert.deepEqual(result.cancel, [{ kind: 'effect', id: 'load' }]);
+  assert.deepEqual(result.contributions[0].cancel, [{ kind: 'effect', id: 'load' }]);
   assert.equal(Object.isFrozen(result), true);
-  assert.equal(Object.isFrozen(result.effects), true);
+  assert.equal(Object.isFrozen(result.contributions[0].effects), true);
 });
 
 test('TUI update results validate cancellation identities before publication', () => {

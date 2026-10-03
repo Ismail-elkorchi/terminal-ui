@@ -1,7 +1,9 @@
 import type { CollectionInteractionIndex } from '../interaction/collection-interaction.ts';
 import {
   collectionInteractionHas,
-  collectionInteractionIds,
+  collectionInteractionCount,
+  collectionInteractionIdAt,
+  collectionInteractionPosition,
   collectionInteractionReducer,
   normalizeCollectionInteraction,
 } from '../interaction/collection-interaction.ts';
@@ -103,7 +105,7 @@ export function autocompleteComboboxReducer(
   if (editor === state.editor) return state;
   if (state.scroll === undefined || editor.activeId === undefined) return { ...state, editor };
   const index = options.indexForText(editor.input.text);
-  const itemIndex = collectionInteractionIds(index).indexOf(editor.activeId);
+  const itemIndex = collectionInteractionPosition(index, editor.activeId) ?? -1;
   if (itemIndex < 0) return { ...state, editor };
   return {
     ...state,
@@ -113,7 +115,7 @@ export function autocompleteComboboxReducer(
       itemIndex,
       alignment: 'nearest',
     }, {
-      contentRows: collectionInteractionIds(index).length,
+      contentRows: collectionInteractionCount(index),
       contentColumns: 0,
       viewportRows: Math.max(1, options.pageSize ?? 8),
       viewportColumns: 0,
@@ -203,10 +205,10 @@ export function comboboxReducer(
         ? opened.scroll
         : scrollReducer(opened.scroll, {
             kind: 'itemIntoView',
-            itemIndex: collectionInteractionIds(options.index).indexOf(nextInteraction.activeId),
+            itemIndex: interactionPositionOrMissing(options.index, nextInteraction.activeId),
             alignment: 'nearest',
           }, {
-            contentRows: collectionInteractionIds(options.index).length,
+            contentRows: collectionInteractionCount(options.index),
             contentColumns: 0,
             viewportRows: Math.max(1, options.pageSize ?? 8),
             viewportColumns: 0,
@@ -264,7 +266,7 @@ function withInitialActive(
   const selected = interaction.selection.mode === 'single'
     ? interaction.selection.selectedId
     : undefined;
-  const initialId = selected ?? collectionInteractionIds(options.index)[0];
+  const initialId = selected ?? collectionInteractionIdAt(options.index, 0);
   return collectionInteractionReducer(interaction, {
     kind: 'setActive',
     ...(initialId === undefined ? {} : { id: initialId }),
@@ -272,4 +274,8 @@ function withInitialActive(
     index: options.index,
     ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
   });
+}
+
+function interactionPositionOrMissing(index: CollectionInteractionIndex, id: string): number {
+  return collectionInteractionPosition(index, id) ?? -1;
 }

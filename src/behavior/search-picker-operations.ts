@@ -8,11 +8,11 @@ import type { NavigationPolicy } from '../interaction/navigation.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import { compileCollectionQuery, type CollectionQuery } from '../text/query.ts';
 import { applyScrollRequest, scrollReducer } from './scroll.ts';
-import { collectionInteractionIds, createCollectionInteractionIndex } from '../interaction/collection-interaction.ts';
+import { collectionInteractionIdAt, createCollectionInteractionIndex } from '../interaction/collection-interaction.ts';
 import type { SearchPickerIndex, SearchPickerQueryResult } from './search-picker-index.ts';
 import { matchingSearchPickerQuery, searchPickerQueryPosition } from './search-picker-index.ts';
 import type { SearchPickerTransition, SearchPickerView } from './search-picker.ts';
-import { sliceVisibleRows } from './visible-row-window.ts';
+import { visibleRowWindow } from './visible-row-window.ts';
 
 export interface SearchPickerReducerOptions<TValue = string> {
   readonly searchPickerIndex: SearchPickerIndex<TValue>;
@@ -65,7 +65,7 @@ export function createSearchPickerState<TValue>(
 ): SearchPickerState {
   const query = compileCollectionQuery(input.query ?? { text: '', mode: 'fuzzy' });
   const result = matchingSearchPickerQuery(searchPickerIndex, query, input.queryResult);
-  const activeId = result === undefined ? undefined : collectionInteractionIds(result.interactionIndex)[0];
+  const activeId = result === undefined ? undefined : collectionInteractionIdAt(result.interactionIndex, 0);
   return {
     editor: createEditablePopupInputState({
       value: query.text,
@@ -185,8 +185,7 @@ export function searchPickerWindow<TValue>(
 ): SearchPickerWindow<TValue> {
   const query = input.query ?? { text: '', mode: 'fuzzy' };
   const result = matchingSearchPickerQuery(input.searchPickerIndex, query, input.queryResult);
-  const filtered = result?.entries ?? [];
-  const totalCount = filtered.length;
+  const totalCount = result?.count ?? 0;
   const limit = Math.max(1, Math.floor(input.limit ?? Math.max(1, totalCount)));
   if (totalCount === 0) {
     return {
@@ -200,20 +199,22 @@ export function searchPickerWindow<TValue>(
       omittedAfter: 0,
     };
   }
-  const initialWindow = sliceVisibleRows(filtered, {
+  const initialWindow = visibleRowWindow({
+    totalRows: totalCount,
     viewportRows: limit,
     ...(input.scroll === undefined ? {} : { scroll: input.scroll }),
   });
   const activeAbsolute = result === undefined ? undefined : activeIndex(result, input.activeId, initialWindow);
-  const window = sliceVisibleRows(filtered, {
+  const window = visibleRowWindow({
+    totalRows: totalCount,
     viewportRows: limit,
     ...(activeAbsolute === undefined ? {} : { activeIndex: activeAbsolute }),
     ...(input.scroll === undefined ? {} : { scroll: input.scroll }),
   });
-  const activeEntry = activeAbsolute === undefined ? undefined : filtered[activeAbsolute];
+  const activeEntry = activeAbsolute === undefined ? undefined : result?.entryAt(activeAbsolute);
   return {
     pending: false,
-    entries: window.rows,
+    entries: result?.window(window.startIndex, window.endIndexExclusive) ?? [],
     matches: result?.matches.slice(window.startIndex, window.endIndexExclusive) ?? [],
     ...(window.activeVisibleIndex === undefined ? {} : { activeIndex: window.activeVisibleIndex }),
     ...(activeEntry === undefined ? {} : { activeEntry }),
@@ -259,7 +260,6 @@ function withSearchEditor<TValue>(
   if (state.scroll === undefined || editor.activeId === undefined) return { ...state, editor };
   const query = { text: editor.input.text, mode: state.mode, caseSensitive: state.caseSensitive };
   const result = matchingSearchPickerQuery(options.searchPickerIndex, query, options.queryResult);
-  const entries = result?.entries ?? [];
   const itemIndex = result === undefined ? undefined : searchPickerQueryPosition(result, editor.activeId);
   if (itemIndex === undefined) return { ...state, editor };
   return {
@@ -270,7 +270,7 @@ function withSearchEditor<TValue>(
       itemIndex,
       alignment: 'nearest',
     }, {
-      contentRows: entries.length,
+      contentRows: result?.count ?? 0,
       contentColumns: 0,
       viewportRows: Math.max(1, options.pageSize ?? 8),
       viewportColumns: 0,
@@ -285,12 +285,12 @@ function activeIndex<TValue>(
 ): number | undefined {
   if (activeId !== undefined) {
     const position = searchPickerQueryPosition(result, activeId);
-    if (position !== undefined && result.entries[position]?.disabled !== true) return position;
+    if (position !== undefined && result.entryAt(position)?.disabled !== true) return position;
   }
   for (let position = fallbackWindow.startIndex; position < fallbackWindow.endIndexExclusive; position += 1) {
-    if (result.entries[position]?.disabled !== true) return position;
+    if (result.entryAt(position)?.disabled !== true) return position;
   }
-  const first = collectionInteractionIds(result.interactionIndex)[0];
+  const first = collectionInteractionIdAt(result.interactionIndex, 0);
   return first === undefined ? undefined : searchPickerQueryPosition(result, first);
 }
 

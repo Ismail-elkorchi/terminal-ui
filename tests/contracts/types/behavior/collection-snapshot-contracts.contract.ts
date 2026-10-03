@@ -1,6 +1,7 @@
 import {
   paginationWindow,
   createListboxCollection,
+  createListboxView,
   createTableCollection,
   createTreeCollectionFromRows,
   createTreeSource,
@@ -52,6 +53,7 @@ const treeSource = createTreeSource([{ id: 'leaf', label: 'Leaf', kind: 'leaf' }
 listbox({
   id: 'listbox',
   collection: listCollection,
+  view: createListboxView(listCollection),
   state: { selection: { mode: 'none' } },
   onTransition: (transition) => transition,
 });
@@ -72,7 +74,7 @@ tree({
 paginationWindow({ pageNumber: 2, pageSize: 25, totalCount: 100 });
 
 // @ts-expect-error externally windowed listboxes cannot be filtered locally
-listbox({ id: 'filtered-window-listbox', collection: listCollection, query: { text: 'alpha', mode: 'contains' }, state: interaction, onTransition: (transition) => transition });
+listbox({ id: 'filtered-window-listbox', collection: listCollection, view: createListboxView(listCollection), query: { text: 'alpha', mode: 'contains' }, state: interaction, onTransition: (transition) => transition });
 // @ts-expect-error retained listbox collections replace raw item/projector inputs
 listbox({ id: 'mixed-listbox', collection: listCollection, items: ['alpha'], toOption: (value: string) => ({ id: value, label: value }), state: interaction, onTransition: (transition) => transition });
 // @ts-expect-error retained table collections replace raw row identity inputs

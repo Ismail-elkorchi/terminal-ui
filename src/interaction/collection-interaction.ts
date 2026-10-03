@@ -1,3 +1,4 @@
+import { assertOrderedSource, createOrderedSource, appendOrderedItems, type OrderedSource } from '../foundation/ordered-source.ts';
 import { finishWork } from '../foundation/cooperative-work.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
 import type { NavigationPolicy } from './navigation.ts';
@@ -47,9 +48,11 @@ export interface CollectionInteractionIndex {
 }
 
 interface CollectionInteractionIndexData {
-  readonly ids: readonly string[];
-  readonly positions: ReadonlyMap<string, number>;
-  readonly enabledPositions?: readonly number[];
+  readonly count: number;
+  readonly orderCount: number;
+  readonly idAt: (rank: number) => string | undefined;
+  readonly rank: (id: string) => number | undefined;
+  readonly orderRank: (id: string) => number | undefined;
 }
 
 const collectionIndexes = new WeakMap<CollectionInteractionIndex, CollectionInteractionIndexData>();
@@ -67,19 +70,26 @@ export function createCollectionInteractionIndex(value: unknown): CollectionInte
 }
 
 /** Bounded construction shared by cooperative collection projections. */
-export function* createCollectionInteractionIndexWork(value: unknown): Generator<void, CollectionInteractionIndex> {
+export function* createCollectionInteractionIndexWork(value: unknown): Generator<number, CollectionInteractionIndex> {
   if (!Array.isArray(value)) throw new TypeError('Collection interaction ids must be an array.');
-  const ids: string[] = [];
-  const positions = new Map<string, number>();
+  let source = createOrderedSource<{ readonly id: string }>();
   for (let position = 0; position < value.length; position += 1) {
     const id = selectionId(value[position], `Collection interaction ids[${String(position)}]`);
-    if (positions.has(id)) throw new TypeError('Collection interaction ids must be unique.');
-    ids.push(id);
-    positions.set(id, position);
-    if ((position + 1) % 256 === 0) yield;
+    source = appendOrderedItems(source, [{ id, value: Object.freeze({ id }) }]);
+    yield 1;
   }
+  return createCollectionInteractionIndexFromSource(source);
+}
+
+/** Retains the source's rank/select tree; no duplicate identity maps or enabled arrays. */
+export function createCollectionInteractionIndexFromSource<T extends { readonly id: string }>(source: OrderedSource<T>): CollectionInteractionIndex {
+  assertOrderedSource(source);
   const index = Object.freeze({}) as CollectionInteractionIndex;
-  collectionIndexes.set(index, { ids: Object.freeze(ids), positions });
+  collectionIndexes.set(index, Object.freeze({
+    count: source.enabledCount, orderCount: source.count,
+    idAt: (rank: number) => source.enabledAt(rank)?.id,
+    rank: source.enabledRank, orderRank: source.rank,
+  }));
   return index;
 }
 
@@ -90,45 +100,38 @@ export function createCollectionInteractionOrderBuilder<T>(): {
   readonly finish: () => { readonly items: readonly T[]; readonly index: CollectionInteractionIndex };
 } {
   const items: T[] = [];
-  const ids: string[] = [];
-  const positions = new Map<string, number>();
-  const enabledPositions: number[] = [];
+  let source = createOrderedSource<{ readonly id: string }>();
   let finished = false;
   return {
-    has: id => positions.has(id),
+    has: id => source.rank(id) !== undefined,
     add(item, value, disabled = false) {
       if (finished) throw new TypeError('Collection order is already finished.');
       const id = selectionId(value, 'Collection interaction id');
-      if (positions.has(id)) throw new TypeError('Collection interaction ids must be unique.');
-      positions.set(id, items.length);
+      source = appendOrderedItems(source, [{ id, value: Object.freeze({ id }), disabled }]);
       items.push(item);
-      enabledPositions.push(disabled ? -1 : ids.length);
-      if (!disabled) ids.push(id);
     },
     finish() {
       if (finished) throw new TypeError('Collection order is already finished.');
       finished = true;
-      const index = Object.freeze({}) as CollectionInteractionIndex;
-      collectionIndexes.set(index, { ids: Object.freeze(ids), positions,
-        ...(ids.length === items.length ? {} : { enabledPositions: Object.freeze(enabledPositions) }) });
-      return { items: Object.freeze(items), index };
+      return { items: Object.freeze(items), index: createCollectionInteractionIndexFromSource(source) };
     },
   };
 }
 
 /** Absolute result rank includes disabled items, unlike keyboard navigation rank. */
 export function collectionInteractionOrderPosition(index: CollectionInteractionIndex, id: string): number | undefined {
-  return collectionInteractionIndexData(index).positions.get(id);
+  return collectionInteractionIndexData(index).orderRank(id);
 }
 
 /** Storage retained by an ordered projection, excluding its item payloads. */
 export function collectionInteractionIndexStorageBytes(index: CollectionInteractionIndex): number {
   const data = collectionInteractionIndexData(index);
-  return 64 + data.ids.length * 8 + data.positions.size * 48 + (data.enabledPositions?.length ?? 0) * 8;
+  return 64 + data.orderCount * 128;
 }
 
 export function collectionInteractionIds(index: CollectionInteractionIndex): readonly string[] {
-  return collectionInteractionIndexData(index).ids;
+  const data = collectionInteractionIndexData(index);
+  return Object.freeze(Array.from({ length: data.count }, (_, rank) => requireInteractionId(data.idAt(rank))));
 }
 
 export function collectionInteractionHas(index: CollectionInteractionIndex, id: string): boolean {
@@ -139,11 +142,7 @@ export function collectionInteractionPosition(
   index: CollectionInteractionIndex,
   id: string,
 ): number | undefined {
-  const data = collectionInteractionIndexData(index);
-  const position = data.positions.get(id);
-  if (position === undefined) return undefined;
-  const enabled = data.enabledPositions?.[position] ?? position;
-  return enabled < 0 ? undefined : enabled;
+  return collectionInteractionIndexData(index).rank(id);
 }
 
 export function assertCollectionInteractionReferences(
@@ -230,7 +229,7 @@ export function collectionInteractionReducer(
   transition: CollectionInteractionTransition,
   options: CollectionInteractionOptions,
 ): CollectionInteractionState {
-  const enabledIds = collectionInteractionIds(options.index);
+  const enabled = collectionInteractionIndexData(options.index);
   const normalized = normalizeCollectionInteractionWithIndex(state, options.index);
   switch (transition.kind) {
     case 'setActive':
@@ -241,9 +240,9 @@ export function collectionInteractionReducer(
         adjacentIndexedItemId(options.index, normalized.activeId, transition.delta, options.navigation),
       );
     case 'firstActive':
-      return setActive(normalized, enabledIds[0]);
+      return setActive(normalized, enabled.idAt(0));
     case 'lastActive':
-      return setActive(normalized, enabledIds.at(-1));
+      return setActive(normalized, enabled.idAt(enabled.count - 1));
     case 'commitActive':
       return normalized.activeId === undefined
         ? normalized
@@ -348,7 +347,8 @@ function selectRange(
   const from = collectionInteractionPosition(index, anchor) ?? -1;
   const to = collectionInteractionPosition(index, toId) ?? -1;
   if (from < 0 || to < 0) return state;
-  const selectedIds = Object.freeze(collectionInteractionIds(index).slice(Math.min(from, to), Math.max(from, to) + 1));
+  const data = collectionInteractionIndexData(index);
+  const selectedIds = Object.freeze(Array.from({ length: Math.abs(to - from) + 1 }, (_, offset) => requireInteractionId(data.idAt(Math.min(from, to) + offset))));
   return Object.freeze({
     activeId: toId,
     selection: Object.freeze({
@@ -376,8 +376,9 @@ function normalizedSelection(
     });
   }
   const candidates = state.selectedIds;
-  const selected = new Set(candidates);
-  const selectedIds = Object.freeze(collectionInteractionIds(index).filter((id) => selected.has(id)));
+  const selectedIds = Object.freeze([...new Set(candidates)]
+    .filter(id => collectionInteractionHas(index, id))
+    .sort((left, right) => (collectionInteractionPosition(index, left) ?? 0) - (collectionInteractionPosition(index, right) ?? 0)));
   const anchorId = validId(index, state.anchorId);
   return Object.freeze({
     mode: 'multiple',
@@ -431,9 +432,9 @@ function adjacentIndexedItemId(
   delta: number,
   navigation: NavigationPolicy | undefined,
 ): string | undefined {
-  const ids = collectionInteractionIds(index);
+  const data = collectionInteractionIndexData(index);
   const current = currentId === undefined ? undefined : collectionInteractionPosition(index, currentId);
-  return ids[navigateIndex(current, delta, ids.length, navigation)];
+  return data.idAt(navigateIndex(current, delta, data.count, navigation));
 }
 
 function sameSelection(left: SelectionState, right: SelectionState): boolean {
@@ -464,5 +465,17 @@ function optionalSelectionId(value: unknown, subject: string): string | undefine
 function optionalBoolean(value: unknown, subject: string): boolean | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== 'boolean') throw new TypeError(`${subject} must be a boolean.`);
+  return value;
+}
+
+export function collectionInteractionCount(index: CollectionInteractionIndex): number {
+  return collectionInteractionIndexData(index).count;
+}
+export function collectionInteractionIdAt(index: CollectionInteractionIndex, rank: number): string | undefined {
+  return collectionInteractionIndexData(index).idAt(rank);
+}
+
+function requireInteractionId(value: string | undefined): string {
+  if (value === undefined) throw new RangeError('Collection interaction rank is outside its source.');
   return value;
 }

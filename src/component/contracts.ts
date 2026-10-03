@@ -251,6 +251,24 @@ export type ComponentOptionsDefinition<
         : never
       : never);
 
+/** An immutable, bounded dependency tuple. Opaque resources are compared by identity. */
+export type ComponentReuseDependencies = readonly [] | readonly [unknown, ...unknown[]];
+
+/** Select only inputs used by the phase; undefined deliberately disables reuse for this instance. */
+export type ComponentReuseSelector<TModel extends object> = (
+  this: undefined,
+  model: Readonly<TModel>,
+) => ComponentReuseDependencies | undefined;
+
+/** Independent opt-in proofs; omitted phases always execute normally. */
+export interface ComponentReuse<TModel extends object> {
+  readonly measurement?: ComponentReuseSelector<TModel>;
+  /** Includes allocation, focus targets and cursor geometry; measurement must also match. */
+  readonly layout?: ComponentReuseSelector<TModel>;
+  readonly paint?: ComponentReuseSelector<TModel>;
+  readonly accessibility?: ComponentReuseSelector<TModel>;
+}
+
 type ComponentDefinitionBase<
   TOptions extends object,
   TModel extends object,
@@ -397,8 +415,7 @@ export type SemanticLeafComponentDefinition<
     readonly metadata?: TMetadata;
     readonly slots?: never;
     readonly structure: 'leaf';
-    /** Deterministic paint from immutable inputs only. Models/resources use identity; replace changed inputs. */
-    readonly retainPaint?: boolean;
+    readonly reuse?: ComponentReuse<TModel>;
     readonly render: (
       this: undefined,
       input: ComponentRenderInput<TModel, TPart>
@@ -425,8 +442,7 @@ export type DecorativeLeafComponentDefinition<
     readonly metadata?: TMetadata;
     readonly slots?: never;
     readonly structure: 'leaf';
-    /** Deterministic paint from immutable inputs only. Models/resources use identity; replace changed inputs. */
-    readonly retainPaint?: boolean;
+    readonly reuse?: ComponentReuse<TModel>;
     readonly render: (
       this: undefined,
       input: ComponentRenderInput<TModel, TPart>
@@ -450,6 +466,7 @@ export type SemanticCompositeComponentDefinition<
     readonly metadata?: TMetadata;
     readonly slots: TSlots;
     readonly structure: 'composite';
+    readonly reuse?: Omit<ComponentReuse<TModel>, 'paint'> & { readonly paint?: never };
     readonly capture?: (
       this: undefined,
       input: ComponentCapturedMessageInput<TModel>
@@ -489,6 +506,7 @@ export type SemanticComposedComponentDefinition<
     readonly metadata?: TMetadata;
     readonly slots?: TSlots;
     readonly structure: 'composed';
+    readonly reuse?: Omit<ComponentReuse<TModel>, 'paint'> & { readonly paint?: never };
     readonly capture?: (
       this: undefined,
       input: ComponentCapturedMessageInput<TModel>

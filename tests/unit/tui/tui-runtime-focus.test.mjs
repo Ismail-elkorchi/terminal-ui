@@ -1,3 +1,6 @@
+import { createListboxFixture } from '../../support/collection-fixtures.mjs';
+import { createTableCollection } from '../../../dist/behavior/index.js';
+import { inferTableColumns } from '../../../dist/components/index.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui, runTui } from '../../../dist/tui/index.js';
@@ -1026,19 +1029,18 @@ test('TUI frame accessibility uses element metadata and marks only the active fo
         }
       }),
       listbox({ meta: { accessibleName: "List" },
-        toOption: (item) => ({ id: String(item), label: String(item) }),
         id: 'choices',
-        items: ['Alpha', 'Beta'],
+        ...createListboxFixture(['Alpha', 'Beta'], (item) => ({ id: String(item), label: String(item) })),
         state: {
           activeId: 'Beta',
           selection: { mode: 'single', selectedId: 'Beta' }
         },
         onTransition: () => ({ active: 'none' })
       }),
-      dataGrid({ meta: { accessibleName: "Data grid" },
+      dataGrid({
+        columns: inferTableColumns([['A1', 'B1']]), meta: { accessibleName: "Data grid" },
         id: 'grid',
-        rows: [['A1', 'B1']],
-        getRowId: (_row, index) => String(index),
+        collection: createTableCollection([['A1', 'B1']], (_row, index) => String(index)),
         state: { interaction: { kind: 'row', selection: { mode: 'single' } } },
         onTransition: () => ({ active: 'none' })
       })

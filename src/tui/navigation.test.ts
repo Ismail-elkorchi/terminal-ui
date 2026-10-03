@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { combineTuiResults } from './result.ts';
+import { decodeTuiUpdateResult } from './hook-results.ts';
 import { updateTuiNavigation } from './navigation.ts';
 import { createTuiChild } from './child.ts';
-import { button, text } from '../components/index.ts';
+import { button } from '../components/index.ts';
 import { column } from '../layout/index.ts';
 import { createMemoryTerminalHost } from '../host/memory.ts';
 import { failedTerminalWrite } from '../host/write-receipt.ts';
@@ -12,44 +14,37 @@ import { createTuiRuntime } from './runtime.ts';
 import type { TuiNavigationScreen } from './navigation.ts';
 import type { NavigationStack } from '../behavior/navigation-stack.ts';
 import type { TuiChildMessage, TuiChildState } from './child.ts';
-import type { TuiCancellation } from './types.ts';
 const entry = (id: string, generation = 1) => ({ id, state: { child: { id, generation, state: id }, focus: { kind: 'element' as const, elementId: `${id}-field` } } });
-const removed: TuiChildState<string>[] = [];
-const remove = (child: TuiChildState<string>): TuiCancellation => { removed.push(child); return { kind: 'effect', id: child.id }; };
 
 void test('navigation keeps hidden screens mounted and restores focus with typed modal output', () => {
-  removed.length = 0;
   const first = entry('editor');
   const stack: NavigationStack<TuiNavigationScreen<string>> = { entries: [first] };
-  const modal = updateTuiNavigation(stack, { kind: 'push', entry: entry('dialog') }, remove);
-  assert.equal(modal.cancel, undefined);
-  const nested = updateTuiNavigation(modal.state, { kind: 'push', entry: entry('confirmation') }, remove);
-  const pop = updateTuiNavigation(nested.state, { kind: 'pop' }, remove, [{ accepted: true }]);
+  const modal = updateTuiNavigation(stack, { kind: 'push', entry: entry('dialog') });
+  assert.equal(decodeTuiUpdateResult(modal).contributions.some(entry => (entry.cancel?.length ?? 0) > 0), false);
+  const nested = updateTuiNavigation(modal.state, { kind: 'push', entry: entry('confirmation') });
+  const pop = updateTuiNavigation(nested.state, { kind: 'pop' }, [{ accepted: true }]);
   assert.deepEqual(pop.outputs, [{ accepted: true }]);
-  assert.deepEqual(pop.focus, { kind: 'element', elementId: 'dialog-field' });
-  assert.deepEqual(removed.map((child) => child.id), ['confirmation']);
+  assert.deepEqual(decodeTuiUpdateResult(pop).focus, { kind: 'element', elementId: 'dialog-field' });
+  assert.deepEqual(decodeTuiUpdateResult(pop).contributions.flatMap(entry => entry.cancel ?? []).map(request => request.id), ['confirmation']);
   assert.equal(pop.state.entries[0], first);
 });
 
 void test('replacement retires an old generation, resets retain matching lifetimes, no-op preserves stack', () => {
-  removed.length = 0;
   const first = entry('screen');
   const stack = { entries: [first] };
-  assert.equal(updateTuiNavigation(stack, { kind: 'reset', entries: [first] }, remove).state, stack);
-  const changed = updateTuiNavigation(stack, { kind: 'replace', entry: entry('screen', 2) }, remove);
-  assert.equal(changed.cancel?.length, 1);
-  assert.equal(removed[0]?.generation, 1);
+  assert.equal(updateTuiNavigation(stack, { kind: 'reset', entries: [first] }).state, stack);
+  const changed = updateTuiNavigation(stack, { kind: 'replace', entry: entry('screen', 2) });
+  assert.equal(decodeTuiUpdateResult(changed).contributions.flatMap(entry => entry.cancel ?? []).length, 1);
+  assert.equal(decodeTuiUpdateResult(changed).contributions.flatMap(entry => entry.cancel ?? []).some(request => request.kind === 'child' && request.generation === 1), true);
   const current = changed.state.entries[0];
   assert.ok(current);
   const cloned = { ...current, state: { ...current.state } };
-  assert.equal(updateTuiNavigation(changed.state, { kind: 'reset', entries: [cloned] }, remove).cancel, undefined);
+  assert.equal(decodeTuiUpdateResult(updateTuiNavigation(changed.state, { kind: 'reset', entries: [cloned] })).contributions.some(entry => (entry.cancel?.length ?? 0) > 0), false);
 });
 
-void test('navigation removal forwards the real typed child-lifetime request', () => {
-  const child = createTuiChild<string, never, never>({ init: () => ({ state: 'screen' }),
-    update: state => ({ state }), view: state => text({ content: state }) }, message => message.message);
-  const result = updateTuiNavigation({ entries: [entry('screen', 7)] }, { kind: 'pop' }, instance => child.remove(instance));
-  assert.deepEqual(result.cancel, [{ kind: 'child', id: 'screen', generation: 7 }]);
+void test('navigation removal contributes its typed lifetime without a caller-managed removal callback', () => {
+  const result = updateTuiNavigation({ entries: [entry('screen', 7)] }, { kind: 'pop' });
+  assert.deepEqual(decodeTuiUpdateResult(result).contributions.flatMap(entry => entry.cancel ?? []), [{ kind: 'child', id: 'screen', generation: 7 }]);
 });
 
 void test('runtime restores scoped modal focus and retires work only after an accepted pop', async () => {
@@ -85,11 +80,11 @@ void test('runtime restores scoped modal focus and retires work only after an ac
     update(state, message, context) {
       if (message.kind === 'push') {
         const initial = child.init({ id: message.id, generation: 1 }, context);
-        const next = updateTuiNavigation<number, Message>(state.stack, { kind: 'push', entry: screen(initial.state) }, instance => child.remove(instance));
-        return { ...initial, ...next, state: { ...state, stack: next.state } };
+        const next = updateTuiNavigation<number, Message>(state.stack, { kind: 'push', entry: screen(initial.state) });
+        return combineTuiResults({ ...state, stack: next.state }, initial, next);
       }
       if (message.kind === 'pop') {
-        const next = updateTuiNavigation<number, Message, string>(state.stack, { kind: 'pop' }, instance => child.remove(instance), ['confirmed']);
+        const next = updateTuiNavigation<number, Message, string>(state.stack, { kind: 'pop' }, ['confirmed']);
         return { ...next, state: { stack: next.state, outputs: [...state.outputs, ...(next.outputs ?? [])] } };
       }
       const index = state.stack.entries.findIndex(entry => entry.state.child.id === message.child.id);

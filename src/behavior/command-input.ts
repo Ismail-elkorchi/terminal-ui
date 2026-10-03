@@ -1,6 +1,6 @@
 import type { TextPointerTransition } from '../interaction/text-pointer.ts';
 import type { TextEditBuffer, TextEditOperation, TextSelection } from '../text/types.ts';
-import type { ListboxCollection } from './listbox.ts';
+import type { ListboxCollection, ListboxView } from './listbox.ts';
 
 export interface CommandSuggestion {
   readonly id: string;
@@ -19,6 +19,7 @@ export interface CommandInputView {
   readonly input: TextEditBuffer;
   readonly open: boolean;
   readonly suggestions: ListboxCollection<CommandCompletion>;
+  readonly suggestionView: ListboxView<CommandCompletion>;
   readonly activeSuggestionId?: string;
   readonly submissionIndex?: number;
 }

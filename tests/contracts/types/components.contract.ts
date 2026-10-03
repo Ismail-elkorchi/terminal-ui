@@ -1,3 +1,4 @@
+import { createTableCollection } from '@ismail-elkorchi/terminal-ui/behavior';
 import {
   button,
   activityIndicator,
@@ -23,8 +24,7 @@ const drawing = canvas({
 const save = button({ id: 'save', label: 'Save', onPress: () => ({ kind: 'save' } as const) });
 const rows = dataGrid({
   id: 'rows',
-  rows: [{ id: 1, name: 'one' }],
-  getRowId: (row) => String(row.id),
+  collection: createTableCollection([{ id: 1, name: 'one' }], (row) => String(row.id)),
   columns: [{ id: 'name', value: (row) => row.name }],
   state: { interaction: { kind: 'row', selection: { mode: 'single' as const } } },
   onTransition: (transition) => ({ kind: 'grid' as const, transition })

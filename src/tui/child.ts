@@ -3,9 +3,13 @@ import { renderNodeId } from '../foundation/identity.ts';
 import type { InitialFocusSelector } from '../interaction/focus.ts';
 import { isIgnoredMessage } from '../interaction/message.ts';
 import { scopeElement } from '../renderer/internal/render-tree/element.ts';
+import { decodeTuiUpdateResult, decodeTuiEventSources, decodeTuiEffectOutput } from './hook-results.ts';
+import { effectOutputLimit, withEffectOutputLimit } from './lifecycle/effect-output-limit.ts';
+import { ownTuiContribution, ownTuiSource, retireChildContribution } from './lifecycle/contribution.ts';
+import type { TuiContribution, TuiScopedSource } from './contribution-types.ts';
 import { scopeWork } from './lifecycle/work-ownership.ts';
 import type {
-  TuiUpdateContribution, TuiCancellation, TuiContext, TuiEffect, TuiEffectOutput, TuiEventSource, TuiSubscriptions,
+  TuiUpdateContribution, TuiContext, TuiEffect, TuiEffectOutput, TuiEventSource, TuiSubscriptions,
 } from './types.ts';
 
 /** A parent-owned identity. Use a fresh generation whenever a removed child is mounted again. */
@@ -28,6 +32,13 @@ export interface TuiChildResult<TState, TMessage, TOutput = never> extends TuiUp
   readonly outputs?: readonly TOutput[];
 }
 
+/** Scoped executable work is an opaque capability, never a reconstructible descriptor. */
+export interface TuiScopedResult<TState, TMessage, TOutput = never> {
+  readonly state: TState;
+  readonly contribution?: TuiContribution<TMessage>;
+  readonly outputs?: readonly TOutput[];
+}
+
 export interface TuiChildDefinition<TState, TMessage, TOutput = never> {
   readonly init: (context: TuiContext) => TuiChildResult<TState, TMessage, TOutput>;
   readonly update: (state: TState, message: TMessage, context: TuiContext) => TuiChildResult<TState, TMessage, TOutput>;
@@ -37,12 +48,12 @@ export interface TuiChildDefinition<TState, TMessage, TOutput = never> {
 
 /** Stateless composition into one parent's existing update, render and work lifecycle. */
 export interface TuiChild<TState, TMessage, TParentMessage, TOutput = never> {
-  readonly init: (identity: TuiChildIdentity, context: TuiContext) => TuiChildResult<TuiChildState<TState>, TParentMessage, TOutput>;
-  readonly update: (child: TuiChildState<TState>, message: TuiChildMessage<TMessage>, context: TuiContext) => TuiChildResult<TuiChildState<TState>, TParentMessage, TOutput>;
+  readonly init: (identity: TuiChildIdentity, context: TuiContext) => TuiScopedResult<TuiChildState<TState>, TParentMessage, TOutput>;
+  readonly update: (child: TuiChildState<TState>, message: TuiChildMessage<TMessage>, context: TuiContext) => TuiScopedResult<TuiChildState<TState>, TParentMessage, TOutput>;
   readonly view: (child: TuiChildState<TState>, context: TuiContext) => Element<TParentMessage>;
-  readonly subscriptions: (child: TuiChildState<TState>, context: TuiContext) => readonly TuiEventSource<TParentMessage>[];
+  readonly subscriptions: (child: TuiChildState<TState> | undefined, context: TuiContext) => readonly TuiScopedSource<TParentMessage>[];
   /** Cancel this lifetime and remove its state and subscriptions in the same update. */
-  readonly remove: (child: TuiChildState<TState>) => TuiCancellation;
+  readonly remove: (child: TuiChildState<TState>) => TuiScopedResult<undefined, TParentMessage>;
   /** Resolve a local element identity when the parent intentionally requests child focus. */
   readonly elementId: (child: TuiChildIdentity, localId: string) => string;
 }
@@ -61,29 +72,33 @@ export function createTuiChild<TState, TMessage, TParentMessage, TOutput = never
     identity: TuiChildIdentity,
     previous: TuiChildState<TState> | undefined,
     local: TuiChildResult<TState, TMessage, TOutput>,
-  ): TuiChildResult<TuiChildState<TState>, TParentMessage, TOutput> {
-    const effects = local.effects?.map((effect): TuiEffect<TParentMessage> => {
-      const onError = effect.onError?.bind(effect);
-      return scopeWork(identity, effect, {
-        id: scopeId(identity, effect.id),
-        concurrency: effect.concurrency,
-        run: async (context) => mapOutput(await effect.run(context), (message) => mapMessage(identity, message)),
-        ...(onError === undefined ? {} : {
-          onError: (failure) => mapOutput(onError({ ...failure, id: effect.id }), (message) => mapMessage(identity, message)),
-        }),
+  ): TuiScopedResult<TuiChildState<TState>, TParentMessage, TOutput> {
+    const decoded = decodeTuiUpdateResult<TState, TMessage>(local);
+    const entries = decoded.contributions.map((entry) => {
+      const effects = entry.effects?.map((effect): TuiEffect<TParentMessage> => {
+        const onError = effect.onError?.bind(effect);
+        return Object.freeze(scopeWork<TuiEffect<TParentMessage>>(identity, effect, {
+          id: scopeId(identity, effect.id), concurrency: effect.concurrency,
+          run: async (context) => mapOutput(decodeTuiEffectOutput<TMessage>(await effect.run(context), 'Child effect output', effectOutputLimit(context)), (message) => mapMessage(identity, message)),
+          ...(onError === undefined ? {} : {
+            onError: (failure) => mapOutput(decodeTuiEffectOutput<TMessage>(onError(withEffectOutputLimit({ ...failure, id: effect.id }, effectOutputLimit(failure))), 'Child effect recovery', effectOutputLimit(failure)), (message) => mapMessage(identity, message)),
+          }),
+        }));
+      });
+      const cancel = entry.cancel?.map((request) => request.kind === 'effect'
+        ? Object.freeze({ kind: 'effect' as const, id: scopeId(identity, request.id) })
+        : Object.freeze(scopeWork(identity, request, { ...request })));
+      return Object.freeze({
+        ...(effects === undefined ? {} : { effects: Object.freeze(effects) }),
+        ...(cancel === undefined ? {} : { cancel: Object.freeze(cancel) }),
+        ...(entry.focus === undefined ? {} : { focus: scopeFocus(entry.focus, (id) => scopeId(identity, id)) }),
       });
     });
     return {
-      state: previous !== undefined && Object.is(previous.state, local.state) ? previous : Object.freeze({
-        id: identity.id,
-        generation: identity.generation,
-        state: local.state,
+      state: previous !== undefined && Object.is(previous.state, decoded.state) ? previous : Object.freeze({
+        id: identity.id, generation: identity.generation, state: decoded.state,
       }),
-      ...(effects === undefined ? {} : { effects }),
-      ...(local.cancel === undefined ? {} : { cancel: local.cancel.map((request) => request.kind === 'effect'
-        ? { kind: 'effect' as const, id: scopeId(identity, request.id) }
-        : scopeWork(identity, request, { ...request })) }),
-      ...(local.focus === undefined ? {} : { focus: scopeFocus(local.focus, (id) => scopeId(identity, id)) }),
+      ...(entries.length === 0 ? {} : { contribution: ownTuiContribution(entries) }),
       ...(local.outputs === undefined ? {} : { outputs: local.outputs }),
     };
   }
@@ -103,11 +118,12 @@ export function createTuiChild<TState, TMessage, TParentMessage, TOutput = never
     view(child: TuiChildState<TState>, context: TuiContext) {
       return scopeElement(definition.view(child.state, context), (message) => mapMessage(child, message as TMessage), (id) => scopeId(child, id)) as Element<TParentMessage>;
     },
-    subscriptions(child: TuiChildState<TState>, context: TuiContext) {
-      return (definition.subscriptions?.(child.state, context) ?? []).map((source): TuiEventSource<TParentMessage> => {
+    subscriptions(child: TuiChildState<TState> | undefined, context: TuiContext) {
+      if (child === undefined) return [];
+      return decodeTuiEventSources<TMessage>(definition.subscriptions?.(child.state, context) ?? []).map((source): TuiScopedSource<TParentMessage> => {
         const onLifecycle = source.onLifecycle?.bind(source);
         const dispose = source.dispose?.bind(source);
-        return scopeWork(child, source, {
+        return ownTuiSource<TParentMessage>(Object.freeze(scopeWork<TuiEventSource<TParentMessage>>(child, source, {
           id: scopeId(child, source.id),
           generation: source.generation,
           ...(source.source === undefined ? {} : { source: source.source }),
@@ -122,10 +138,12 @@ export function createTuiChild<TState, TMessage, TParentMessage, TOutput = never
             },
           }),
           ...(dispose === undefined ? {} : { dispose: () => dispose() }),
-        });
+        })));
       });
     },
-    remove: (child: TuiChildState<TState>): TuiCancellation => Object.freeze({ kind: 'child', id: child.id, generation: child.generation }),
+    remove: (child: TuiChildState<TState>): TuiScopedResult<undefined, TParentMessage> => Object.freeze({
+      state: undefined, contribution: retireChildContribution(child),
+    }),
     elementId: scopeId,
   });
 }
@@ -140,6 +158,7 @@ function mapOutput<TMessage, TParentMessage>(
     : { kind: 'messages', messages: output.messages.map(map) };
 }
 
-function scopeFocus(selector: Exclude<InitialFocusSelector, { readonly kind: 'path' }>, map: (id: string) => string): Exclude<InitialFocusSelector, { readonly kind: 'path' }> {
+function scopeFocus(selector: InitialFocusSelector, map: (id: string) => string): Exclude<InitialFocusSelector, { readonly kind: 'path' }> {
+  if (selector.kind === 'path') throw new TypeError('Child focus must identify a local element or target.');
   return { ...selector, elementId: map(selector.elementId) };
 }

@@ -1,8 +1,8 @@
 import { activeNavigationEntry, navigationStackReducer } from '../behavior/navigation-stack.ts';
 import type { NavigationStack, NavigationStackTransition } from '../behavior/navigation-stack.ts';
 import type { InitialFocusSelector } from '../interaction/focus.ts';
+import { combineTuiResults, reconcileTuiChildren } from './result.ts';
 import type { TuiChildState, TuiChildResult } from './child.ts';
-import type { TuiCancellation } from './types.ts';
 
 /** Retained screens keep their child lifetime and their application-selected restoration target. */
 export interface TuiNavigationScreen<TState> {
@@ -15,27 +15,16 @@ export interface TuiNavigationScreen<TState> {
 export function updateTuiNavigation<TState, TMessage, TOutput = never>(
   stack: NavigationStack<TuiNavigationScreen<TState>>,
   transition: NavigationStackTransition<TuiNavigationScreen<TState>>,
-  remove: (child: TuiChildState<TState>) => TuiCancellation,
   outputs?: readonly TOutput[],
 ): TuiChildResult<NavigationStack<TuiNavigationScreen<TState>>, TMessage, TOutput> {
+  if (outputs !== undefined && !Array.isArray(outputs)) throw new TypeError('Navigation outputs must be an array.');
   const next = navigationStackReducer(stack, transition);
-  const identities = new Map<string, Set<string | number>>();
-  for (const entry of next.entries) {
-    const child = entry.state.child;
-    const generations = identities.get(child.id) ?? new Set<string | number>();
-    generations.add(child.generation);
-    identities.set(child.id, generations);
-  }
-  const cancel: TuiCancellation[] = [];
-  for (const entry of stack.entries) {
-    const child = entry.state.child;
-    if (!identities.get(child.id)?.has(child.generation)) cancel.push(remove(child));
-  }
+  const retained = reconcileTuiChildren(stack.entries, next.entries, entry => entry.state.child);
   const unchanged = next.entries.length === stack.entries.length
     && next.entries.every((entry, index) => entry === stack.entries[index]);
   const state = unchanged ? stack : next;
   const active = activeNavigationEntry(state);
   const focus = active !== activeNavigationEntry(stack) ? active?.state.focus : undefined;
-  return { state, ...(cancel.length === 0 ? {} : { cancel }), ...(focus === undefined ? {} : { focus }),
-    ...(outputs === undefined ? {} : { outputs }) };
+  return combineTuiResults<NavigationStack<TuiNavigationScreen<TState>>, TMessage, TOutput>(state, retained,
+    { state, ...(focus === undefined ? {} : { focus }), ...(outputs === undefined ? {} : { outputs }) });
 }

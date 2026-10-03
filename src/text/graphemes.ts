@@ -20,14 +20,26 @@ export function* measuredGraphemes(
   yield* measuredSourceGraphemes(sourceBoundaries(text), options);
 }
 
+/** Numeric events carry shared preparation charges; objects carry measured spans. */
+export function* measuredGraphemeEvents(text: string, options: TextMeasurementOptions = {}): Generator<number | GraphemeSegment, void> {
+  yield* measuredSourceGraphemeEvents(sourceBoundaries(text), options);
+}
+
 function* measuredSourceGraphemes(source: SourceBoundaryIndex, options: TextMeasurementOptions, text?: string): IterableIterator<GraphemeSegment> {
+  for (const event of measuredSourceGraphemeEvents(source, options, text)) if (typeof event !== 'number') yield event;
+}
+
+function* measuredSourceGraphemeEvents(source: SourceBoundaryIndex, options: TextMeasurementOptions, text?: string): Generator<number | GraphemeSegment, void> {
   const measurement = { widthProfile: defineTextWidthProfile(options.widthProfile) };
-  for (const segment of source.segments(text)) {
+  for (const segment of source.segmentEvents(text)) {
+    if (typeof segment === 'number') { yield segment; continue; }
+    const cells = measureGraphemeCells(segment.segment, measurement);
+    yield segment.segment.length;
     yield {
       text: segment.segment,
       startOffset: segment.index,
       endOffsetExclusive: segment.index + segment.segment.length,
-      cells: measureGraphemeCells(segment.segment, measurement),
+      cells,
     };
   }
 }

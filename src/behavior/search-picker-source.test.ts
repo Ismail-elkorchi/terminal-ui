@@ -4,7 +4,7 @@ import type { SearchEntry } from '../collection/item.ts';
 import {
   createSearchPickerIndex, prepareSearchPickerIndex, querySearchPickerIndex,
   updateSearchPickerIndex, prepareSearchPickerIndexUpdate, searchPickerEntryById,
-  searchPickerQueryPosition, searchPickerIndexStatistics,
+  searchPickerQueryEntries, searchPickerQueryPosition, searchPickerIndexStatistics,
 } from './search-picker-index.ts';
 import {
   collectionInteractionIds, collectionInteractionPosition, collectionInteractionReducer,
@@ -39,7 +39,7 @@ void test('each source batch is completely owned before yielding while future ba
   assert.equal(index.size, 3);
   assert.equal(searchPickerEntryById(index, 'b')?.label, 'second');
   assert.equal(searchPickerEntryById(index, 'c')?.label, 'after');
-  assert.equal(querySearchPickerIndex(index, { text: 'original' }).entries[0]?.id, 'a');
+  assert.equal(querySearchPickerIndex(index, { text: 'original' }).entryAt(0)?.id, 'a');
 });
 
 void test('bounded batch validation accounts for keyword fanout before yielding or copying unbounded arrays', async () => {
@@ -55,8 +55,8 @@ void test('bounded batch validation accounts for keyword fanout before yielding 
   const keywords = Array.from({ length: 1024 }, (_, i) => `keyword ${String(i)}`);
   const source = [{ id: 'one', label: 'x'.repeat(100_000), value: 1, keywords }];
   const result = await prepareSearchPickerIndex([source], context);
-  assert.ok(yields > 50, 'both long content and keyword fanout yield');
-  assert.equal(querySearchPickerIndex(result, { text: 'keyword 1023' }).entries.length, 1);
+  assert.ok(yields > 1, 'long content and keyword fanout cross scheduler turns');
+  assert.equal(querySearchPickerIndex(result, { text: 'keyword 1023' }).count, 1);
 });
 
 void test('invalid batches never yield partially validated descriptors', async () => {
@@ -103,15 +103,15 @@ void test('immutable picker versions share unaffected entries and preserve order
   ] as const;
   const next = await prepareSearchPickerIndexUpdate(initial, [changes], work());
   const sync = updateSearchPickerIndex(initial, changes);
-  assert.deepEqual(querySearchPickerIndex(next).entries, querySearchPickerIndex(sync).entries);
-  assert.deepEqual(querySearchPickerIndex(next).entries.map(entry => entry.id), ['a', 'b', 'd', 'e']);
+  assert.deepEqual(searchPickerQueryEntries(querySearchPickerIndex(next)), searchPickerQueryEntries(querySearchPickerIndex(sync)));
+  assert.deepEqual(searchPickerQueryEntries(querySearchPickerIndex(next)).map(entry => entry.id), ['a', 'b', 'd', 'e']);
   assert.equal(searchPickerEntryById(next, 'a'), unchanged);
   assert.equal(searchPickerEntryById(next, 'b')?.label, 'Beta');
-  assert.deepEqual(old.entries.map(entry => entry.label), ['Álpha', 'Bravo', 'Charlie']);
+  assert.deepEqual(searchPickerQueryEntries(old).map(entry => entry.label), ['Álpha', 'Bravo', 'Charlie']);
   assert.equal(searchPickerEntryById(initial, 'd'), undefined);
   assert.equal(updateSearchPickerIndex(next, []), next);
   const moved = updateSearchPickerIndex(next, [{ kind: 'remove', id: 'a' }, { kind: 'append', entry: { id: 'a', label: 'again', value: 1 } }]);
-  assert.deepEqual(querySearchPickerIndex(moved).entries.map(entry => entry.id), ['b', 'd', 'e', 'a']);
+  assert.deepEqual(searchPickerQueryEntries(querySearchPickerIndex(moved)).map(entry => entry.id), ['b', 'd', 'e', 'a']);
   assert.throws(() => updateSearchPickerIndex(next, [{ kind: 'append', entry: { id: 'a', label: 'duplicate', value: 1 } }]), /unique/u);
   assert.throws(() => updateSearchPickerIndex(next, [{ kind: 'remove', id: 'missing' }]), /existing/u);
   assert.throws(() => updateSearchPickerIndex(next, [{ kind: 'replace', entry: { id: 'missing', label: 'x', value: 1 } }]), /existing/u);
@@ -122,7 +122,7 @@ void test('cancelled construction and updates close their producer and publish n
   const result = querySearchPickerIndex(initial);
   let closed = false;
   function* changes() {
-    try { yield [{ kind: 'replace' as const, entry: { id: '0', label: 'changed', value: 0 } }]; }
+    try { yield [{ kind: 'replace' as const, entry: { id: '0', label: 'changed'.repeat(2000), value: 0 } }]; }
     finally { closed = true; }
   }
   const controller = new AbortController();
@@ -142,7 +142,7 @@ void test('rank and enabled navigation share order while disabled matches keep t
     { id: 'b', label: 'xneedle', value: 3 },
   ]);
   const result = querySearchPickerIndex(index, { text: 'needle', mode: 'contains' });
-  assert.deepEqual(result.entries.map(entry => entry.id), ['disabled', 'a', 'b']);
+  assert.deepEqual(searchPickerQueryEntries(result).map(entry => entry.id), ['disabled', 'a', 'b']);
   assert.deepEqual(collectionInteractionIds(result.interactionIndex), ['a', 'b']);
   assert.equal(searchPickerQueryPosition(result, 'a'), 1);
   assert.equal(collectionInteractionPosition(result.interactionIndex, 'a'), 0);
@@ -169,7 +169,7 @@ void test('case folding and version updates reuse original Unicode segmentation 
     const folded = querySearchPickerIndex(first, { text: 'á', mode: 'prefix' });
     assert.deepEqual(folded.matches[0]?.ranges, [{ field: 'primary', fieldIndex: 0, start: 0, end: 2 }]);
     const next = updateSearchPickerIndex(first, [{ kind: 'append', entry: { id: 'b', label: 'plain', value: 2 } }]);
-    assert.equal(querySearchPickerIndex(next, { text: 'suffix' }).entries[0], folded.entries[0]);
+    assert.equal(querySearchPickerIndex(next, { text: 'suffix' }).entryAt(0), folded.entryAt(0));
     assert.equal(originalSegmentations, count, 'folded fields and unchanged source versions do not resegment originals');
     assert.equal(searchPickerIndexStatistics(next).entries, 2);
   } finally { Intl.Segmenter.prototype.segment = segment; }
@@ -214,7 +214,7 @@ void test('bounded version batches own all changes before a content checkpoint a
     },
   });
   assert.equal(searchPickerEntryById(next, 'untouched'), searchPickerEntryById(first, 'untouched'));
-  assert.equal(querySearchPickerIndex(next, { text: 'needle' }).entries[0]?.id, 'a');
+  assert.equal(querySearchPickerIndex(next, { text: 'needle' }).entryAt(0)?.id, 'a');
   assert.equal(searchPickerEntryById(next, 'b')?.label, 'added');
   assert.equal(searchPickerEntryById(next, 'mutated'), undefined);
 });

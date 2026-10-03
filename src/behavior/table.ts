@@ -1,7 +1,5 @@
 import type {
   CollectionItem,
-  CollectionSnapshot,
-  CompleteCollectionSnapshot,
   WindowedCollectionSnapshot,
 } from '../collection/snapshot.ts';
 import type { ScrollRequest, ScrollState } from '../interaction/scroll.ts';
@@ -10,8 +8,24 @@ export interface TableCollectionRow<TRow> extends CollectionItem {
   readonly row: TRow;
 }
 
-export type TableCollection<TRow> = CollectionSnapshot<TableCollectionRow<TRow>>;
-export type CompleteTableCollection<TRow> = CompleteCollectionSnapshot<TableCollectionRow<TRow>>;
+declare const tableSourceBrand: unique symbol;
+
+/** Immutable row source; payloads are application-owned immutable values. */
+export interface CompleteTableCollection<TRow> {
+  readonly [tableSourceBrand]: TRow;
+  readonly kind: 'table-source';
+  readonly count: number;
+  readonly startIndex: 0;
+  readonly totalCount: number;
+  readonly itemAt: (rank: number) => TableCollectionRow<TRow> | undefined;
+  readonly itemById: (id: string) => TableCollectionRow<TRow> | undefined;
+  readonly rank: (id: string) => number | undefined;
+  readonly window: (start: number, end: number) => readonly TableCollectionRow<TRow>[];
+}
+export type TableCollection<TRow> = CompleteTableCollection<TRow> | WindowedTableCollection<TRow>;
+export type TableCollectionChange<TRow> =
+  | { readonly kind: 'append' | 'replace'; readonly id: string; readonly row: TRow }
+  | { readonly kind: 'remove'; readonly id: string };
 export type WindowedTableCollection<TRow> = WindowedCollectionSnapshot<TableCollectionRow<TRow>>;
 
 export type TableSortDirection = 'ascending' | 'descending';

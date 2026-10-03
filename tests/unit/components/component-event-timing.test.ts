@@ -1,19 +1,11 @@
+import { createSuggestionFixture } from '../../support/collection-fixtures.mjs';
+import { createListboxFixture } from '../../support/collection-fixtures.mjs';
+import { createTableCollection } from '../../../dist/behavior/index.js';
+import { inferTableColumns } from '../../../dist/components/index.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  button,
-  checkbox,
-  commandInput,
-  dataGrid,
-  listbox,
-  createCommandSuggestions,
-  searchPicker,
-  slider,
-  tabs,
-  text,
-  textArea
-} from '../../../dist/components/index.js';
+import { button, checkbox, commandInput, dataGrid, listbox, searchPicker, slider, tabs, text, textArea } from '../../../dist/components/index.js';
 import { defineComponent, ignoreMessage } from '../../../dist/component/index.js';
 import type { TabCloseEvent } from '../../../dist/components/index.js';
 import { createSearchPickerIndex, querySearchPickerIndex } from '../../../dist/behavior/index.js';
@@ -35,14 +27,14 @@ void test('component construction and rendering do not execute event handlers', 
   const elements = [
     checkbox({ id: 'check', label: 'Check', checked: false, onTransition: message }),
     slider({ meta: { accessibleName: "Slider" }, id: 'slider', label: 'Value', value: 4, onTransition: message }),
-    listbox({ meta: { accessibleName: "List" }, id: 'listbox', items: ['a'], toOption: (item) => ({ id: item, label: item }), state: { activeId: 'a', selection: { mode: 'single', selectedId: 'a' } }, onTransition: message }),
-    dataGrid({ meta: { accessibleName: "Data grid" }, id: 'grid', rows: ['a'], getRowId: (row) => row, state: { interaction: {
+    listbox({ meta: { accessibleName: "List" }, id: 'listbox', ...createListboxFixture(['a'], (item) => ({ id: item, label: item })),  state: { activeId: 'a', selection: { mode: 'single', selectedId: 'a' } }, onTransition: message }),
+    dataGrid({columns: inferTableColumns(['a']), meta: { accessibleName: "Data grid" }, id: 'grid', collection: createTableCollection(['a'], (row) => row),  state: { interaction: {
       kind: 'row', activeRowId: 'a', selection: { mode: 'single' as const, selectedRowId: 'a' },
     } }, onTransition: message }),
     textArea({ meta: { accessibleName: "Text area" }, id: 'area', state: { document: createTextDocument('a'), caret: textCaretAt(0 )}, onTransition: message }),
     commandInput({ meta: { accessibleName: "Command input" },
       id: 'command',
-      view: { input: { text: 'a', cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
+      view: { input: { text: 'a', cursor: 0 }, open: false, ...createSuggestionFixture([]) },
       onTransition: message
     }),
     searchPicker({ meta: { accessibleName: "Search" }, id: 'searchPicker', view: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } }, searchPickerIndex: pickerIndex, queryResult: pickerQueryResult, onTransition: message })

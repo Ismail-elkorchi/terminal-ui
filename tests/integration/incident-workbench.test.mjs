@@ -8,9 +8,9 @@ import { keyInput, pointerInput } from '../../dist/testing/index.js';
 import { textDocumentText } from '../../dist/text/index.js';
 import { incidentWorkbenchApp, incidentCount } from '../../examples/tui/incident-workbench.ts';
 
-async function settled(runtime) {
+async function settled(runtime, done = () => !runtime.state().searchPicker.state.pending && !runtime.state().searchPicker.state.construction.pending && !runtime.state().tablePreparation.pending) {
   for (let count = 0; count < 10_000; count++) {
-    if (!runtime.state().searchPicker.state.pending && !runtime.state().searchPicker.state.construction.pending) return;
+    if (done()) return;
     await delay(1);
   }
   throw new Error('Incident query did not finish');
@@ -33,7 +33,7 @@ test('incident workbench searches 100k records, navigates, edits, and cancels st
     await runtime.handleInput({ kind: 'text', text: 'trace-42123', paste: false });
     assert.equal(runtime.state().searchPicker.state.pending || runtime.state().searchPicker.state.construction.pending, true);
     await settled(runtime);
-    assert.equal(runtime.state().searchPicker.state.result.entries[0].id, 'INC-042123');
+    assert.equal(runtime.state().searchPicker.state.result.entryAt(0).id, 'INC-042123');
     await runtime.handleInput(keyInput('enter'));
     assert.equal(runtime.state().searchPicker.state.open, false);
     assert.equal(runtime.state().table.interaction.activeRowId, 'INC-042123');
@@ -44,11 +44,14 @@ test('incident workbench searches 100k records, navigates, edits, and cancels st
     await click(runtime, 'workspace-tabs:tab:activity');
     await runtime.handleInput(keyInput('arrowRight'));
     assert.equal(runtime.state().tab, 'notes');
-    const notesTarget = runtime.frame().hitTargets.find(item => item.id.startsWith('incident-notes'));
+    const noteTarget = () => runtime.frame().hitTargets.find(item => item.cursor === 'text' && item.focus?.path?.includes('notes-panel'));
+    await settled(runtime, () => noteTarget() !== undefined && !runtime.state().notes.state.editor.layout.pending);
+    const notesTarget = noteTarget();
     assert.ok(notesTarget, 'Notes editor must expose a pointer target');
     await click(runtime, notesTarget.id);
     await runtime.handleInput({ kind: 'text', text: 'Investigated gateway retries.', paste: false });
-    assert.ok(textDocumentText(runtime.state().notes.document).includes('Investigated gateway retries.'));
+    await settled(runtime, () => runtime.state().notes.state.editor.queue.length === 0 && runtime.state().notes.state.editor.active === null);
+    assert.ok(textDocumentText(runtime.state().notes.state.editor.editing.document).includes('Investigated gateway retries.'));
     await runtime.dispatch({ kind: 'openSearchPicker' });
     await runtime.handleInput(keyInput('a', { modifiers: { ctrl: true } }));
     await runtime.handleInput({ kind: 'text', text: 'gateway', paste: false });
@@ -90,12 +93,12 @@ test('incident query ignores success and failure from an earlier close/reopen li
       { kind: 'picker', message: { id: child.id, generation: child.generation, message: { kind: 'prepared', message: { kind: 'failed', revision: previous.revision, diagnostic: diagnostic('TUI_EFFECT_FAILED', 'obsolete query failure') } } } },
     ]);
     await settled(runtime);
-    assert.equal(runtime.state().searchPicker.state.result.entries[0].id, 'INC-099997');
+    assert.equal(runtime.state().searchPicker.state.result.entryAt(0).id, 'INC-099997');
     assert.equal(runtime.state().searchPicker.state.error, null);
     assert.equal(runtime.state().activity.includes('obsolete query failure'), false);
     await runtime.dispatch({ kind: 'openSearchPicker' });
     await settled(runtime);
-    assert.equal(runtime.state().searchPicker.state.result.entries[0].id, 'INC-099997');
+    assert.equal(runtime.state().searchPicker.state.result.entryAt(0).id, 'INC-099997');
     assert.deepEqual(runtime.diagnostics(), []);
   } finally { await runtime.dispose(); }
 });

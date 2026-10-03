@@ -1,14 +1,15 @@
+import { finishWork } from '../foundation/cooperative-work.ts';
 import { sameDocumentSelection, sameTextCaret } from './comparison.ts';
 import type { TextDocument } from './document.ts';
 import {
-  normalizeTextCaret,
-  normalizeTextDocumentSelection,
-  textDocumentEdit,
+  normalizeTextCaretWork,
+  normalizeTextDocumentSelectionWork,
+  textDocumentEditWork,
   textDocumentLength,
-  textDocumentLineAt,
+  textDocumentLineAtWork,
   textDocumentLineBoundaries,
   textDocumentLineCount,
-  textDocumentLineIndexAtOffset,
+  textDocumentLineIndexAtOffsetWork,
   textDocumentSelectionRange,
 } from './document.ts';
 import { sourceGeometry } from './source-geometry.ts';
@@ -41,27 +42,35 @@ export function editTextDocument(
   operation: TextEditOperation,
   options: TextIndexOptions = {}
 ): TextDocumentEditResult {
-  const caret = normalizeTextCaret(state.document, state.caret);
-  const selection = normalizeTextDocumentSelection(state.document, state.selection);
+  return finishWork(editTextDocumentWork(state, operation, options));
+}
+
+export function* editTextDocumentWork(
+  state: TextDocumentEditState,
+  operation: TextEditOperation,
+  options: TextIndexOptions = {},
+): Generator<number, TextDocumentEditResult> {
+  const caret = yield* normalizeTextCaretWork(state.document, state.caret);
+  const selection = yield* normalizeTextDocumentSelectionWork(state.document, state.selection);
   switch (operation.kind) {
     case 'insert':
     case 'replaceSelection':
-      return replaceRange(state, caret, selection, operation.text);
+      return yield* replaceRangeWork(state, caret, selection, operation.text);
     case 'replaceRange':
-      return replaceOffsets(
+      return yield* replaceOffsetsWork(
         state,
         operation.range.startOffset,
         operation.range.endOffsetExclusive,
         operation.text
       );
     case 'deleteBackward': {
-      if (selection !== undefined) return replaceRange(state, caret, selection, '');
+      if (selection !== undefined) return yield* replaceRangeWork(state, caret, selection, '');
       if (caret.position.offset === 0) return unchanged(state, caret, selection);
-      const line = lineContaining(state.document, caret.position.offset);
+      const line = yield* lineContainingWork(state.document, caret.position.offset);
       if (caret.position.offset === line.startOffset && line.lineIndex > 0) {
-        const previousLine = textDocumentLineAt(state.document, line.lineIndex - 1);
+        const previousLine = yield* textDocumentLineAtWork(state.document, line.lineIndex - 1);
         if (previousLine !== undefined) {
-          return replaceOffsets(
+          return yield* replaceOffsetsWork(
             state,
             previousLine.endOffsetExclusive,
             line.startOffset,
@@ -71,79 +80,79 @@ export function editTextDocument(
       }
       const local = caret.position.offset - line.startOffset;
       const previous = line.startOffset + previousSourceBoundary(textDocumentLineBoundaries(state.document, line), local);
-      return replaceOffsets(state, previous, caret.position.offset, '');
+      return yield* replaceOffsetsWork(state, previous, caret.position.offset, '');
     }
     case 'deleteForward': {
-      if (selection !== undefined) return replaceRange(state, caret, selection, '');
+      if (selection !== undefined) return yield* replaceRangeWork(state, caret, selection, '');
       if (caret.position.offset >= textDocumentLength(state.document)) return unchanged(state, caret, selection);
-      const line = lineContaining(state.document, caret.position.offset);
+      const line = yield* lineContainingWork(state.document, caret.position.offset);
       if (caret.position.offset === line.endOffsetExclusive
         && line.lineIndex < textDocumentLineCount(state.document) - 1) {
-        const nextLine = textDocumentLineAt(state.document, line.lineIndex + 1);
+        const nextLine = yield* textDocumentLineAtWork(state.document, line.lineIndex + 1);
         return nextLine === undefined
           ? unchanged(state, caret, selection)
-          : replaceOffsets(state, caret.position.offset, nextLine.startOffset, '');
+          : yield* replaceOffsetsWork(state, caret.position.offset, nextLine.startOffset, '');
       }
       const local = caret.position.offset - line.startOffset;
-      return replaceOffsets(state, caret.position.offset, line.startOffset + nextSourceBoundary(textDocumentLineBoundaries(state.document, line), local), '');
+      return yield* replaceOffsetsWork(state, caret.position.offset, line.startOffset + nextSourceBoundary(textDocumentLineBoundaries(state.document, line), local), '');
     }
     case 'deleteWordBackward':
-      if (selection !== undefined) return replaceRange(state, caret, selection, '');
-      return replaceOffsets(
+      if (selection !== undefined) return yield* replaceRangeWork(state, caret, selection, '');
+      return yield* replaceOffsetsWork(
         state,
-        previousWordOffset(state.document, caret.position.offset, options),
+        yield* previousWordOffsetWork(state.document, caret.position.offset, options),
         caret.position.offset,
         ''
       );
     case 'deleteWordForward':
-      if (selection !== undefined) return replaceRange(state, caret, selection, '');
-      return replaceOffsets(
+      if (selection !== undefined) return yield* replaceRangeWork(state, caret, selection, '');
+      return yield* replaceOffsetsWork(
         state,
         caret.position.offset,
-        nextWordOffset(state.document, caret.position.offset, options),
+        yield* nextWordOffsetWork(state.document, caret.position.offset, options),
         ''
       );
     case 'moveLeft':
-      return move(state, caret, selection, leftOffset(state.document, caret, selection, operation.extendSelection), 'upstream', operation.extendSelection);
+      return yield* moveWork(state, caret, selection, yield* leftOffsetWork(state.document, caret, selection, operation.extendSelection), 'upstream', operation.extendSelection);
     case 'moveRight':
-      return move(state, caret, selection, rightOffset(state.document, caret, selection, operation.extendSelection), 'downstream', operation.extendSelection);
+      return yield* moveWork(state, caret, selection, yield* rightOffsetWork(state.document, caret, selection, operation.extendSelection), 'downstream', operation.extendSelection);
     case 'moveWordLeft':
-      return move(
+      return yield* moveWork(
         state,
         caret,
         selection,
-        previousWordOffset(state.document, caret.position.offset, options),
+        yield* previousWordOffsetWork(state.document, caret.position.offset, options),
         'upstream',
         operation.extendSelection
       );
     case 'moveWordRight':
-      return move(
+      return yield* moveWork(
         state,
         caret,
         selection,
-        nextWordOffset(state.document, caret.position.offset, options),
+        yield* nextWordOffsetWork(state.document, caret.position.offset, options),
         'downstream',
         operation.extendSelection
       );
     case 'moveHome': {
-      const line = lineContaining(state.document, caret.position.offset);
-      return move(state, caret, selection, line.startOffset, 'downstream', operation.extendSelection);
+      const line = yield* lineContainingWork(state.document, caret.position.offset);
+      return yield* moveWork(state, caret, selection, line.startOffset, 'downstream', operation.extendSelection);
     }
     case 'moveEnd': {
-      const line = lineContaining(state.document, caret.position.offset);
-      return move(state, caret, selection, line.endOffsetExclusive, 'upstream', operation.extendSelection);
+      const line = yield* lineContainingWork(state.document, caret.position.offset);
+      return yield* moveWork(state, caret, selection, line.endOffsetExclusive, 'upstream', operation.extendSelection);
     }
     case 'moveLineUp':
-      return moveByLine(state, caret, selection, -1, operation.extendSelection, options);
+      return yield* moveByLineWork(state, caret, selection, -1, operation.extendSelection, options);
     case 'moveLineDown':
-      return moveByLine(state, caret, selection, 1, operation.extendSelection, options);
+      return yield* moveByLineWork(state, caret, selection, 1, operation.extendSelection, options);
     case 'moveDocumentStart':
-      return move(state, caret, selection, 0, 'downstream', operation.extendSelection);
+      return yield* moveWork(state, caret, selection, 0, 'downstream', operation.extendSelection);
     case 'moveDocumentEnd':
-      return move(state, caret, selection, textDocumentLength(state.document), 'upstream', operation.extendSelection);
+      return yield* moveWork(state, caret, selection, textDocumentLength(state.document), 'upstream', operation.extendSelection);
     case 'moveTo': {
-      const target = normalizeTextCaret(state.document, operation.caret);
-      return move(state, caret, selection, target.position.offset, target.position.affinity,
+      const target = yield* normalizeTextCaretWork(state.document, operation.caret);
+      return yield* moveWork(state, caret, selection, target.position.offset, target.position.affinity,
         operation.extendSelection, target.preferredColumnCells);
     }
     case 'selectAll': {
@@ -158,27 +167,27 @@ export function editTextDocument(
   }
 }
 
-function replaceRange(
+function* replaceRangeWork(
   state: TextDocumentEditState,
   caret: TextCaret,
   selection: TextDocumentSelection | undefined,
   insertion: string
-): TextDocumentEditResult {
+): Generator<number, TextDocumentEditResult> {
   const range = textDocumentSelectionRange(state.document, selection, caret);
-  return replaceOffsets(state, range.startOffset, range.endOffsetExclusive, insertion);
+  return yield* replaceOffsetsWork(state, range.startOffset, range.endOffsetExclusive, insertion);
 }
 
-function replaceOffsets(
+function* replaceOffsetsWork(
   state: TextDocumentEditState,
   startOffset: number,
   endOffsetExclusive: number,
   insertion: string
-): TextDocumentEditResult {
-  const change = textDocumentEdit(state.document, { startOffset, endOffsetExclusive }, insertion);
+): Generator<number, TextDocumentEditResult> {
+  const change = yield* textDocumentEditWork(state.document, { startOffset, endOffsetExclusive }, insertion);
   const offset = change.replaced.startOffset + change.insertedLength;
-  let nextCaret = normalizeTextCaret(change.document, caretAt(offset, 'downstream'));
+  let nextCaret = yield* normalizeTextCaretWork(change.document, caretAt(offset, 'downstream'));
   if (nextCaret.position.offset !== offset) {
-    nextCaret = caretAt(rightOffset(change.document, nextCaret, undefined, false), 'downstream');
+    nextCaret = caretAt(yield* rightOffsetWork(change.document, nextCaret, undefined, false), 'downstream');
   }
   if (change.document === state.document && sameTextCaret(nextCaret, state.caret) && state.selection === undefined) {
     return state;
@@ -194,7 +203,7 @@ function replaceOffsets(
   };
 }
 
-function move(
+function* moveWork(
   state: TextDocumentEditState,
   caret: TextCaret,
   selection: TextDocumentSelection | undefined,
@@ -202,104 +211,106 @@ function move(
   affinity: TextPosition['affinity'],
   selecting: boolean | undefined,
   preferredColumnCells?: number
-): TextDocumentEditResult {
+): Generator<number, TextDocumentEditResult> {
   const nextCaret: TextCaret = Object.freeze({
     position: positionAt(offset, affinity),
     ...(preferredColumnCells === undefined ? {} : { preferredColumnCells })
   });
   if (selecting !== true) return stateResult(state.document, nextCaret, undefined, state);
   const anchor = selectionAnchor(selection, caret);
-  const nextSelection = normalizeTextDocumentSelection(state.document, { anchor, focus: nextCaret.position });
+  const nextSelection = yield* normalizeTextDocumentSelectionWork(state.document, { anchor, focus: nextCaret.position });
   return stateResult(state.document, nextCaret, nextSelection, state);
 }
 
-function moveByLine(
+function* moveByLineWork(
   state: TextDocumentEditState,
   caret: TextCaret,
   selection: TextDocumentSelection | undefined,
   delta: number,
   selecting: boolean | undefined,
   options: TextIndexOptions
-): TextDocumentEditResult {
-  const current = lineContaining(state.document, caret.position.offset);
+): Generator<number, TextDocumentEditResult> {
+  const current = yield* lineContainingWork(state.document, caret.position.offset);
   const local = caret.position.offset - current.startOffset;
-  const preferred = caret.preferredColumnCells
-    ?? sourceGeometry(textDocumentLineBoundaries(state.document, current), options).columnAt(local);
+  const currentGeometry = sourceGeometry(textDocumentLineBoundaries(state.document, current), options);
+  if (caret.preferredColumnCells === undefined) yield* currentGeometry.prepareOffsetWork(local);
+  const preferred = caret.preferredColumnCells ?? currentGeometry.columnAt(local);
   const targetIndex = Math.max(
     0,
     Math.min(textDocumentLineCount(state.document) - 1, current.lineIndex + delta)
   );
-  const target = textDocumentLineAt(state.document, targetIndex) ?? current;
-  const offset = target.startOffset
-    + sourceGeometry(textDocumentLineBoundaries(state.document, target), options).offsetAt(preferred);
-  return move(state, caret, selection, offset, 'downstream', selecting, preferred);
+  const target = (yield* textDocumentLineAtWork(state.document, targetIndex)) ?? current;
+  const targetGeometry = sourceGeometry(textDocumentLineBoundaries(state.document, target), options);
+  yield* targetGeometry.prepareColumnWork(preferred);
+  const offset = target.startOffset + targetGeometry.offsetAt(preferred);
+  return yield* moveWork(state, caret, selection, offset, 'downstream', selecting, preferred);
 }
 
-function leftOffset(
+function* leftOffsetWork(
   document: TextDocument,
   caret: TextCaret,
   selection: TextDocumentSelection | undefined,
   selecting: boolean | undefined
-): number {
+): Generator<number, number> {
   const range = textDocumentSelectionRange(document, selection, caret);
   if (selecting !== true && selection !== undefined) return range.startOffset;
-  const line = lineContaining(document, caret.position.offset);
+  const line = yield* lineContainingWork(document, caret.position.offset);
   if (caret.position.offset === line.startOffset && line.lineIndex > 0) {
-    return textDocumentLineAt(document, line.lineIndex - 1)?.endOffsetExclusive
+    return (yield* textDocumentLineAtWork(document, line.lineIndex - 1))?.endOffsetExclusive
       ?? caret.position.offset;
   }
   return line.startOffset + previousSourceBoundary(textDocumentLineBoundaries(document, line), caret.position.offset - line.startOffset);
 }
 
-function rightOffset(
+function* rightOffsetWork(
   document: TextDocument,
   caret: TextCaret,
   selection: TextDocumentSelection | undefined,
   selecting: boolean | undefined
-): number {
+): Generator<number, number> {
   const range = textDocumentSelectionRange(document, selection, caret);
   if (selecting !== true && selection !== undefined) return range.endOffsetExclusive;
-  const line = lineContaining(document, caret.position.offset);
+  const line = yield* lineContainingWork(document, caret.position.offset);
   if (caret.position.offset === line.endOffsetExclusive
     && line.lineIndex < textDocumentLineCount(document) - 1) {
-    return textDocumentLineAt(document, line.lineIndex + 1)?.startOffset
+    return (yield* textDocumentLineAtWork(document, line.lineIndex + 1))?.startOffset
       ?? caret.position.offset;
   }
   return line.startOffset + nextSourceBoundary(textDocumentLineBoundaries(document, line), caret.position.offset - line.startOffset);
 }
 
-function previousWordOffset(
+function* previousWordOffsetWork(
   document: TextDocument,
   offset: number,
   options: TextIndexOptions
-): number {
-  const line = lineContaining(document, offset);
+): Generator<number, number> {
+  const line = yield* lineContainingWork(document, offset);
   if (offset === line.startOffset && line.lineIndex > 0) {
-    return textDocumentLineAt(document, line.lineIndex - 1)?.endOffsetExclusive ?? offset;
+    return (yield* textDocumentLineAtWork(document, line.lineIndex - 1))?.endOffsetExclusive ?? offset;
   }
-  return line.startOffset + ownedWordBoundaryIndex(textDocumentLineBoundaries(document, line), options).previous(
-    offset - line.startOffset
-  );
+  const words = ownedWordBoundaryIndex(textDocumentLineBoundaries(document, line), options);
+  yield* words.prepareThroughWork(offset - line.startOffset);
+  return line.startOffset + words.previous(offset - line.startOffset);
 }
 
-function nextWordOffset(
+function* nextWordOffsetWork(
   document: TextDocument,
   offset: number,
   options: TextIndexOptions
-): number {
-  const line = lineContaining(document, offset);
+): Generator<number, number> {
+  const line = yield* lineContainingWork(document, offset);
   if (offset === line.endOffsetExclusive
     && line.lineIndex < textDocumentLineCount(document) - 1) {
-    return textDocumentLineAt(document, line.lineIndex + 1)?.startOffset ?? offset;
+    return (yield* textDocumentLineAtWork(document, line.lineIndex + 1))?.startOffset ?? offset;
   }
-  return line.startOffset + ownedWordBoundaryIndex(textDocumentLineBoundaries(document, line), options).next(
-    offset - line.startOffset
-  );
+  const words = ownedWordBoundaryIndex(textDocumentLineBoundaries(document, line), options);
+  yield* words.prepareThroughWork(offset - line.startOffset);
+  return line.startOffset + words.next(offset - line.startOffset);
 }
 
-function lineContaining(document: TextDocument, offset: number): NonNullable<ReturnType<typeof textDocumentLineAt>> {
-  const index = textDocumentLineIndexAtOffset(document, offset);
-  const line = textDocumentLineAt(document, index);
+function* lineContainingWork(document: TextDocument, offset: number): Generator<number, import('./document.ts').TextDocumentLine> {
+  const index = yield* textDocumentLineIndexAtOffsetWork(document, offset);
+  const line = yield* textDocumentLineAtWork(document, index);
   if (line === undefined) throw new Error('Text document line index is inconsistent.');
   return line;
 }

@@ -1,16 +1,19 @@
+export { defaultTuiRuntimePolicy } from './lifecycle/runtime-policy.ts';
+export type { TuiContribution, TuiScopedSource } from './contribution-types.ts';
+export { createTuiCooperativeWorkContext } from './cooperative-work.ts';
 export { createTuiForm } from './form.ts';
 export type { TuiForm, TuiFormErrors, TuiFormState, TuiFormMessage } from './form.ts';
 export { updateTuiNavigation } from './navigation.ts';
 export type { TuiNavigationScreen } from './navigation.ts';
 export { createTuiCommands } from './commands.ts';
 export type { TuiCommand, TuiCommands } from './commands.ts';
-export { liftTuiResult } from './result.ts';
+export { liftTuiResult, combineTuiResults, reconcileTuiChildren } from './result.ts';
 export { createTuiControls } from './controls.ts';
 export type { TuiControlMessage, TuiControlReducers, TuiControls, TuiControlTransitionMessage } from './controls.ts';
 export { createTuiPreparedQuery } from './prepared-query.ts';
 export type { TuiPreparedQuery, TuiPreparedQueryState, TuiPreparedQueryMessage } from './prepared-query.ts';
 export { createTuiChild } from './child.ts';
-export type { TuiChild, TuiChildDefinition, TuiChildIdentity, TuiChildMessage, TuiChildResult, TuiChildState } from './child.ts';
+export type { TuiChild, TuiChildDefinition, TuiChildIdentity, TuiChildMessage, TuiChildResult, TuiChildState, TuiScopedResult } from './child.ts';
 export {
   advanceAnimationTimeline,
   createAnimationTimeline,
@@ -75,6 +78,7 @@ export type {
   TuiRunOptions,
   TuiRunResult,
   TuiRuntime,
+  TuiRuntimePolicy,
   TuiRuntimeChange,
   TuiRuntimeDisposeOptions,
   TuiRuntimeMetrics,
@@ -93,3 +97,6 @@ export type {
   TuiUpdateResult,
   TuiView,
 } from './types.ts';
+
+export { createTuiControlledEditor } from './controlled-editor.ts';
+export type { TuiControlledEditor, TuiControlledEditorState, TuiControlledEditorMessage, TuiControlledEditorOutput, TuiControlledEditorResult, TuiEditorIntent, TuiEditorIntentOrigin, TuiEditorOperation, TuiEditorSnapshot, TuiEditorPreparedLayout } from './controlled-editor.ts';

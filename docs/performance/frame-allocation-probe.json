@@ -1,0 +1,710 @@
+{
+  "kind": "Isolated cumulative frame allocation probe; separate from latency and whole-workbench acceptance",
+  "baseline": "922a4d1e280f5cc38942a806eca0902159e66915",
+  "changes": [
+    "src/renderer/frame-buffer.ts",
+    "src/renderer/frame.ts"
+  ],
+  "sourceSha256": {
+    "src/renderer/frame-buffer.ts": "7ad63f9963b2a9e9170c9ae3ec8357e0695d225b210810539074db0db752f7e1",
+    "src/renderer/frame.ts": "64fcad8cd2c7415929cef2add1d16a4ffcf9b7079ef3cb146711f4f6cc237a4b"
+  },
+  "motivatingEvidence": "docs/performance/workbench-owned-allocation-summary.json",
+  "command": "node --expose-gc scripts/performance/benchmark-frame-allocations.mjs <built-checkout>",
+  "method": "Two isolated Node processes per revision, 30 warmups and 600 measured iterations per case, 96 columns x 12 rows, inspector sampling at 8192 bytes including objects collected by minor and major GC. Build the baseline and baseline plus the two changed renderer files in separate checkouts. Public paint snapshots and materializes cells; admitted overwrite writes and replaces width-one runs before snapshotting; output runs repeatedly builds a full-write diff of a fixed frame.",
+  "limitations": "Microprobe of selected measured hotspots, not a full application benchmark or a latency/retained-memory claim. Inspector estimates cumulative churn and changes runtime cost; no sampled timing is reported. Sampling noise and JIT attribution can move bytes between sites. Gates are unchanged. One first-pass before/after pair ran concurrently; the second pair ran serially.",
+  "verification": {
+    "isolatedBuild": "passed",
+    "focusedTests": 55,
+    "newTests": 6,
+    "retainedPaintTrials": 3000,
+    "baselineDifferentialSteps": 14000,
+    "baselineDifferentialCoverage": "Frames, semantic fingerprints, written/cleared bounds and output diffs with public/admitted writes, wide glyphs, combining marks, clipping, backgrounds, source/link metadata, clears and graphics"
+  },
+  "results": {
+    "before": [
+      {
+        "runtime": "v24.19.0",
+        "iterations": 600,
+        "samplingIntervalBytes": 8192,
+        "consumed": 1459710,
+        "cases": {
+          "publicPaint": {
+            "sampledBytes": 632518336,
+            "sampleCount": 74434,
+            "largestSites": [
+              {
+                "location": "dist/renderer/frame-buffer.js:718:writeGrapheme",
+                "bytes": 161421736
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:178:write",
+                "bytes": 110771472
+              },
+              {
+                "location": ":-1:set",
+                "bytes": 103987256
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1006:hashTerminalFrameCell",
+                "bytes": 55596032
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:664:snapshotCellsAndFingerprints",
+                "bytes": 53872240
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1100:hashNumber",
+                "bytes": 49675640
+              },
+              {
+                "location": ":-1:next",
+                "bytes": 37816296
+              },
+              {
+                "location": ":-1:flatMap",
+                "bytes": 17616256
+              },
+              {
+                "location": ":-1:sort",
+                "bytes": 12357216
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1149:",
+                "bytes": 6171408
+              },
+              {
+                "location": ":-1:Map",
+                "bytes": 5037584
+              },
+              {
+                "location": "dist/text/measure.js:26:terminalCellGraphemes",
+                "bytes": 2311232
+              }
+            ]
+          },
+          "admittedOverwrite": {
+            "sampledBytes": 869595488,
+            "sampleCount": 101173,
+            "largestSites": [
+              {
+                "location": "dist/renderer/frame-buffer.js:718:writeGrapheme",
+                "bytes": 158268368
+              },
+              {
+                "location": ":-1:set",
+                "bytes": 155711424
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:448:writeSimpleSpan",
+                "bytes": 122257952
+              },
+              {
+                "location": ":-1:next",
+                "bytes": 114270672
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:420:",
+                "bytes": 111601568
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1006:hashTerminalFrameCell",
+                "bytes": 55259808
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1100:hashNumber",
+                "bytes": 46567872
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:664:snapshotCellsAndFingerprints",
+                "bytes": 44989960
+              },
+              {
+                "location": ":-1:flatMap",
+                "bytes": 16892504
+              },
+              {
+                "location": ":-1:sort",
+                "bytes": 12803400
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1149:",
+                "bytes": 5835216
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1003:hashFrameCell",
+                "bytes": 5453008
+              }
+            ]
+          },
+          "outputRuns": {
+            "sampledBytes": 278353648,
+            "sampleCount": 33900,
+            "largestSites": [
+              {
+                "location": "dist/renderer/frame.js:205:rowWriteOperations",
+                "bytes": 247846576
+              },
+              {
+                "location": ":-1:next",
+                "bytes": 27908400
+              },
+              {
+                "location": "dist/renderer/frame.js:344:pushSpan",
+                "bytes": 1724768
+              },
+              {
+                "location": "dist/renderer/frame.js:39:diffFrames",
+                "bytes": 452672
+              },
+              {
+                "location": "dist/renderer/frame.js:201:frameWriteOperations",
+                "bytes": 139736
+              },
+              {
+                "location": ":-1:from",
+                "bytes": 82656
+              },
+              {
+                "location": ":-1:flat",
+                "bytes": 74480
+              },
+              {
+                "location": "dist/renderer/frame.js:366:canvasClearOperation",
+                "bytes": 57592
+              },
+              {
+                "location": "dist/renderer/frame.js:380:styleOptions",
+                "bytes": 16464
+              },
+              {
+                "location": ":-1:values",
+                "bytes": 16416
+              },
+              {
+                "location": ":-1:map",
+                "bytes": 16416
+              },
+              {
+                "location": "node:inspector:114:post",
+                "bytes": 9264
+              }
+            ]
+          }
+        }
+      },
+      {
+        "runtime": "v24.19.0",
+        "iterations": 600,
+        "samplingIntervalBytes": 8192,
+        "consumed": 1459710,
+        "cases": {
+          "publicPaint": {
+            "sampledBytes": 627252920,
+            "sampleCount": 73793,
+            "largestSites": [
+              {
+                "location": "dist/renderer/frame-buffer.js:718:writeGrapheme",
+                "bytes": 160285312
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:178:write",
+                "bytes": 110494584
+              },
+              {
+                "location": ":-1:set",
+                "bytes": 105351584
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:664:snapshotCellsAndFingerprints",
+                "bytes": 53850896
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1006:hashTerminalFrameCell",
+                "bytes": 53693616
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1100:hashNumber",
+                "bytes": 48822816
+              },
+              {
+                "location": ":-1:next",
+                "bytes": 37346864
+              },
+              {
+                "location": ":-1:flatMap",
+                "bytes": 17225000
+              },
+              {
+                "location": ":-1:sort",
+                "bytes": 11838616
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1149:",
+                "bytes": 5845456
+              },
+              {
+                "location": ":-1:Map",
+                "bytes": 4840616
+              },
+              {
+                "location": "dist/text/measure.js:26:terminalCellGraphemes",
+                "bytes": 2535704
+              }
+            ]
+          },
+          "admittedOverwrite": {
+            "sampledBytes": 874113088,
+            "sampleCount": 101663,
+            "largestSites": [
+              {
+                "location": "dist/renderer/frame-buffer.js:718:writeGrapheme",
+                "bytes": 160244664
+              },
+              {
+                "location": ":-1:set",
+                "bytes": 156341920
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:448:writeSimpleSpan",
+                "bytes": 126950112
+              },
+              {
+                "location": ":-1:next",
+                "bytes": 112964392
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:420:",
+                "bytes": 111369296
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1006:hashTerminalFrameCell",
+                "bytes": 55678016
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1100:hashNumber",
+                "bytes": 46371024
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:664:snapshotCellsAndFingerprints",
+                "bytes": 44256248
+              },
+              {
+                "location": ":-1:flatMap",
+                "bytes": 16642576
+              },
+              {
+                "location": ":-1:sort",
+                "bytes": 12851624
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1149:",
+                "bytes": 5938848
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1003:hashFrameCell",
+                "bytes": 5215200
+              }
+            ]
+          },
+          "outputRuns": {
+            "sampledBytes": 279391288,
+            "sampleCount": 34027,
+            "largestSites": [
+              {
+                "location": "dist/renderer/frame.js:205:rowWriteOperations",
+                "bytes": 248232456
+              },
+              {
+                "location": ":-1:next",
+                "bytes": 28750280
+              },
+              {
+                "location": "dist/renderer/frame.js:344:pushSpan",
+                "bytes": 1650392
+              },
+              {
+                "location": "dist/renderer/frame.js:39:diffFrames",
+                "bytes": 395456
+              },
+              {
+                "location": "dist/renderer/frame.js:366:canvasClearOperation",
+                "bytes": 123360
+              },
+              {
+                "location": ":-1:from",
+                "bytes": 57888
+              },
+              {
+                "location": ":-1:flat",
+                "bytes": 57776
+              },
+              {
+                "location": "dist/renderer/frame.js:201:frameWriteOperations",
+                "bytes": 49320
+              },
+              {
+                "location": ":-1:values",
+                "bytes": 32880
+              },
+              {
+                "location": ":-1:map",
+                "bytes": 25016
+              },
+              {
+                "location": "dist/renderer/frame.js:380:styleOptions",
+                "bytes": 16464
+              },
+              {
+                "location": ":-1:(root)",
+                "bytes": 0
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "after": [
+      {
+        "runtime": "v24.19.0",
+        "iterations": 600,
+        "samplingIntervalBytes": 8192,
+        "consumed": 1459710,
+        "cases": {
+          "publicPaint": {
+            "sampledBytes": 395211472,
+            "sampleCount": 45608,
+            "largestSites": [
+              {
+                "location": ":-1:set",
+                "bytes": 105151392
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:716:writeGrapheme",
+                "bytes": 63514656
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:986:hashTerminalFrameCell",
+                "bytes": 54292224
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1080:hashNumber",
+                "bytes": 49302568
+              },
+              {
+                "location": ":-1:next",
+                "bytes": 38386240
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:660:snapshotCellsAndFingerprints",
+                "bytes": 30264824
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1150:",
+                "bytes": 17356128
+              },
+              {
+                "location": ":-1:sort",
+                "bytes": 12998448
+              },
+              {
+                "location": ":-1:Map",
+                "bytes": 4971576
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1102:admittedFrameCell",
+                "bytes": 2528920
+              },
+              {
+                "location": "dist/text/measure.js:26:terminalCellGraphemes",
+                "bytes": 2328552
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:955:bufferFingerprint",
+                "bytes": 1303888
+              }
+            ]
+          },
+          "admittedOverwrite": {
+            "sampledBytes": 393802168,
+            "sampleCount": 45489,
+            "largestSites": [
+              {
+                "location": ":-1:set",
+                "bytes": 104739600
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:428:writeSimpleSpan",
+                "bytes": 94176000
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:986:hashTerminalFrameCell",
+                "bytes": 55563728
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1080:hashNumber",
+                "bytes": 45567424
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:660:snapshotCellsAndFingerprints",
+                "bytes": 22682464
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1150:",
+                "bytes": 16643208
+              },
+              {
+                "location": ":-1:sort",
+                "bytes": 12846904
+              },
+              {
+                "location": ":-1:next",
+                "bytes": 11343864
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1102:admittedFrameCell",
+                "bytes": 6654200
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:983:hashFrameCell",
+                "bytes": 5272608
+              },
+              {
+                "location": ":-1:Map",
+                "bytes": 4707512
+              },
+              {
+                "location": ":-1:push",
+                "bytes": 1111192
+              }
+            ]
+          },
+          "outputRuns": {
+            "sampledBytes": 54318608,
+            "sampleCount": 6614,
+            "largestSites": [
+              {
+                "location": ":-1:next",
+                "bytes": 28808192
+              },
+              {
+                "location": "dist/renderer/frame.js:205:rowWriteOperations",
+                "bytes": 22042408
+              },
+              {
+                "location": "dist/renderer/frame.js:347:pushSpanRun",
+                "bytes": 2504048
+              },
+              {
+                "location": "dist/renderer/frame.js:39:diffFrames",
+                "bytes": 485912
+              },
+              {
+                "location": ":-1:flat",
+                "bytes": 148824
+              },
+              {
+                "location": "dist/renderer/frame.js:376:canvasClearOperation",
+                "bytes": 123320
+              },
+              {
+                "location": ":-1:from",
+                "bytes": 74448
+              },
+              {
+                "location": "dist/renderer/frame.js:201:frameWriteOperations",
+                "bytes": 73936
+              },
+              {
+                "location": ":-1:map",
+                "bytes": 24640
+              },
+              {
+                "location": "dist/renderer/frame.js:390:styleOptions",
+                "bytes": 16464
+              },
+              {
+                "location": ":-1:values",
+                "bytes": 16416
+              },
+              {
+                "location": ":-1:(root)",
+                "bytes": 0
+              }
+            ]
+          }
+        }
+      },
+      {
+        "runtime": "v24.19.0",
+        "iterations": 600,
+        "samplingIntervalBytes": 8192,
+        "consumed": 1459710,
+        "cases": {
+          "publicPaint": {
+            "sampledBytes": 395482200,
+            "sampleCount": 45656,
+            "largestSites": [
+              {
+                "location": ":-1:set",
+                "bytes": 103071176
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:716:writeGrapheme",
+                "bytes": 64841280
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:986:hashTerminalFrameCell",
+                "bytes": 54826912
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1080:hashNumber",
+                "bytes": 49618456
+              },
+              {
+                "location": ":-1:next",
+                "bytes": 37482792
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:660:snapshotCellsAndFingerprints",
+                "bytes": 30625904
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1150:",
+                "bytes": 17715064
+              },
+              {
+                "location": ":-1:sort",
+                "bytes": 12614632
+              },
+              {
+                "location": ":-1:Map",
+                "bytes": 5144376
+              },
+              {
+                "location": "dist/text/measure.js:26:terminalCellGraphemes",
+                "bytes": 2352440
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1102:admittedFrameCell",
+                "bytes": 2323232
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:955:bufferFingerprint",
+                "bytes": 1205568
+              }
+            ]
+          },
+          "admittedOverwrite": {
+            "sampledBytes": 396191768,
+            "sampleCount": 45787,
+            "largestSites": [
+              {
+                "location": ":-1:set",
+                "bytes": 103231896
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:428:writeSimpleSpan",
+                "bytes": 95576832
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:986:hashTerminalFrameCell",
+                "bytes": 55456624
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1080:hashNumber",
+                "bytes": 46649904
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:660:snapshotCellsAndFingerprints",
+                "bytes": 23742784
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1150:",
+                "bytes": 16845096
+              },
+              {
+                "location": ":-1:sort",
+                "bytes": 12342712
+              },
+              {
+                "location": ":-1:next",
+                "bytes": 11444296
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:1102:admittedFrameCell",
+                "bytes": 7091064
+              },
+              {
+                "location": ":-1:Map",
+                "bytes": 5070208
+              },
+              {
+                "location": "dist/renderer/frame-buffer.js:983:hashFrameCell",
+                "bytes": 5034800
+              },
+              {
+                "location": ":-1:push",
+                "bytes": 1364200
+              }
+            ]
+          },
+          "outputRuns": {
+            "sampledBytes": 53609800,
+            "sampleCount": 6527,
+            "largestSites": [
+              {
+                "location": ":-1:next",
+                "bytes": 28093712
+              },
+              {
+                "location": "dist/renderer/frame.js:205:rowWriteOperations",
+                "bytes": 21977848
+              },
+              {
+                "location": "dist/renderer/frame.js:347:pushSpanRun",
+                "bytes": 2644256
+              },
+              {
+                "location": "dist/renderer/frame.js:39:diffFrames",
+                "bytes": 329584
+              },
+              {
+                "location": ":-1:flat",
+                "bytes": 140448
+              },
+              {
+                "location": "dist/renderer/frame.js:201:frameWriteOperations",
+                "bytes": 139712
+              },
+              {
+                "location": ":-1:from",
+                "bytes": 132192
+              },
+              {
+                "location": "dist/renderer/frame.js:376:canvasClearOperation",
+                "bytes": 49376
+              },
+              {
+                "location": ":-1:values",
+                "bytes": 49296
+              },
+              {
+                "location": ":-1:map",
+                "bytes": 32832
+              },
+              {
+                "location": "node:inspector:114:post",
+                "bytes": 10624
+              },
+              {
+                "location": "dist/visual/render-content.js:208:sameTerminalStyle",
+                "bytes": 9920
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

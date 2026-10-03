@@ -1,3 +1,4 @@
+import { createTuiCooperativeWorkContext } from '@ismail-elkorchi/terminal-ui/tui';
 import { createTuiControls, createTuiPreparedQuery, liftTuiResult, tree } from '@ismail-elkorchi/terminal-ui';
 import type { TuiChildDefinition, TuiPreparedQueryMessage, TuiPreparedQueryState, ScrollableTreeState, TreeSource, TreeView, TreeTransition } from '@ismail-elkorchi/terminal-ui';
 import { createScrollState, matchingTreeView, prepareTreeView, treeReducer } from '@ismail-elkorchi/terminal-ui/behavior';
@@ -21,7 +22,7 @@ export function explorerDefinition<T extends Readonly<Record<string, unknown>>>(
   const query = createTuiPreparedQuery({
     id: 'projection',
     prepare: ({ source, tree }: { readonly source: TreeSource<T>; readonly tree: ScrollableTreeState }, context) =>
-      prepareTreeView(source, tree, { signal: context.signal, yield: async () => { await context.clock.sleep(0, context.signal); } }),
+      prepareTreeView(source, tree, createTuiCooperativeWorkContext(context)),
     toMessage: (message): ExplorerMessage<T> => ({ kind: 'projection', message }),
   });
   const request = (state: ExplorerState<T>) => liftTuiResult(state, 'projection', query.request(state.projection, state));

@@ -109,6 +109,9 @@ export { listViewReducer } from './list-view.ts';
 export type { ListViewReducerOptions } from './list-view.ts';
 export {
   createListboxCollection,
+  prepareListboxCollection,
+  updateListboxCollection,
+  prepareListboxCollectionUpdate,
   listboxReducer,
   visibleListboxEntries,
 } from './listbox-operations.ts';
@@ -118,6 +121,7 @@ export type {
   ListboxActivateEvent,
   ListboxCollection,
   ListboxCollectionItem,
+  ListboxCollectionChange,
   ListboxControlTransition,
   ListboxOption,
   ListboxOptionMapper,
@@ -265,7 +269,7 @@ export {
   scrollReducer,
   visibleWindowFromScroll,
 } from './scroll.ts';
-export { createSearchPickerIndex, prepareSearchPickerIndex, updateSearchPickerIndex, prepareSearchPickerIndexUpdate, querySearchPickerIndex, prepareSearchPickerQuery, matchingSearchPickerQuery, searchPickerEntryById, searchPickerQueryPosition } from './search-picker-index.ts';
+export { createSearchPickerIndex, prepareSearchPickerIndex, updateSearchPickerIndex, prepareSearchPickerIndexUpdate, querySearchPickerIndex, prepareSearchPickerQuery, matchingSearchPickerQuery, searchPickerEntryById, searchPickerQueryPosition, searchPickerQueryEntries } from './search-picker-index.ts';
 export type { SearchPickerIndex, SearchPickerQueryResult, SearchPickerIndexChange } from './search-picker-index.ts';
 export {
   activeSearchPickerEntry,
@@ -305,7 +309,7 @@ export type {
   SplitPaneState,
 } from './split-pane-operations.ts';
 export type { SplitPaneTransition } from './split-pane.ts';
-export { createTableCollection, dataGridReducer, sortTableRows } from './table-operations.ts';
+export { createTableCollection, prepareTableCollection, updateTableCollection, prepareTableCollectionUpdate, tableCollectionItemAt, tableCollectionItemById, tableCollectionCount, dataGridReducer, sortTableRows, prepareTableRows } from './table-operations.ts';
 export type { DataGridReducerOptions, TableCellValueGetter } from './table-operations.ts';
 export type {
   CompleteTableCollection,
@@ -318,6 +322,7 @@ export type {
   ScrollableDataGridState,
   TableCollection,
   TableCollectionRow,
+  TableCollectionChange,
   TableSortState,
   TableState,
   UnscrolledDataGridState,
@@ -336,6 +341,8 @@ export type {
 export {
   applyTextPointerTransition,
   createTextAreaState,
+  prepareTextAreaState,
+  prepareTextAreaReduction,
   selectionFromTextPointerTransition,
   textAreaReducer,
   textInputReducer,
@@ -355,6 +362,10 @@ export {
   createTreeCollectionFromRows,
   createTreeSource,
   prepareTreeSource,
+  updateTreeSource,
+  prepareTreeSourceUpdate,
+  treeSourceNodeById,
+  treeSourceChildren,
   createTreeView,
   matchingTreeView,
   prepareTreeView,
@@ -412,3 +423,8 @@ export type { CooperativeWorkContext } from '../foundation/cooperative-work.ts';
 
 export { matchingLogViewerView, prepareLogViewerView, createLogViewerView, nextLogViewerMatch } from './log-viewer-view.ts';
 export type { LogViewerViewInput, LogViewerView } from './log-viewer-view.ts';
+
+export { createListboxView, prepareListboxView, matchingListboxView } from "./listbox-view.ts";
+
+export type { TreeSource, TreeSourceEntry, TreeSourceChange, TreeNodeDescriptor, TreeView, TreeNode, TreeNodeBase } from './tree.ts';
+export type { ListboxView } from './listbox.ts';

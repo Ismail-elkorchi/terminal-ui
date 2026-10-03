@@ -24,6 +24,21 @@ export type TextAreaComponentAction = { readonly kind: 'layoutRequest'; readonly
   readonly event: TextContextMenuEvent;
 };
 
+/** Pending geometry cannot produce meaningful absolute visual coordinates. Surface
+ * an explicit rejected intent instead of dropping keys or moving on guessed rows. */
+export function textAreaPendingVisualHandlers(): Readonly<Partial<Record<TextAreaKeyAction, ElementKeyHandler<TextAreaComponentAction>>>> {
+  const unavailable = () => ({ kind: 'unavailable' as const, reason: 'layout-pending' as const });
+  return {
+    moveLineUp: unavailable, moveLineDown: unavailable, selectLineUp: unavailable, selectLineDown: unavailable,
+    previousPage: unavailable, nextPage: unavailable, selectPreviousPage: unavailable, selectNextPage: unavailable,
+    moveHome: unavailable, moveEnd: unavailable, selectHome: unavailable, selectEnd: unavailable,
+    moveDocumentStart: () => ({ kind: 'edit', operation: { kind: 'moveDocumentStart' } }),
+    moveDocumentEnd: () => ({ kind: 'edit', operation: { kind: 'moveDocumentEnd' } }),
+    selectDocumentStart: () => ({ kind: 'edit', operation: { kind: 'moveDocumentStart', extendSelection: true } }),
+    selectDocumentEnd: () => ({ kind: 'edit', operation: { kind: 'moveDocumentEnd', extendSelection: true } }),
+  };
+}
+
 export function textAreaVisualHandlers(input: ComponentInput<TextAreaModel>): Readonly<
   Partial<Record<TextAreaKeyAction, ElementKeyHandler<TextAreaComponentAction>>>
 > {

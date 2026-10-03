@@ -34,6 +34,8 @@ interface TextAreaBaseOptions<TMessage extends ComponentMessage> {
   readonly required?: boolean;
   readonly error?: string;
   readonly readOnly?: boolean;
+  /** Accepted editor work is pending; this semantic state does not reject further input. */
+  readonly busy?: boolean;
   readonly styles?: import("../../element/metadata.ts").ElementStyles<TextAreaStylePart, 'focused' | 'hovered' | 'active' | 'selected' | 'disabled' | 'readOnly'>;
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles']>;
 }

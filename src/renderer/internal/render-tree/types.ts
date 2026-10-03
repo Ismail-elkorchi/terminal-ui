@@ -210,7 +210,6 @@ export interface RenderNodeRenderer<
 > {
   onLayout?(input: RenderNodeLayoutCommitInput<TMessage, TKind>): unknown;
   readonly clipChildren?: boolean;
-  readonly retainPaint?: boolean;
   keyMap?(input: RenderNodeKeyInput<TMessage, TKind>): import('../../../element/metadata.ts').ElementKeyBindings<TMessage> | undefined;
   place?(input: RenderNodePlaceInput<TMessage, TKind>): Rect;
   measure(input: RenderNodeMeasureInput<TMessage, TKind>): Measurement;

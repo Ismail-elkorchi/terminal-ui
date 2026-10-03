@@ -1,7 +1,11 @@
 import type { InitialFocusSelector } from '../../interaction/focus.ts';
 import type { TuiMessageSource } from '../../interaction/message.ts';
 import { decodeTuiUpdateResult } from '../hook-results.ts';
-import type { TuiCancellation, TuiContext, TuiEffect, TuiUpdate } from '../types.ts';
+import type { ContributionEntry } from '../lifecycle/contribution.ts';
+import { assertRuntimeLimit } from '../lifecycle/runtime-policy.ts';
+import { cancellationMatches, removedWork } from '../lifecycle/work-ownership.ts';
+import type { TuiEffectRequest } from '../lifecycle/effects.ts';
+import type { TuiCancellation, TuiContext, TuiUpdate } from '../types.ts';
 
 export interface PendingTuiMessage<TMessage> {
   readonly message: TMessage;
@@ -9,39 +13,58 @@ export interface PendingTuiMessage<TMessage> {
   readonly redacted?: boolean;
 }
 
+export interface RuntimeContribution<TMessage> extends ContributionEntry<TMessage> {
+  readonly redacted: boolean;
+}
+
 export interface RuntimeReduction<TState, TMessage> {
   readonly state: TState;
   readonly stateVersion: number;
   readonly messages: readonly PendingTuiMessage<TMessage>[];
-  readonly cancel: readonly TuiCancellation[];
-  readonly effects: readonly TuiEffect<TMessage>[];
-  readonly effectOrigins: readonly boolean[];
+  readonly contributions: readonly RuntimeContribution<TMessage>[];
   readonly focus?: InitialFocusSelector;
   readonly exitReason?: string;
 }
 
+/** Fold intent without launching provisional work or simulating execution policy. */
+export function normalizeRuntimeContributions<TMessage>(contributions: readonly RuntimeContribution<TMessage>[]) {
+  const cancel: TuiCancellation[] = [];
+  let effects: TuiEffectRequest<TMessage>[] = [];
+  for (const entry of contributions) {
+    for (const request of entry.cancel ?? []) {
+      cancel.push(request);
+      effects = effects.filter((item) => !cancellationMatches(request, item.effect));
+    }
+    for (const effect of entry.effects ?? []) {
+      if (effect.concurrency === 'replace') effects = effects.filter((item) => item.effect.id !== effect.id);
+      effects.push({ effect, redacted: entry.redacted });
+    }
+  }
+  return { cancel, effects: effects.filter((item) => !removedWork(item.effect, cancel)) };
+}
+
 export function createRuntimeReducer<TState, TMessage>(
   update: TuiUpdate<TState, TMessage>,
-  messageDispatched: () => void
+  messageDispatched: () => void,
+  maxContributions = 1_024,
 ) {
-  const reducer = {
-    reduce(state: TState, stateVersion: number, messages: readonly PendingTuiMessage<TMessage>[], context: TuiContext) {
+  return {
+    reduce(state: TState, stateVersion: number, messages: readonly PendingTuiMessage<TMessage>[], context: TuiContext): RuntimeReduction<TState, TMessage> {
       let nextStateVersion = stateVersion;
       let exitReason: string | undefined;
       let focus: InitialFocusSelector | undefined;
       const applied: PendingTuiMessage<TMessage>[] = [];
-      const cancel: TuiCancellation[] = [];
-      const effects: TuiEffect<TMessage>[] = [];
-      const effectOrigins: boolean[] = [];
+      const contributions: RuntimeContribution<TMessage>[] = [];
+      let count = 0;
       for (const item of messages) {
         if (exitReason !== undefined) break;
         messageDispatched();
-        const result = decodeTuiUpdateResult<TState, TMessage>(update(state, item.message, context));
+        const result = decodeTuiUpdateResult<TState, TMessage>(update(state, item.message, context), maxContributions - count);
         applied.push(item);
-        cancel.push(...(result.cancel ?? []));
-        effects.push(...(result.effects ?? []));
-        for (let index = 0; index < (result.effects?.length ?? 0); index += 1) {
-          effectOrigins.push(item.redacted === true);
+        for (const contribution of result.contributions) {
+          count += Math.max(1, (contribution.cancel?.length ?? 0) + (contribution.effects?.length ?? 0));
+          assertRuntimeLimit('transaction_contributions', count, maxContributions);
+          contributions.push({ ...contribution, redacted: item.redacted === true });
         }
         if (result.focus !== undefined) focus = result.focus;
         if (!Object.is(result.state, state)) nextStateVersion += 1;
@@ -49,16 +72,10 @@ export function createRuntimeReducer<TState, TMessage>(
         if (result.exit !== undefined) exitReason = result.exit.reason ?? '';
       }
       return {
-        state,
-        stateVersion: nextStateVersion,
-        messages: applied,
-        cancel,
-        effects,
-        effectOrigins,
+        state, stateVersion: nextStateVersion, messages: applied, contributions,
         ...(focus === undefined ? {} : { focus }),
-        ...(exitReason === undefined ? {} : { exitReason })
+        ...(exitReason === undefined ? {} : { exitReason }),
       };
-    }
+    },
   };
-  return reducer;
 }

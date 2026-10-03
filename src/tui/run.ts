@@ -128,6 +128,8 @@ export async function runTui<TState, TMessage>(
         );
       } else {
         const runtime = createTuiRuntimeWithCapabilitySnapshot({
+          runtimePolicy: normalized.runtimePolicy,
+          effectPolicy: normalized.effectPolicy,
           app,
           host: terminalHost,
           outputMode: normalized.outputMode,

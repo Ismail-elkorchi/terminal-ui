@@ -66,7 +66,7 @@ const chartBase = {
   parts: ['label', 'axis', 'series', 'value', 'legend', 'muted', 'baseline'] as const,
   visualStates: ['active', 'selected', 'disabled', 'busy'] as const,
   measure: measureChart,
-  retainPaint: true as const,
+  reuse: { paint: (model: object) => [model] as const },
   render: paintChart,
   accessibility: chartAccessibility,
   inspection: ({ model }: { readonly model: Readonly<ChartModel> }) => ({

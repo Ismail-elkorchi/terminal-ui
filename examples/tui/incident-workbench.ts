@@ -1,3 +1,4 @@
+import { createTuiCooperativeWorkContext } from '@ismail-elkorchi/terminal-ui/tui';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +12,8 @@ import {
   commandInput,
   defineTui,
   createTuiChild,
+  createTuiPreparedQuery,
+  combineTuiResults,
   liftTuiResult,
   createTuiControls,
   dialog,
@@ -24,10 +27,9 @@ import {
   surface,
   tabs,
   text,
-  textArea,
   tree
 } from '@ismail-elkorchi/terminal-ui';
-import type { TuiContext, TuiUpdateResult, TuiChildState, TuiChildMessage, TuiControlMessage } from '@ismail-elkorchi/terminal-ui';
+import type { TuiContext, TuiUpdateResult, TuiChildState, TuiChildMessage, TuiControlMessage, TuiPreparedQueryState, TuiPreparedQueryMessage } from '@ismail-elkorchi/terminal-ui';
 import {
   commandInputView,
   commandInputReducer,
@@ -35,9 +37,9 @@ import {
   createScrollState,
   dataGridReducer,
   createTableCollection,
+  prepareTableCollection,
   tabsReducer,
   createTextAreaState,
-  textAreaReducer,
   createTreeSource,
   createTreeView,
   treeReducer
@@ -45,7 +47,6 @@ import {
 import type { CommandInputState } from '@ismail-elkorchi/terminal-ui/behavior';
 import type {
   CompleteTableCollection,
-  TextAreaTransition,
   CommandInputTransition,
   ScrollableDataGridState,
   DataGridTransition,
@@ -57,6 +58,8 @@ import type {
   TreeTransition,
 } from '@ismail-elkorchi/terminal-ui';
 
+import { editorPanelDefinition, editorPanelController } from './features/editor-panel.ts';
+import type { EditorPanelState, EditorPanelMessage } from './features/editor-panel.ts';
 import { pickerDefinition } from './features/picker.ts';
 import type { PickerState, PickerMessage } from './features/picker.ts';
 
@@ -71,12 +74,17 @@ interface Ticket {
 
 type NavigationMetadata = Readonly<Record<string, string>>;
 type WorkspaceTab = 'issues' | 'activity' | 'notes';
+type QueueKey = Ticket['queue'] | 'all';
+interface PreparedIncidentSource { readonly key: QueueKey; readonly collection: CompleteTableCollection<Ticket>; }
 
 export interface WorkspaceState {
-  readonly notes: ReturnType<typeof createTextAreaState>;
+  readonly notes: TuiChildState<EditorPanelState>;
+  readonly notesNotice: string | null;
   readonly tab: WorkspaceTab;
   readonly tree: ScrollableTreeState;
   readonly table: ScrollableDataGridState;
+  readonly tableSources: Readonly<Partial<Record<QueueKey, CompleteTableCollection<Ticket>>>>;
+  readonly tablePreparation: TuiPreparedQueryState<PreparedIncidentSource>;
   readonly command: CommandInputState;
   readonly searchPicker: TuiChildState<PickerState<string>>;
   readonly resolved: ReadonlySet<string>;
@@ -87,9 +95,11 @@ export type WorkspaceMessage =
   | TuiControlMessage<typeof workspaceControls>
   | { readonly kind: 'tree'; readonly transition: TreeTransition }
   | { readonly kind: 'submit'; readonly value: string }
+  | { readonly kind: 'notes'; readonly message: TuiChildMessage<EditorPanelMessage> }
   | { readonly kind: 'picker'; readonly message: TuiChildMessage<PickerMessage<string>> }
   | { readonly kind: 'openSearchPicker' }
   | { readonly kind: 'closeSearchPicker' }
+  | { readonly kind: 'tablePrepared'; readonly completion: TuiPreparedQueryMessage<PreparedIncidentSource> }
   | { readonly kind: 'resolve' }
   | { readonly kind: 'exit' };
 
@@ -111,14 +121,25 @@ const queues = {
   done: tickets.filter(ticket => ticket.queue === 'done'),
 };
 
-const tableCollections = new WeakMap<readonly Ticket[], CompleteTableCollection<Ticket>>();
-function incidentCollection(rows: readonly Ticket[]) {
-  let collection = tableCollections.get(rows);
-  if (collection === undefined) {
-    collection = createTableCollection(rows, ticket => ticket.id);
-    tableCollections.set(rows, collection);
-  }
-  return collection;
+const emptyIncidentCollection = createTableCollection<Ticket>([], ticket => ticket.id);
+const tablePreparation = createTuiPreparedQuery({
+  id: 'incident-source',
+  prepare: async (key: QueueKey, context) => ({ key, collection: await prepareTableCollection(
+    incidentBatches(key), ticket => ticket.id, createTuiCooperativeWorkContext(context)) }),
+  toMessage: (completion: TuiPreparedQueryMessage<PreparedIncidentSource>): WorkspaceMessage => ({ kind: 'tablePrepared', completion }),
+});
+function* incidentBatches(key: QueueKey): Generator<readonly Ticket[]> {
+  const rows = ticketsForQueue(key === 'all' ? undefined : key);
+  for (let start = 0; start < rows.length; start += 256) yield rows.slice(start, start + 256);
+}
+function selectedQueue(state: WorkspaceState): QueueKey { return queueFromSelection(selectedTreeId(state.tree)) ?? 'all'; }
+function incidentCollection(state: WorkspaceState): CompleteTableCollection<Ticket> {
+  return state.tableSources[selectedQueue(state)] ?? emptyIncidentCollection;
+}
+function requestIncidentSource(state: WorkspaceState): TuiUpdateResult<WorkspaceState, WorkspaceMessage> {
+  const key = selectedQueue(state);
+  return liftTuiResult(state, 'tablePreparation', state.tableSources[key] === undefined
+    ? tablePreparation.request(state.tablePreparation, key) : tablePreparation.cancel(state.tablePreparation));
 }
 
 const tableColumns: readonly TableColumn<Ticket>[] = [
@@ -128,6 +149,8 @@ const tableColumns: readonly TableColumn<Ticket>[] = [
   { id: 'severity', header: 'Severity', value: (ticket) => ticket.severity, width: { kind: 'fixed', cells: 10 } },
   { id: 'status', header: 'Status', value: (ticket) => ticket.status, width: { kind: 'fixed', cells: 10 } }
 ];
+
+const tableColumnIds = Object.freeze(tableColumns.map(column => column.id));
 
 const commandEntries: readonly SearchEntry[] = [
   { id: 'issues', label: 'Open issues', value: '/issues', group: 'Navigation' },
@@ -149,10 +172,9 @@ const pickerKeymap = createSearchPickerKeymap({ next: [{ kind: 'key', key: 'n', 
 const navigationKeymap = createTreeKeymap({ next: [{ kind: 'key', key: 'j' }], previous: [{ kind: 'key', key: 'k' }] });
 
 const workspaceControls = createTuiControls<WorkspaceState>()({
-  notes: (notes, transition: TextAreaTransition) => textAreaReducer(notes, transition).state,
   table: (table, transition: DataGridTransition, state) => dataGridReducer(table, transition, {
-    collection: incidentCollection(visibleTickets(state)),
-    columnIds: tableColumns.map((column) => column.id), pageSize: 12,
+    collection: incidentCollection(state),
+    columnIds: tableColumnIds, pageSize: 12,
   }),
   tab: (tab, transition: TabsTransition<WorkspaceTab>) => tabsReducer(
     { activeId: tab, selectedId: tab }, transition,
@@ -166,6 +188,13 @@ const workspaceControls = createTuiControls<WorkspaceState>()({
 
 const picker = createTuiChild(pickerDefinition(searchPickerBatches, pickerKeymap),
   (message): WorkspaceMessage => ({ kind: 'picker', message }));
+
+const notesEditor = createTuiChild({
+  ...editorPanelDefinition,
+  init: () => ({ state: { label: 'Incident response notes', editor: editorPanelController.init(createTextAreaState({
+    value: 'Incident response notes\n\nHypothesis:\nEvidence:\nNext steps:\n',
+  })) } }),
+}, (message): WorkspaceMessage => ({ kind: 'notes', message }));
 
 const emptyCommandSuggestions = createCommandSuggestions([]);
 
@@ -184,7 +213,8 @@ function navigationNodes(): readonly TreeNode<NavigationMetadata>[] {
 
 function initialState(context: TuiContext): WorkspaceState {
   return {
-    notes: createTextAreaState({ value: 'Incident response notes\n\nHypothesis:\nEvidence:\nNext steps:\n' }),
+    notes: notesEditor.init({ id: 'incident-notes', generation: 0 }, context).state,
+    notesNotice: null,
     tab: 'issues',
     tree: {
       expandedIds: ['workspace'],
@@ -192,6 +222,8 @@ function initialState(context: TuiContext): WorkspaceState {
       selection: { mode: 'single', selectedId: 'queue:triage', selectionFollowsActive: true },
       scroll: createScrollState()
     },
+    tableSources: {},
+    tablePreparation: tablePreparation.init(),
     table: {
       interaction: {
         kind: 'row',
@@ -210,13 +242,18 @@ function initialState(context: TuiContext): WorkspaceState {
 export const incidentWorkbenchApp = defineTui<WorkspaceState, WorkspaceMessage>({
   id: 'incident-workbench',
   init: context => ({
-    state: initialState(context),
+    ...requestIncidentSource(initialState(context)),
     focus: {
       kind: 'path',
       path: ['workspace-root', 'workspace-grid', 'workspace-command-surface', 'workspace-command'],
     },
   }),
-  update: updateWorkspace,
+  update: (state, message, context) => {
+    const updated = updateWorkspace(state, message, context);
+    return selectedQueue(updated.state) === selectedQueue(state) ? updated
+      : combineTuiResults(updated.state, updated, requestIncidentSource(updated.state));
+  },
+  subscriptions: (state, context) => [...picker.subscriptions(state.searchPicker, context), ...notesEditor.subscriptions(state.notes, context)],
   view: workspaceView,
   inputBindings: [{
     id: 'exit',
@@ -235,7 +272,23 @@ function updateWorkspace(
   context: TuiContext
 ): TuiUpdateResult<WorkspaceState, WorkspaceMessage> {
   switch (message.kind) {
+    case 'tablePrepared': {
+      const next = tablePreparation.update(state.tablePreparation, message.completion);
+      if (next.state === state.tablePreparation) return { state };
+      const prepared = message.completion.kind === 'ready' ? message.completion.result : undefined;
+      return { ...next, state: { ...state, tablePreparation: next.state,
+        ...(prepared === undefined ? {} : { tableSources: { ...state.tableSources, [prepared.key]: prepared.collection },
+          table: selectTableRow(state.table, selectedTableRowId(state.table), prepared.collection) }) } };
+    }
     case 'control': return workspaceControls.update(state, message);
+    case 'notes': {
+      const { outputs, ...updated } = liftTuiResult(state, 'notes', notesEditor.update(state.notes, message.message, context));
+      const notice = outputs?.find((output) => output.kind === 'rejected' || output.kind === 'failed' || output.kind === 'historyRejected');
+      const notesNotice = notice?.kind === 'rejected' ? `Notes input rejected: ${notice.reason}`
+        : notice?.kind === 'failed' ? notice.diagnostic.message
+        : notice?.kind === 'historyRejected' ? `Notes history limit: ${notice.rejection.reason}` : null;
+      return { ...updated, state: { ...updated.state, notesNotice } };
+    }
     case 'tree': {
       const nextTree = treeReducer(state.tree, message.transition, {
         source: navigationTreeSource,
@@ -244,9 +297,9 @@ function updateWorkspace(
       const queue = queueFromSelection(selectedTreeId(nextTree));
       const rows = ticketsForQueue(queue);
       const currentRowId = selectedTableRowId(state.table);
-      const selectedRowId = currentRowId !== undefined
-        && rows.some((ticket) => ticket.id === currentRowId)
-        ? currentRowId
+      const currentTicket = currentRowId === undefined ? undefined : ticketById.get(currentRowId);
+      const selectedRowId = currentTicket !== undefined && (queue === undefined || currentTicket.queue === queue)
+        ? currentTicket.id
         : rows[0]?.id ?? firstTicket().id;
       return updateResult({
         ...state,
@@ -305,12 +358,7 @@ function applyCommand(state: WorkspaceState, raw: string): WorkspaceState {
       return {
         ...cleared, tab: 'issues',
         tree: { ...state.tree, activeId: `queue:${ticket.queue}`, selection: { mode: 'single', selectedId: `queue:${ticket.queue}`, selectionFollowsActive: true } },
-        table: dataGridReducer(state.table, { kind: 'setActiveRow', rowId: ticket.id }, {
-          collection: incidentCollection(ticketsForQueue(ticket.queue)),
-          columnIds: tableColumns.map(column => column.id),
-          // A search jump anchors the selected row visibly without guessing allocated height.
-          pageSize: 1,
-        }),
+        table: selectTableRow(state.table, ticket.id, state.tableSources[ticket.queue]),
         activity: [...state.activity, `Inspected ${ticket.id}.`],
       };
     }
@@ -323,7 +371,7 @@ function workspaceView(state: WorkspaceState, context: TuiContext) {
   }
   const body = splitPane([
     navigationPane(state),
-    mainPane(state),
+    mainPane(state, context),
     inspectorPane(state)
   ], {
     id: 'workspace-panes',
@@ -388,7 +436,7 @@ function navigationPane(state: WorkspaceState) {
   });
 }
 
-function mainPane(state: WorkspaceState) {
+function mainPane(state: WorkspaceState, context: TuiContext) {
   return tabs({
     id: 'workspace-tabs',
     meta: { accessibleName: 'Workspace panels' },
@@ -397,20 +445,23 @@ function mainPane(state: WorkspaceState) {
     tabs: [
       { id: 'issues', label: 'Issues', panel: issuesPanel(state) },
       { id: 'activity', label: 'Activity', panel: activityPanel(state) },
-      { id: 'notes', label: 'Notes', panel: notesPanel(state) }
+      { id: 'notes', label: 'Notes', panel: notesPanel(state, context) }
     ],
     onTransition: workspaceControls.onTransition('tab')
   });
 }
 
 function issuesPanel(state: WorkspaceState) {
-  const rows = visibleTickets(state);
+  const collection = incidentCollection(state);
+  const pending = state.tableSources[selectedQueue(state)] === undefined;
   return surface(dataGrid({
     id: 'ticket-table',
     meta: { accessibleName: 'Issues' },
-    collection: incidentCollection(rows),
+    collection,
     columns: tableColumns,
     ...workspaceControls.bind('table', state),
+    ...(pending ? { state: { ...state.table, interaction: { kind: 'row' as const, selection: { mode: 'single' as const, selectionFollowsActive: true } } } } : {}),
+    emptyText: pending ? state.tablePreparation.error?.message ?? 'Preparing incidents…' : 'No incidents',
     scrollbar: { visible: 'auto' },
     stickyHeader: true,
   }), { id: 'issues-panel', appearance: 'neutral', padding: 1 });
@@ -420,14 +471,8 @@ function activityPanel(state: WorkspaceState) {
   return surface(column(state.activity.map((entry, index) => text({ content: `${String(index + 1).padStart(2, '0')} ${entry}`, id: `activity-${String(index)}` }))), { id: 'activity-panel', appearance: 'neutral', padding: 1 });
 }
 
-function notesPanel(state: WorkspaceState) {
-  return surface(textArea({
-    id: 'incident-notes',
-    meta: { accessibleName: 'Incident response notes' },
-    ...workspaceControls.bind('notes', state),
-    lineNumbers: true,
-    scrollbar: { visible: 'auto' },
-  }), { id: 'notes-panel', appearance: 'neutral', padding: 1 });
+function notesPanel(state: WorkspaceState, context: TuiContext) {
+  return surface(notesEditor.view(state.notes, context), { id: 'notes-panel', appearance: 'neutral', padding: 1 });
 }
 
 function inspectorPane(state: WorkspaceState) {
@@ -456,7 +501,7 @@ function workspaceStatus(state: WorkspaceState) {
   return statusBar({
     id: 'workspace-status',
     leading: [{ id: 'selected', kind: 'status', text: ticket.id, status: state.resolved.has(ticket.id) ? 'success' : ticket.status }],
-    center: [{ id: 'tab', kind: 'text', text: state.tab }],
+    center: [{ id: 'tab', kind: 'text', text: state.tab === 'notes' ? state.notesNotice ?? 'notes' : state.tab }],
     trailing: [{ id: 'count', kind: 'text', text: `${String(visibleTickets(state).length)} visible` }]
   });
 }
@@ -521,9 +566,17 @@ function visibleTickets(state: WorkspaceState): readonly Ticket[] {
 }
 
 function selectedTicket(state: WorkspaceState): Ticket {
-  return visibleTickets(state).find((ticket) => ticket.id === selectedTableRowId(state.table))
-    ?? visibleTickets(state)[0]
-    ?? firstTicket();
+  const id = selectedTableRowId(state.table);
+  const selected = id === undefined ? undefined : ticketById.get(id);
+  const queue = queueFromSelection(selectedTreeId(state.tree));
+  return selected !== undefined && (queue === undefined || selected.queue === queue)
+    ? selected : visibleTickets(state)[0] ?? firstTicket();
+}
+
+function selectTableRow(table: ScrollableDataGridState, id: string | undefined, collection?: CompleteTableCollection<Ticket>): ScrollableDataGridState {
+  if (id === undefined) return table;
+  if (collection !== undefined) return dataGridReducer(table, { kind: 'setActiveRow', rowId: id }, { collection, columnIds: tableColumnIds, pageSize: 1 });
+  return { ...table, interaction: { kind: 'row', activeRowId: id, selection: { mode: 'single', selectedRowId: id, selectionFollowsActive: true } } };
 }
 
 function selectedTreeId(state: ScrollableTreeState): string | undefined {

@@ -1,3 +1,4 @@
+import type { TuiContribution, TuiScopedSource } from './contribution-types.ts';
 import type { AccessibleSnapshot } from '../accessibility/types.ts';
 import type { DiagnosticOccurrence, TerminalDiagnostic } from '../diagnostics.ts';
 import type { Element } from '../element/types.ts';
@@ -96,6 +97,7 @@ export type TuiCancellation =
 /** The contribution shared by application, child and prepared-query updates. */
 export interface TuiUpdateContribution<TState, TMessage, TFocus extends InitialFocusSelector = InitialFocusSelector> {
   readonly state: TState;
+  readonly contribution?: TuiContribution<TMessage>;
   readonly cancel?: readonly TuiCancellation[];
   readonly effects?: readonly TuiEffect<TMessage>[];
   readonly focus?: TFocus;
@@ -156,6 +158,10 @@ export interface TuiEffect<TMessage> {
 }
 
 export interface TuiEffectPolicy {
+  /** All provisional, queued, running, settling and retiring effect obligations. */
+  readonly maxOwned?: number;
+  /** Maximum success or recovery messages in one atomic effect output. */
+  readonly maxOutputMessages?: number;
   readonly maxActive: number;
   readonly maxActivePerId: number;
   readonly maxQueued: number;
@@ -215,7 +221,7 @@ export interface TuiExitRequest {
 export type TuiSubscriptions<TState, TMessage> = (
   state: TState,
   context: TuiContext
-) => readonly TuiEventSource<TMessage>[];
+) => readonly (TuiEventSource<TMessage> | TuiScopedSource<TMessage>)[];
 export type TuiExitHandler<TState> = (state: TState) => void | Promise<void>;
 
 export type TuiTheme<TState> =
@@ -252,7 +258,19 @@ export type TuiRunResult<TState> = Exclude<
   { readonly status: 'error' }
 >;
 
+/** Finite retained-operation limits; generic message object graphs remain application-owned. */
+export interface TuiRuntimePolicy {
+  readonly maxPendingOperations: number;
+  readonly maxMessagesPerTransaction: number;
+  readonly maxContributionsPerTransaction: number;
+  readonly maxOwnedSources: number;
+  readonly maxSourceCapacity: number;
+  readonly maxContinuationMessages: number;
+  readonly maxContinuationTurns: number;
+}
+
 export interface TuiRuntimeOptions<TState, TMessage> {
+  readonly runtimePolicy?: Partial<TuiRuntimePolicy>;
   /** Select one terminal output owner; accessible appends semantic changes to scrollback. */
   readonly outputMode?: 'visual' | 'accessible';
   readonly app: TuiApp<TState, TMessage>;
@@ -273,6 +291,8 @@ export interface TuiRuntimeOptions<TState, TMessage> {
 }
 
 export interface TuiRunOptions<TState = unknown> {
+  readonly runtimePolicy?: Partial<TuiRuntimePolicy>;
+  readonly effectPolicy?: TuiEffectPolicy;
   /** Accessible output keeps the main screen and requires no graphics. */
   readonly outputMode?: 'visual' | 'accessible';
   readonly host?: TerminalHost;
@@ -351,8 +371,13 @@ export interface TuiRuntimeMetrics {
     readonly active: number;
     readonly queued: number;
     readonly rejected: number;
+    readonly owned: number;
   };
-  readonly sources: TuiSourceChannelMetrics;
+  readonly sources: TuiSourceChannelMetrics & {
+    readonly owned: number;
+    readonly capacity: number;
+    readonly retiring: number;
+  };
 }
 
 /** @beta */

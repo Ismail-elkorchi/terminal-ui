@@ -1,3 +1,4 @@
+import { createSuggestionFixture } from '../support/collection-fixtures.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -22,7 +23,7 @@ import {
   grid,
   splitPane
 } from '../../dist/layout/index.js';
-import { createCommandSuggestions, createSearchPickerIndex, querySearchPickerIndex, createLogHistory } from '../../dist/behavior/index.js';
+import { createSearchPickerIndex, querySearchPickerIndex, createLogHistory } from '../../dist/behavior/index.js';
 
 const actionIndex = createSearchPickerIndex([
   { id: 'open', label: 'Open', value: 'open' },
@@ -84,7 +85,7 @@ function workspaceView(state) {
     commandInput({
       id: 'command',
       prompt: '/',
-      view: { input: { text: state.query, cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
+      view: { input: { text: state.query, cursor: 0 }, open: false, ...createSuggestionFixture([]) },
       onTransition: () => ({ type: 'component' })
     })
   ], {

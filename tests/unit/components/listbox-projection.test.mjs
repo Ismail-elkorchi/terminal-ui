@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createListboxCollection, listboxReducer, visibleListboxEntries } from '../../../dist/behavior/index.js';
+import { createListboxCollection, createListboxView, listboxReducer, visibleListboxEntries } from '../../../dist/behavior/index.js';
 import { listbox } from '../../../dist/components/index.js';
 import { createMemoryTerminalHost } from '../../../dist/host/index.js';
 import { renderFramePlain } from '../../../dist/renderer/index.js';
@@ -25,7 +25,8 @@ test('listbox painting, keyboard navigation, and matches use one ranked projecti
     mapped += 1;
     return item;
   });
-  const options = { collection, query: { text: 'a', mode: 'contains' } };
+  const query = { text: 'a', mode: 'contains' };
+  const options = { collection, query, view: createListboxView(collection, { query }) };
   const initial = { activeId: 'first', selection };
   const app = defineTui({
     id: 'ranked-listbox',
@@ -54,7 +55,8 @@ test('listbox query can match across label and description', () => {
   const collection = createListboxCollection([
     { id: 'entry', label: 'alpha', description: 'beta' },
   ], (item) => item);
-  const options = { collection, query: { text: 'alpha beta', mode: 'contains' } };
+  const query = { text: 'alpha beta', mode: 'contains' };
+  const options = { collection, query, view: createListboxView(collection, { query }) };
   assert.deepEqual(visibleListboxEntries(options).map((entry) => entry.id), ['entry']);
   const rendered = renderElementSnapshot({
     terminalSize: { columns: 25, rows: 2 },
@@ -77,7 +79,7 @@ test('windowed listbox preserves server-owned rows and order', () => {
     totalCount: 100,
     scope: { kind: 'query', query: { text: 'elsewhere', mode: 'contains' } },
   });
-  const entries = visibleListboxEntries({ collection });
+  const entries = visibleListboxEntries({ collection, view: createListboxView(collection) });
   assert.deepEqual(entries.map((entry) => [entry.id, entry.itemIndex]), [['server-result', 40]]);
   const rendered = renderElementSnapshot({
     terminalSize: { columns: 15, rows: 2 },
@@ -85,6 +87,7 @@ test('windowed listbox preserves server-owned rows and order', () => {
       id: 'window',
       meta: { accessibleName: 'Window' },
       collection,
+      view: createListboxView(collection),
       state: { selection },
       onTransition: (transition) => transition,
     }),

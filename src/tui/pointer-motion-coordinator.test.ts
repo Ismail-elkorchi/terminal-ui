@@ -32,7 +32,7 @@ void test('pointer motion retains only the latest queued sample while a dispatch
   coordinator.enqueue(sample(3));
   firstRelease.resolve(true);
 
-  assert.deepEqual(await coordinator.flush(), [1, 3]);
+  assert.deepEqual(await coordinator.flush(), [3]);
   assert.deepEqual(executed, [1, 3]);
 });
 
@@ -57,6 +57,55 @@ void test('pointer motion stops before dispatching a stale queued sample', async
   firstRelease.resolve(true);
 
   assert.deepEqual(await coordinator.flush(), [1]);
+});
+
+void test('a continuously replenished pointer cycle retains only its final result', async () => {
+  let completed = 0;
+  const coordinator = createPointerMotionCoordinator<number>({
+    async execute(current) {
+      completed += 1;
+      if (completed < 1_000) coordinator.enqueue(sample(completed + 1));
+      return current.event.column;
+    },
+    reportFailure(cause) { throw cause; },
+    stop: () => false
+  });
+
+  coordinator.enqueue(sample(1));
+  const pending = coordinator.pending();
+  assert.deepEqual(await pending, [1_000]);
+  assert.equal(completed, 1_000);
+  assert.equal(coordinator.pending(), undefined);
+});
+
+void test('pointer failure, reset, and disposal settle without retaining queued samples', async () => {
+  const entered = Promise.withResolvers<undefined>();
+  const release = Promise.withResolvers<undefined>();
+  const failures: unknown[] = [];
+  const failure = new Error('pointer failed');
+  const coordinator = createPointerMotionCoordinator<number>({
+    async execute() {
+      entered.resolve(undefined);
+      await release.promise;
+      throw failure;
+    },
+    reportFailure: (cause) => { failures.push(cause); },
+    stop: () => false
+  });
+  coordinator.enqueue(sample(1));
+  await entered.promise;
+  coordinator.enqueue(sample(2));
+  coordinator.reset();
+  const pending = coordinator.flush();
+  const disposed = new Error('disposed');
+  coordinator.dispose(disposed);
+  coordinator.dispose(new Error('again'));
+  assert.throws(() => { coordinator.enqueue(sample(3)); }, (cause) => cause === disposed);
+  release.resolve(undefined);
+  assert.deepEqual(await pending, []);
+  await coordinator.settle();
+  assert.deepEqual(failures, [failure]);
+  assert.deepEqual(await coordinator.flush(), []);
 });
 
 function motion(column: number): PointerMotionEvent {

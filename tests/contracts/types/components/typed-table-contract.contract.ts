@@ -1,3 +1,4 @@
+import { createTableCollection } from '@ismail-elkorchi/terminal-ui/behavior';
 import {
   dataGrid,
   tableColumn,
@@ -23,9 +24,8 @@ const rows: readonly ProcessRow[] = [{
 }];
 const column = tableColumn<ProcessRow>();
 const processes = dataGrid({
-  getRowId: (row) => String(row.pid),
   id: 'processes',
-  rows,
+  collection: createTableCollection(rows, (row) => String(row.pid)),
   columns: [
     column({
       id: 'pid',

@@ -1,6 +1,7 @@
 import { findUnsupportedField, isNonArrayObject } from '../foundation/validation.ts';
 import type { ElementVisualState } from '../visual/frame-source.ts';
-import { maximumModelDependencySlots, ownModelDependencies } from '../visual/model-dependencies.ts';
+import { maximumReuseDependencySlots } from '../visual/reuse-dependencies.ts';
+import { ownStyleDependencies } from '../visual/style-dependencies.ts';
 import type { TerminalStyle } from '../visual/render-content.ts';
 import { decodeTerminalStyle, mergeTerminalStyles } from '../visual/terminal-style.ts';
 import type { ElementStyles } from './metadata.ts';
@@ -49,7 +50,7 @@ export function decodeElementStyles(
     ...(states === undefined ? {} : { states }),
   };
   const slots = elementStylePaintSlots(model);
-  return slots === undefined ? Object.freeze(model) : ownModelDependencies(model, { paint: slots });
+  return slots === undefined ? Object.freeze(model) : ownStyleDependencies(model, slots);
 }
 
 // Styles are already validated and owned. Snapshot only a bounded number of
@@ -60,7 +61,7 @@ function elementStylePaintSlots(
   const slots: unknown[] = [stylesPaintDescriptor, value.root];
   const appendParts = (parts: Readonly<Record<string, TerminalStyle | undefined>> | undefined): boolean => {
     for (const name in parts) {
-      if (slots.length + 2 > maximumModelDependencySlots) return false;
+      if (slots.length + 2 > maximumReuseDependencySlots) return false;
       slots.push(name, parts[name]);
     }
     return true;
@@ -68,12 +69,12 @@ function elementStylePaintSlots(
   if (!appendParts(value.parts)) return undefined;
   slots.push(statesPaintDescriptor);
   for (const state in value.states) {
-    if (slots.length + 3 > maximumModelDependencySlots) return undefined;
+    if (slots.length + 3 > maximumReuseDependencySlots) return undefined;
     const style = value.states[state as Exclude<ElementVisualState, 'default'>];
     slots.push(statePaintDescriptor, state, style?.root);
     if (!appendParts(style?.parts)) return undefined;
   }
-  return slots.length > maximumModelDependencySlots ? undefined : slots;
+  return slots.length > maximumReuseDependencySlots ? undefined : slots;
 }
 
 /** Returns an owned, immutable, right-biased composition of component style matrices. */

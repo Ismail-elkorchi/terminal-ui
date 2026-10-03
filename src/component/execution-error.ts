@@ -2,6 +2,7 @@ export type ComponentDefinitionName = `${string}/${string}`;
 
 export type ComponentExecutionPhase =
   | 'createModel'
+  | 'reuse'
   | 'inspection'
   | 'compose'
   | 'measure'

@@ -28,6 +28,7 @@ import {
   type LogViewerViewInput,
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import {
+  createTuiCooperativeWorkContext,
   createTuiPreparedQuery,
   type TuiPreparedQueryMessage,
   type TuiPreparedQueryState,
@@ -43,10 +44,7 @@ type Message =
 
 const prepared = createTuiPreparedQuery({
   id: 'log-view',
-  prepare: (input: LogViewerViewInput, context) => prepareLogViewerView(input, {
-    signal: context.signal,
-    yield: async () => { await context.clock.sleep(0, context.signal); },
-  }),
+  prepare: (input: LogViewerViewInput, context) => prepareLogViewerView(input, createTuiCooperativeWorkContext(context)),
   toMessage: (result): Message => ({ kind: 'prepared', result }),
 });
 
@@ -88,14 +86,17 @@ and profile. A plain unwrapped log without search can pass `view: null` directly
 Do not put synchronous preparation in a live view/update and expect cooperative
 input handling.
 
-Source creation/sanitization, input normalization, individual-record searching
-and wrapping, and visible-record painting remain synchronous. Query preparation
-yields between bounded batches of records or collected matches, after each
-individual record's search has completed. Geometry yields within cold segments
-and between assembled segments, including cache hits. Preparation removes
-whole-history query and cold-width wrapping from the serialized frame path; it
-is not an off-thread renderer or a hard latency bound for arbitrarily large
-single records.
+Source normalization, individual-field searching and wrapping also cooperate
+within long records. Use `prepareLogHistory` or `prepareAppendLogHistory` with
+bounded descriptor batches when adopting live data. The source owns at most 256
+descriptors and 1024 metadata fields before the first yield from each batch;
+strings and payload work then charge the shared cooperative budget. Matching
+reuses source-prepared fields, including folded views and original offsets.
+Geometry charges both cold segment work and cached segment assembly. Native
+calls, getters, callbacks and single grapheme operations remain indivisible;
+these APIs are not an off-thread renderer or a hard latency bound. See
+[retained collection sources](./retained-collection-sources.md) for reader and
+immutable-payload contracts.
 
 The runtime regressions exercise 6,000-entry search replacement and a wrapped
 20,000-entry application with paused cold preparation, newer queries, actual

@@ -96,7 +96,7 @@ export function assertLogViewerView(view: unknown): asserts view is LogViewerVie
 }
 
 type OwnedViewInput = OwnedInput & Pick<LogViewerView, 'wrap' | 'width' | 'widthProfile'>;
-function* prepareViewWork(input: LogViewerViewInput, foldedIds = input.foldedIds): Generator<void, LogViewerView> {
+function* prepareViewWork(input: LogViewerViewInput, foldedIds = input.foldedIds): Generator<number, LogViewerView> {
   const request = { query: input.query === undefined ? undefined : Object.freeze({ ...input.query }), foldedIds, foldedCount: foldedIds?.length ?? 0 };
   const base = yield* ownInputWork(input);
   let owned: OwnedViewInput = { ...base, wrap: false };
@@ -109,7 +109,7 @@ function* prepareViewWork(input: LogViewerViewInput, foldedIds = input.foldedIds
   return view;
 }
 
-function* viewWork(input: OwnedViewInput): Generator<void, LogViewerView> {
+function* viewWork(input: OwnedViewInput): Generator<number, LogViewerView> {
   const search = yield* queryWork(input);
   const layouts: LogViewerLayout[] = [];
   if (input.wrap && input.width !== undefined && input.widthProfile !== undefined) {
@@ -130,7 +130,7 @@ function* viewWork(input: OwnedViewInput): Generator<void, LogViewerView> {
 }
 
 type OwnedInput = Required<LogViewerSearchInput> & { readonly query: CompiledCollectionQuery };
-function* ownInputWork(input: LogViewerSearchInput): Generator<void, OwnedInput> {
+function* ownInputWork(input: LogViewerSearchInput): Generator<number, OwnedInput> {
   assertLogHistory(input.history);
   const foldedIds = yield* ownLogViewerFoldedIdsWork(input.foldedIds);
   return { history: input.history, query: yield* compileCollectionQueryWork(input.query ?? { text: '', mode: 'contains' }), foldedIds };
@@ -139,7 +139,7 @@ function inputKey(input: OwnedInput): string {
   return JSON.stringify([input.query.text, input.query.mode, input.query.caseSensitive, input.foldedIds]);
 }
 
-function* queryWork(input: OwnedInput): Generator<void, LogViewerSearchResult> {
+function* queryWork(input: OwnedInput): Generator<number, LogViewerSearchResult> {
   const key = inputKey(input);
   const cache = queryCache.get(input.history) ?? new Map<string, LogViewerSearchResult | WeakRef<LogViewerSearchResult>>();
   queryCache.set(input.history, cache);
@@ -183,10 +183,10 @@ function* queryWork(input: OwnedInput): Generator<void, LogViewerSearchResult> {
           fields.set(match.field, byKey);
           positions.set(match.id, matches.length);
           matches.push(match);
-          if (++operations % 256 === 0) yield;
+          if (++operations % 256 === 0) yield 256;
         }
         if (found.length > 0) records.set(record, { retained: found, fields });
-        if (++operations % 256 === 0) yield;
+        if (++operations % 256 === 0) yield 256;
       }
     }
   }
@@ -205,13 +205,13 @@ function* queryWork(input: OwnedInput): Generator<void, LogViewerSearchResult> {
   return result;
 }
 
-function* ownLogViewerFoldedIdsWork(ids: readonly string[] | undefined): Generator<void, readonly string[]> {
+function* ownLogViewerFoldedIdsWork(ids: readonly string[] | undefined): Generator<number, readonly string[]> {
   const unique = new Set<string>();
   let operations = 0;
   for (const id of ids ?? []) {
     if (typeof id !== 'string') throw new TypeError('Log viewer folded IDs must be strings.');
     unique.add((yield* sanitizeTerminalTextWork(id)).text);
-    if (++operations % 256 === 0) yield;
+    if (++operations % 256 === 0) yield 256;
   }
   return Object.freeze(yield* stableSortWork(unique, (left, right) => left < right ? -1 : left > right ? 1 : 0));
 }

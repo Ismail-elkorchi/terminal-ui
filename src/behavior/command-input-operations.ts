@@ -1,6 +1,5 @@
 import type { CollectionWindow } from '../collection/snapshot.ts';
-import { collectionItemById } from '../collection/snapshot.ts';
-import { collectionInteractionPosition } from '../interaction/collection-interaction.ts';
+import { collectionInteractionCount, collectionInteractionIdAt } from '../interaction/collection-interaction.ts';
 import type {
   EditablePopupInputState,
   EditablePopupInputTransition,
@@ -24,6 +23,7 @@ import { createListboxView } from './listbox-view.ts';
 import type {
   CompleteListboxCollection,
   ListboxCollection,
+  ListboxView,
   ListboxViewEntry,
   WindowedListboxCollection,
 } from './listbox.ts';
@@ -37,6 +37,7 @@ export interface CommandInputState {
   readonly draft?: TextEditBuffer;
   readonly submissionIndex?: number;
   readonly suggestions: ListboxCollection<CommandCompletion>;
+  readonly suggestionView: ListboxView<CommandCompletion>;
 }
 
 export function commandInputView(state: CommandInputState): CommandInputView {
@@ -44,6 +45,7 @@ export function commandInputView(state: CommandInputState): CommandInputView {
     input: state.editor.input,
     open: state.editor.open,
     suggestions: state.suggestions,
+    suggestionView: state.suggestionView,
     ...(!state.editor.open || state.editor.activeId === undefined
       ? {}
       : { activeSuggestionId: state.editor.activeId }),
@@ -70,14 +72,15 @@ export function createCommandInputState(input: CreateCommandInputStateInput): Co
     editor: createEditablePopupInputState({
       ...(input.value === undefined ? {} : { value: input.value }),
       ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
-      open: suggestions.selectable.length > 0,
+      open: collectionInteractionCount(suggestions.interactionIndex) > 0,
       ...(input.editHistoryPolicy === undefined ? {} : {
         editHistoryPolicy: input.editHistoryPolicy
       })
     }, suggestions.interactionIndex),
     submissions: ownSubmissions(input.submissions ?? [], submissionLimit),
     submissionLimit,
-    suggestions: input.suggestions
+    suggestions: input.suggestions,
+    suggestionView: suggestions,
   };
 }
 
@@ -112,7 +115,7 @@ export function commandInputReducer(
       const editor = acceptEditablePopupCompletion(
         state.editor,
         suggestion.value,
-        commandEditorOptions(state.suggestions),
+        commandEditorOptions(state.suggestionView),
       );
       return leaveSubmissionHistory({ ...state, editor });
     }
@@ -122,7 +125,7 @@ export function commandInputReducer(
         editor: editablePopupInputReducer(
           state.editor,
           { kind: 'dismiss', reason: transition.reason },
-          commandEditorOptions(state.suggestions),
+          commandEditorOptions(state.suggestionView),
         ),
       };
   }
@@ -135,7 +138,7 @@ function applyCommandTransition(
   const editor = editablePopupInputReducer(
     state.editor,
     transition,
-    commandEditorOptions(state.suggestions),
+    commandEditorOptions(state.suggestionView),
   );
   return editor === state.editor ? state : leaveSubmissionHistory({ ...state, editor });
 }
@@ -154,7 +157,7 @@ function commandInputHistory(state: CommandInputState, direction: 1 | -1): Comma
         cursor: draft.cursor,
         open: state.editor.open,
         editHistoryPolicy: state.editor.editHistory.policy,
-      }, createListboxView(state.suggestions).interactionIndex),
+      }, state.suggestionView.interactionIndex),
     });
   }
   const value = state.submissions[next];
@@ -165,7 +168,7 @@ function commandInputHistory(state: CommandInputState, direction: 1 | -1): Comma
       value,
       open: state.editor.open,
       editHistoryPolicy: state.editor.editHistory.policy,
-    }, createListboxView(state.suggestions).interactionIndex),
+    }, state.suggestionView.interactionIndex),
     draft: state.draft ?? ownBuffer(state.editor.input),
     submissionIndex: next
   };
@@ -180,7 +183,7 @@ function recordSubmission(state: CommandInputState, rawValue: string): CommandIn
     ...state,
     editor: createEditablePopupInputState({
       editHistoryPolicy: state.editor.editHistory.policy,
-    }, createListboxView(state.suggestions).interactionIndex),
+    }, state.suggestionView.interactionIndex),
     submissions
   });
 }
@@ -193,27 +196,26 @@ function setCommandSuggestions(
   let editor = editablePopupInputReducer(
     state.editor,
     { kind: 'setActive', ...(state.editor.activeId === undefined ? {} : { id: state.editor.activeId }) },
-    commandEditorOptions(suggestions),
+    commandEditorOptions(view),
   );
   editor = editablePopupInputReducer(
     editor,
-    view.selectable.length === 0
+    collectionInteractionCount(view.interactionIndex) === 0
       ? { kind: 'dismiss', reason: 'programmatic' }
       : { kind: 'open' },
-    commandEditorOptions(suggestions),
+    commandEditorOptions(view),
   );
-  return { ...state, suggestions, editor };
+  return { ...state, suggestions, suggestionView: view, editor };
 }
 
 function acceptedSuggestion(
   state: CommandInputState
 ): ListboxViewEntry<CommandCompletion> | undefined {
-  const view = createListboxView(state.suggestions);
-  if (state.editor.activeId === undefined) return view.selectable[0];
-  const record = collectionItemById(view.source, state.editor.activeId);
-  if (record?.option.disabled !== false) return undefined;
-  const position = collectionInteractionPosition(view.interactionIndex, record.id);
-  return position === undefined ? undefined : view.selectable[position];
+  const view = state.suggestionView;
+  const id = state.editor.activeId ?? collectionInteractionIdAt(view.interactionIndex, 0);
+  if (id === undefined) return undefined;
+  const entry = view.entryById(id);
+  return entry?.option.disabled === false ? entry : undefined;
 }
 
 function leaveSubmissionHistory(state: CommandInputState): CommandInputState {
@@ -229,9 +231,9 @@ function withoutSubmissionTraversal(state: CommandInputState): CommandInputState
 }
 
 function commandEditorOptions(
-  suggestions: ListboxCollection<CommandCompletion>,
+  suggestions: ListboxView<CommandCompletion>,
 ) {
-  const index = createListboxView(suggestions).interactionIndex;
+  const index = suggestions.interactionIndex;
   return {
     indexForText: () => index,
     openOnEdit: suggestions.totalCount > 0,

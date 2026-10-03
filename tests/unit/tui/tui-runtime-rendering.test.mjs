@@ -1,3 +1,6 @@
+import { createListboxFixture } from '../../support/collection-fixtures.mjs';
+import { createTableCollection } from '../../../dist/behavior/index.js';
+import { inferTableColumns } from '../../../dist/components/index.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ignoreMessage } from '../../../dist/component/index.js';
@@ -69,8 +72,7 @@ test('TUI frame cursor follows the centered active listbox item', () => {
   const items = Array.from({ length: 10 }, (_value, index) => `Item ${index}`);
   const frame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
     id: 'cursor-listbox',
-    items,
-    toOption: (item) => ({ id: item, label: item }),
+    ...createListboxFixture(items, (item) => ({ id: item, label: item })),
     state: {
       activeId: 'Item 6',
       selection: { mode: 'single', selectedId: 'Item 6' }
@@ -154,18 +156,17 @@ test('TUI rendering windows large listbox and dataGrid components to visible hei
   const frame = renderElementFrame(column([
     listbox({ meta: { accessibleName: "List" },
       id: 'many-items',
-      items: manyItems,
-      toOption: (item) => ({ id: item, label: item }),
+      ...createListboxFixture(manyItems, (item) => ({ id: item, label: item })),
       state: {
         activeId: 'Item 990',
         selection: { mode: 'single', selectedId: 'Item 990' }
       },
       onTransition: (action) => action
     }),
-    dataGrid({ meta: { accessibleName: "Data grid" },
+    dataGrid({
+      columns: inferTableColumns(manyItems.map((item) => [item, 'value'])), meta: { accessibleName: "Data grid" },
       id: 'many-rows',
-      rows: manyItems.map((item) => [item, 'value']),
-      getRowId: (_row, index) => String(index),
+      collection: createTableCollection(manyItems.map((item) => [item, 'value']), (_row, index) => String(index)),
       state: { interaction: { kind: 'row', selection: { mode: 'single' } } },
       onTransition: (action) => action
     })

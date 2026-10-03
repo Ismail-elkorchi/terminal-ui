@@ -127,16 +127,13 @@ and a scheduler yield, so applications retain control of scheduling.
 
 ```ts
 import { prepareTextDocumentLine } from '@ismail-elkorchi/terminal-ui/text';
-import { createTuiPreparedQuery } from '@ismail-elkorchi/terminal-ui/tui';
+import { createTuiCooperativeWorkContext, createTuiPreparedQuery } from '@ismail-elkorchi/terminal-ui/tui';
 import type { TextDocument } from '@ismail-elkorchi/terminal-ui/text';
 
 const preparation = createTuiPreparedQuery({
   id: 'editor-source',
   prepare: (document: TextDocument, context) =>
-    prepareTextDocumentLine(document, 0, { geometry: true, words: true }, {
-      signal: context.signal,
-      yield: async () => { await context.clock.sleep(0, context.signal); },
-    }),
+    prepareTextDocumentLine(document, 0, { geometry: true, words: true }, createTuiCooperativeWorkContext(context)),
   toMessage: result => ({ kind: 'sourcePrepared' as const, result }),
 });
 ```
@@ -189,3 +186,64 @@ machine-readable `terminal-ui` artifacts remain logical-order data.
 `sanitizeTerminalControlText()` removes unsafe control sequences while retaining
 tabs and source-removal metadata. Use it when a source-mapped layout owns tab
 expansion; `sanitizeTerminalText()` also performs display expansion.
+
+## Atomic cooperative editing
+
+`prepareTextAreaReduction(state, transition, context)` (from `/behavior`) runs the
+same computation as `textAreaReducer`. Preparation includes caret and selection
+normalization, document mutation and Unicode seams, inverse extraction,
+undo/redo, insertion grouping, UTF-8 history byte accounting and eviction. It
+returns one complete `TextAreaReduction`; cancellation publishes no candidate.
+Do not warm a document and then synchronously replay a large paste: payload
+construction and history work need the same cooperative budget too.
+
+`createTextAreaState({ document })` adopts an immutable document without
+round-tripping through a string. `prepareTextAreaState(input, context)` also
+prepares a cold nonzero initial caret/selection cooperatively. Supply exactly
+one of `value` or `document`. A history-retention rejection is reported on the
+reduction while the complete text edit remains accepted.
+
+## Controlled editor workflow
+
+`createTuiControlledEditor({ id, toMessage })` from `/tui` packages reliable
+editing and latest-wins layout preparation in ordinary caller-owned child state.
+It owns no hidden document store. Keep its returned state in your parent model,
+compose its effects with `createTuiChild`/`liftTuiResult`, and send its completion
+messages to `update`.
+
+- `init(editing, generation)` starts a lifetime; use a fresh child generation on remount
+- `requestIntent` bounds active plus queued intents before acceptance. Its result
+  has an explicit `accepted` flag and a `rejected` output for overflow
+- Only the FIFO head prepares, against the preceding accepted editing state.
+  Relative navigation and undo/redo remain in order with typing and paste
+- Capture `{ sourceEpoch, semanticRevision, generation }` in view callbacks and
+  pass it as `origin` for absolute `moveTo`, pointer, scroll, replacement-range and
+  change-set intents. Stale coordinates, including coordinates arriving behind
+  queued edits, are explicitly rejected rather than applied to another revision
+- Pass `state.editing`, `state.preparedLayout`, and an `onLayoutRequest` callback
+  to `textArea`. Route only the exact accepted request to `requestLayout`.
+  Layout completion changes prepared geometry, never live caret/selection/history
+- Geometry-dependent keys during pending layout produce an explicit
+  `unavailable: layout-pending` transition. Handle the controller's rejection
+  output visibly; do not silently drop it
+- Run failures, including runtime execution-policy rejection, leave the accepted
+  head queued and dirty. Show the `failed` output and offer `retry` or explicit
+  `discardPending`. A malformed terminal effect output faults the runtime
+- `maxPendingIntents` defaults to 128. `maxPendingBytes` defaults to 1 MiB and
+  bounds retained UTF-16 payload plus descriptor overhead, including the head.
+  Optional `maxDocumentBytes` checks the complete candidate's UTF-8 size before
+  acceptance; overflow blocks that head with a visible recoverable failure
+
+`requestSettlement(state, token)` inserts a bounded FIFO save/close barrier. Its
+`settled` output carries an immutable snapshot of every preceding accepted
+intent; later edits may continue. Save that snapshot, then call `markSaved` with
+that same snapshot on successful I/O. A late save never marks newer content as
+saved. `isDirty` includes accepted pending edits, so an editor with an unchanged
+displayed document can still require a dirty-close decision.
+
+File I/O, save destinations and dirty-close decisions remain application-owned.
+`replaceSource(state, editing, { pending: 'reject' | 'discard' })` requires an
+explicit queue disposition. Merely hiding a tab should retain the child and its
+accepted work; actual removal cancels that lifetime. See
+[`editor-panel.ts`](../../examples/tui/features/editor-panel.ts) and
+[`ide-editor.ts`](../../examples/tui/ide-editor.ts) for composition and save handling.

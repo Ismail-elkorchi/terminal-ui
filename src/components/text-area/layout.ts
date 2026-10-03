@@ -5,7 +5,7 @@ import {
   textDocumentLineAt,
   textDocumentLineBoundaries,
   textDocumentLineCount,
-  textDocumentLines,
+  textDocumentLineEvents,
   textDocumentPreviousMutation,
 } from '../../text/document.ts';
 import type { SourceBoundaryIndex } from '../../text/source-boundaries.ts';
@@ -30,7 +30,7 @@ export interface TextAreaDocumentLayout {
   lineAtRow(rowIndex: number): TextAreaLayoutLine | undefined;
   linesInRows(startRowIndex: number, endRowIndexExclusive: number): readonly TextAreaLayoutLine[];
   allRowStartOffsets(): readonly number[];
-  rowStartOffsetsWork(): Generator<void, readonly number[]>;
+  rowStartOffsetsWork(): Generator<number, readonly number[]>;
   cursorAt(
     displayOffset: number,
     affinity: 'upstream' | 'downstream',
@@ -95,7 +95,7 @@ export function* layoutTextAreaDocumentWork(
   width: number,
   wrap: boolean,
   widthProfile: TextWidthProfile,
-): Generator<void, TextAreaDocumentLayout> {
+): Generator<number, TextAreaDocumentLayout> {
   const normalizedWidth = Math.max(0, Math.floor(width));
   const key = `${wrap ? 'wrap' : 'single'}:${String(wrap ? normalizedWidth : 0)}:${
     textWidthProfileKey(widthProfile)
@@ -129,7 +129,7 @@ function* updatedLayoutRoot(
   wrap: boolean,
   widthProfile: TextWidthProfile,
   key: string,
-): Generator<void, LayoutNode | undefined> {
+): Generator<number, LayoutNode | undefined> {
   const lineCount = textDocumentLineCount(document);
   const mutation = textDocumentPreviousMutation(document);
   const previousLayout = mutation === undefined
@@ -206,15 +206,15 @@ function createDocumentLayout(
 }
 
 /** Offset observation must not instantiate indexes for every wrapped visual row. */
-function* rowStartOffsetsWork(root: LayoutNode | undefined): Generator<void, readonly number[]> {
+function* rowStartOffsetsWork(root: LayoutNode | undefined): Generator<number, readonly number[]> {
   const offsets: number[] = [];
   let start = 0;
-  function* visit(node: LayoutNode | undefined): Generator<void, void> {
+  function* visit(node: LayoutNode | undefined): Generator<number, void> {
     if (node === undefined) return;
     yield* visit(node.left);
     for (const visual of node.line.visualLines) {
       offsets.push(start + visual.localStart);
-      if (offsets.length % 128 === 0) yield;
+      yield 1;
     }
     start += node.line.text.length + 1;
     yield* visit(node.right);
@@ -234,19 +234,20 @@ function* buildLayoutRange(
   width: number,
   wrap: boolean,
   widthProfile: TextWidthProfile,
-): Generator<void, LayoutNode | undefined> {
+): Generator<number, LayoutNode | undefined> {
   const lines: LogicalLineLayout[] = [];
   if (startLineIndex === 0 && endLineIndexExclusive === textDocumentLineCount(document)) {
-    for (const line of textDocumentLines(document)) {
+    for (const line of textDocumentLineEvents(document)) {
+      if (typeof line === 'number') { yield line; continue; }
       lines.push(yield* layoutLogicalLine(line.text, width, wrap, widthProfile, undefined, textDocumentLineBoundaries(document, line)));
-      if (lines.length % 128 === 0) yield;
+      yield 1;
     }
     return yield* buildBalancedLayout(lines, 0, lines.length, { nodes: 0 });
   }
   for (let lineIndex = startLineIndex; lineIndex < endLineIndexExclusive; lineIndex += 1) {
     const line = textDocumentLineAt(document, lineIndex);
     if (line !== undefined) lines.push(yield* layoutLogicalLine(line.text, width, wrap, widthProfile, undefined, textDocumentLineBoundaries(document, line)));
-    if (lines.length % 128 === 0) yield;
+    yield 1;
   }
   return yield* buildBalancedLayout(lines, 0, lines.length, { nodes: 0 });
 }
@@ -258,11 +259,12 @@ function* relayoutRoot(
   wrap: boolean,
   widthProfile: TextWidthProfile,
   budget: { nodes: number },
-): Generator<void, LayoutNode | undefined> {
+): Generator<number, LayoutNode | undefined> {
   if (root === undefined) return undefined;
   // An already unwrapped subtree has no width-dependent geometry to rebuild.
   if (root.rowCount === root.lineCount && (!wrap || width <= 0 || root.intrinsicColumns <= width)) return root;
-  if (++budget.nodes % 128 === 0) yield;
+  budget.nodes += 1;
+  yield 1;
   return layoutNode(
     yield* layoutLogicalLine(root.line.text, width, wrap, widthProfile, root.line),
     yield* relayoutRoot(root.left, width, wrap, widthProfile, budget),
@@ -275,12 +277,13 @@ function* buildBalancedLayout(
   start: number,
   end: number,
   budget: { nodes: number },
-): Generator<void, LayoutNode | undefined> {
+): Generator<number, LayoutNode | undefined> {
   if (start >= end) return undefined;
   const middle = Math.floor((start + end) / 2);
   const line = lines[middle];
   if (line === undefined) return undefined;
-  if (++budget.nodes % 128 === 0) yield;
+  budget.nodes += 1;
+  yield 1;
   return layoutNode(
     line,
     yield* buildBalancedLayout(lines, start, middle, budget),
@@ -519,7 +522,7 @@ function* layoutLogicalLine(
   widthProfile: TextWidthProfile,
   previous?: LogicalLineLayout,
   source?: SourceBoundaryIndex,
-): Generator<void, LogicalLineLayout> {
+): Generator<number, LogicalLineLayout> {
   // Global small-line reuse must never retain a rope-backed source owner: its
   // accessor closes over the entire document root. Revision layouts own those.
   const cacheKey = (source === undefined || typeof source.source === 'string')
@@ -558,7 +561,7 @@ function* layoutLogicalLine(
     const endOffset = index.graphemeIndexToCodeUnitOffset(endGrapheme);
     const visualText = text.slice(startOffset, endOffset);
     visualLines.push(visualLine(visualText, startOffset, widthProfile));
-    if (visualLines.length % 128 === 0) yield;
+    yield 1;
     visualColumn = index.graphemeIndexToVisualColumn(endGrapheme);
     if (endOffset >= text.length) break;
   }

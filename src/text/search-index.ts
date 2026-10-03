@@ -1,5 +1,5 @@
 import { finishWork } from '../foundation/cooperative-work.ts';
-import { graphemeSegments } from './graphemes.ts';
+import { sourceBoundaries } from './source-boundaries.ts';
 import type { TextMeasurementOptions } from './types.ts';
 
 export interface TextHighlightMatch {
@@ -36,61 +36,84 @@ export function createTextSearchIndex(
 /** Shared construction; segmentation and native normalization of one grapheme are indivisible. */
 export function* createTextSearchIndexWork(
   text: string, options: TextHighlightOptions = {},
-): Generator<void, TextSearchIndex> {
+): Generator<number, TextSearchIndex> {
+  // A capped native scan avoids per-character and assembly overhead for ordinary
+  // fields. Long strings still take the checkpointed path below; source width
+  // never changes grapheme boundaries.
   if (text.length <= 2048 && /^[\x20-\x7e]*$/u.test(text)) {
-    return Object.freeze({ graphemes: normalizedSearchText(text, options) });
+    const graphemes = normalizedSearchText(text, options);
+    yield text.length * 2; // ASCII examination plus normalization/copying.
+    return Object.freeze({ graphemes });
   }
   let ascii = true;
+  let operations = 0;
   for (let i = 0; i < text.length; i += 1) {
     const code = text.charCodeAt(i);
     if (code < 32 || code > 126) ascii = false;
-    if ((i + 1) % 2048 === 0) yield;
+    if (++operations === 256) { yield operations; operations = 0; }
   }
+  if (operations !== 0) yield operations;
   if (ascii) {
     const pieces: string[] = [];
     for (let i = 0; i < text.length; i += 2048) {
-      pieces.push(normalizedSearchText(text.slice(i, i + 2048), options));
-      if (i + 2048 <= text.length) yield;
+      const part = text.slice(i, i + 2048);
+      pieces.push(normalizedSearchText(part, options));
+      yield part.length;
     }
-    return Object.freeze({ graphemes: pieces.join('') });
+    // Native join is indivisible; its copied units are charged before publication.
+    const graphemes = pieces.join('');
+    yield graphemes.length;
+    return Object.freeze({ graphemes });
   }
   const tokens: string[] = [];
   const offsets: number[] = [];
-  let work = 0;
-  for (const part of graphemeSegments(text)) {
+  operations = 0;
+  for (const part of sourceBoundaries(text).segmentEvents()) {
+    if (typeof part === 'number') { yield part; continue; }
     tokens.push(normalizedSearchText(part.segment, options));
     offsets.push(part.index);
-    work += part.segment.length;
-    if (work >= 2048) { work = 0; yield; }
+    operations += part.segment.length + 2;
+    if (operations >= 256) { yield operations; operations = 0; }
   }
   offsets.push(text.length);
   const ownedOffsets = new Uint32Array(offsets.length);
+  yield operations + offsets.length;
+  operations = 0;
   for (let i = 0; i < offsets.length; i += 1) {
     ownedOffsets[i] = offsets[i] ?? 0;
-    if ((i + 1) % 2048 === 0) yield;
+    if (++operations === 256) { yield operations; operations = 0; }
   }
+  if (operations !== 0) yield operations;
   return Object.freeze({ graphemes: Object.freeze(tokens), offsets: ownedOffsets });
 }
 
 /** Fold the original tokens without resegmenting or allocating another offset table. */
-export function* foldTextSearchTokensWork(index: TextSearchIndex): Generator<void, TextSearchTokens> {
+export function* foldTextSearchTokensWork(index: TextSearchIndex): Generator<number, TextSearchTokens> {
   const original = index.graphemes;
   if (typeof original === 'string') {
-    if (original.length <= 2048) return original.toLowerCase();
+    if (original.length <= 2048) {
+      const folded = original.toLowerCase();
+      yield original.length;
+      return folded;
+    }
     const pieces: string[] = [];
     for (let start = 0; start < original.length; start += 2048) {
-      pieces.push(original.slice(start, start + 2048).toLowerCase());
-      yield;
+      const part = original.slice(start, start + 2048);
+      pieces.push(part.toLowerCase());
+      yield part.length;
     }
-    return pieces.join('');
+    const folded = pieces.join('');
+    yield original.length;
+    return folded;
   }
   const folded: string[] = [];
-  let work = 0;
+  let operations = 0;
   for (const token of original) {
     folded.push(token.toLowerCase());
-    work += token.length + 1;
-    if (work >= 2048) { work = 0; yield; }
+    operations += token.length + 1;
+    if (operations >= 256) { yield operations; operations = 0; }
   }
+  if (operations !== 0) yield operations;
   return Object.freeze(folded);
 }
 
@@ -107,59 +130,79 @@ export function compileTextSearchQuery(
 
 export function* compileTextSearchQueryWork(
   query: string, options: TextHighlightOptions = {},
-): Generator<void, CompiledTextSearchQuery> {
+): Generator<number, CompiledTextSearchQuery> {
   const { graphemes } = yield* createTextSearchIndexWork(query, options);
   const failure = new Uint32Array(graphemes.length);
+  yield graphemes.length;
+  let operations = 0;
   for (let i = 1, prefix = 0; i < graphemes.length; i += 1) {
-    while (prefix > 0 && graphemes[i] !== graphemes[prefix]) prefix = failure[prefix - 1] ?? 0;
+    while (prefix > 0 && graphemes[i] !== graphemes[prefix]) {
+      prefix = failure[prefix - 1] ?? 0;
+      if (++operations === 256) { yield operations; operations = 0; }
+    }
     if (graphemes[i] === graphemes[prefix]) prefix += 1;
     failure[i] = prefix;
-    if (i % 2048 === 0) yield;
+    operations += 2;
+    if (operations >= 256) { yield operations; operations = 0; }
   }
+  if (operations !== 0) yield operations;
   return Object.freeze({ graphemes, failure });
 }
 
-/** Linear token matching; native string search handles the common ASCII representation. */
+/** Linear token matching; native string search handles bounded ASCII spans. */
 export function* textMatchStarts(
   index: TextSearchIndex,
   query: CompiledTextSearchQuery,
 ): Generator<number, void> {
-  for (const event of textMatchEvents(index, query)) if (event !== undefined) yield event;
+  for (const event of textMatchEvents(index, query)) if (event >= 0) yield event;
 }
 
-/** Undefined events are cooperative checkpoints; numbers are accepted non-overlapping matches. */
+/** Negative events charge work; nonnegative events are non-overlapping match offsets. */
 export function* textMatchEvents(
   index: TextSearchIndex, query: CompiledTextSearchQuery,
-): Generator<number | undefined, void> {
+): Generator<number, void> {
   yield* textTokenMatchEvents(index.graphemes, query);
 }
 
 export function* textTokenMatchEvents(
   text: TextSearchTokens, query: CompiledTextSearchQuery,
-): Generator<number | undefined, void> {
+): Generator<number, void> {
   const needle = query.graphemes;
   if (needle.length === 0) return;
   if (typeof text === 'string' && typeof needle === 'string' && text.length <= 2048 && needle.length <= 2048) {
-    for (let start = text.indexOf(needle); start >= 0; start = text.indexOf(needle, start + needle.length)) yield start;
+    let cursor = 0;
+    while (cursor <= text.length - needle.length) {
+      const start = text.indexOf(needle, cursor);
+      const inspected = start < 0 ? text.length - cursor : start - cursor + needle.length;
+      if (inspected > 0) yield -inspected;
+      if (start < 0) return;
+      yield start;
+      cursor = start + needle.length;
+    }
     return;
   }
   let operations = 0;
   let nonempty = false;
   for (const part of needle) {
     if (part.length !== 0) nonempty = true;
-    if (++operations % 2048 === 0) yield undefined;
+    if (++operations === 256) { yield -operations; operations = 0; }
   }
-  if (!nonempty) return;
+  if (!nonempty) { if (operations !== 0) yield -operations; return; }
   let matched = 0;
   for (let i = 0; i < text.length; i += 1) {
     while (matched > 0 && text[i] !== needle[matched]) {
       matched = query.failure[matched - 1] ?? 0;
-      if (++operations % 2048 === 0) yield undefined;
+      if (++operations === 256) { yield -operations; operations = 0; }
     }
     if (text[i] === needle[matched]) matched += 1;
-    if (++operations % 2048 === 0) yield undefined;
-    if (matched === needle.length) { yield i - matched + 1; matched = 0; }
+    if (++operations === 256) { yield -operations; operations = 0; }
+    if (matched === needle.length) {
+      if (operations !== 0) { yield -operations; operations = 0; }
+      yield i - matched + 1;
+      matched = 0;
+    }
   }
+  if (operations !== 0) yield -operations;
 }
 
 export function findTextMatches(

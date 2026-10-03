@@ -30,7 +30,7 @@ export function measureTextArea(input: ComponentMeasureInput<TextAreaModel>): Me
     ? finishWork(measureTextAreaWork(input)) : measurePreparedTextArea(input);
 }
 
-export function* measureTextAreaWork(input: ComponentMeasureInput<TextAreaModel>): Generator<void, Measurement> {
+export function* measureTextAreaWork(input: ComponentMeasureInput<TextAreaModel>): Generator<number, Measurement> {
   const document = (yield* textAreaDisplayDocumentWork(input.model, input.widthProfile)).document;
   const count = textDocumentLineCount(document);
   const prefix = textAreaPrefixWidth(input.model, input.theme, input.widthProfile, count);
@@ -68,7 +68,7 @@ export function textAreaGeometry(input: ComponentInput<TextAreaModel>): TextArea
   return geometry;
 }
 
-export function* textAreaGeometryWork(input: ComponentInput<TextAreaModel>): Generator<void, TextAreaGeometry> {
+export function* textAreaGeometryWork(input: ComponentInput<TextAreaModel>): Generator<number, TextAreaGeometry> {
   const display = yield* textAreaDisplayDocumentWork(input.model, input.widthProfile);
   const lineCount = textDocumentLineCount(display.document);
   const prefixWidth = textAreaPrefixWidth(input.model, input.theme, input.widthProfile, lineCount);
@@ -113,7 +113,7 @@ function completeTextAreaGeometry(
 }
 
 /** Prepare observation offsets without materializing every visual row's text index. */
-export function* textAreaRowOffsetMapWork(geometry: TextAreaGeometry): Generator<void, TextAreaLayoutSnapshot['rowOffsetMap']> {
+export function* textAreaRowOffsetMapWork(geometry: TextAreaGeometry): Generator<number, TextAreaLayoutSnapshot['rowOffsetMap']> {
   const existing = rowMapCache.get(geometry);
   if (existing !== undefined) return existing;
   const offsets: number[] = [];
@@ -122,7 +122,7 @@ export function* textAreaRowOffsetMapWork(geometry: TextAreaGeometry): Generator
     const rowStarts = yield* geometry.layout.rowStartOffsetsWork();
     for (const offset of rowStarts) {
       offsets.push(geometry.projection.sourceOffsetAtDisplayOffset(offset, 'upstream'));
-      if (offsets.length % 128 === 0) yield;
+      yield 1;
     }
   }
   const map = yield* createRowOffsetMapWork(offsets);
@@ -141,7 +141,7 @@ interface TextAreaDisplayDocument {
 }
 const displayCache = new WeakMap<TextAreaModel, { readonly key: string; readonly display: TextAreaDisplayDocument }>();
 
-function* textAreaDisplayDocumentWork(model: TextAreaModel, widthProfile: TextWidthProfile): Generator<void, TextAreaDisplayDocument> {
+function* textAreaDisplayDocumentWork(model: TextAreaModel, widthProfile: TextWidthProfile): Generator<number, TextAreaDisplayDocument> {
   const key = textWidthProfileKey(widthProfile);
   const cached = displayCache.get(model);
   if (cached?.key === key) return cached.display;

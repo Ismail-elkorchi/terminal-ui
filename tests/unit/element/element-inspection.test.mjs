@@ -1,3 +1,4 @@
+import { createOptionsFixture } from '../../support/collection-fixtures.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -322,7 +323,7 @@ test('element inspection omits private implementation children with no public fa
   const inspection = inspectElement(combobox({
     id: 'choice',
     label: 'Choice',
-    options: [{ id: 'alpha', label: 'Alpha', value: 'alpha' }],
+    ...createOptionsFixture([{ id: 'alpha', label: 'Alpha', value: 'alpha' }]),
     state: {
       kind: 'select',
       open: true,

@@ -1,4 +1,5 @@
-import { sameModelDependencies } from '../../visual/model-dependencies.ts';
+import { sameReuseDependencies } from '../../visual/reuse-dependencies.ts';
+import { sameStyleDependencies } from '../../visual/style-dependencies.ts';
 import { sameRect } from '../../geometry/rect.ts';
 import type { Rect } from '../../geometry/types.ts';
 import type { FocusPath } from '../../interaction/focus.ts';
@@ -14,7 +15,7 @@ import type { RenderNode, RenderNodeRenderInput } from './render-tree/types.ts';
 interface PaintDependencies {
   readonly definition: unknown;
   readonly id: string | undefined;
-  readonly model: unknown;
+  readonly model: readonly unknown[];
   readonly accessibleName: string | undefined;
   readonly styles: unknown;
   readonly theme: unknown;
@@ -33,8 +34,8 @@ interface PaintDependencies {
 }
 
 function sameDependencies(a: PaintDependencies, b: PaintDependencies): boolean {
-  return a.definition === b.definition && a.id === b.id && sameModelDependencies(a.model, b.model, 'paint')
-    && a.accessibleName === b.accessibleName && sameModelDependencies(a.styles, b.styles, 'paint') && a.theme === b.theme
+  return a.definition === b.definition && a.id === b.id && sameReuseDependencies(a.model, b.model)
+    && a.accessibleName === b.accessibleName && sameStyleDependencies(a.styles, b.styles) && a.theme === b.theme
     && sameRect(a.bounds, b.bounds) && sameRect(a.viewport, b.viewport)
     && a.disabled === b.disabled && a.busy === b.busy && a.readOnly === b.readOnly && a.inert === b.inert
     && a.emoji === b.emoji && a.ambiguous === b.ambiguous && a.focus === b.focus
@@ -63,9 +64,10 @@ export function createPaintRetention(previous?: readonly RenderRegion[]) {
       render: (target: RenderTarget) => void,
     ): boolean {
       const node = input.renderNode as RenderNode;
-      if (node.kind !== 'component' || node.definition.renderer.retainPaint !== true) return false;
+      if (node.kind !== 'component' || node.props.reuse.paint === undefined
+        || node.definition.inspection.structure !== 'leaf') return false;
       const dependencies: PaintDependencies = {
-        definition: node.definition, id: node.id, model: node.props.model,
+        definition: node.definition, id: node.id, model: node.props.reuse.paint,
         accessibleName: node.props.accessibleName, styles: node.styles, theme: input.theme,
         bounds: input.layoutNode.bounds, viewport: input.layoutNode.viewport,
         disabled: node.state?.disabled === true, busy: node.state?.busy === true,

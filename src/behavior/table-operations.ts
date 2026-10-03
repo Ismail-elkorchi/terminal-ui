@@ -1,9 +1,9 @@
+import { snapshotArray } from '../foundation/array-snapshot.ts';
+import { orderedItemByIdWork, createOrderedSourceWork, appendOrderedItemsWork, replaceOrderedItemWork, removeOrderedItemsWork, type OrderedSource } from '../foundation/ordered-source.ts';
 import { finishWork, prepareWork, stableSortWork, type CooperativeWorkContext } from '../foundation/cooperative-work.ts';
 import type { CollectionWindow } from '../collection/snapshot.ts';
 import {
-  collectionIds,
   collectionItemById,
-  createCompleteCollectionWork,
   createWindowedCollection,
 } from '../collection/snapshot.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
@@ -20,6 +20,7 @@ import type {
   ScrollableDataGridState,
   TableCollection,
   TableCollectionRow,
+  TableCollectionChange,
   TableSortState,
   UnscrolledDataGridState,
   WindowedTableCollection,
@@ -50,11 +51,11 @@ export function dataGridReducer<TRow>(
   transition: DataGridTransition,
   options: DataGridReducerOptions<TRow>,
 ): DataGridState {
-  const rowIds = collectionIds(options.collection);
+  const rowIds = tableRowOrder(options.collection);
   const navigation = options.navigation ?? defaultNavigationPolicy;
   switch (transition.kind) {
     case 'setActiveRow':
-      return rowIds.includes(transition.rowId)
+      return rowIds.rank(transition.rowId) !== undefined
         ? withActiveRow(state, transition.rowId, options)
         : state;
     case 'setActiveCell':
@@ -76,7 +77,7 @@ export function dataGridReducer<TRow>(
     case 'firstRow':
       return focusAtRowIndex(state, 0, rowIds, options);
     case 'lastRow':
-      return focusAtRowIndex(state, rowIds.length - 1, rowIds, options);
+      return focusAtRowIndex(state, rowIds.count - 1, rowIds, options);
     case 'commit':
       return commitGridSelection(
         state,
@@ -129,27 +130,119 @@ export function createTableCollection<TRow>(
   return finishWork(tableCollectionWork(rows, getRowId, window));
 }
 
-/** Rows and callback inputs must be immutable; only array membership is adopted here. */
+/** Each batch owns at most 256 membership references before yielding; row payloads must be immutable. */
 export function prepareTableCollection<TRow>(
-  rows: readonly TRow[], getRowId: (row: TRow, index: number) => string,
+  batches: Iterable<readonly TRow[]>, getRowId: (row: TRow, index: number) => string,
   context: CooperativeWorkContext,
 ): Promise<CompleteTableCollection<TRow>> {
-  context.signal.throwIfAborted();
-  return prepareWork(tableCollectionWork([...rows], getRowId), context) as Promise<CompleteTableCollection<TRow>>;
+  return prepareWork(tableSourceWork(batches, getRowId), context);
 }
-
-function* tableCollectionWork<TRow>(rows: readonly TRow[], getRowId: (row: TRow, index: number) => string,
-  window?: CollectionWindow): Generator<void, TableCollection<TRow>> {
-  const startIndex = window?.startIndex ?? 0;
-  const items: TableCollectionRow<TRow>[] = [];
-  for (const [offset, row] of rows.entries()) {
-    const itemIndex = startIndex + offset;
-    items.push({ id: getRowId(row, itemIndex), itemIndex, row });
-    if (items.length % 256 === 0) yield;
+const tableWindows = new WeakSet<object>();
+const tableSources = new WeakMap<object, OrderedSource<{ readonly id: string; readonly row: unknown }>>();
+interface RowValue<TRow> { readonly id: string; readonly row: TRow }
+function tableSourceOrder<TRow>(source: CompleteTableCollection<TRow>): OrderedSource<RowValue<TRow>> {
+  const order = tableSources.get(source);
+  if (order === undefined) throw new TypeError('Table source must be created by terminal-ui.');
+  return order as OrderedSource<RowValue<TRow>>;
+}
+function tableSource<TRow>(order: OrderedSource<RowValue<TRow>>): CompleteTableCollection<TRow> {
+  const item = (value: RowValue<TRow> | undefined, rank: number | undefined): TableCollectionRow<TRow> | undefined => value === undefined || rank === undefined ? undefined : Object.freeze({ ...value, itemIndex: rank });
+  const source = Object.freeze({ kind: 'table-source' as const, count: order.count, startIndex: 0 as const, totalCount: order.count,
+    itemAt: (rank: number) => item(order.itemAt(rank), rank),
+    itemById: (id: string) => item(order.itemById(id), order.rank(id)), rank: order.rank,
+    window: (start: number, end: number) => Object.freeze(Array.from(order.values(start, end), (value, offset) => Object.freeze({ ...value, itemIndex: Math.max(0, start) + offset }))),
+  }) as CompleteTableCollection<TRow>;
+  tableSources.set(source, order);
+  return source;
+}
+export function isTableCollection(value: unknown): value is TableCollection<unknown> {
+  return tableSources.has(value as object) || tableWindows.has(value as object);
+}
+function* tableSourceWork<TRow>(batches: Iterable<readonly TRow[]>, getRowId: (row: TRow, index: number) => string): Generator<number, CompleteTableCollection<TRow>> {
+  function* events() {
+    let count = 0;
+    for (const batch of batches) {
+      if (!Array.isArray(batch)) throw new TypeError('Table batches must be arrays of at most 256 rows.');
+      const length = batch.length;
+      if (length > 256) throw new TypeError('Table batches must be arrays of at most 256 rows.');
+      const owned = snapshotArray<TRow>(batch, length).map((row, offset) => Object.freeze({ id: getRowId(row, count + offset), row }));
+      for (const value of owned) { yield { id: value.id, value }; count += 1; yield 1; }
+      yield 1;
+    }
   }
-  return window === undefined
-    ? yield* createCompleteCollectionWork(items)
-    : createWindowedCollection({ items, window });
+  return tableSource(yield* createOrderedSourceWork(events()));
+}
+function* eagerTableBatches<T>(rows: readonly T[]): IterableIterator<readonly T[]> {
+  if (!Array.isArray(rows)) throw new TypeError('Table rows must be an array.');
+  const owned = snapshotArray(rows);
+  for (let offset = 0; offset < owned.length; offset += 256) yield owned.slice(offset, offset + 256);
+}
+function* tableCollectionWork<TRow>(rows: readonly TRow[], getRowId: (row: TRow, index: number) => string,
+  window?: CollectionWindow): Generator<number, TableCollection<TRow>> {
+  if (window === undefined) return yield* tableSourceWork(eagerTableBatches(rows), getRowId);
+  const items: TableCollectionRow<TRow>[] = [];
+  for (const [offset, row] of snapshotArray(rows).entries()) {
+    const itemIndex = window.startIndex + offset;
+    items.push({ id: getRowId(row, itemIndex), itemIndex, row });
+    yield 1;
+  }
+  const snapshot = createWindowedCollection({ items, window });
+  tableWindows.add(snapshot);
+  return snapshot;
+}
+export function updateTableCollection<TRow>(source: CompleteTableCollection<TRow>, changes: readonly TableCollectionChange<TRow>[]): CompleteTableCollection<TRow> {
+  return finishWork(tableUpdateWork(source, eagerTableBatches(changes)));
+}
+export function prepareTableCollectionUpdate<TRow>(source: CompleteTableCollection<TRow>, batches: Iterable<readonly TableCollectionChange<TRow>[]>, context: CooperativeWorkContext): Promise<CompleteTableCollection<TRow>> {
+  return prepareWork(tableUpdateWork(source, batches), context);
+}
+function* tableUpdateWork<TRow>(source: CompleteTableCollection<TRow>, batches: Iterable<readonly TableCollectionChange<TRow>[]>): Generator<number, CompleteTableCollection<TRow>> {
+  const previous = tableSourceOrder(source);
+  let order = previous;
+  for (const batch of batches) {
+    if (!Array.isArray(batch)) throw new TypeError('Table change batches must contain at most 256 changes.');
+    const length = batch.length;
+    if (length > 256) throw new TypeError('Table change batches must contain at most 256 changes.');
+    const owned = snapshotArray<TableCollectionChange<TRow>>(batch, length).map(change => {
+      const candidate: unknown = change;
+      if (candidate === null || typeof candidate !== 'object') throw new TypeError('Table change is invalid.');
+      const { kind, id } = change;
+      if (!['append', 'replace', 'remove'].includes(kind) || typeof id !== 'string') throw new TypeError('Table change is invalid.');
+      return kind === 'remove' ? Object.freeze({ kind, id }) : Object.freeze({ kind, id, row: change.row });
+    });
+    for (const change of owned) {
+      if (change.kind === 'remove') {
+        if ((yield* orderedItemByIdWork(order, change.id)) === undefined) throw new TypeError('Table removal id must exist.');
+        order = yield* removeOrderedItemsWork(order, [change.id]);
+      } else {
+        const item = { id: change.id, value: Object.freeze({ id: change.id, row: change.row }) };
+        order = change.kind === 'append' ? yield* appendOrderedItemsWork(order, [item]) : yield* replaceOrderedItemWork(order, item);
+      }
+      yield 1;
+    }
+    yield 1;
+  }
+  return order === previous ? source : tableSource(order);
+}
+export function tableCollectionItemAt<TRow>(source: TableCollection<TRow>, rank: number): TableCollectionRow<TRow> | undefined {
+  assertTableCollection(source);
+  return source.kind === 'window' ? source.items[rank] : source.itemAt(rank);
+}
+export function tableCollectionItemById<TRow>(source: TableCollection<TRow>, id: string): TableCollectionRow<TRow> | undefined {
+  assertTableCollection(source);
+  return source.kind === 'window' ? collectionItemById(source, id) : source.itemById(id);
+}
+export function tableCollectionCount(source: TableCollection<unknown>): number {
+  assertTableCollection(source);
+  return source.kind === 'window' ? source.items.length : source.count;
+}
+interface TableRowOrder { readonly count: number; readonly idAt: (rank: number) => string | undefined; readonly rank: (id: string) => number | undefined }
+function tableRowOrder(source: TableCollection<unknown>): TableRowOrder {
+  return { count: tableCollectionCount(source), idAt: rank => tableCollectionItemAt(source, rank)?.id,
+    rank: id => { const index = tableCollectionItemById(source, id)?.itemIndex; return index === undefined ? undefined : index - source.startIndex; } };
+}
+function rowIdsInRange(order: TableRowOrder, start: number, end: number): readonly string[] {
+  return Array.from({ length: Math.max(0, end - start) }, (_, offset) => { const id = order.idAt(start + offset); if (id === undefined) throw new RangeError('Table rank is outside the source.'); return id; });
 }
 
 export function sortTableRows<TRow>(
@@ -163,18 +256,22 @@ export function sortTableRows<TRow>(
 
 /** Immutable rows; callbacks are indivisible and must bound their own work. */
 export function prepareTableRows<TRow>(
-  rows: readonly TRow[], sort: TableSortState | undefined,
+  rows: CompleteTableCollection<TRow>, sort: TableSortState | undefined,
   valueForColumn: TableCellValueGetter<TRow>, context: CooperativeWorkContext,
   compare: (left: unknown, right: unknown) => number = compareTableValues,
 ): Promise<readonly TRow[]> {
   context.signal.throwIfAborted();
-  return prepareWork(sortTableRowsWork([...rows], sort, valueForColumn, compare), context);
+  return prepareWork(function* (): Generator<number, readonly TRow[]> {
+    const values: TRow[] = [];
+    for (const value of tableSourceOrder(rows).values()) { values.push(value.row); yield 1; }
+    return yield* sortTableRowsWork(values, sort, valueForColumn, compare);
+  }(), context);
 }
 
 function* sortTableRowsWork<TRow>(
   rows: readonly TRow[], sort: TableSortState | undefined,
   valueForColumn: TableCellValueGetter<TRow>, compare: (left: unknown, right: unknown) => number,
-): Generator<void, readonly TRow[]> {
+): Generator<number, readonly TRow[]> {
   if (sort === undefined) return rows;
   const direction = sort.direction === 'ascending' ? 1 : -1;
   const columnId = sort.columnId;
@@ -185,28 +282,28 @@ function* sortTableRowsWork<TRow>(
 function moveRow<TRow>(
   state: DataGridState,
   delta: number,
-  rowIds: readonly string[],
+  rowIds: TableRowOrder,
   options: DataGridReducerOptions<TRow>,
   navigation: NavigationPolicy,
 ): DataGridState {
-  if (rowIds.length === 0) return state;
+  if (rowIds.count === 0) return state;
   const activeRowId = state.interaction.kind === 'row'
     ? state.interaction.activeRowId
     : state.interaction.activeCell?.rowId;
-  const position = activeRowId === undefined ? -1 : rowIds.indexOf(activeRowId);
+  const position = activeRowId === undefined ? -1 : rowIds.rank(activeRowId) ?? -1;
   const current = position < 0 ? undefined : position;
-  return focusAtRowIndex(state, navigateIndex(current, delta, rowIds.length, navigation), rowIds, options);
+  return focusAtRowIndex(state, navigateIndex(current, delta, rowIds.count, navigation), rowIds, options);
 }
 
 function moveColumn<TRow>(
   state: DataGridState,
   delta: number,
-  rowIds: readonly string[],
+  rowIds: TableRowOrder,
   options: DataGridReducerOptions<TRow>,
   navigation: NavigationPolicy,
 ): DataGridState {
-  if (state.interaction.kind !== 'cell' || options.columnIds.length === 0 || rowIds.length === 0) return state;
-  const firstRowId = rowIds[0];
+  if (state.interaction.kind !== 'cell' || options.columnIds.length === 0 || rowIds.count === 0) return state;
+  const firstRowId = rowIds.idAt(0);
   const firstColumnId = options.columnIds[0];
   if (firstRowId === undefined || firstColumnId === undefined) return state;
   const active = state.interaction.activeCell;
@@ -223,10 +320,10 @@ function moveColumn<TRow>(
 function focusAtRowIndex<TRow>(
   state: DataGridState,
   index: number,
-  rowIds: readonly string[],
+  rowIds: TableRowOrder,
   options: DataGridReducerOptions<TRow>,
 ): DataGridState {
-  const rowId = rowIds[index];
+  const rowId = rowIds.idAt(index);
   if (rowId === undefined) return state;
   if (state.interaction.kind === 'row') return withActiveRow(state, rowId, options);
   const columnId = state.interaction.activeCell?.columnId ?? options.columnIds[0];
@@ -290,7 +387,7 @@ function commitGridSelection<TRow>(
         : state.interaction.selection.selectedRowId === undefined ? [] : [state.interaction.selection.selectedRowId],
       active,
       state.interaction.selection.mode === 'multiple' ? state.interaction.selection.selectionAnchorId : undefined,
-      collectionIds(options.collection),
+      tableRowOrder(options.collection),
       state.interaction.selection,
       extend,
       toggle,
@@ -367,14 +464,14 @@ function selectedGridCells<TRow>(
 ): readonly DataGridCell[] {
   if (selection.mode === 'single') return Object.freeze([active]);
   if (extend && selection.rangeSelectionEnabled === true && anchor !== undefined) {
-    const rowIds = collectionIds(options.collection);
-    const anchorRow = rowIds.indexOf(anchor.rowId);
-    const activeRow = rowIds.indexOf(active.rowId);
+    const rowIds = tableRowOrder(options.collection);
+    const anchorRow = rowIds.rank(anchor.rowId) ?? -1;
+    const activeRow = rowIds.rank(active.rowId) ?? -1;
     const anchorColumn = options.columnIds.indexOf(anchor.columnId);
     const activeColumn = options.columnIds.indexOf(active.columnId);
     if (anchorRow >= 0 && activeRow >= 0 && anchorColumn >= 0 && activeColumn >= 0) {
       const selected: DataGridCell[] = [];
-      for (const rowId of rowIds.slice(Math.min(anchorRow, activeRow), Math.max(anchorRow, activeRow) + 1)) {
+      for (const rowId of rowIdsInRange(rowIds, Math.min(anchorRow, activeRow), Math.max(anchorRow, activeRow) + 1)) {
         for (const columnId of options.columnIds.slice(
           Math.min(anchorColumn, activeColumn),
           Math.max(anchorColumn, activeColumn) + 1,
@@ -397,22 +494,22 @@ function selectedIds(
   current: readonly string[],
   active: string,
   anchor: string | undefined,
-  ordered: readonly string[],
+  ordered: TableRowOrder,
   selection: Exclude<import('../behavior/table.ts').DataGridRowSelection, { readonly mode: 'none' }>,
   extend: boolean,
   toggle: boolean,
 ): readonly string[] {
   if (selection.mode !== 'multiple') return [active];
   if (extend && selection.rangeSelectionEnabled === true && anchor !== undefined) {
-    const start = ordered.indexOf(anchor);
-    const end = ordered.indexOf(active);
-    if (start >= 0 && end >= 0) return ordered.slice(Math.min(start, end), Math.max(start, end) + 1);
+    const start = ordered.rank(anchor) ?? -1;
+    const end = ordered.rank(active) ?? -1;
+    if (start >= 0 && end >= 0) return rowIdsInRange(ordered, Math.min(start, end), Math.max(start, end) + 1);
   }
   if (!toggle) return [active];
   const selected = new Set(current);
   if (selected.has(active)) selected.delete(active);
   else selected.add(active);
-  return ordered.filter((id) => selected.has(id));
+  return [...selected].filter(id => ordered.rank(id) !== undefined).sort((a, b) => (ordered.rank(a) ?? 0) - (ordered.rank(b) ?? 0));
 }
 
 function withGridScroll<TRow>(
@@ -422,7 +519,7 @@ function withGridScroll<TRow>(
   pageSize: number | undefined,
 ): DataGridState {
   if (state.scroll === undefined) return state;
-  const row = collectionItemById(collection, rowId);
+  const row = tableCollectionItemById(collection, rowId);
   if (row === undefined) return state;
   return withGridScrollState(state, scrollReducer(
     state.scroll,
@@ -443,8 +540,8 @@ function withGridScrollState(
   return state.scroll === scroll ? state : { ...state, scroll };
 }
 
-function validCell(cell: DataGridCell, rowIds: readonly string[], columnIds: readonly string[]): boolean {
-  return rowIds.includes(cell.rowId) && columnIds.includes(cell.columnId);
+function validCell(cell: DataGridCell, rowIds: TableRowOrder, columnIds: readonly string[]): boolean {
+  return rowIds.rank(cell.rowId) !== undefined && columnIds.includes(cell.columnId);
 }
 
 function cellKey(cell: DataGridCell): string {
@@ -497,4 +594,8 @@ function comparableText(value: unknown): string {
   if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
   if (typeof value === 'function' || typeof value === 'symbol') return '';
   return JSON.stringify(value);
+}
+
+function assertTableCollection(value: unknown): asserts value is TableCollection<unknown> {
+  if (!isTableCollection(value)) throw new TypeError('Table collection must be created with createTableCollection().');
 }

@@ -21,7 +21,7 @@ test('cooperative work observes pre-abort and closes an interrupted generator', 
   let closed = false;
   function* work() {
     entered = true;
-    try { yield; return 42; } finally { closed = true; }
+    try { yield 1; return 42; } finally { closed = true; }
   }
   const controller = new globalThis.AbortController();
   controller.abort(new Error('already cancelled'));
@@ -29,7 +29,7 @@ test('cooperative work observes pre-abort and closes an interrupted generator', 
   assert.equal(entered, false);
   const other = new globalThis.AbortController();
   await assert.rejects(prepareWork(work(), {
-    signal: other.signal, yield: async () => { other.abort(new Error('interrupted')); },
+    signal: other.signal, operationLimit: 1, yield: async () => { other.abort(new Error('interrupted')); },
   }), /interrupted/u);
   assert.equal(closed, true);
 });

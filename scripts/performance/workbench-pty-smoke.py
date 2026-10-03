@@ -27,10 +27,14 @@ try:
     wait_for_output(b'INC-042123')
     os.write(master, b'\r')
     collect(.4)
+    # Seeing the query result alone does not prove Enter accepted it. The
+    # workspace records this entry only after accepting the selected incident.
+    os.write(master, b'/activity\r')
+    wait_for_output(b'Inspected INC-042123.')
     os.write(master, b'\x11')
     collect(2)
     assert proc.wait(timeout=5) == 0, 'Application exit failed'
-    print(json.dumps({'transport':'Unix PTY, 120x40, TERM=xterm-256color', 'initialFrame':True,'palette':True,'queryResult':'INC-042123','accepted':True,'exitCode':0,'outputBytes':len(output),'limitations':'No terminal emulator, pixels or physical presentation latency measured'}))
+    print(json.dumps({'transport':'Unix PTY, 120x40, TERM=xterm-256color', 'initialFrame':True,'palette':True,'queryResult':'INC-042123','accepted':True,'acceptanceAssertion':'Activity output contains Inspected INC-042123. after Enter','exitCode':0,'outputBytes':len(output),'measuredAt':time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),'limitations':'No terminal emulator, pixels or physical presentation latency measured'}))
 finally:
     if proc.poll() is None:
         os.killpg(proc.pid, signal.SIGTERM)

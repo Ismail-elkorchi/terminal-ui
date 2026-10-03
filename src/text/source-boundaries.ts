@@ -75,9 +75,14 @@ export class SourceBoundaryIndex {
   }
 
   *segments(text?: string): IterableIterator<{ readonly segment: string; readonly index: number }> {
+    for (const event of this.segmentEvents(text)) if (typeof event !== 'number') yield event;
+  }
+
+  /** Numeric events carry preparation charges; objects carry the next owned span. */
+  *segmentEvents(text?: string): Generator<number | { readonly segment: string; readonly index: number }, void> {
     for (let index = 0; this.offset(index) < this.source.length; index += 1) {
       const start = this.offset(index);
-      finishWork(this.prepareThroughWork(start));
+      yield* this.prepareThroughWork(start);
       yield { segment: (text ?? this.source).slice(start, this.offset(index + 1)), index: start };
     }
   }
@@ -103,7 +108,7 @@ export class SourceBoundaryIndex {
   }
 
   /** Resumable source work shared by synchronous queries and effect preparation. */
-  *prepareThroughWork(offset: number): Generator<void, void> {
+  *prepareThroughWork(offset: number): Generator<number, void> {
     let operations = 0;
     while (this.last() <= offset && this.last() < this.source.length) {
       if (this.iterator === undefined) {
@@ -113,6 +118,8 @@ export class SourceBoundaryIndex {
           if (isHighSurrogate(seam.charCodeAt(0)) && isLowSurrogate(seam.charCodeAt(1))) this.iteratorEnd += 1;
         }
         this.iterator = segmenter.segment(this.source.slice(this.iteratorStart, this.iteratorEnd))[Symbol.iterator]();
+        yield this.iteratorEnd - this.iteratorStart;
+        continue;
       }
       const next = this.iterator.next();
       if (next.done === true) break;
@@ -127,15 +134,18 @@ export class SourceBoundaryIndex {
         this.iterator = undefined;
         // A giant cluster can require an arbitrarily large native callback. Its
         // geometric growth is resumable, but that individual callback is not.
-        yield;
+        yield operations + next.value.segment.length;
+        operations = 0;
         continue;
       }
       const page = Math.floor(this.count / pageLength);
       (this.pages[page] ??= []).push(end);
       this.count += 1;
       if (end === this.source.length) this.iterator = undefined;
-      if (++operations % 256 === 0) yield;
+      operations += next.value.segment.length + 1;
+      if (operations >= 256) { yield operations; operations = 0; }
     }
+    if (operations !== 0) yield operations;
     if (this.last() === this.source.length) this.iterator = undefined;
   }
 

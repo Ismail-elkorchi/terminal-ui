@@ -2,10 +2,8 @@ import type { TuiCancellation } from '../types.ts';
 
 interface ChildOwner { readonly id: string; readonly generation: string | number; }
 type WorkOwnership = readonly ChildOwner[];
-// Enumerable metadata survives whole-descriptor copies, including decorated callbacks.
-// Only immutable paths issued here are accepted; neither scopes nor a registry are public.
-const ownership = Symbol('TUI work ownership');
-const issuedPaths = new WeakSet<WorkOwnership>();
+// Only runtime-owned descriptors cross this private map. Public scoped work is opaque.
+const ownership = new WeakMap<object, WorkOwnership>();
 
 export function copyWorkOwnership<const T extends object>(source: object, target: T): T {
   const path = workOwnership(source);
@@ -17,7 +15,6 @@ export function scopeWork<T extends object>(parent: ChildOwner, source: object, 
     Object.freeze({ id: parent.id, generation: parent.generation }),
     ...(workOwnership(source) ?? []),
   ]);
-  issuedPaths.add(path);
   return attachOwnership(target, path);
 }
 
@@ -41,11 +38,10 @@ function sameOwner(left: ChildOwner | undefined, right: ChildOwner | undefined):
 }
 
 function workOwnership(work: object): WorkOwnership | undefined {
-  const path = (work as { readonly [ownership]?: WorkOwnership })[ownership];
-  if (path !== undefined && !issuedPaths.has(path)) throw new TypeError('TUI work ownership is invalid.');
-  return path;
+  return ownership.get(work);
 }
 
 function attachOwnership<T extends object>(work: T, path: WorkOwnership): T {
-  return Object.defineProperty(work, ownership, { value: path, enumerable: true, writable: false, configurable: false });
+  ownership.set(work, path);
+  return work;
 }

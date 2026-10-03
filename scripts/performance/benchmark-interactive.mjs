@@ -7,7 +7,8 @@ import { writeFile } from 'node:fs/promises';
 import {
   diffFrames,
   renderDiffAnsi,
-  renderElementFrame
+  renderElementFrame,
+  renderFramePlain
 } from '../../dist/renderer/index.js';
 import {
   button,
@@ -123,6 +124,7 @@ function renderScenarios() {
     text: `Log line ${String(index)} contains deterministic searchable text ${String(index % 17)}`
   }));
   const history = createLogHistory(historyItems);
+  const historyView = createLogViewerView({ history });
   const entries = Array.from({ length: quick ? 1_000 : 20_000 }, (_value, index) => ({
     id: `entry-${String(index)}`,
     label: `Command ${String(index)}`,
@@ -207,8 +209,9 @@ function renderScenarios() {
       name: 'scrolling-log-viewer',
       scale: history.entryCount,
       setupWork: { normalized_records: history.entryCount },
+      validateFrame(frame) { assert.ok(renderFramePlain(frame).includes('Log line')); },
       createElement(index) {
-        return logViewer({ view: null,
+        return logViewer({ view: historyView,
           id: 'scrolling-log',
           history,
           scroll: createScrollState({
@@ -220,8 +223,8 @@ function renderScenarios() {
     },
     {
       name: 'scrolling-table',
-      scale: tableCollection.items.length,
-      setupWork: { normalized_records: tableCollection.items.length },
+      scale: tableCollection.count,
+      setupWork: { normalized_records: tableCollection.count },
       createElement(index) {
         return table({
           id: 'scrolling-processes',
@@ -237,8 +240,8 @@ function renderScenarios() {
     },
     {
       name: 'scrolling-tree',
-      scale: treeView.collection.items.length,
-      setupWork: { normalized_records: treeView.collection.items.length },
+      scale: treeView.collection.count,
+      setupWork: { normalized_records: treeView.collection.count },
       createElement(index) {
         return tree({
           id: 'scrolling-tree',
@@ -289,8 +292,8 @@ function renderScenarios() {
     },
     {
       name: 'retained-small-table',
-      scale: smallTableCollection.items.length,
-      setupWork: { normalized_records: smallTableCollection.items.length },
+      scale: smallTableCollection.count,
+      setupWork: { normalized_records: smallTableCollection.count },
       createElement(index) {
         return dataGrid({
           id: 'small-processes',
@@ -300,7 +303,7 @@ function renderScenarios() {
           state: {
             interaction: {
               kind: 'row',
-              activeRowId: String(index % smallTableCollection.items.length),
+              activeRowId: String(index % smallTableCollection.count),
               selection: { mode: 'single' }
             }
           },
@@ -311,7 +314,7 @@ function renderScenarios() {
     {
       name: 'retained-large-table',
       scale: tableRows.length,
-      setupWork: { normalized_records: tableCollection.items.length },
+      setupWork: { normalized_records: tableCollection.count },
       createElement(index) {
         const selected = Math.min(tableRows.length - 1, Math.floor(tableRows.length / 2) + index);
         return dataGrid({
@@ -551,6 +554,7 @@ async function runApplicationRenderScenario(app) {
 
 async function runInputToCommitScenario() {
   const rows = Array.from({ length: 2_000 }, (_value, index) => ({ id: String(index), name: `Row ${String(index)}` }));
+  const collection = createTableCollection(rows, row => row.id);
   const app = defineTui({
     id: 'benchmark-input-commit',
     init: () => ({ state: { selected: 0 } }),
@@ -558,8 +562,7 @@ async function runInputToCommitScenario() {
     view: (state) => dataGrid({
       id: 'rows',
       meta: { accessibleName: 'Rows' },
-      rows,
-      getRowId: (row) => row.id,
+      collection,
       columns: [{ id: 'name', value: (row) => row.name, width: { kind: 'fill' } }],
       state: {
         interaction: {
@@ -634,6 +637,7 @@ async function runFocusTreeScenario(count) {
 
 async function runPointerRoutingScenario() {
   const rows = Array.from({ length: 2_000 }, (_value, index) => ({ id: String(index), name: `Row ${String(index)}` }));
+  const collection = createTableCollection(rows, row => row.id);
   const app = defineTui({
     id: 'benchmark-pointer-routing',
     init: () => ({ state: { selected: '0' } }),
@@ -641,8 +645,7 @@ async function runPointerRoutingScenario() {
     view: (state) => dataGrid({
       id: 'pointer-rows',
       meta: { accessibleName: 'Pointer rows' },
-      rows,
-      getRowId: (row) => row.id,
+      collection,
       columns: [{ id: 'name', value: (row) => row.name, width: { kind: 'fill' } }],
       state: {
         interaction: {

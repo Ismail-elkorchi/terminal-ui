@@ -12,6 +12,7 @@ test('retained measurements survive sibling updates and invalidate on constraint
   const entry = componentElement({ definition: {
     ...leafComponentDefinition,
     identity: 'optional',
+    reuse: { measurement: () => [] },
     measure: ({ constraints }) => {
       calls += 1;
       return { minWidth: 0, minHeight: 0, preferredWidth: 40, preferredHeight: Math.ceil(40 / constraints.width) };

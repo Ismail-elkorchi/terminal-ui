@@ -40,12 +40,12 @@ export class SourceGeometry {
     return new SourceGeometry(source, this.profile, this);
   }
 
-  *prepareOffsetWork(offset: number): Generator<void, void> {
+  *prepareOffsetWork(offset: number): Generator<number, void> {
     const bounded = clampTextOffset(offset, this.source.source.length);
     yield* this.extendWork(() => this.lastOffset() < bounded);
   }
 
-  *prepareColumnWork(column: number): Generator<void, void> {
+  *prepareColumnWork(column: number): Generator<number, void> {
     const bounded = Number.isFinite(column) ? Math.max(0, Math.floor(column)) : 0;
     // Include zero-width clusters at an exact column, matching terminal indexes.
     yield* this.extendWork(() => this.lastColumn() <= bounded);
@@ -70,7 +70,7 @@ export class SourceGeometry {
     return this.source.offsetAtIndex(Math.max(0, lower - 1));
   }
 
-  private *extendWork(needed: () => boolean): Generator<void, void> {
+  private *extendWork(needed: () => boolean): Generator<number, void> {
     let operations = 0;
     while (needed() && this.lastOffset() < this.source.source.length) {
       const start = this.lastOffset();
@@ -82,8 +82,10 @@ export class SourceGeometry {
       const column = this.lastColumn() + cells;
       (this.columns[Math.floor(this.count / pageLength)] ??= []).push(column);
       this.count += 1;
-      if (++operations % 256 === 0) yield;
+      operations += end - start + 1;
+      if (operations >= 256) { yield operations; operations = 0; }
     }
+    if (operations !== 0) yield operations;
   }
 
   private lastOffset(): number { return this.source.offsetAtIndex(this.count - 1); }

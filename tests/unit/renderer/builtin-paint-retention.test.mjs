@@ -2,14 +2,16 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTableCollection } from '../../../dist/behavior/index.js';
 import { dataGrid, text, textInput } from '../../../dist/components/index.js';
-import { createTableModel, ownTableModel } from '../../../dist/components/data-table/model.js';
+import { createTableModel, tableModelReuse } from '../../../dist/components/data-table/model.js';
 import { paintTable } from '../../../dist/components/data-table/paint.js';
 import { tableAccessibility } from '../../../dist/components/data-table/accessibility.js';
 import { column } from '../../../dist/layout/index.js';
 import { renderElementInternal } from '../../../dist/renderer/internal/render-element.js';
 import { defaultTheme, minimalTheme } from '../../../dist/theme/index.js';
 import { decodeElementStyles } from '../../../dist/element/styles.js';
-import { modelDependencies, ownModelDependencies, sameModelDependencies } from '../../../dist/visual/model-dependencies.js';
+import { sameStyleDependencies } from '../../../dist/visual/style-dependencies.js';
+import { sameReuseDependencies } from '../../../dist/visual/reuse-dependencies.js';
+import { componentReuse } from '../../../dist/component/internal/reuse.js';
 
 function gridFixture(count = 30) {
   const collection = createTableCollection(Array.from({ length: count }, (_, index) => ({ name: `row${index}` })), (_, index) => String(index));
@@ -107,9 +109,9 @@ test('large selection descriptors fall back to visible-row retention without vis
   const options = gridFixture(5000);
   const selection = Array.from({ length: 1000 }, (_, index) => String(index + 1000));
   const state = ids => ({ kind: 'row', selection: { mode: 'multiple', selectedRowIds: ids } });
-  const a = ownTableModel(createTableModel(options(state(selection)), 'grid'));
-  const b = ownTableModel(createTableModel(options(state([...selection])), 'grid'));
-  assert.equal(sameModelDependencies(a, b, 'paint'), false);
+  const a = createTableModel(options(state(selection)), 'grid');
+  const b = createTableModel(options(state([...selection])), 'grid');
+  assert.equal(sameReuseDependencies(tableModelReuse.paint(a), tableModelReuse.paint(b)), false);
   const paint = rowPaintProbe(options);
   assert.equal(paint(state(selection)), 5);
   assert.equal(paint(state([...selection, '4000'])), 0, 'off-screen selection changes do not repaint visible rows');
@@ -200,37 +202,36 @@ test('owned style descriptors snapshot mutations and bound large style matrices'
   const contract = { subject: 'styles', parts: new Set(['row']) };
   const caller = { parts: { row: { bold: true } }, states: { selected: { root: { underline: true } } } };
   const first = decodeElementStyles(caller, contract);
-  assert.equal(sameModelDependencies(first, decodeElementStyles(structuredClone(caller), contract), 'paint'), true);
+  assert.equal(sameStyleDependencies(first, decodeElementStyles(structuredClone(caller), contract)), true);
   caller.parts.row.bold = false;
   const changed = decodeElementStyles(caller, contract);
   assert.equal(first.parts.row.bold, true);
-  assert.equal(sameModelDependencies(first, changed, 'paint'), false);
+  assert.equal(sameStyleDependencies(first, changed), false);
   const parts = Object.fromEntries(Array.from({ length: 1000 }, (_, index) => [`part${index}`, { bold: true }]));
   const large = decodeElementStyles({ parts }, { subject: 'large styles', parts: new Set(Object.keys(parts)) });
-  assert.equal(modelDependencies(large, 'paint'), undefined);
+  assert.equal(sameStyleDependencies(large, decodeElementStyles({ parts }, { subject: 'large styles', parts: new Set(Object.keys(parts)) })), false);
   const nested = decodeElementStyles({
     parts: Object.fromEntries(Object.entries(parts).slice(0, 62)),
     states: { selected: { root: { bold: true } } },
   }, { subject: 'nested styles', parts: new Set(Object.keys(parts)) });
-  assert.equal(modelDependencies(nested, 'paint'), undefined);
+  assert.equal(sameStyleDependencies(nested, decodeElementStyles(nested, { subject: 'nested styles', parts: new Set(Object.keys(parts)) })), false);
 });
 
-test('one bounded model owner keeps paint and semantic phase invalidation distinct', () => {
-  const a = ownModelDependencies({}, { paint: ['same'], measurement: [1], layout: [1], accessibility: ['old'] });
-  const b = ownModelDependencies({}, { paint: ['same'], measurement: [1], layout: [1], accessibility: ['new'] });
-  assert.equal(sameModelDependencies(a, b, 'paint'), true);
-  assert.equal(sameModelDependencies(a, b, 'measurement'), true);
-  assert.equal(sameModelDependencies(a, b, 'layout'), true);
-  assert.equal(sameModelDependencies(a, b, 'accessibility'), false);
-  const opaque = {};
-  assert.equal(sameModelDependencies(opaque, opaque, 'paint'), true);
-  assert.equal(sameModelDependencies(opaque, opaque, 'layout'), false);
+test('one public tuple adapter keeps phase proofs distinct and owns bounded snapshots', () => {
+  const reuse = { paint: model => [model.paint], measurement: () => [1], layout: () => [1], accessibility: model => [model.label] };
+  const a = componentReuse({ paint: 'same', label: 'old' }, reuse);
+  const b = componentReuse({ paint: 'same', label: 'new' }, reuse);
+  assert.equal(sameReuseDependencies(a.paint, b.paint), true);
+  assert.equal(sameReuseDependencies(a.measurement, b.measurement), true);
+  assert.equal(sameReuseDependencies(a.layout, b.layout), true);
+  assert.equal(sameReuseDependencies(a.accessibility, b.accessibility), false);
+  assert.equal(sameReuseDependencies(undefined, undefined), false);
   const slots = ['owned'];
-  const owned = ownModelDependencies({}, { paint: slots, accessibility: slots });
+  const owned = componentReuse({}, { paint: () => slots, accessibility: () => slots });
   slots[0] = 'changed';
-  assert.deepEqual(modelDependencies(owned, 'paint'), ['owned']);
-  assert.strictEqual(modelDependencies(owned, 'paint'), modelDependencies(owned, 'accessibility'));
-  const large = ownModelDependencies({}, { layout: Array(129).fill('large') });
-  assert.equal(modelDependencies(large, 'layout'), undefined);
+  assert.deepEqual(owned.paint, ['owned']);
+  assert.deepEqual(owned.accessibility, ['owned']);
+  assert.throws(() => componentReuse({}, { layout: () => Array(129).fill('large') }), /128/u);
   assert.equal(Object.isFrozen(owned), true);
+  assert.equal(Object.isFrozen(owned.paint), true);
 });

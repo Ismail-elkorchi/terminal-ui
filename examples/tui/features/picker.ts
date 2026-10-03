@@ -1,4 +1,5 @@
-import { createTuiPreparedQuery, liftTuiResult, searchPicker, createSearchPickerKeymap } from '@ismail-elkorchi/terminal-ui';
+import { createTuiCooperativeWorkContext } from '@ismail-elkorchi/terminal-ui/tui';
+import { createTuiPreparedQuery, liftTuiResult, combineTuiResults, searchPicker, createSearchPickerKeymap } from '@ismail-elkorchi/terminal-ui';
 import type { TuiChildDefinition, TuiPreparedQueryState, TuiPreparedQueryMessage, SearchPickerControlTransition, SearchEntry } from '@ismail-elkorchi/terminal-ui';
 import { createSearchPickerState, createSearchPickerIndex, prepareSearchPickerIndex, prepareSearchPickerIndexUpdate, prepareSearchPickerQuery, searchPickerReducer, searchPickerView, searchPickerEntryById, searchPickerQueryPosition } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { SearchPickerIndex, SearchPickerQueryResult, SearchPickerIndexChange, UnscrolledSearchPickerState } from '@ismail-elkorchi/terminal-ui/behavior';
@@ -33,7 +34,7 @@ export function pickerDefinition<T>(source: PickerSource<T>, keymap: ReturnType<
   const construction = createTuiPreparedQuery({
     id: 'source',
     prepare: async (input: PickerPreparation<T>, context) => {
-      const work = { signal: context.signal, yield: async () => { await context.clock.sleep(0, context.signal); } };
+      const work = createTuiCooperativeWorkContext(context);
       // Changes are reliable ordered input. Keep their desired-source chain
       // through cancellation, then consume it oldest-first in one version build.
       const changes: (() => Iterable<readonly SearchPickerIndexChange<T>[]>)[] = [];
@@ -59,9 +60,7 @@ export function pickerDefinition<T>(source: PickerSource<T>, keymap: ReturnType<
   });
   const query = createTuiPreparedQuery({
     id: 'search',
-    prepare: ({ index, query }: { readonly index: SearchPickerIndex<T>; readonly query: CollectionQuery }, context) => prepareSearchPickerQuery(index, query, {
-      signal: context.signal, yield: async () => { await context.clock.sleep(0, context.signal); },
-    }),
+    prepare: ({ index, query }: { readonly index: SearchPickerIndex<T>; readonly query: CollectionQuery }, context) => prepareSearchPickerQuery(index, query, createTuiCooperativeWorkContext(context)),
     toMessage: (message): PickerMessage<T> => ({ kind: 'prepared', message }),
   });
   const request = (state: PickerState<T>) => {
@@ -86,7 +85,7 @@ export function pickerDefinition<T>(source: PickerSource<T>, keymap: ReturnType<
           if (!state.open) return { state };
           const cancelled = query.cancel({ ...state, open: false });
           const stopped = construction.cancel(state.construction);
-          return { ...cancelled, state: { ...cancelled.state, construction: stopped.state }, cancel: [...(cancelled.cancel ?? []), ...(stopped.cancel ?? [])] };
+          return combineTuiResults({ ...cancelled.state, construction: stopped.state }, cancelled, stopped);
         }
         case 'updateSource':
         case 'replace': {
@@ -99,7 +98,7 @@ export function pickerDefinition<T>(source: PickerSource<T>, keymap: ReturnType<
           const next = { ...cancelled.state, source: replacement, result: null,
             construction: { ...stopped.state, result: isIndex(replacement) ? replacement : null } };
           const requested = state.open ? request(next) : { state: next };
-          return { ...requested, cancel: [...(cancelled.cancel ?? []), ...(stopped.cancel ?? [])] };
+          return combineTuiResults(requested.state, cancelled, stopped, requested);
         }
         case 'transition': {
           if (!state.open) return { state };

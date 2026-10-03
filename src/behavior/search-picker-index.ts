@@ -1,7 +1,9 @@
+import { snapshotArray } from '../foundation/array-snapshot.ts';
+import { orderedItemByIdWork, createOrderedSourceWork, appendOrderedItemsWork, replaceOrderedItemWork, removeOrderedItemsWork, type OrderedSource } from '../foundation/ordered-source.ts';
 import { finishWork, prepareWork, type CooperativeWorkContext } from '../foundation/cooperative-work.ts';
 import type { SearchEntry } from '../collection/item.ts';
 import type { CollectionInteractionIndex } from '../interaction/collection-interaction.ts';
-import { createCollectionInteractionOrderBuilder, collectionInteractionOrderPosition, collectionInteractionIndexStorageBytes } from '../interaction/collection-interaction.ts';
+import { createCollectionInteractionIndexFromSource, collectionInteractionOrderPosition, collectionInteractionIndexStorageBytes } from '../interaction/collection-interaction.ts';
 import type {
   CollectionQuery,
   CompiledCollectionQuery,
@@ -31,14 +33,16 @@ export interface SearchPickerQueryResult<TValue = string> {
   readonly kind: 'search-picker-query';
   readonly searchPickerIndex: SearchPickerIndex<TValue>;
   readonly query: CompiledCollectionQuery;
-  readonly entries: readonly SearchEntry<TValue>[];
+  readonly count: number;
+  readonly entryAt: (rank: number) => SearchEntry<TValue> | undefined;
+  readonly window: (start: number, end: number) => readonly SearchEntry<TValue>[];
   /** Ranked highlights for nonempty queries; empty queries reuse source order without match records. */
   readonly matches: readonly QueryMatch[];
   readonly interactionIndex: CollectionInteractionIndex;
 }
 
 interface SearchPickerIndexData<TValue> {
-  readonly entries: readonly SearchEntry<TValue>[];
+  readonly order: OrderedSource<SearchEntry<TValue>>;
   readonly interactionIndex: CollectionInteractionIndex;
   readonly queryResults: Map<string, SearchPickerQueryResult<TValue>>;
   retainedQueryBytes: number;
@@ -69,7 +73,7 @@ export function createSearchPickerIndex<TSource, TValue>(
     const byMapper = mappedSourceIndexes.get(source);
     const cached = byMapper?.get(toEntry) as SearchPickerIndex<TValue> | undefined;
     if (cached !== undefined) return cached;
-    const index = finishWork(buildSearchPickerIndexWork(ownEntries(source.map(toEntry))));
+    const index = finishWork(buildSearchPickerIndexWork(ownEntries(snapshotArray(source).map(toEntry))));
     const cache = byMapper ?? new WeakMap<object, SearchPickerIndex<unknown>>();
     cache.set(toEntry, index);
     if (byMapper === undefined) mappedSourceIndexes.set(source, cache);
@@ -121,23 +125,24 @@ export function prepareSearchPickerIndexUpdate<TValue>(
 }
 
 function* ownEntries<TValue>(entries: readonly SearchEntry<TValue>[]): Generator<SearchEntry<TValue>> {
-  for (const entry of entries) yield ownEntry(entry);
+  for (const entry of snapshotArray(entries)) yield ownEntry(entry);
 }
 
 function* ownEntryBatches<TValue>(batches: Iterable<readonly SearchEntry<TValue>[]>): Generator<SearchEntry<TValue> | undefined> {
   for (const batch of batches) {
-    assertBatch(batch);
+    const length = batchLength(batch);
     const budget = { keywords: 0 };
-    const owned = Array.from(batch, entry => ownEntry<TValue>(entry, budget));
+    const owned = snapshotArray(batch, length).map(entry => ownEntry<TValue>(entry, budget));
     yield* owned;
     yield undefined;
   }
 }
 
-function assertBatch(batch: unknown): asserts batch is readonly unknown[] {
-  if (!Array.isArray(batch) || batch.length > batchEntryLimit) {
-    throw new TypeError('Search picker batches must be arrays of at most 256 entries or changes.');
-  }
+function batchLength(batch: readonly unknown[]): number {
+  if (!Array.isArray(batch)) throw new TypeError('Search picker batches must be arrays of at most 256 entries or changes.');
+  const length = batch.length;
+  if (length > batchEntryLimit) throw new TypeError('Search picker batches must be arrays of at most 256 entries or changes.');
+  return length;
 }
 
 function ownEntry<TValue>(input: unknown, budget?: { keywords: number }): SearchEntry<TValue> {
@@ -153,12 +158,13 @@ function ownEntry<TValue>(input: unknown, budget?: { keywords: number }): Search
   let ownedKeywords: readonly string[] | undefined;
   if (keywords !== undefined) {
     if (!Array.isArray(keywords)) throw new TypeError('Search picker keywords must be an array of strings.');
+    const length = keywords.length;
     if (budget !== undefined) {
-      budget.keywords += keywords.length;
+      budget.keywords += length;
       if (budget.keywords > batchKeywordLimit) throw new TypeError('Search picker batches must contain at most 1024 keyword references; use smaller batches or fewer keyword fields.');
     }
     const copy: string[] = [];
-    for (const keyword of keywords) {
+    for (const keyword of snapshotArray(keywords, length)) {
       if (typeof keyword !== 'string') throw new TypeError('Search picker keywords must be strings.');
       copy.push(keyword);
     }
@@ -174,7 +180,7 @@ function ownEntry<TValue>(input: unknown, budget?: { keywords: number }): Search
 }
 
 function* ownChanges<TValue>(changes: readonly SearchPickerIndexChange<TValue>[]): Generator<SearchPickerIndexChange<TValue>> {
-  for (const change of changes) yield ownChange(change);
+  for (const change of snapshotArray(changes)) yield ownChange(change);
 }
 
 function ownChange<TValue>(input: unknown, budget?: { keywords: number }): SearchPickerIndexChange<TValue> {
@@ -188,21 +194,21 @@ function ownChange<TValue>(input: unknown, budget?: { keywords: number }): Searc
 
 function* ownChangeBatches<TValue>(batches: Iterable<readonly SearchPickerIndexChange<TValue>[]>): Generator<SearchPickerIndexChange<TValue> | undefined> {
   for (const batch of batches) {
-    assertBatch(batch);
+    const length = batchLength(batch);
     const budget = { keywords: 0 };
-    const owned = Array.from(batch, change => ownChange<TValue>(change, budget));
+    const owned = snapshotArray(batch, length).map(change => ownChange<TValue>(change, budget));
     yield* owned;
     yield undefined;
   }
 }
 
-function* normalizeEntryWork<TValue>(entry: SearchEntry<TValue>): Generator<void, SearchEntry<TValue>> {
+function* normalizeEntryWork<TValue>(entry: SearchEntry<TValue>): Generator<number, SearchEntry<TValue>> {
   const id = yield* cleanWork(entry.id);
   if (id.trim().length === 0) throw new TypeError('Search picker entry ids must not be empty.');
   const keywords: string[] = [];
   for (const keyword of entry.keywords ?? []) {
     keywords.push(yield* cleanWork(keyword));
-    if (keywords.length % 256 === 0) yield;
+    yield 1;
   }
   const value = Object.freeze({
     id, label: yield* cleanWork(entry.label), value: entry.value,
@@ -218,25 +224,24 @@ function* normalizeEntryWork<TValue>(entry: SearchEntry<TValue>): Generator<void
 
 function* buildSearchPickerIndexWork<TValue>(
   entries: Iterable<SearchEntry<TValue> | undefined>,
-): Generator<void, SearchPickerIndex<TValue>> {
-  const order = createCollectionInteractionOrderBuilder<SearchEntry<TValue>>();
-  let count = 0;
-  for (const entry of entries) {
-    if (entry === undefined) { yield; continue; }
-    const value = yield* normalizeEntryWork(entry);
-    if (order.has(value.id)) throw new TypeError(`Search picker entry ids must be unique; duplicate id: ${value.id}`);
-    order.add(value, value.id, value.disabled);
-    if (++count % 256 === 0) yield;
+): Generator<number, SearchPickerIndex<TValue>> {
+  function* events() {
+    for (const entry of entries) {
+      if (entry === undefined) { yield 1; continue; }
+      const value = yield* normalizeEntryWork(entry);
+      yield { id: value.id, value, disabled: value.disabled === true };
+      yield 1;
+    }
   }
-  return registerIndex(order.finish());
+  return registerIndex(yield* createOrderedSourceWork(events()));
 }
 
-function registerIndex<TValue>(owned: { readonly items: readonly SearchEntry<TValue>[]; readonly index: CollectionInteractionIndex }): SearchPickerIndex<TValue> {
+function registerIndex<TValue>(order: OrderedSource<SearchEntry<TValue>>): SearchPickerIndex<TValue> {
   const index = Object.freeze<SearchPickerIndex<TValue>>({
-    [searchPickerIndexBrand]: undefined as TValue, kind: 'search-picker-index', size: owned.items.length,
+    [searchPickerIndexBrand]: undefined as TValue, kind: 'search-picker-index', size: order.count,
   });
   indexData.set(index, {
-    entries: owned.items, interactionIndex: owned.index,
+    order, interactionIndex: createCollectionInteractionIndexFromSource(order),
     queryResults: new Map(), retainedQueryBytes: 0, queryEvaluations: 0, candidateEvaluations: 0,
   });
   return index;
@@ -244,44 +249,25 @@ function registerIndex<TValue>(owned: { readonly items: readonly SearchEntry<TVa
 
 function* updateSearchPickerIndexWork<TValue>(
   index: SearchPickerIndex<TValue>, changes: Iterable<SearchPickerIndexChange<TValue> | undefined>,
-): Generator<void, SearchPickerIndex<TValue>> {
-  const previous = dataFor(index);
-  interface Edit { entry: SearchEntry<TValue> | undefined; readonly appended: boolean }
-  const edited = new Map<string, Edit>();
-  const appended: Edit[] = [];
-  let count = 0;
+): Generator<number, SearchPickerIndex<TValue>> {
+  let order = dataFor(index).order;
+  const previous = order;
   for (const change of changes) {
-    if (change === undefined) { yield; continue; }
+    if (change === undefined) { yield 1; continue; }
     const entry = change.kind === 'remove' ? undefined : yield* normalizeEntryWork(change.entry);
     const id = entry?.id ?? (yield* cleanWork((change as { readonly id: string }).id));
-    const priorEdit = edited.get(id);
-    const prior = priorEdit === undefined ? searchPickerEntryById(index, id) : priorEdit.entry;
+    const prior = yield* orderedItemByIdWork(order, id);
     if (change.kind === 'append' ? prior !== undefined : prior === undefined) {
       throw new TypeError(change.kind === 'append'
         ? `Search picker entry ids must be unique; duplicate id: ${id}`
         : `Search picker ${change.kind} id must identify an existing entry: ${id}`);
     }
-    const edit = change.kind !== 'append' && priorEdit !== undefined ? priorEdit : { entry, appended: change.kind === 'append' };
-    edit.entry = entry;
-    edited.set(id, edit);
-    if (change.kind === 'append') appended.push(edit);
-    if (++count % 256 === 0) yield;
+    if (entry === undefined) order = yield* removeOrderedItemsWork(order, [id]);
+    else if (change.kind === 'append') order = yield* appendOrderedItemsWork(order, [{ id, value: entry, disabled: entry.disabled === true }]);
+    else order = yield* replaceOrderedItemWork(order, { id, value: entry, disabled: entry.disabled === true });
+    yield 1;
   }
-  if (edited.size === 0) return index;
-  const order = createCollectionInteractionOrderBuilder<SearchEntry<TValue>>();
-  count = 0;
-  for (const entry of previous.entries) {
-    const edit = edited.get(entry.id);
-    const retained = edit === undefined ? entry : edit.appended ? undefined : edit.entry;
-    if (retained !== undefined) order.add(retained, retained.id, retained.disabled);
-    if (++count % 256 === 0) yield;
-  }
-  for (const edit of appended) {
-    const entry = edit.entry;
-    if (entry !== undefined && edited.get(entry.id) === edit) order.add(entry, entry.id, entry.disabled);
-    if (++count % 256 === 0) yield;
-  }
-  return registerIndex(order.finish());
+  return order === previous ? index : registerIndex(order);
 }
 
 function* entryFields(entry: SearchEntry<unknown>): Generator<string> {
@@ -295,9 +281,7 @@ export function searchPickerEntryById<TValue>(
   index: SearchPickerIndex<TValue>,
   id: string,
 ): SearchEntry<TValue> | undefined {
-  const data = dataFor(index);
-  const position = collectionInteractionOrderPosition(data.interactionIndex, id);
-  return position === undefined ? undefined : data.entries[position];
+  return dataFor(index).order.itemById(id);
 }
 
 export function querySearchPickerIndex<TValue>(
@@ -340,7 +324,7 @@ export function searchPickerQueryPosition(result: SearchPickerQueryResult<unknow
 
 function* searchPickerQueryWork<TValue>(
   index: SearchPickerIndex<TValue>, query: CollectionQuery,
-): Generator<void, SearchPickerQueryResult<TValue>> {
+): Generator<number, SearchPickerQueryResult<TValue>> {
   const data = dataFor(index);
   const request = ownCollectionQueryRequest(query);
   const normalizedQuery = yield* compileCollectionQueryWork(request);
@@ -352,25 +336,24 @@ function* searchPickerQueryWork<TValue>(
     return cached;
   }
   data.queryEvaluations += 1;
-  data.candidateEvaluations += normalizedQuery.text.length === 0 ? 0 : data.entries.length;
+  data.candidateEvaluations += normalizedQuery.text.length === 0 ? 0 : data.order.count;
   const empty = normalizedQuery.text.length === 0;
-  const matches = empty ? emptyMatches : yield* queryIndexedCandidatesWork(data.entries, normalizedQuery);
-  let entries = data.entries;
+  const matches = empty ? emptyMatches : yield* queryIndexedCandidatesWork(data.order.values(), normalizedQuery);
+  let order = data.order;
   let interactionIndex = data.interactionIndex;
   let storageBytes = cacheKey.length * 2 + request.text.length * 2 + collectionQueryStorageBytes(normalizedQuery) + 128;
   if (!empty) {
-    const order = createCollectionInteractionOrderBuilder<SearchEntry<TValue>>();
-    for (let position = 0; position < matches.length; position += 1) {
-      const match = matches[position];
-      const entry = match === undefined ? undefined : searchPickerEntryById(index, match.id);
-      if (entry !== undefined) order.add(entry, entry.id, entry.disabled);
-      storageBytes += 48 + (match?.ranges.length ?? 0) * 48;
-      if ((position + 1) % 256 === 0) yield;
+    function* rankedItems() {
+      for (const match of matches) {
+        const entry = yield* orderedItemByIdWork(data.order, match.id);
+        if (entry !== undefined) yield { id: entry.id, value: entry, disabled: entry.disabled === true };
+        storageBytes += 48 + match.ranges.length * 48;
+        yield 1;
+      }
     }
-    const owned = order.finish();
-    entries = owned.items;
-    interactionIndex = owned.index;
-    storageBytes += entries.length * 8 + collectionInteractionIndexStorageBytes(interactionIndex);
+    order = yield* createOrderedSourceWork(rankedItems());
+    interactionIndex = createCollectionInteractionIndexFromSource(order);
+    storageBytes += collectionInteractionIndexStorageBytes(interactionIndex);
   }
   // Matching and order construction yield; a concurrent reader can have
   // admitted this same immutable result since our initial cache lookup.
@@ -384,7 +367,7 @@ function* searchPickerQueryWork<TValue>(
     kind: 'search-picker-query' as const,
     searchPickerIndex: index,
     query: normalizedQuery,
-    entries,
+    count: order.count, entryAt: order.itemAt, window: order.window,
     matches,
     interactionIndex,
   });
@@ -420,7 +403,7 @@ export function searchPickerIndexStatistics(index: SearchPickerIndex<unknown>): 
 } {
   const data = dataFor(index);
   return Object.freeze({
-    entries: data.entries.length,
+    entries: data.order.count,
     cachedQueries: data.queryResults.size,
     retainedQueryBytes: data.retainedQueryBytes,
     queryCacheByteLimit,
@@ -437,7 +420,7 @@ function dataFor<TValue>(index: SearchPickerIndex<TValue>): SearchPickerIndexDat
 
 const whitespaceCharacter = /\s/u;
 
-function* cleanWork(value: string): Generator<void, string> {
+function* cleanWork(value: string): Generator<number, string> {
   const sanitized = yield* sanitizeTerminalTextWork(value);
   const text = sanitized.text;
   const parts: string[] = [];
@@ -457,9 +440,15 @@ function* cleanWork(value: string): Generator<void, string> {
       whitespaceStart = -1;
       newline = false;
     }
-    if ((offset + 1) % 2048 === 0) yield;
+    if ((offset + 1) % 256 === 0) yield 256;
   }
+  yield (text.length + 1) % 256;
   if (parts.length === 0) return text;
   parts.push(text.slice(retainedStart));
   return parts.join('');
+}
+
+/** Explicit O(result count) materialization for exports and deliberate eager consumers. */
+export function searchPickerQueryEntries<T>(result: SearchPickerQueryResult<T>): readonly SearchEntry<T>[] {
+  return result.window(0, result.count);
 }

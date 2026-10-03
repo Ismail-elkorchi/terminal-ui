@@ -1,3 +1,4 @@
+import { verifyChildComposition } from './child-composition.js';
 import {
   behavior,
   button,
@@ -43,6 +44,11 @@ interface State {
   readonly count: number;
 }
 
+const processCollection = behavior.createTableCollection([{ id: 7, name: 'worker' }], row => String(row.id));
+const treeState = { selection: { mode: 'single' as const }, expandedIds: [] };
+const treeSource = behavior.createTreeSource([{ id: 'src', label: 'src', kind: 'leaf' }]);
+const treeView = behavior.createTreeView(treeSource, treeState);
+
 function view(state: State): Element<Message> {
   const increment: Element<{ readonly kind: 'increment' }> = button({
     id: 'increment',
@@ -50,10 +56,9 @@ function view(state: State): Element<Message> {
     onPress: () => ({ kind: 'increment' }) as const
   });
   const processes: Element<{ readonly kind: 'selectRow'; readonly transition: DataGridTransition }> = dataGrid({
-    getRowId: (row) => String(row.id),
     id: 'processes',
     meta: { accessibleName: 'Processes' },
-    rows: [{ id: 7, name: 'worker' }],
+    collection: processCollection,
     columns: [
       { id: 'id', header: 'ID', value: (row) => row.id },
       { id: 'name', header: 'Name', value: (row) => row.name }
@@ -61,13 +66,11 @@ function view(state: State): Element<Message> {
     state: { interaction: { kind: 'row', selection: { mode: 'single' as const } } },
     onTransition: (transition) => ({ kind: 'selectRow' as const, transition })
   });
-  const treeState = { selection: { mode: 'single' as const }, expandedIds: [] };
-  const treeSource = behavior.createTreeSource([{ id: 'src', label: 'src', kind: 'leaf' }]);
   const files: Element<{ readonly kind: 'tree'; readonly transition: TreeTransition }> = tree({
     id: 'files',
     meta: { accessibleName: 'Files' },
     source: treeSource,
-    view: behavior.createTreeView(treeSource, treeState),
+    view: treeView,
     state: treeState,
     onTransition: (transition) => ({ kind: 'tree' as const, transition })
   });
@@ -241,14 +244,16 @@ await peerHarness.runApp(defineTui({
   init: () => ({ state: 0 }),
   update: (state: number, _message: 'next') => ({ state: state + 1 }),
   view: (state: number) => column([
-    retainedPeer,
+    state < 2 ? retainedPeer : peerBadge({ id: 'retained-peer', label: 'Owned peer' }),
     text({ content: String(state) }),
   ]),
 }), async (runtime) => {
   await runtime.dispatch('next');
+  await runtime.dispatch('next');
   const metrics = peerBadgeMetrics();
-  if (metrics.paints - peerBefore.paints !== 1) {
-    throw new Error('External components must share synchronous authoring and retained painting with built-ins.');
+  if (metrics.paints - peerBefore.paints !== 1 || metrics.measurements - peerBefore.measurements !== 1
+    || metrics.semantics - peerBefore.semantics !== 1) {
+    throw new Error('External components must share declared measurement, layout, paint and accessibility reuse with built-ins.');
   }
 });
 const result = success('root-entrypoint');
@@ -324,5 +329,7 @@ if (
 ) {
   throw new Error('The packed accessibility or transcript entrypoint failed.');
 }
+
+await verifyChildComposition();
 
 console.log('terminal-ui packed consumer passed');

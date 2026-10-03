@@ -1,7 +1,8 @@
+import { finishWork } from '../foundation/cooperative-work.ts';
 import {
-  textDocumentApplyChangesExact,
+  textDocumentApplyChangesExactWork,
   textDocumentLength,
-  textDocumentSlice,
+  textDocumentSliceWork,
   type TextDocument,
 } from './document.ts';
 import type { TextChangeSet, TextDocumentChange } from './types.ts';
@@ -26,11 +27,22 @@ ownedChangeSets.add(emptyTextChangeSet);
 export function createTextChangeSet(
   changes: readonly TextDocumentChange[]
 ): TextChangeSet {
+  return finishWork(createTextChangeSetWork(changes));
+}
+
+export function* createTextChangeSetWork(
+  changes: readonly TextDocumentChange[]
+): Generator<number, TextChangeSet> {
   if (!Array.isArray(changes)) throw new TypeError('Text changes must be an array.');
-  const owned = changes
-    .map((change, index) => decodeTextDocumentChange(change, index))
-    .filter((change) => change.startOffset !== change.endOffsetExclusive || change.insertedText.length > 0);
+  const owned: TextDocumentChange[] = [];
+  for (let index = 0; index < changes.length; index += 1) {
+    yield 1;
+    const change = decodeTextDocumentChange(changes[index], index);
+    if (change.startOffset !== change.endOffsetExclusive || change.insertedText.length > 0) owned.push(change);
+    yield 1;
+  }
   for (let index = 1; index < owned.length; index += 1) {
+    yield 1;
     const previous = owned[index - 1];
     const current = owned[index];
     if (previous === undefined || current === undefined) continue;
@@ -45,44 +57,74 @@ export function applyTextChangeSet(
   document: TextDocument,
   changeSet: TextChangeSet
 ): TextDocument {
-  const plan = createTextChangePlan(document, changeSet);
-  return applyTextChangePlan(document, plan);
+  return finishWork(applyTextChangeSetWork(document, changeSet));
+}
+
+export function* applyTextChangeSetWork(
+  document: TextDocument,
+  changeSet: TextChangeSet
+): Generator<number, TextDocument> {
+  const plan = yield* createTextChangePlanWork(document, changeSet);
+  return yield* applyTextChangePlanWork(document, plan);
 }
 
 export function applyTextChangePlan(
   document: TextDocument,
   plan: TextChangePlan
 ): TextDocument {
+  return finishWork(applyTextChangePlanWork(document, plan));
+}
+
+export function* applyTextChangePlanWork(
+  document: TextDocument,
+  plan: TextChangePlan
+): Generator<number, TextDocument> {
   const changeSet = textChangePlanData(document, plan).changeSet;
-  return textDocumentApplyChangesExact(document, changeSet.changes);
+  return yield* textDocumentApplyChangesExactWork(document, changeSet.changes);
 }
 
 export function invertTextChangeSet(
   document: TextDocument,
   changeSet: TextChangeSet
 ): TextChangeSet {
-  const plan = createTextChangePlan(document, changeSet);
-  return invertTextChangePlan(document, plan);
+  return finishWork(invertTextChangeSetWork(document, changeSet));
+}
+
+export function* invertTextChangeSetWork(
+  document: TextDocument,
+  changeSet: TextChangeSet
+): Generator<number, TextChangeSet> {
+  const plan = yield* createTextChangePlanWork(document, changeSet);
+  return yield* invertTextChangePlanWork(document, plan);
 }
 
 export function invertTextChangePlan(
   document: TextDocument,
   plan: TextChangePlan
 ): TextChangeSet {
+  return finishWork(invertTextChangePlanWork(document, plan));
+}
+
+export function* invertTextChangePlanWork(
+  document: TextDocument,
+  plan: TextChangePlan
+): Generator<number, TextChangeSet> {
   const changeSet = textChangePlanData(document, plan).changeSet;
   let delta = 0;
-  const inverted = changeSet.changes.map((change) => {
+  const inverted: TextDocumentChange[] = [];
+  for (const change of changeSet.changes) {
     const startOffset = change.startOffset + delta;
     const endOffsetExclusive = startOffset + change.insertedText.length;
-    const insertedText = textDocumentSlice(
+    const insertedText = yield* textDocumentSliceWork(
       document,
       change.startOffset,
       change.endOffsetExclusive
     );
     delta += change.insertedText.length
       - (change.endOffsetExclusive - change.startOffset);
-    return Object.freeze({ startOffset, endOffsetExclusive, insertedText });
-  });
+    inverted.push(Object.freeze({ startOffset, endOffsetExclusive, insertedText }));
+    yield 1;
+  }
   return ownChangeSet(inverted);
 }
 
@@ -90,6 +132,13 @@ export function createTextChangePlan(
   document: TextDocument,
   changeSet: unknown
 ): TextChangePlan {
+  return finishWork(createTextChangePlanWork(document, changeSet));
+}
+
+export function* createTextChangePlanWork(
+  document: TextDocument,
+  changeSet: unknown
+): Generator<number, TextChangePlan> {
   if (
     changeSet === null
     || typeof changeSet !== 'object'
@@ -102,6 +151,7 @@ export function createTextChangePlan(
   const sourceLength = textDocumentLength(document);
   if (ownedChangeSets.has(candidate)) {
     for (let index = 0; index < changes.length; index += 1) {
+      yield 1;
       const change = changes[index] as TextDocumentChange | undefined;
       if (change !== undefined && change.endOffsetExclusive > sourceLength) {
         throw new RangeError(`Text changes[${String(index)}] exceeds the source document.`);
@@ -112,6 +162,7 @@ export function createTextChangePlan(
   const owned: TextDocumentChange[] = [];
   let previousEnd = 0;
   for (let index = 0; index < changes.length; index += 1) {
+    yield 1;
     const change = decodeTextDocumentChange(changes[index], index);
     if (change.endOffsetExclusive > sourceLength) {
       throw new RangeError(`Text changes[${String(index)}] exceeds the source document.`);

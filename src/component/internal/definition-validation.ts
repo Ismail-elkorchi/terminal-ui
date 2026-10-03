@@ -121,8 +121,17 @@ function assertDefinitionHooks(
   if (value['inspection'] !== undefined && typeof value['inspection'] !== 'function') {
     throw new TypeError('Component definition inspection must be a function when provided.');
   }
-  if (value['retainPaint'] !== undefined && (structure !== 'leaf' || typeof value['retainPaint'] !== 'boolean')) {
-    throw new TypeError('Component definition retainPaint must be a boolean on a leaf component.');
+  if ('retainPaint' in value) throw new TypeError('Component definition retainPaint is unsupported; declare reuse.paint instead.');
+  const reuse = value['reuse'];
+  if (reuse !== undefined) {
+    if (!isNonArrayObject(reuse)) throw new TypeError('Component definition reuse must be an object.');
+    for (const phase of Object.keys(reuse)) {
+      if (!['measurement', 'layout', 'paint', 'accessibility'].includes(phase)
+        || typeof reuse[phase] !== 'function'
+        || phase === 'paint' && structure !== 'leaf') {
+        throw new TypeError(`Component definition reuse.${phase} is unsupported; paint reuse requires a leaf.`);
+      }
+    }
   }
 }
 

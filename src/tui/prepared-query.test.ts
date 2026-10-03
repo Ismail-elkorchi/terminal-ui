@@ -106,7 +106,7 @@ void test('prepared query work uses child ownership for removal and fresh-genera
   const runtime = createTuiRuntime({ host: createMemoryTerminalHost(), app: defineTui<State, Message>({
     init(ctx) { const initial = mount(1, ctx); return { ...initial, state: { generation: 1, child: initial.state } }; },
     update(state, message, ctx) {
-      if (message.kind === 'remove') return { state: { generation: state.generation }, cancel: state.child === undefined ? [] : [child.remove(state.child)] };
+      if (message.kind === 'remove') return state.child === undefined ? { state } : { ...child.remove(state.child), state: { generation: state.generation } };
       if (message.kind === 'reopen') {
         const initial = mount(state.generation + 1, ctx);
         return { ...initial, state: { generation: state.generation + 1, child: initial.state } };

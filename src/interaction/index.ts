@@ -14,6 +14,11 @@ export type {
 } from './anchored-surface.ts';
 export {
   collectionInteractionReducer,
+  collectionInteractionHas,
+  collectionInteractionIds,
+  collectionInteractionPosition,
+  noSelection,
+  selectionContains,
   createCollectionInteractionIndex,
   decodeSelectionState,
   normalizeCollectionInteraction,
@@ -24,12 +29,6 @@ export type {
   CollectionInteractionState,
   CollectionInteractionTransition,
   SelectionState,
-  assertCollectionInteractionReferences,
-  collectionInteractionHas,
-  collectionInteractionIds,
-  collectionInteractionPosition,
-  noSelection,
-  selectionContains,
 } from './collection-interaction.ts';
 export {
   acceptEditablePopupCompletion,

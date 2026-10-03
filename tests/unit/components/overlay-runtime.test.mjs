@@ -1,3 +1,4 @@
+import { createTableCollection } from '../../../dist/behavior/index.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ignoreMessage } from '../../../dist/component/index.js';
@@ -284,7 +285,6 @@ test('modal dialogs create their own layer and dim the complete lower canvas', (
 test('menuTrigger renders above dataGrid content in a higher region', () => {
   const element = surface(overlay([
     dataGrid({
-    getRowId: (_row, index) => String(index),
     id: 'settings-dataGrid',
     columns: [
         {
@@ -292,10 +292,10 @@ test('menuTrigger renders above dataGrid content in a higher region', () => {
         {
           id: 'value-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Value', width: 8 }
     ],
-    rows: [
+    collection: createTableCollection([
         ['Theme', 'System'],
         ['Mode', 'Compact']
-    ],
+    ], (_row, index) => String(index)),
     state: { interaction: { kind: 'row', selection: { mode: 'single' } } },
     onTransition: (transition) => transition,
     meta: { accessibleName: "Data grid",

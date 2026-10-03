@@ -1,22 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createTuiChild, createTuiRuntime, defineTui } from '@ismail-elkorchi/terminal-ui/tui';
+import { combineTuiResults, createTuiChild, createTuiRuntime, defineTui, liftTuiResult } from '@ismail-elkorchi/terminal-ui/tui';
 import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
 import { text } from '@ismail-elkorchi/terminal-ui/components';
 import { flushAsync, waitUntil } from '../../support/async.ts';
 
 const transforms = [
-  { name: 'shallow-copied effects', effect: (effect) => ({ ...effect }), cancel: (request) => request },
-  { name: 'shallow-copied nested cancellations', effect: (effect) => effect, cancel: (request) => ({ ...request }) },
-  {
-    name: 'decorated effects and assigned nested cancellations',
-    effect: (effect) => ({ ...effect, concurrency: 'enqueue', run: (context) => effect.run(context) }),
-    cancel: (request) => Object.assign({}, request),
-  },
+  { name: 'plain local work', effect: (effect) => effect },
+  { name: 'decorated local work', effect: (effect) => ({ ...effect, concurrency: 'enqueue', run: (context) => effect.run(context) }) },
 ];
 
 for (const transform of transforms) {
-  test(`${transform.name} preserve child removal, sibling isolation and queued-work fencing`, async () => {
+  test(`${transform.name} remains owned through lifted contributions, child removal and sibling isolation`, async () => {
     const finish = Promise.withResolvers();
     const effects = [];
     const sources = [];
@@ -26,15 +21,12 @@ for (const transform of transforms) {
       init(context) {
         const left = panels.left.init({ id: 'left', generation: 1 }, context);
         const right = panels.right.init({ id: 'right', generation: 1 }, context);
-        return {
-          state: { left: left.state, right: right.state },
-          effects: [...left.effects, ...right.effects].map(transform.effect),
-        };
+        return combineTuiResults({ left: left.state, right: right.state }, { ...left }, { ...right });
       },
       update(state, message, context) {
         if (message === 'remove-left') {
           const result = panels.left.update(state.left, { id: 'left', generation: 1, message: 'remove' }, context);
-          return { state: { ...state, left: result.state }, cancel: result.cancel.map(transform.cancel) };
+          return liftTuiResult(state, 'left', result);
         }
         delivered.push(message);
         return { state };
@@ -43,7 +35,7 @@ for (const transform of transforms) {
       subscriptions: (state, context) => [
         ...panels.left.subscriptions(state.left, context),
         ...panels.right.subscriptions(state.right, context),
-      ].map((source) => ({ ...source, run: (context, sink) => source.run(context, sink) })),
+      ],
     }) });
 
     function createPanel(label) {
@@ -55,7 +47,7 @@ for (const transform of transforms) {
             await finish.promise;
             return { kind: 'message', message: 'done' };
           },
-        })) }),
+        })).map(transform.effect) }),
         update: (state) => ({ state }),
         view: () => text({ content: label }),
         subscriptions: () => [{
@@ -69,9 +61,9 @@ for (const transform of transforms) {
       return createTuiChild({
         init(context) {
           const result = child.init({ id: 'leaf', generation: 1 }, context);
-          return { ...result, effects: result.effects.map(transform.effect) };
+          return { ...result };
         },
-        update: (state) => ({ state: undefined, cancel: [transform.cancel(child.remove(state))] }),
+        update: (state) => child.remove(state),
         view: () => text({ content: label }),
         subscriptions: (state, context) => state === undefined ? [] : child.subscriptions(state, context),
       }, (message) => message);

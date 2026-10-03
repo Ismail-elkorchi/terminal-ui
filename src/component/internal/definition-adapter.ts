@@ -79,7 +79,6 @@ export function adaptDefinition<
         return mapComponentAction(action, input.renderNode.props.toActionMessage);
       }),
     }),
-    ...(definition.structure === 'leaf' && definition.retainPaint === true ? { retainPaint: true } : {}),
     ...(definition.semantics !== 'semantic' || definition.keys === undefined
       ? {}
       : {

@@ -187,15 +187,48 @@ execution and cancellation. Cooperative preparation checks its abort signal and
 yields through the supplied work context. Synchronous preparation APIs drive the
 same computation for deliberate small-data or direct-rendering use.
 
-Leaf definitions may opt into `retainPaint: true` when painting is a deterministic
-function of immutable render inputs. Model, resource, theme and style identities
-are retention dependencies; application models are never recursively compared.
-Geometry, width policy, focus and pointer state use their declared fields. Supply
-a new owned model when visible domain values change. A renderer reading mutable
-external state must not opt in unless that state is represented by a new owned
-input. Definitions without this opt-in paint on every render.
+Definitions opt into reuse independently with `reuse.measurement`,
+`reuse.layout`, `reuse.paint`, and `reuse.accessibility`. Each selector receives
+its readonly model and returns an immutable dependency tuple (or `undefined` to
+disable that phase for the instance). The renderer snapshots at most 128 dense
+slots and compares them with `Object.is`; opaque resources must be immutable and
+replaced when their contents change. This bounds renderer comparison work, not
+arbitrary selector execution. Selectors should do bounded, side-effect-free work.
+Omitted phases are never reused, including measurements of the same element in a
+later frame. Models are not recursively inspected and callbacks are not compared.
 
-Only drawing commands are retained. Current event callbacks, hit targets and
-interaction mappings are constructed independently, including on paint hits.
-The renderer owns storage and invalidation; there is no caller-supplied equality
-escape hatch. Built-in and externally installed components use the same contract.
+```ts
+import { defineComponent } from '@ismail-elkorchi/terminal-ui/component';
+
+const badge = defineComponent<{ readonly label: string }>()({
+  name: 'example/badge', identity: 'required', structure: 'leaf', semantics: 'semantic',
+  accessibleRole: 'status',
+  reuse: {
+    measurement: model => [model.label],
+    layout: () => [],
+    paint: model => [model.label],
+    accessibility: model => [model.label],
+  },
+  measure: ({ model }) => ({ minWidth: 0, minHeight: 1, preferredWidth: model.label.length, preferredHeight: 1 }),
+  render: ({ model, target }) => { target.write(0, 0, [{ text: model.label }]); },
+  accessibility: ({ id, model }) => ({ id, role: 'status', label: model.label }),
+});
+```
+
+Layout reuse requires matching measurement and layout tuples for the node and all
+its descendants. Include focus-target and cursor geometry inputs in `layout`.
+Named-slot membership, ordering and semantic paths are renderer dependencies;
+parent tuples never conceal changed child measurement/layout. Accessibility
+additionally depends on current child outputs and focus-target contracts, and
+whole-tree ID, relationship, focus and budget validation still runs. Theme, state,
+width policy, allocation, viewport, identity, focus and pointer dependencies are
+tracked by the renderer for the phases that receive them.
+
+Paint reuse is limited to leaves: composite before/after-child painting cannot be
+captured as an independent reusable patch. Current event callbacks, hit targets,
+interaction mappings and accepted-layout notifications always use current inputs.
+The renderer owns storage and invalidation; there is no equality escape hatch or
+built-in-only model privilege. Built-ins and installed components use this same
+contract. A hook reading mutable external state must omit reuse unless every
+change is represented in its selected dependencies. The former `retainPaint`
+flag is rejected rather than silently mapped to a second retention path.

@@ -1,7 +1,9 @@
+import { createSuggestionFixture } from '../../support/collection-fixtures.mjs';
+import { createOptionsFixture } from '../../support/collection-fixtures.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../../support/calendar.mjs';
-import { createCommandSuggestions } from '../../../dist/behavior/index.js';
+
 
 import { ignoreMessage } from '../../../dist/component/index.js';
 import { defineTui } from '../../../dist/tui/index.js';
@@ -90,7 +92,7 @@ const disabledElementCases = [
     element: () => combobox({
       id: 'disabled-combobox',
       label: 'Tier',
-      options: formOptions,
+      ...createOptionsFixture(formOptions),
       state: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } } },
       disabled: true
     })
@@ -293,7 +295,7 @@ test('unavailable controls validate retained interaction handlers', () => {
     () => combobox({
       id: 'invalid-disabled-combobox',
       label: 'Choice',
-      options: formOptions,
+      ...createOptionsFixture(formOptions),
       state: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } } },
       disabled: true,
       onTransition: 'unreachable'
@@ -336,7 +338,7 @@ test('commandInput preserves disabled suggestion semantics', () => {
     commandInput({ meta: { accessibleName: "Command input" },
       id: 'command',
       prompt: '>',
-      view: { input: { text: 'de', cursor: 0 }, open: true, suggestions: createCommandSuggestions([
+      view: { input: { text: 'de', cursor: 0 }, open: true, ...createSuggestionFixture([
         { id: 'deploy', completion: { range: { startOffset: 0, endOffsetExclusive: 2 }, text: 'deploy' }, label: 'Deploy', description: 'Unavailable', disabled: true }
       ]) },
       query: { text: 'de', mode: 'contains' },

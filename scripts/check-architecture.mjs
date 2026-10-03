@@ -515,7 +515,12 @@ function inspectDependencyAuthority(filePath, sourceLayer, dependency) {
     const narrowDependency = (sourceLayer === 'text'
       && ['foundation/cooperative-work.ts', 'foundation/validation.ts'].includes(sourceRelative(dependency.target)))
       || (sourceLayer === 'tui' && dependency.kind === 'type'
-        && sourceRelative(dependency.target) === 'collection/item.ts');
+        && sourceRelative(dependency.target) === 'collection/item.ts')
+      // Controlled editing consumes the public text-area preparation capability,
+      // never the component's private request/geometry storage.
+      || (sourceRelative(filePath) === 'tui/controlled-editor.ts'
+        && ['components/text-area/preparation.ts', 'components/text-area/contracts.ts']
+          .includes(sourceRelative(dependency.target)));
     if (!narrowDependency && (allowed === undefined || !allowed.has(targetLayer))) {
       failures.push(
         `${relative(filePath)} imports forbidden ${targetLayer} ${dependency.kind} dependency through ${dependency.specifier}`

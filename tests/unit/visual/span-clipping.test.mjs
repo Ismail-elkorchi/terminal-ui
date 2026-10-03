@@ -1,3 +1,4 @@
+import { createTableCollection } from '../../../dist/behavior/index.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -112,7 +113,6 @@ test('render span utilities measure compact pad clip and align while preserving 
 
 test('dataGrid clipping keeps multi-span cell styles instead of flattening to plain text', () => {
   const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
-    getRowId: (_row, index) => String(index),
     id: 'styled-dataGrid',
     state: {
       interaction: {
@@ -120,7 +120,7 @@ test('dataGrid clipping keeps multi-span cell styles instead of flattening to pl
       }
     },
     onTransition: (action) => action,
-    rows: [{ value: 'unused' }],
+    collection: createTableCollection([{ value: 'unused' }], (_row, index) => String(index)),
     columns: [tableColumn({
       id: 'state-0', value: (row) => Array.isArray(row) ? row[0] : row,
       header: 'State',
@@ -154,7 +154,6 @@ test('dataGrid clipping keeps multi-span cell styles instead of flattening to pl
 
 test('dataGrid horizontal scrolling keeps span styles after clipped cells are shifted', () => {
   const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
-    getRowId: (_row, index) => String(index),
     id: 'scrolled-styled-dataGrid',
     state: {
       interaction: {
@@ -162,7 +161,7 @@ test('dataGrid horizontal scrolling keeps span styles after clipped cells are sh
       },
       scroll: createScrollState({ offsetColumn: 4 })
     },
-    rows: [{ value: 'unused' }],
+    collection: createTableCollection([{ value: 'unused' }], (_row, index) => String(index)),
     onTransition: (action) => action,
     columns: [tableColumn({
       id: 'column-0', value: (row) => Array.isArray(row) ? row[0] : row,

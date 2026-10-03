@@ -93,3 +93,13 @@ function createTableColumn<TRow, TValue>(
     [typedTableColumn]: true
   };
 }
+
+/** Explicit eager schema inference for simple scalar or array rows. O(rows). */
+export function inferTableColumns<TRow>(rows: readonly TRow[]): readonly TableColumn<TRow>[] {
+  let count = 0;
+  for (const row of rows) count = Math.max(count, Array.isArray(row) ? row.length : 1);
+  return Object.freeze(Array.from({ length: count }, (_, index) => Object.freeze({
+    id: `column-${String(index)}`,
+    value: (row: TRow) => Array.isArray(row) ? (row as readonly unknown[])[index] : index === 0 ? row : undefined,
+  })));
+}

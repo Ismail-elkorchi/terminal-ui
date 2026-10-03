@@ -1,17 +1,5 @@
-import {
-  button,
-  commandInput,
-  contextMenu,
-  createTextAreaDecorations,
-  label,
-  createCommandSuggestions,
-  text,
-  textArea,
-  textInput,
-  type TextAreaOptions,
-  type MenuActionTone,
-  type ValidationLevel
-} from '@ismail-elkorchi/terminal-ui/components';
+import { createSuggestionFixture } from '../../../support/collection-fixtures.mjs';
+import { button, commandInput, contextMenu, createTextAreaDecorations, label, text, textArea, textInput, type TextAreaOptions, type MenuActionTone, type ValidationLevel } from '@ismail-elkorchi/terminal-ui/components';
 import { createTextDocument, textCaretAt } from '@ismail-elkorchi/terminal-ui/text';
 
 const validationLevel: ValidationLevel = 'warning';
@@ -25,7 +13,7 @@ button({
 label({ id: 'query-label', forId: 'query', text: 'Query' });
 commandInput({
   id: 'command',
-  view: { input: { text: '', cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
+  view: { input: { text: '', cursor: 0 }, open: false, ...createSuggestionFixture([]) },
   validation: { message: 'Choose a command', level: validationLevel },
   onTransition: (transition) => ({ kind: 'command' as const, transition }),
   onSubmit: (event) => ({ kind: 'submit' as const, value: event.value })
@@ -33,7 +21,7 @@ commandInput({
 // @ts-expect-error disabled editable controls cannot also declare read-only state
 commandInput({
   id: 'invalid-disabled-read-only-command',
-  view: { input: { text: '', cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
+  view: { input: { text: '', cursor: 0 }, open: false, ...createSuggestionFixture([]) },
   disabled: true,
   readOnly: true
 });

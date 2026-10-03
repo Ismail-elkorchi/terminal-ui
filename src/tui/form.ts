@@ -1,3 +1,4 @@
+import { combineTuiResults } from './result.ts';
 import type { TuiChildResult } from './child.ts';
 import { createTuiPreparedQuery } from './prepared-query.ts';
 import type { TuiPreparedQueryMessage, TuiPreparedQueryState } from './prepared-query.ts';
@@ -63,8 +64,8 @@ export function createTuiForm<TValues extends object, TResult, TMessage>(options
       if (Object.is(values, state.values)) return { state };
       const checked = validation.cancel(state.validation);
       const submitted = submission.cancel(state.submission);
-      return { state: { ...state, values, errors: options.validate(values), validation: { ...checked.state, result: null },
-        submission: { ...submitted.state, result: null }, submitRequested: false }, cancel: [...(checked.cancel ?? []), ...(submitted.cancel ?? [])] };
+      return combineTuiResults<State, TMessage>({ ...state, values, errors: options.validate(values),
+        validation: { ...checked.state, result: null }, submission: { ...submitted.state, result: null }, submitRequested: false }, checked, submitted);
     },
     validate(state: State): Result {
       if (state.submitRequested || state.submission.pending) return { state };

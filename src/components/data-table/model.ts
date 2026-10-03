@@ -8,8 +8,8 @@ import type {
   DataGridTransition,
   TableState,
 } from '../../behavior/table.ts';
-import type { CollectionItem, CollectionSnapshot } from '../../collection/snapshot.ts';
-import { isCollectionSnapshot } from '../../collection/snapshot.ts';
+import type { TableCollection } from '../../behavior/table.ts';
+import { isTableCollection, tableCollectionCount, tableCollectionItemAt, tableCollectionItemById } from '../../behavior/table-operations.ts';
 import type { ComponentMessage } from '../../component/message.ts';
 import {
   decodeComponentScrollbarOptions,
@@ -31,7 +31,8 @@ import {
   normalizeInlineContent,
   tryNormalizeInlineContent,
 } from '../../visual/inline-content.ts';
-import { maximumModelDependencySlots, ownModelDependencies } from '../../visual/model-dependencies.ts';
+import type { ComponentReuseDependencies } from '../../component/contracts.ts';
+import { maximumReuseDependencySlots } from '../../visual/reuse-dependencies.ts';
 import { sameTerminalStyle, type TerminalStyle } from '../../visual/render-content.ts';
 import { decodeTerminalStyle } from '../../visual/terminal-style.ts';
 import type { TableColumn, TableColumnWidth } from './column.ts';
@@ -100,9 +101,9 @@ export interface TableModel {
 }
 
 export interface TableRenderSource {
-  readonly rows: readonly unknown[];
-  readonly ids: readonly string[];
-  readonly indexes: ReadonlyMap<string, number>;
+  readonly count: number;
+  readonly itemAt: (rank: number) => { readonly id: string; readonly row: unknown } | undefined;
+  readonly rank: (id: string) => number | undefined;
   readonly columns: readonly TableColumnModel[];
   readonly rowModels: Map<number, TableRowModel>;
 }
@@ -128,7 +129,6 @@ const tableCollectionSources = new WeakMap<object, TableSource>();
 
 const latestTableStructures = new WeakMap<object, TableModelResources>();
 
-const inferredTableColumns = new WeakMap<object, readonly TableColumnModel[]>();
 
 interface TableModelResources {
   readonly columns: readonly TableColumnModel[];
@@ -185,20 +185,31 @@ export function createTableModel<TRow, TMessage extends ComponentMessage>(
   };
 }
 
-const tablePaintDescriptor = Symbol('table paint');
+/** Visual callbacks stay on the current model, outside the independently selected tuples. */
+export const tableModelReuse = {
+  paint: tableVisualDependencies,
+  accessibility: tableVisualDependencies,
+  measurement: tableGeometryDependencies,
+  layout: tableGeometryDependencies,
+};
 
-/** Explicit visual slots: interaction callbacks and keymaps stay on the fresh model. */
-export function ownTableModel(model: TableModel): Readonly<TableModel> {
-  const stateSlots = model.selectedRowIds.length + model.selectedCells.length * 2;
-  // The fixed prefix below has 26 slots. Large selections use per-visible-row paint retention.
-  if (stateSlots + 26 > maximumModelDependencySlots) return Object.freeze(model);
+function tableWidthDependencies(model: Readonly<TableModel>, reserved: number): readonly (string | number)[] | undefined {
   const widths: (string | number)[] = [];
   for (const id in model.columnWidths) {
-    if (stateSlots + widths.length + 28 > maximumModelDependencySlots) return Object.freeze(model);
+    if (reserved + widths.length + 2 > maximumReuseDependencySlots) return undefined;
     widths.push(id, model.columnWidths[id] ?? 0);
   }
-  const visual = [
-    tablePaintDescriptor, model.source, model.columns, model.semanticRole, model.hasHeader,
+  return widths;
+}
+
+function tableVisualDependencies(model: Readonly<TableModel>): ComponentReuseDependencies | undefined {
+  const stateSlots = model.selectedRowIds.length + model.selectedCells.length * 2;
+  // Large selections retain only visible row paint; selector traversal is bounded.
+  if (stateSlots + 26 > maximumReuseDependencySlots) return undefined;
+  const widths = tableWidthDependencies(model, stateSlots + 26);
+  if (widths === undefined) return undefined;
+  return [
+    model.source, model.columns, model.semanticRole, model.hasHeader,
     model.startIndex, model.totalCount, model.interactionKind, model.selectionMode,
     model.activeRowId, model.activeColumnId, model.density, model.stickyHeader, model.emptyText,
     model.sort?.columnId, model.sort?.direction,
@@ -208,13 +219,13 @@ export function ownTableModel(model: TableModel): Readonly<TableModel> {
     model.selectedCells.length, ...model.selectedCells.flatMap(cell => [cell.rowId, cell.columnId]),
     widths.length / 2, ...widths,
   ];
-  // Selection and active-row changes affect contents, not allocation or the
-  // focus rectangle. Intrinsic size depends on the complete column source.
-  const geometry = [model.source, model.columns, model.semanticRole, model.totalCount,
+}
+
+function tableGeometryDependencies(model: Readonly<TableModel>): ComponentReuseDependencies | undefined {
+  const widths = tableWidthDependencies(model, 9);
+  if (widths === undefined) return undefined;
+  return [model.source, model.columns, model.semanticRole, model.totalCount,
     model.hasHeader, model.density, model.sort?.columnId, model.sort?.direction, ...widths];
-  return ownModelDependencies(model, {
-    paint: visual, measurement: geometry, layout: geometry, accessibility: visual,
-  });
 }
 
 function validateDataGridState(
@@ -242,16 +253,12 @@ function createTableStructure<TRow>(
   columns: readonly TableColumn<TRow>[] | undefined,
   source: TableSource<TRow>,
 ): TableModelResources {
-  const columnModels = createTableColumnModels(columns, source);
+  const columnModels = createTableColumnModels(columns);
   const previous = latestTableStructures.get(source);
   if (previous !== undefined && sameTableColumns(previous.columns, columnModels)) return previous;
   const sourceToken = Object.freeze({});
   tableSources.set(sourceToken, {
-    rows: source.rows,
-    ids: source.ids,
-    indexes: source.indexes ?? new Map(
-      source.ids.map((id, index) => [id, source.startIndex + index]),
-    ),
+    count: source.count, itemAt: source.itemAt, rank: source.rank,
     columns: columnModels,
     rowModels: new Map(),
   });
@@ -261,96 +268,31 @@ function createTableStructure<TRow>(
 }
 
 interface TableSource<TRow = unknown> {
-  readonly kind: 'raw' | 'complete' | 'window';
-  readonly rows: readonly TRow[];
-  readonly ids: readonly string[];
+  readonly count: number;
+  readonly itemAt: (rank: number) => { readonly id: string; readonly row: TRow } | undefined;
+  readonly rank: (id: string) => number | undefined;
   readonly startIndex: number;
   readonly totalCount: number;
-  readonly indexes?: ReadonlyMap<string, number>;
-  readonly collection?: CollectionSnapshot<CollectionItem>;
 }
-
 function tableSource<TRow, TMessage extends ComponentMessage>(
   value: Readonly<TableOptions<TRow, TMessage> | DataGridOptions<TRow, ComponentMessage, ComponentMessage>>,
 ): TableSource<TRow> {
-  if (value.collection !== undefined) {
-    const collection = value.collection;
-    if (!isCollectionSnapshot(collection)) {
-      throw new TypeError('table collection must be model with createTableCollection().');
-    }
-    const cached = tableCollectionSources.get(collection) as TableSource<TRow> | undefined;
-    if (cached !== undefined) return cached;
-    const rows = Object.freeze(collection.items.map((item, index) =>
-      tableCollectionRow(item, `table collection items[${String(index)}]`)
-    ));
-    const ids = Object.freeze(collection.items.map((item) => item.id));
-    const model = Object.freeze({
-      kind: collection.kind,
-      rows,
-      ids,
-      startIndex: collection.startIndex,
-      totalCount: collection.totalCount,
-      indexes: new Map(ids.map((id, index) => [id, collection.startIndex + index])),
-      collection,
-    });
-    tableCollectionSources.set(collection, model);
-    return model;
-  }
-  const rows = Object.freeze([...value.rows]);
-  const getRowId = value.getRowId;
-  const ids = rows.map((row, index) =>
-    nonEmpty(getRowId(row, index), `table row ${String(index)} id`)
-  );
-  assertUniqueIds(ids, 'table rows');
-  return { kind: 'raw', rows, ids, startIndex: 0, totalCount: rows.length };
-}
-
-function tableCollectionRow<TRow>(
-  item: CollectionItem & { readonly row: TRow },
-  owner: string,
-): TRow {
-  if (!Object.hasOwn(item, 'row')) {
-    throw new TypeError(`${owner} must contain a row.`);
-  }
-  return item.row;
+  const collection: TableCollection<TRow> = value.collection;
+  if (!isTableCollection(collection)) throw new TypeError('table collection must be created with createTableCollection().');
+  const cached = tableCollectionSources.get(collection) as TableSource<TRow> | undefined;
+  if (cached !== undefined) return cached;
+  const source = Object.freeze({ count: tableCollectionCount(collection), startIndex: collection.startIndex, totalCount: collection.totalCount,
+    itemAt: (rank: number) => tableCollectionItemAt(collection, rank),
+    rank: (id: string) => tableCollectionItemById(collection, id)?.itemIndex,
+  });
+  tableCollectionSources.set(collection, source);
+  return source;
 }
 
 function createTableColumnModels<TRow>(
   value: readonly TableColumn<TRow>[] | undefined,
-  source: TableSource<TRow>,
 ): readonly TableColumnModel[] {
-  if (value === undefined) {
-    if (source.kind === 'window') {
-      throw new TypeError('windowed table collections require explicit columns.');
-    }
-    const cached = source.collection === undefined
-      ? undefined
-      : inferredTableColumns.get(source.collection);
-    if (cached !== undefined) return cached;
-    const count = source.rows.reduce<number>((maximum, row) => Math.max(maximum, rowCells(row).length), 0);
-    const columns: readonly TableColumn<TRow>[] = Array.from(
-      { length: count },
-      (_unused, index) =>
-        Object.freeze({
-          id: `column-${String(index)}`,
-          value: (row: TRow) => rowCells(row)[index],
-        }),
-    );
-    const inferred = Object.freeze(columns.map((column, index): TableColumnModel =>
-      Object.freeze({
-        id: nonEmpty(column.id, 'inferred table column id'),
-        index,
-        header: '',
-        align: 'start',
-        semantic: 'text',
-        sortable: false,
-        resizable: false,
-        cell: compiledTableCell(column),
-      })
-    ));
-    if (source.collection !== undefined) inferredTableColumns.set(source.collection, inferred);
-    return inferred;
-  }
+  if (value === undefined) throw new TypeError('Table columns must be supplied explicitly.');
   const visible = value.flatMap((column, index) =>
     column.hidden === true ? [] : [{ column, index }]
   );
@@ -483,9 +425,7 @@ function decodeTableColumnWidth(
   }
 }
 
-function rowCells(row: unknown): readonly unknown[] {
-  return Array.isArray(row) ? row : [row];
-}
+
 
 function tableCell<TRow>(
   column: { readonly value: TableColumn<TRow>['value']; readonly renderCell?: (row: TRow, rowIndex: number, columnIndex: number) => string | import('../../visual/inline-content.ts').InlineContentSegment | InlineContent } | undefined,
@@ -681,7 +621,7 @@ export function activeTablePosition(
 ): { readonly id: string; readonly rowIndex: number } | undefined {
   if (model.activeRowId === undefined) return undefined;
   const source = tableSourceFor(model);
-  const rowIndex = source.indexes.get(model.activeRowId);
+  const rowIndex = source.rank(model.activeRowId);
   return rowIndex === undefined ? undefined : { id: model.activeRowId, rowIndex };
 }
 
@@ -695,9 +635,10 @@ export function tableRowModel(model: TableModel, localIndex: number): TableRowMo
   const source = tableSourceFor(model);
   const cached = source.rowModels.get(localIndex);
   if (cached !== undefined) return cached;
-  const row = source.rows[localIndex];
-  const id = source.ids[localIndex];
-  if (row === undefined || id === undefined) {
+  const item = source.itemAt(localIndex);
+  const row = item?.row;
+  const id = item?.id;
+  if (item === undefined || id === undefined) {
     throw new RangeError('table row index is outside the table source.');
   }
   const rowIndex = model.startIndex + localIndex;
@@ -745,6 +686,11 @@ function finite(value: unknown, owner: string): number {
   return value;
 }
 
+
+
+export type DataGridComponentAction =
+  | { readonly kind: 'transition'; readonly transition: DataGridTransition }
+  | { readonly kind: 'activate'; readonly event: DataGridActivateEvent };
 function assertUniqueIds(ids: readonly string[], owner: string): void {
   const seen = new Set<string>();
   for (const id of ids) {
@@ -752,7 +698,3 @@ function assertUniqueIds(ids: readonly string[], owner: string): void {
     seen.add(id);
   }
 }
-
-export type DataGridComponentAction =
-  | { readonly kind: 'transition'; readonly transition: DataGridTransition }
-  | { readonly kind: 'activate'; readonly event: DataGridActivateEvent };

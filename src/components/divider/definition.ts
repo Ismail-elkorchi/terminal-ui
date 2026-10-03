@@ -25,7 +25,7 @@ const dividerDefinitionBase = {
   parts: ['line', 'label'] as const,
   createModel: createDividerModel,
   measure: measureDivider,
-  retainPaint: true as const,
+  reuse: { paint: (model: object) => [model] as const },
   render: renderDivider,
 };
 

@@ -1,14 +1,10 @@
+import { createSuggestionFixture } from '../../support/collection-fixtures.mjs';
+import { createTableCollection } from '../../../dist/behavior/index.js';
+import { createListboxFixture } from '../../support/collection-fixtures.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../../support/calendar.mjs';
-import {
-  createCommandSuggestions,
-  createLogHistory,
-  createSearchPickerIndex,
-  createTreeSource,
-  createTreeView,
-  querySearchPickerIndex,
-} from '../../../dist/behavior/index.js';
+import { createLogHistory, createSearchPickerIndex, createTreeSource, createTreeView, querySearchPickerIndex } from '../../../dist/behavior/index.js';
 import { ignoreMessage } from '../../../dist/component/index.js';
 
 import {
@@ -302,9 +298,8 @@ test('menu searchPicker dataGrid and tree use selected placeholder and title slo
         }
 }), { columns: 24, rows: 3 });
   const tableFrame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
-    getRowId: (_row, index) => String(index),
     id: 'empty-dataGrid',
-    rows: [],
+    collection: createTableCollection([], (_row, index) => String(index)),
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name' }],
     emptyText: 'No data',
@@ -339,9 +334,8 @@ test('menu searchPicker dataGrid and tree use selected placeholder and title slo
 
 test('listbox dataGrid and tree share data navigation selection and match styles', () => {
   const listFrame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
-    toOption: (item) => ({ id: String(item), label: String(item) }),
     id: 'styled-listbox',
-    items: ['Atlas', 'Pulse'],
+    ...createListboxFixture(['Atlas', 'Pulse'], (item) => ({ id: String(item), label: String(item) }), { text: 'at', mode: 'contains' }),
     state: {
       activeId: 'Atlas',
       selection: { mode: 'single', selectedId: 'Atlas' }
@@ -349,7 +343,6 @@ test('listbox dataGrid and tree share data navigation selection and match styles
     query: { text: 'at', mode: 'contains' }
   }), { columns: 18, rows: 2 });
   const tableFrame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
-    getRowId: (_row, index) => String(index),
     id: 'styled-dataGrid',
     state: {
       interaction: {
@@ -358,10 +351,9 @@ test('listbox dataGrid and tree share data navigation selection and match styles
     },
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
-    rows: [['Atlas'], ['Pulse']]
+    collection: createTableCollection([['Atlas'], ['Pulse']], (_row, index) => String(index))
   }), { columns: 18, rows: 3 });
   const activeTableFrame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
-    getRowId: (_row, index) => String(index),
     id: 'active-dataGrid',
     state: {
       interaction: {
@@ -374,7 +366,7 @@ test('listbox dataGrid and tree share data navigation selection and match styles
     },
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
-    rows: [['Atlas'], ['Pulse']]
+    collection: createTableCollection([['Atlas'], ['Pulse']], (_row, index) => String(index))
   }), { columns: 18, rows: 3 });
   const treeSource3 = createTreeSource([{
       id: 'root',
@@ -426,7 +418,7 @@ test('default interactive component anatomy uses theme tokens instead of termina
 }), { columns: 18, rows: 1 });
   const commandFrame = renderElementFrame(commandInput({ meta: { accessibleName: "Command input" },
     id: 'command',
-    view: { input: { text: '/open README.md', cursor: 0 }, open: true, suggestions: createCommandSuggestions([
+    view: { input: { text: '/open README.md', cursor: 0 }, open: true, ...createSuggestionFixture([
       { id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: 15 }, text: '/open' }, label: 'Open file' },
       { id: 'save', completion: { range: { startOffset: 0, endOffsetExclusive: 15 }, text: '/save' }, label: 'Save file' }
     ]), activeSuggestionId: 'open' },
@@ -476,11 +468,10 @@ test('default interactive component anatomy uses theme tokens instead of termina
     ]
   }), { columns: 28, rows: 2 });
   const tableFrame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
-    getRowId: (_row, index) => String(index),
     id: 'dataGrid',
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name' }],
-    rows: [['Atlas'], ['Pulse']]
+    collection: createTableCollection([['Atlas'], ['Pulse']], (_row, index) => String(index))
   }), { columns: 18, rows: 3 });
   const treeSource5 = createTreeSource([{
       id: 'root',
@@ -579,8 +570,7 @@ test('data selections rely on graphical backgrounds and retain a monochrome mark
   const elements = [
     listbox({
       id: 'selection-listbox',
-      items: ['Atlas'],
-      toOption: (item) => ({ id: item, label: item }),
+      ...createListboxFixture(['Atlas'], (item) => ({ id: item, label: item })),
       state: {
         activeId: 'Atlas',
         selection: { mode: 'single', selectedId: 'Atlas' }
@@ -589,9 +579,8 @@ test('data selections rely on graphical backgrounds and retain a monochrome mark
     }),
     dataGrid({
       id: 'selection-dataGrid',
-      rows: [['Atlas']],
+      collection: createTableCollection([['Atlas']], () => 'atlas'),
       columns: [{ id: 'name', header: 'Name', value: (row) => row[0] }],
-      getRowId: () => 'atlas',
       state: {
         interaction: {
           kind: 'row', activeRowId: 'atlas', selection: { mode: 'single', selectedRowId: 'atlas' },

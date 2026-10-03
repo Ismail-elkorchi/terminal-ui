@@ -39,3 +39,5 @@ export type {
 } from './snapshot.ts';
 export { acceptMeasurements, createMeasurementState, measurementRequests, updateMeasurementState } from './measurement.ts';
 export type { MeasurementGeometry, MeasurementOptions, MeasurementRequest, MeasurementState, MeasurementUpdate } from './measurement.ts';
+
+export type { CollectionOrderReader } from "../foundation/order-reader.ts";

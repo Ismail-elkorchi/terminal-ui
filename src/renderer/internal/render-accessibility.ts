@@ -87,8 +87,22 @@ export function accessibleNode(
   if (previous !== undefined && sameAccessibilityDependencies(previous, {
     node: renderNode, layout: node, theme, widthProfile, focus, focusedTargetId, children: renderedChildren,
   })) {
+    if (renderNode.kind === 'component') {
+      assertComponentAccessibilityFocus(previous.result, {
+        runtimeFocused: focus === 'self' || focusedTargetId !== undefined,
+        focusedTargetId,
+        focusTargetIds: node.focusTargets.map((target) => target.id),
+        excludedSubtreeIds: accessibleDescendantIds(renderedChildren),
+        owner: renderNode.id ?? renderNodeFactoryName(renderNode),
+        ...(budget === undefined ? {} : { maxNodes: budget.limits.accessibilityNodes, maxDepth: budget.limits.depth }),
+      });
+    }
     accessibleNodes.set(renderNode, previous.result);
-    retainedAccessibility.set(node, previous);
+    // Publish the current frame's descriptor only after global validation.
+    pendingAccessibility.set(previous.result, {
+      node: renderNode, layout: node, theme, widthProfile, focus, focusedTargetId,
+      children: renderedChildren, result: previous.result,
+    });
     return previous.result;
   }
   const base = accessibilityForRenderNode(
@@ -452,7 +466,19 @@ function sameAccessibilityDependencies(
     && a.widthProfile.ambiguous === b.widthProfile.ambiguous
     && a.focus === b.focus && a.focusedTargetId === b.focusedTargetId
     && a.layout.layer.id === b.layout.layer.id
+    && sameFocusTargets(a.layout.focusTargets, b.layout.focusTargets)
     && sameRect(a.layout.bounds, b.layout.bounds) && sameRect(a.layout.viewport, b.layout.viewport)
     && a.children.length === b.children.length
     && a.children.every((child, index) => child === b.children[index]);
+}
+
+function sameFocusTargets(a: LayoutNode['focusTargets'], b: LayoutNode['focusTargets']): boolean {
+  return a.length === b.length && a.every((target, index) => {
+    const other = b[index];
+    return target.id === other?.id && target.disabled === other.disabled
+      && target.order === other.order && target.scopeId === other.scopeId
+      && sameRect(target.bounds, other.bounds)
+      && (target.cursor === other.cursor || target.cursor !== undefined && target.cursor.row === other.cursor?.row && target.cursor.column === other.cursor.column
+        && target.cursor.style === other.cursor.style && target.cursor.source === other.cursor.source);
+  });
 }

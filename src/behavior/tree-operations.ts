@@ -1,24 +1,25 @@
+import { snapshotArray } from '../foundation/array-snapshot.ts';
+import { orderedItemByIdWork, createOrderedSource, createOrderedSourceWork, appendOrderedItemsWork, replaceOrderedItemWork, removeOrderedItemsWork, type OrderedSource } from '../foundation/ordered-source.ts';
 import type { CollectionWindow } from '../collection/snapshot.ts';
 import {
-  collectionItemById,
   createCompleteCollection,
-  createCompleteCollectionWork,
   createWindowedCollection,
 } from '../collection/snapshot.ts';
 import { finishWork, prepareWork, stableSortWork, type CooperativeWorkContext } from '../foundation/cooperative-work.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
 import {
   collectionInteractionReducer,
-  createCollectionInteractionIndexWork,
+  createCollectionInteractionIndexFromSource,
 } from '../interaction/collection-interaction.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
-import type { CollectionQuery, CompiledCollectionQuery, QueryMatchRange, IndexedQueryCandidate } from '../text/query.ts';
+import type { CollectionQuery, CompiledCollectionQuery, QueryMatchRange } from '../text/query.ts';
 import {
   compileCollectionQuery,
   compileCollectionQueryWork,
   sameCollectionQueryRequest,
-  indexQueryCandidateWork,
+  indexQueryFieldsWork,
   matchCompiledCollectionQueryWork,
+  matchCompiledCollectionQueryFieldWork,
 } from '../text/query.ts';
 import { sanitizeTerminalTextWork } from '../text/sanitize.ts';
 import { applyScrollRequest, scrollReducer } from './scroll.ts';
@@ -30,6 +31,9 @@ import type {
   TreeDisclosureTransition,
   TreeLoadStatus,
   TreeNode,
+  TreeNodeDescriptor,
+  TreeSourceEntry,
+  TreeSourceChange,
   TreeSource,
   TreeState,
   TreeTransition,
@@ -49,79 +53,171 @@ export interface TreeReducerOptions<
 }
 
 interface TreeEntry<TMetadata extends Readonly<Record<string, unknown>>> {
-  readonly node: TreeNode<TMetadata>;
-  readonly parent: number;
-  readonly depth: number;
-  end: number;
+  readonly id: string;
+  readonly node: TreeNodeDescriptor<TMetadata>;
+  readonly parentId?: string;
+  readonly children: OrderedSource<{ readonly id: string }>;
 }
-
 interface TreeSourceData<TMetadata extends Readonly<Record<string, unknown>>> {
-  readonly entries: readonly TreeEntry<TMetadata>[];
-  readonly expandableIds: ReadonlySet<string>;
+  readonly entries: OrderedSource<TreeEntry<TMetadata>>;
+  readonly roots: OrderedSource<{ readonly id: string }>;
 }
 
+const ownedTreeNodes = new WeakSet<object>();
 const treeSources = new WeakMap<TreeSource, TreeSourceData<Readonly<Record<string, unknown>>>>();
 const treeViews = new WeakSet<TreeView>();
 const treeRequests = new WeakMap<TreeView, { readonly expandedIds: readonly string[]; readonly loadStatusById: TreeState['loadStatusById']; readonly query: CollectionQuery | undefined; readonly preparedQuery: CompiledCollectionQuery; readonly labelMatches: ReadonlyMap<string, QueryMatchRange> }>();
-const labelCandidates = new WeakMap<object, IndexedQueryCandidate>();
 const retainedTreeViews = new WeakMap<TreeSource, Map<string, TreeView>>();
 
-export function createTreeSource<
-  TMetadata extends Readonly<Record<string, unknown>>,
->(nodes: readonly TreeNode<TMetadata>[]): TreeSource<TMetadata> {
-  if (!Array.isArray(nodes)) throw new TypeError('Tree source nodes must be an array.');
-  return finishWork(createTreeSourceWork<TMetadata>(nodes));
+export function createTreeSource<TMetadata extends Readonly<Record<string, unknown>>>(nodes: readonly TreeNode<TMetadata>[]): TreeSource<TMetadata> {
+  return finishWork(treeSourceChangesWork(undefined, eagerTreeEntries(nodes)));
 }
 
-/** Snapshot adoption is indivisible; normalization and source indexing cooperate. */
+/** Topologically ordered batches own at most 256 flat descriptors. Parents precede children. */
 export function prepareTreeSource<TMetadata extends Readonly<Record<string, unknown>>>(
-  nodes: readonly TreeNode<TMetadata>[], context: CooperativeWorkContext,
+  batches: Iterable<readonly TreeSourceEntry<TMetadata>[]>, context: CooperativeWorkContext,
 ): Promise<TreeSource<TMetadata>> {
-  context.signal.throwIfAborted();
-  return prepareWork(createTreeSourceWork(adoptTreeNodes(nodes)), context);
+  return prepareWork(treeSourceChangesWork(undefined, ownTreeEntryBatches(batches)), context);
 }
-
-function adoptTreeNodes<TMetadata extends Readonly<Record<string, unknown>>>(nodes: readonly TreeNode<TMetadata>[]): readonly TreeNode<TMetadata>[] {
+export function updateTreeSource<TMetadata extends Readonly<Record<string, unknown>>>(source: TreeSource<TMetadata>, changes: readonly TreeSourceChange<TMetadata>[]): TreeSource<TMetadata> {
+  return finishWork(treeSourceChangesWork(source, snapshotArray(changes).map(ownTreeChange<TMetadata>)));
+}
+export function prepareTreeSourceUpdate<TMetadata extends Readonly<Record<string, unknown>>>(source: TreeSource<TMetadata>, batches: Iterable<readonly TreeSourceChange<TMetadata>[]>, context: CooperativeWorkContext): Promise<TreeSource<TMetadata>> {
+  return prepareWork(treeSourceChangesWork(source, ownTreeChangeBatches(batches)), context);
+}
+function* eagerTreeEntries<TMetadata extends Readonly<Record<string, unknown>>>(nodes: readonly TreeNode<TMetadata>[]): IterableIterator<TreeSourceChange<TMetadata>> {
   if (!Array.isArray(nodes)) throw new TypeError('Tree source nodes must be an array.');
-  return nodes.map((node: TreeNode<TMetadata>) => ({ ...node,
-    ...(node.metadata === undefined ? {} : { metadata: { ...node.metadata } }),
-    ...(node.kind === 'branch' ? { children: adoptTreeNodes(node.children) } : {}),
-  }));
-}
-
-function* createTreeSourceWork<TMetadata extends Readonly<Record<string, unknown>>>(nodes: readonly TreeNode<TMetadata>[]): Generator<void, TreeSource<TMetadata>> {
-  const owned = yield* ownTreeNodesWork(nodes, 'tree nodes');
-  const seen = new Set<string>();
-  const entries: TreeEntry<TMetadata>[] = [];
-  const expandable = new Set<string>();
-  const frames = [{ nodes: owned, offset: 0, parent: -1, depth: 0 }];
+  const frames: { nodes: readonly TreeNode<TMetadata>[]; index: number; parentId?: string }[] = [{ nodes: snapshotArray(nodes), index: 0 }];
   while (frames.length > 0) {
     const frame = frames.at(-1);
     if (frame === undefined) break;
-    const node = frame.nodes[frame.offset++];
-    if (node === undefined) {
-      frames.pop();
-      const parent = entries[frame.parent];
-      if (parent !== undefined) parent.end = entries.length;
-      continue;
+    if (frame.index >= frame.nodes.length) { frames.pop(); continue; }
+    const node = frame.nodes[frame.index++];
+    if (node === undefined) throw new TypeError('Tree nodes must be objects.');
+    yield { kind: 'append', entry: { node, ...(frame.parentId === undefined ? {} : { parentId: frame.parentId }) } };
+    if (node.kind === 'branch') {
+      if (!Array.isArray(node.children)) throw new TypeError('Tree branch children must be an array.');
+      frames.push({ nodes: snapshotArray(node.children), index: 0, parentId: node.id });
     }
-    if (seen.has(node.id)) throw new TypeError(`tree item ids must be unique; duplicate id: ${node.id}`);
-    seen.add(node.id);
-    const index = entries.length;
-    entries.push({ node, parent: frame.parent, depth: frame.depth, end: index + 1 });
-    if (node.kind !== 'leaf') expandable.add(node.id);
-    if (node.kind === 'branch') frames.push({ nodes: node.children, offset: 0, parent: index, depth: frame.depth + 1 });
-    if (entries.length % 256 === 0) yield;
   }
-  const source = Object.freeze({
-    kind: 'tree-source' as const,
-    nodeCount: entries.length,
-  }) as TreeSource<TMetadata>;
-  treeSources.set(
-    source,
-    Object.freeze({ entries: Object.freeze(entries), expandableIds: expandable }),
-  );
-  return source;
+}
+function ownTreeDescriptor<TMetadata extends Readonly<Record<string, unknown>>>(value: TreeNodeDescriptor<TMetadata>): TreeNodeDescriptor<TMetadata> {
+  if (!isNonArrayObject(value)) throw new TypeError('Tree node must be an object.');
+  if (!['leaf', 'branch', 'lazy'].includes(value.kind)) throw new TypeError('Tree node kind is invalid.');
+  for (const text of [value.id, value.label]) if (typeof text !== 'string') throw new TypeError('Tree id and label must be strings.');
+  for (const text of [value.description, value.icon]) if (text !== undefined && typeof text !== 'string') throw new TypeError('Tree text fields must be strings.');
+  if (value.disabled !== undefined && typeof value.disabled !== 'boolean') throw new TypeError('Tree disabled must be boolean.');
+  if (value.metadata !== undefined && !isNonArrayObject(value.metadata)) throw new TypeError('Tree metadata must be an object.');
+  return Object.freeze({ id: value.id, label: value.label, kind: value.kind,
+    ...(value.description === undefined ? {} : { description: value.description }),
+    ...(value.icon === undefined ? {} : { icon: value.icon }),
+    ...(value.disabled === undefined ? {} : { disabled: value.disabled }),
+    ...(value.metadata === undefined ? {} : { metadata: value.metadata }),
+  });
+}
+function ownTreeChange<TMetadata extends Readonly<Record<string, unknown>>>(change: TreeSourceChange<TMetadata>): TreeSourceChange<TMetadata> {
+  if (!isNonArrayObject(change)) throw new TypeError('Tree change must be an object.');
+  if (change.kind === 'remove') {
+    if (typeof change.id !== 'string') throw new TypeError('Tree removal id must be a string.');
+    return Object.freeze({ kind: 'remove', id: change.id });
+  }
+  if (change.kind === 'replace') return Object.freeze({ kind: 'replace', node: ownTreeDescriptor(change.node) });
+  if (!isNonArrayObject(change.entry)) throw new TypeError('Tree append requires an entry.');
+  const { node, parentId } = change.entry;
+  if (parentId !== undefined && typeof parentId !== 'string') throw new TypeError('Tree parentId must be a string.');
+  return Object.freeze({ kind: 'append', entry: Object.freeze({ node: ownTreeDescriptor(node), ...(parentId === undefined ? {} : { parentId }) }) });
+}
+function* ownTreeEntryBatches<TMetadata extends Readonly<Record<string, unknown>>>(batches: Iterable<readonly TreeSourceEntry<TMetadata>[]>): IterableIterator<TreeSourceChange<TMetadata> | undefined> {
+  for (const batch of batches) {
+    if (!Array.isArray(batch)) throw new TypeError('Tree batches must contain at most 256 entries.');
+    const length = batch.length;
+    if (length > 256) throw new TypeError('Tree batches must contain at most 256 entries.');
+    const owned = snapshotArray<TreeSourceEntry<TMetadata>>(batch, length).map(entry => ownTreeChange<TMetadata>({ kind: 'append', entry }));
+    yield* owned; yield undefined;
+  }
+}
+function* ownTreeChangeBatches<TMetadata extends Readonly<Record<string, unknown>>>(batches: Iterable<readonly TreeSourceChange<TMetadata>[]>): IterableIterator<TreeSourceChange<TMetadata> | undefined> {
+  for (const batch of batches) {
+    if (!Array.isArray(batch)) throw new TypeError('Tree batches must contain at most 256 changes.');
+    const length = batch.length;
+    if (length > 256) throw new TypeError('Tree batches must contain at most 256 changes.');
+    const owned = snapshotArray(batch, length).map(ownTreeChange<TMetadata>);
+    yield* owned; yield undefined;
+  }
+}
+function* treeSourceChangesWork<TMetadata extends Readonly<Record<string, unknown>>>(source: TreeSource<TMetadata> | undefined, changes: Iterable<TreeSourceChange<TMetadata> | undefined>): Generator<number, TreeSource<TMetadata>> {
+  const previous = source === undefined ? emptyTreeSourceData<TMetadata>() : treeSourceData(source);
+  let entries = previous.entries;
+  let roots = previous.roots;
+  for (const supplied of changes) {
+    if (supplied === undefined) { yield 1; continue; }
+    const change = ownTreeChange(supplied);
+    if (change.kind === 'remove') {
+      const current = yield* orderedItemByIdWork(entries, change.id);
+      if (current === undefined) throw new TypeError('Tree removal id must identify an existing node.');
+      entries = yield* removeTreeSubtreeWork(entries, current);
+      if (current.parentId === undefined) roots = yield* removeOrderedItemsWork(roots, [current.id]);
+      else {
+        const parent = yield* orderedItemByIdWork(entries, current.parentId);
+        if (parent !== undefined) entries = yield* replaceOrderedItemWork(entries, { id: parent.id, value: Object.freeze({ ...parent, children: yield* removeOrderedItemsWork(parent.children, [current.id]) }) });
+      }
+    } else {
+      const raw = change.kind === 'append' ? change.entry.node : change.node;
+      const node = yield* ownTreeNodeWork(raw, 'tree node');
+      const current = yield* orderedItemByIdWork(entries, node.id);
+      if (change.kind === 'replace') {
+        if (current === undefined) throw new TypeError('Tree replacement id must identify an existing node.');
+        if (node.kind !== 'branch' && current.children.count > 0) throw new TypeError('Remove branch children before changing its kind.');
+        entries = yield* replaceOrderedItemWork(entries, { id: node.id, value: Object.freeze({ ...current, node }) });
+      } else {
+        if (current !== undefined) throw new TypeError(`tree item ids must be unique; duplicate id: ${node.id}`);
+        const parentId = change.entry.parentId === undefined ? undefined : yield* ownedTreeTextWork(change.entry.parentId, 'tree parentId', true);
+        const entry = Object.freeze({ id: node.id, node, children: createOrderedSource<{ readonly id: string }>(), ...(parentId === undefined ? {} : { parentId }) });
+        const reference = { id: node.id, value: Object.freeze({ id: node.id }) };
+        if (parentId === undefined) roots = yield* appendOrderedItemsWork(roots, [reference]);
+        else {
+          const parent = yield* orderedItemByIdWork(entries, parentId);
+          if (parent?.node.kind !== 'branch') throw new TypeError('Tree parentId must identify an existing branch.');
+          entries = yield* replaceOrderedItemWork(entries, { id: parent.id, value: Object.freeze({ ...parent, children: yield* appendOrderedItemsWork(parent.children, [reference]) }) });
+        }
+        entries = yield* appendOrderedItemsWork(entries, [{ id: entry.id, value: entry }]);
+      }
+    }
+    yield 1;
+  }
+  if (source !== undefined && entries === previous.entries) return source;
+  const result = Object.freeze({ kind: 'tree-source', nodeCount: entries.count }) as TreeSource<TMetadata>;
+  treeSources.set(result, Object.freeze({ entries, roots }));
+  return result;
+}
+function* removeTreeSubtreeWork<TMetadata extends Readonly<Record<string, unknown>>>(entries: OrderedSource<TreeEntry<TMetadata>>, current: TreeEntry<TMetadata>): Generator<number, OrderedSource<TreeEntry<TMetadata>>> {
+  const frames: IterableIterator<{ readonly id: string }>[] = [current.children.values()];
+  entries = yield* removeOrderedItemsWork(entries, [current.id]);
+  while (frames.length > 0) {
+    const frame = frames.at(-1);
+    if (frame === undefined) break;
+    const child = frame.next();
+    if (child.done) { frames.pop(); continue; }
+    const entry = yield* orderedItemByIdWork(entries, child.value.id);
+    if (entry !== undefined) {
+      frames.push(entry.children.values());
+      entries = yield* removeOrderedItemsWork(entries, [entry.id]);
+    }
+    yield 1;
+  }
+  return entries;
+}
+
+/** O(log n) lookup and bounded sibling reads, independent of visible projection. */
+export function treeSourceNodeById<TMetadata extends Readonly<Record<string, unknown>>>(source: TreeSource<TMetadata>, id: string): TreeNodeDescriptor<TMetadata> | undefined {
+  return treeSourceData(source).entries.itemById(id)?.node;
+}
+export function treeSourceChildren<TMetadata extends Readonly<Record<string, unknown>>>(source: TreeSource<TMetadata>, parentId: string | undefined, start = 0, end = source.nodeCount): readonly TreeNodeDescriptor<TMetadata>[] {
+  const data = treeSourceData(source);
+  const children = parentId === undefined ? data.roots : data.entries.itemById(parentId)?.children;
+  const result: TreeNodeDescriptor<TMetadata>[] = [];
+  for (const child of children?.values(start, end) ?? []) { const node = data.entries.itemById(child.id)?.node; if (node !== undefined) result.push(node); }
+  return Object.freeze(result);
 }
 
 export function createTreeView<
@@ -155,31 +251,25 @@ function* createTreeViewWork<TMetadata extends Readonly<Record<string, unknown>>
   source: TreeSource<TMetadata>,
   state: TreeState,
   request: TreeState = state,
-): Generator<void, TreeView<TMetadata>, unknown> {
+): Generator<number, TreeView<TMetadata>, unknown> {
   const query = yield* compileCollectionQueryWork(state.query ?? { text: '', mode: 'contains' });
   const key = yield* treeProjectionKeyWork(state, query);
   const cached = retainedTreeViews.get(source)?.get(key) as TreeView<TMetadata> | undefined;
   if (cached !== undefined && matchingTreeView(source, request, cached) !== undefined) return cached;
-  const rows = yield* visibleTreeRowsWork(source, state, query);
-  const items: TreeCollectionRow<TMetadata>[] = [];
-  const selectableIds: string[] = [];
   const labelMatches = new Map<string, QueryMatchRange>();
-  for (const row of rows) {
-    if (query.text.length > 0) {
-      let candidate = labelCandidates.get(row.node);
-      if (candidate === undefined) {
-        candidate = yield* indexQueryCandidateWork({ id: row.node.id, primary: row.node.label });
-        labelCandidates.set(row.node, candidate);
-      }
-      const match = (yield* matchCompiledCollectionQueryWork(candidate, query))?.ranges.find(range => range.field === 'primary');
-      if (match !== undefined) labelMatches.set(row.node.id, match);
+  const rows = visibleTreeRowsWork(source, state, query, labelMatches);
+  function* projectedItems() {
+    let itemIndex = 0;
+    for (const event of rows) {
+      if (typeof event === 'number') { yield event; continue; }
+      const row = event;
+      const item = Object.freeze({ id: row.node.id, itemIndex: itemIndex++, row });
+      yield { id: item.id, value: item, disabled: row.node.disabled === true || row.lazyPlaceholder === true };
+      yield 1;
     }
-    items.push({ id: row.node.id, itemIndex: items.length, row });
-    if (row.node.disabled !== true && row.lazyPlaceholder !== true) selectableIds.push(row.node.id);
-    if (items.length % 256 === 0) yield;
   }
-  const collection = yield* createCompleteCollectionWork(items);
-  const interactionIndex = yield* createCollectionInteractionIndexWork(selectableIds);
+  const collection = yield* createOrderedSourceWork(projectedItems());
+  const interactionIndex = createCollectionInteractionIndexFromSource(collection);
   const view = Object.freeze({ kind: 'tree-view' as const, source, collection, interactionIndex });
   // Publication is atomic: aborted preparations never install partial projections.
   treeViews.add(view);
@@ -191,12 +281,12 @@ function* createTreeViewWork<TMetadata extends Readonly<Record<string, unknown>>
     retainedTreeViews.set(source, byState);
   }
   byState.set(key, view);
-  let retainedRows = [...byState.values()].reduce((count, retained) => count + retained.collection.items.length, 0);
+  let retainedRows = [...byState.values()].reduce((count, retained) => count + retained.collection.count, 0);
   while (byState.size > 1 && (byState.size > 8 || retainedRows > 8_192)) {
     const oldest = byState.entries().next().value;
     if (oldest === undefined) break;
     byState.delete(oldest[0]);
-    retainedRows -= oldest[1].collection.items.length;
+    retainedRows -= oldest[1].collection.count;
   }
   return view;
 }
@@ -224,20 +314,20 @@ export function preparedTreeLabelMatch(view: TreeView, id: string): QueryMatchRa
 function* treeProjectionKeyWork(
   state: TreeState,
   query: CompiledCollectionQuery,
-): Generator<void, string, unknown> {
+): Generator<number, string, unknown> {
   const expanded = yield* stableSortWork(state.expandedIds, compareIds);
   const statuses = yield* stableSortWork(Object.keys(state.loadStatusById ?? {}), compareIds);
   const pieces = [JSON.stringify([query.text, query.mode, query.caseSensitive])];
   let operations = 0;
   for (const id of expanded) {
     pieces.push(JSON.stringify(id));
-    if (++operations % 256 === 0) yield;
+    if (++operations % 256 === 0) yield 256;
   }
   pieces.push('|');
   for (const id of statuses) {
     const status = state.loadStatusById?.[id];
     if (status !== undefined) pieces.push(JSON.stringify([id, status.kind, 'message' in status ? status.message : undefined]));
-    if (++operations % 256 === 0) yield;
+    if (++operations % 256 === 0) yield 256;
   }
   return pieces.join('\n');
 }
@@ -285,7 +375,7 @@ export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>
   });
   const itemIndex = interaction.activeId === undefined
     ? undefined
-    : collectionItemById(collection, interaction.activeId)?.itemIndex;
+    : collection.rank(interaction.activeId);
   const scroll = state.scroll === undefined || itemIndex === undefined
     ? state.scroll
     : scrollReducer(state.scroll, {
@@ -293,7 +383,7 @@ export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>
       itemIndex,
       alignment: 'nearest',
     }, {
-      contentRows: collection.totalCount,
+      contentRows: collection.count,
       contentColumns: 0,
       viewportRows: Math.max(1, options.pageSize ?? 1),
       viewportColumns: 0,
@@ -310,87 +400,68 @@ export function visibleTreeRows<TMetadata extends Readonly<Record<string, unknow
   source: TreeSource<TMetadata>,
   state: Pick<TreeState, 'expandedIds' | 'query' | 'loadStatusById'>,
 ): readonly TreeVisibleRow<TMetadata>[] {
-  return finishWork(visibleTreeRowsWork(source, state,
-    compileCollectionQuery(state.query ?? { text: '', mode: 'contains' })));
-}
-
-function* visibleTreeRowsWork<TMetadata extends Readonly<Record<string, unknown>>>(
-  source: TreeSource<TMetadata>,
-  state: Pick<TreeState, 'expandedIds' | 'query' | 'loadStatusById'>,
-  query: CompiledCollectionQuery,
-): Generator<void, readonly TreeVisibleRow<TMetadata>[], unknown> {
-  const entries = treeSourceData(source).entries;
-  const filtering = query.text.length > 0;
-  const matched = filtering ? yield* matchedTreeEntriesWork(entries, query) : undefined;
-  let operations = 0;
-  const expanded = new Set<string>();
-  for (const id of state.expandedIds) {
-    expanded.add(id);
-    if (++operations % 256 === 0) yield;
-  }
   const rows: TreeVisibleRow<TMetadata>[] = [];
-  const paths: (readonly string[])[] = [];
-  for (let index = 0; index < entries.length;) {
-    const entry = entries[index];
-    if (entry === undefined) break;
-    if (matched !== undefined && !matched.has(index)) {
-      index = entry.end;
-      if (++operations % 256 === 0) yield;
-      continue;
-    }
-    const node = entry.node;
-    const path = Object.freeze([...(paths[entry.depth - 1] ?? []), node.id]);
-    paths[entry.depth] = path;
-    const isExpanded = node.kind !== 'leaf' && (filtering || expanded.has(node.id));
-    const loadStatus = node.kind === 'lazy'
-      ? Object.freeze({ ...(state.loadStatusById?.[node.id] ?? { kind: 'idle' as const }) })
-      : undefined;
-    rows.push(Object.freeze({ node, depth: entry.depth, path, expanded: isExpanded,
-      ...(loadStatus === undefined ? {} : { loadStatus }) }));
-    if (!filtering && isExpanded && node.kind === 'lazy') {
-      rows.push(snapshotRow(lazyStatusRow(node, entry.depth, path, loadStatus ?? { kind: 'idle' })));
-    }
-    index = isExpanded ? index + 1 : entry.end;
-    if (++operations % 256 === 0) yield;
+  for (const event of visibleTreeRowsWork(source, state, compileCollectionQuery(state.query ?? { text: '', mode: 'contains' }))) {
+    if (typeof event !== 'number') rows.push(event);
   }
   return Object.freeze(rows);
 }
-
-function* matchedTreeEntriesWork<TMetadata extends Readonly<Record<string, unknown>>>(
-  entries: readonly TreeEntry<TMetadata>[],
-  query: CompiledCollectionQuery,
-): Generator<void, ReadonlySet<number>, unknown> {
-  const matched = new Set<number>();
-  let operations = 0;
-  for (let index = entries.length - 1; index >= 0; index -= 1) {
-    const entry = entries[index];
-    if (entry === undefined) continue;
-    if (matched.has(index) || (yield* treeNodeMatchesWork(entry.node, query))) {
-      matched.add(index);
-      if (entry.parent >= 0) matched.add(entry.parent);
-    }
-    if (++operations % 256 === 0) yield;
+function* visibleTreeRowsWork<TMetadata extends Readonly<Record<string, unknown>>>(
+  source: TreeSource<TMetadata>, state: Pick<TreeState, 'expandedIds' | 'query' | 'loadStatusById'>,
+  query: CompiledCollectionQuery, labelMatches = new Map<string, QueryMatchRange>(),
+): Generator<number | TreeVisibleRow<TMetadata>, void> {
+  const data = treeSourceData(source);
+  const filtering = query.text.length > 0;
+  const matched = filtering ? yield* matchedTreeNodesWork(data.entries, query, labelMatches) : undefined;
+  const expanded = new Set<string>();
+  for (const id of state.expandedIds) { expanded.add(id); yield 1; }
+  const frames: { readonly children: IterableIterator<{ readonly id: string }>; readonly path: readonly string[] }[] = [{ children: data.roots.values(), path: Object.freeze([]) }];
+  while (frames.length > 0) {
+    const frame = frames.at(-1);
+    if (frame === undefined) break;
+    const next = frame.children.next();
+    if (next.done) { frames.pop(); continue; }
+    const entry = yield* orderedItemByIdWork(data.entries, next.value.id);
+    if (entry === undefined || matched !== undefined && !matched.has(entry.id)) { yield 1; continue; }
+    const node = entry.node;
+    const path = Object.freeze([...frame.path, node.id]);
+    const isExpanded = node.kind !== 'leaf' && (filtering || expanded.has(node.id));
+    const loadStatus = node.kind === 'lazy' ? Object.freeze({ ...(state.loadStatusById?.[node.id] ?? { kind: 'idle' as const }) }) : undefined;
+    yield Object.freeze({ node, depth: frame.path.length, path, expanded: isExpanded, ...(loadStatus === undefined ? {} : { loadStatus }) });
+    if (!filtering && isExpanded && node.kind === 'lazy') yield snapshotRow(lazyStatusRow(node as TreeNodeDescriptor<TMetadata> & { kind: 'lazy' }, frame.path.length, path, loadStatus ?? { kind: 'idle' }));
+    if (isExpanded && node.kind === 'branch') frames.push({ children: entry.children.values(), path });
+    yield 1;
   }
+}
+function* matchedTreeNodesWork<TMetadata extends Readonly<Record<string, unknown>>>(entries: OrderedSource<TreeEntry<TMetadata>>, query: CompiledCollectionQuery, labelMatches: Map<string, QueryMatchRange>): Generator<number, ReadonlySet<string>> {
+  const matched = new Set<string>();
+  for (const entry of entries.values()) {
+      const result = yield* matchCompiledCollectionQueryWork(entry.node, query);
+      if (result !== undefined) {
+        let ancestor: TreeEntry<TMetadata> | undefined = entry;
+        while (ancestor !== undefined && !matched.has(ancestor.id)) {
+          matched.add(ancestor.id);
+          ancestor = ancestor.parentId === undefined ? undefined : yield* orderedItemByIdWork(entries, ancestor.parentId);
+          yield 1;
+        }
+      }
+      const primary = (yield* matchCompiledCollectionQueryFieldWork(entry.node, query, 0))?.ranges[0];
+      if (primary !== undefined) labelMatches.set(entry.id, primary);
+      yield 1;
+    }
+
   return matched;
 }
-
-export function treeNodeMatches<TMetadata extends Readonly<Record<string, unknown>>>(
-  node: TreeNode<TMetadata>,
-  query: CollectionQuery,
-): boolean {
-  return finishWork(treeNodeMatchesWork(node, compileCollectionQuery(query)));
+export function treeNodeMatches<TMetadata extends Readonly<Record<string, unknown>>>(node: TreeNodeDescriptor<TMetadata>, query: CollectionQuery): boolean {
+  return finishWork(function* (): Generator<number, boolean> {
+    const indexed = ownedTreeNodes.has(node) ? node : yield* ownTreeNodeWork(ownTreeDescriptor(node), 'tree node');
+    return (yield* matchCompiledCollectionQueryWork(indexed, compileCollectionQuery(query))) !== undefined;
+  }());
 }
-
-function* treeNodeMatchesWork<TMetadata extends Readonly<Record<string, unknown>>>(
-  node: TreeNode<TMetadata>,
-  query: CompiledCollectionQuery,
-): Generator<void, boolean> {
-  return (yield* matchCompiledCollectionQueryWork(yield* indexQueryCandidateWork({
-    id: node.id,
-    primary: node.label,
-    secondary: [node.id, node.description, node.icon]
-      .filter((value): value is string => value !== undefined),
-  }), query)) !== undefined;
+function* treeFields(node: TreeNodeDescriptor): IterableIterator<string> {
+  yield node.label; yield node.id;
+  if (node.description !== undefined) yield node.description;
+  if (node.icon !== undefined) yield node.icon;
 }
 
 export function createTreeCollection<TMetadata extends Readonly<Record<string, unknown>>>(
@@ -442,11 +513,15 @@ function reduceDisclosure<TMetadata extends Readonly<Record<string, unknown>>>(
   transition: TreeDisclosureTransition,
   source: TreeSource<TMetadata>,
 ): TreeState {
-  const expandable = treeSourceData(source).expandableIds;
+  const entries = treeSourceData(source).entries;
+  const expandable = {
+    has: (id: string) => { const node = entries.itemById(id)?.node; return node !== undefined && node.kind !== 'leaf'; },
+  };
   const current = new Set(state.expandedIds);
   if (transition.kind === 'expandAll') {
-    if (current.size === expandable.size && [...expandable].every((id) => current.has(id))) return state;
-    return { ...state, expandedIds: Object.freeze([...expandable]) };
+    const ids = Array.from(entries.values()).filter(entry => entry.node.kind !== 'leaf').map(entry => entry.id);
+    if (current.size === ids.length && ids.every(id => current.has(id))) return state;
+    return { ...state, expandedIds: Object.freeze(ids) };
   }
   if (transition.kind === 'collapseAll') {
     return current.size === 0 ? state : { ...state, expandedIds: Object.freeze([]) };
@@ -465,7 +540,7 @@ function reduceDisclosure<TMetadata extends Readonly<Record<string, unknown>>>(
 }
 
 function lazyStatusRow<TMetadata extends Readonly<Record<string, unknown>>>(
-  node: TreeNode<TMetadata> & { readonly kind: 'lazy' },
+  node: TreeNodeDescriptor<TMetadata> & { readonly kind: 'lazy' },
   depth: number,
   path: readonly string[],
   loadStatus: TreeLoadStatus,
@@ -493,8 +568,7 @@ function snapshotRow<TMetadata extends Readonly<Record<string, unknown>>>(
     ...row,
     node: Object.freeze({
       ...row.node,
-      ...(row.node.kind === 'branch' ? { children: Object.freeze([...row.node.children]) } : {}),
-      ...(row.node.metadata === undefined ? {} : { metadata: Object.freeze({ ...row.node.metadata }) }),
+      ...(row.node.metadata === undefined ? {} : { metadata: row.node.metadata }),
     }),
     path: Object.freeze([...row.path]),
     ...(row.loadStatus === undefined ? {} : { loadStatus: Object.freeze({ ...row.loadStatus }) }),
@@ -511,22 +585,10 @@ function treeSourceData<TMetadata extends Readonly<Record<string, unknown>>>(
   return data as TreeSourceData<TMetadata>;
 }
 
-function* ownTreeNodesWork<TMetadata extends Readonly<Record<string, unknown>>>(
-  nodes: readonly TreeNode<TMetadata>[],
-  owner: string,
-): Generator<void, readonly TreeNode<TMetadata>[]> {
-  const result: TreeNode<TMetadata>[] = [];
-  for (const [index, node] of nodes.entries()) {
-    result.push(yield* ownTreeNodeWork(node, `${owner}[${String(index)}]`));
-    if (result.length % 256 === 0) yield;
-  }
-  return Object.freeze(result);
-}
-
 function* ownTreeNodeWork<TMetadata extends Readonly<Record<string, unknown>>>(
-  value: TreeNode<TMetadata>,
+  value: TreeNodeDescriptor<TMetadata>,
   owner: string,
-): Generator<void, TreeNode<TMetadata>> {
+): Generator<number, TreeNodeDescriptor<TMetadata>> {
   const candidate: unknown = value;
   if (!isNonArrayObject(candidate)) throw new TypeError(`${owner} must be an object.`);
   const kind = candidate['kind'];
@@ -549,16 +611,15 @@ function* ownTreeNodeWork<TMetadata extends Readonly<Record<string, unknown>>>(
     }),
     ...(value.icon === undefined ? {} : { icon: yield* ownedTreeTextWork(value.icon, `${owner}.icon`, false) }),
     ...(value.disabled === undefined ? {} : { disabled: value.disabled }),
-    ...(value.metadata === undefined ? {} : { metadata: Object.freeze({ ...value.metadata }) }),
+    ...(value.metadata === undefined ? {} : { metadata: value.metadata }),
   };
-  if (value.kind === 'branch') {
-    if (!Array.isArray(value.children)) throw new TypeError(`${owner}.children must be an array.`);
-    return Object.freeze({ ...base, kind: 'branch' as const, children: yield* ownTreeNodesWork<TMetadata>(value.children, `${owner}.children`) });
-  }
-  return Object.freeze({ ...base, kind: value.kind });
+  const node = Object.freeze({ ...base, kind: value.kind });
+  yield* indexQueryFieldsWork(node, treeFields(node));
+  ownedTreeNodes.add(node);
+  return node;
 }
 
-function* ownedTreeTextWork(value: unknown, owner: string, required: boolean): Generator<void, string> {
+function* ownedTreeTextWork(value: unknown, owner: string, required: boolean): Generator<number, string> {
   if (typeof value !== 'string') throw new TypeError(`${owner} must be a string.`);
   const text = (yield* sanitizeTerminalTextWork(value)).text;
   if (required && text.trim().length === 0) throw new TypeError(`${owner} must not be empty.`);
@@ -577,4 +638,8 @@ function withoutQuery(state: TreeState): TreeState {
     ...(state.loadStatusById === undefined ? {} : { loadStatusById: state.loadStatusById }),
     ...(state.scroll === undefined ? {} : { scroll: state.scroll }),
   };
+}
+
+function emptyTreeSourceData<TMetadata extends Readonly<Record<string, unknown>>>(): TreeSourceData<TMetadata> {
+  return { entries: createOrderedSource<TreeEntry<TMetadata>>(), roots: createOrderedSource<{ readonly id: string }>() };
 }

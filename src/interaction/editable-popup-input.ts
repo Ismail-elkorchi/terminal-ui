@@ -12,11 +12,12 @@ import type { AnchoredSurfaceDismissReason } from './anchored-surface.ts';
 import type { CollectionInteractionIndex } from './collection-interaction.ts';
 import {
   collectionInteractionHas,
-  collectionInteractionIds,
+  collectionInteractionCount,
+  collectionInteractionIdAt,
   collectionInteractionPosition,
 } from './collection-interaction.ts';
 import type { NavigationPolicy } from './navigation.ts';
-import { adjacentItemId } from './navigation.ts';
+import { navigateIndex } from './navigation.ts';
 import { popupReducer } from './popup.ts';
 import type { TextPointerTransition } from './text-pointer.ts';
 
@@ -140,20 +141,19 @@ export function editablePopupInputReducer(
     }
     case 'moveActive': {
       const index = options.indexForText(state.input.text);
-      const activeId = adjacentItemId(
-        collectionInteractionIds(index),
-        state.activeId,
-        transition.delta,
-        options.navigation,
-      );
+      const position = state.activeId === undefined ? undefined : collectionInteractionPosition(index, state.activeId);
+      const activeId = collectionInteractionIdAt(index, navigateIndex(
+        position, transition.delta, collectionInteractionCount(index), options.navigation,
+      ));
       return stateValue(state, state.input, state.editHistory, true, activeId);
     }
     case 'firstActive': {
-      const activeId = collectionInteractionIds(options.indexForText(state.input.text))[0];
+      const activeId = collectionInteractionIdAt(options.indexForText(state.input.text), 0);
       return stateValue(state, state.input, state.editHistory, true, activeId);
     }
     case 'lastActive': {
-      const activeId = collectionInteractionIds(options.indexForText(state.input.text)).at(-1);
+      const index = options.indexForText(state.input.text);
+      const activeId = collectionInteractionIdAt(index, collectionInteractionCount(index) - 1);
       return stateValue(state, state.input, state.editHistory, true, activeId);
     }
   }
@@ -187,7 +187,7 @@ function updateText(
   if (edited.buffer === state.input && edited.history === state.editHistory) return state;
   const textChanged = edited.buffer.text !== state.input.text;
   const index = options.indexForText(edited.buffer.text);
-  const activeId = textChanged ? collectionInteractionIds(index)[0] : validActive(index, state.activeId);
+  const activeId = textChanged ? collectionInteractionIdAt(index, 0) : validActive(index, state.activeId);
   const open = textChanged && options.openOnEdit !== false ? true : state.open;
   return stateValue(state, edited.buffer, edited.history, open, activeId);
 }
@@ -231,7 +231,7 @@ function validOrFirst(
   index: CollectionInteractionIndex,
   activeId: string | undefined,
 ): string | undefined {
-  return validActive(index, activeId) ?? collectionInteractionIds(index)[0];
+  return validActive(index, activeId) ?? collectionInteractionIdAt(index, 0);
 }
 
 function validActive(

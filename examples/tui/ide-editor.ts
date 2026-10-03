@@ -1,3 +1,4 @@
+import type { TreeSource, TreeSourceEntry } from '@ismail-elkorchi/terminal-ui/behavior';
 import { mkdtemp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { Buffer } from 'node:buffer';
 import { tmpdir } from 'node:os';
@@ -11,6 +12,8 @@ import {
   defineTui,
   createTuiControls,
   createTuiChild,
+  combineTuiResults,
+  reconcileTuiChildren,
   createTuiCommands,
   liftTuiResult,
   dialog,
@@ -51,15 +54,17 @@ import {
   menuBarReducer,
   tabsReducer,
   createTreeSource,
+  prepareTreeSource,
+  treeSourceNodeById,
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { CommandInputState, MenuBarState } from '@ismail-elkorchi/terminal-ui/behavior';
-import { editorPanelDefinition } from './features/editor-panel.ts';
+import { editorPanelDefinition, editorPanelController } from './features/editor-panel.ts';
 import type { EditorPanelState, EditorPanelMessage } from './features/editor-panel.ts';
 import { explorerDefinition } from './features/explorer.ts';
 import type { ExplorerState, ExplorerMessage } from './features/explorer.ts';
-import { createTuiRuntime } from '@ismail-elkorchi/terminal-ui/tui';
-import type { TuiEffect, TuiRuntime, TuiUpdateResult } from '@ismail-elkorchi/terminal-ui/tui';
-import { textDocumentBytes, textDocumentText } from '@ismail-elkorchi/terminal-ui/text';
+import { createTuiRuntime, createTuiCooperativeWorkContext } from '@ismail-elkorchi/terminal-ui/tui';
+import type { TuiEffect, TuiRuntime, TuiUpdateResult, TuiEditorSnapshot, TuiControlledEditorOutput } from '@ismail-elkorchi/terminal-ui/tui';
+import { prepareTextDocument, textDocumentBytes, textDocumentText } from '@ismail-elkorchi/terminal-ui/text';
 import type { TextDocument } from '@ismail-elkorchi/terminal-ui/text';
 
 type EntryMetadata = Readonly<{
@@ -71,7 +76,6 @@ interface EditorBuffer {
   readonly path: string;
   readonly label: string;
   readonly editor: TuiChildState<EditorPanelState>;
-  readonly savedDocument: TextDocument;
 }
 
 type OpenMode = 'file' | 'folder';
@@ -98,8 +102,9 @@ type EditorOperation =
       readonly requestId: string;
       readonly label: string;
       readonly path: string;
-      readonly document: TextDocument;
+      readonly snapshot: TuiEditorSnapshot;
     }
+  | { readonly kind: 'pending'; readonly operation: 'settle'; readonly requestId: string; readonly label: string; readonly path: string }
   | { readonly kind: 'failed'; readonly requestId: string; readonly message: string };
 
 interface ChooserState {
@@ -109,7 +114,6 @@ interface ChooserState {
 
 interface EditorState {
   readonly root?: string;
-  readonly nodes: readonly TreeNode<EntryMetadata>[];
   readonly explorer: TuiChildState<ExplorerState<EntryMetadata>>;
   readonly buffers: readonly EditorBuffer[];
   readonly activePath?: string;
@@ -132,10 +136,11 @@ type EditorMessage =
   | { readonly kind: 'submitChooser'; readonly value: string }
   | { readonly kind: 'dismissChooser' }
   | { readonly kind: 'requestOpen'; readonly mode: OpenMode; readonly path: string }
-  | { readonly kind: 'workspaceLoaded'; readonly requestId: string; readonly root: string; readonly nodes: readonly TreeNode<EntryMetadata>[] }
-  | { readonly kind: 'fileLoaded'; readonly requestId: string; readonly path: string; readonly content: string }
+  | { readonly kind: 'workspaceLoaded'; readonly requestId: string; readonly root: string; readonly source: TreeSource<EntryMetadata>; readonly tree: ScrollableTreeState }
+  | { readonly kind: 'fileLoaded'; readonly requestId: string; readonly path: string; readonly document: TextDocument }
   | { readonly kind: 'fileSaved'; readonly requestId: string; readonly path: string }
   | { readonly kind: 'operationFailed'; readonly requestId: string; readonly message: string }
+  | { readonly kind: 'retryEdit' }
   | { readonly kind: 'saveActive' }
   | { readonly kind: 'closeActive' }
   | { readonly kind: 'exit' };
@@ -144,6 +149,7 @@ const editorCommands = createTuiCommands<EditorState, EditorMessage, EditorMessa
   { id: 'open-file', label: 'Open File', shortcuts: [{ kind: 'key', key: 'o', modifiers: { ctrl: true } }], message: { kind: 'showChooser', mode: 'file' } },
   { id: 'open-folder', label: 'Open Folder', message: { kind: 'showChooser', mode: 'folder' } },
   { id: 'save', label: 'Save', shortcuts: [{ kind: 'key', key: 's', modifiers: { ctrl: true } }], enabled: state => state.activePath !== undefined, message: { kind: 'saveActive' } },
+  { id: 'retry', label: 'Retry Edit', enabled: state => activeBuffer(state)?.editor.state.editor.error !== null && activeBuffer(state) !== undefined, message: { kind: 'retryEdit' } },
   { id: 'close', label: 'Close Buffer', enabled: state => state.activePath !== undefined, message: { kind: 'closeActive' } },
   { id: 'quit', label: 'Quit', shortcuts: [{ kind: 'key', key: 'q', modifiers: { ctrl: true } }, { kind: 'key', key: 'c', modifiers: { ctrl: true } }], message: { kind: 'exit' } },
 ], id => ({ kind: 'menuActivate', id }));
@@ -176,7 +182,6 @@ const MAX_EDITOR_FILE_BYTES = 4 * 1_024 * 1_024;
 
 function initialState(explorerState: TuiChildState<ExplorerState<EntryMetadata>>): EditorState {
   return {
-    nodes: [],
     explorer: explorerState,
     buffers: [],
     menu: { kind: 'closed', active: 'file' },
@@ -201,10 +206,13 @@ export function createIdeEditorApp(operations: IdeEditorOperations = nodeEditorO
     update: (state, message, context) => {
       const updated = updateEditor(state, message, operations, context);
       if (updated.state.buffers === state.buffers) return updated;
-      const retained = new Map(updated.state.buffers.map(buffer => [buffer.editor.id, buffer.editor.generation]));
-      const removed = state.buffers.filter(buffer => retained.get(buffer.editor.id) !== buffer.editor.generation);
-      return removed.length === 0 ? updated : { ...updated, cancel: [...(updated.cancel ?? []), ...removed.map(buffer => editorPanel.remove(buffer.editor))] };
+      const retained = reconcileTuiChildren(state.buffers, updated.state.buffers, buffer => buffer.editor);
+      return combineTuiResults(updated.state, updated, retained);
     },
+    subscriptions: (state, context) => [
+      ...explorer.subscriptions(state.explorer, context),
+      ...state.buffers.flatMap(buffer => editorPanel.subscriptions(buffer.editor, context)),
+    ],
     view: editorView,
     inputBindings: editorCommands.inputBindings,
     nonTty: { mode: 'last_frame' }
@@ -222,10 +230,10 @@ function updateEditor(
     case 'explorer': {
       const { outputs, ...updated } = liftTuiResult(state, 'explorer', explorer.update(state.explorer, message.message, context));
       const selected = outputs?.[0];
-      const node = selected === undefined ? undefined : findTreeNode(state.nodes, selected);
+      const node = selected === undefined ? undefined : treeSourceNodeById(state.explorer.state.source, selected);
       if (node?.metadata?.entryKind !== 'file') return updated;
       const opened = requestOpen(updated.state, 'file', node.metadata.path, operations);
-      return { ...updated, ...opened, effects: [...(updated.effects ?? []), ...(opened.effects ?? [])] };
+      return combineTuiResults(opened.state, updated, opened);
     }
     case 'menuActivate': {
       const command = editorCommands.resolve(state, message.id);
@@ -238,10 +246,8 @@ function updateEditor(
       if (buffer === undefined) return result(state);
       const updated = editorPanel.update(buffer.editor, message.message, context);
       const editor = updated.state;
-      if (textDocumentBytes(editor.state.editor.document) > MAX_EDITOR_FILE_BYTES) {
-        return result({ ...state, notice: `Files are limited to ${formatByteLimit(MAX_EDITOR_FILE_BYTES)} in this example.` });
-      }
-      return { ...updated, state: editor === buffer.editor ? state : updateBuffer(state, buffer.path, candidate => ({ ...candidate, editor })) };
+      const next = editor === buffer.editor ? state : updateBuffer(state, buffer.path, candidate => ({ ...candidate, editor }));
+      return applyEditorOutputs({ ...updated, state: next }, buffer.path, updated.outputs ?? [], operations);
     }
     case 'submitCommand':
       return submitCommand(state, message.value, operations, context);
@@ -257,19 +263,12 @@ function updateEditor(
       return requestOpen(state, message.mode, message.path, operations);
     case 'workspaceLoaded': {
       if (!isCurrentOperation(state, message.requestId, 'open')) return result(state);
-      const tree: ScrollableTreeState = {
-        expandedIds: message.nodes.filter(node => node.kind !== 'leaf').map(node => node.id),
-        ...(message.nodes[0]?.id === undefined ? {} : { activeId: message.nodes[0].id }),
-        selection: message.nodes[0]?.id === undefined ? { mode: 'single', selectionFollowsActive: true }
-          : { mode: 'single', selectedId: message.nodes[0].id, selectionFollowsActive: true },
-        scroll: createScrollState(),
-      };
-      return liftTuiResult({ ...state, root: message.root, nodes: message.nodes, operation: { kind: 'idle' as const }, notice: `Opened workspace ${message.root}` },
-        'explorer', explorer.update(state.explorer, { ...state.explorer, message: { kind: 'replace', source: createTreeSource(message.nodes), tree } }, context));
+      return liftTuiResult({ ...state, root: message.root, operation: { kind: 'idle' as const }, notice: `Opened workspace ${message.root}` },
+        'explorer', explorer.update(state.explorer, { ...state.explorer, message: { kind: 'replace', source: message.source, tree: message.tree } }, context));
     }
     case 'fileLoaded':
       if (!isCurrentOperation(state, message.requestId, 'open')) return result(state);
-      return result(openBuffer(state, message.path, message.content, context));
+      return openBuffer(state, message.path, message.document, context);
     case 'fileSaved': {
       if (state.operation.kind !== 'pending'
         || state.operation.operation !== 'save'
@@ -277,9 +276,9 @@ function updateEditor(
         || state.operation.path !== message.path) {
         return result(state);
       }
-      const savedDocument = state.operation.document;
+      const snapshot = state.operation.snapshot;
       return result({
-        ...updateBuffer(state, message.path, (buffer) => ({ ...buffer, savedDocument })),
+        ...updateBuffer(state, message.path, buffer => ({ ...buffer, editor: { ...buffer.editor, state: { ...buffer.editor.state, editor: editorPanelController.markSaved(buffer.editor.state.editor, snapshot) } } })),
         operation: { kind: 'idle' },
         notice: `Saved ${shortPath(state.root, message.path)}`
       });
@@ -291,8 +290,12 @@ function updateEditor(
         operation: { kind: 'failed', requestId: message.requestId, message: message.message },
         notice: message.message,
       });
+    case 'retryEdit': {
+      const buffer = activeBuffer(state);
+      return buffer === undefined ? result(state) : updateEditor(state, { kind: 'edit', message: { ...buffer.editor, message: { kind: 'retry' } } }, operations, context);
+    }
     case 'saveActive':
-      return saveActive(state, operations);
+      return saveActive(state, operations, context);
     case 'closeActive':
       return result(closeActive(state));
     case 'exit':
@@ -314,6 +317,7 @@ function submitCommand(
     case '/open': return requestOpen(cleared, 'file', argument, operations);
     case '/folder': return requestOpen(cleared, 'folder', argument, operations);
     case '/save':
+    case '/retry':
     case '/close': {
       const message = editorCommands.resolve(cleared, command.slice(1));
       return message === undefined ? result(cleared) : updateEditor(cleared, message, operations, context);
@@ -348,28 +352,46 @@ function requestOpen(
 
 function saveActive(
   state: EditorState,
-  operations: IdeEditorOperations
+  operations: IdeEditorOperations,
+  context: TuiContext,
 ): TuiUpdateResult<EditorState, EditorMessage> {
   const buffer = activeBuffer(state);
   if (buffer === undefined) return result({ ...state, notice: 'No active buffer to save.' });
   if (!isDirty(buffer)) return result({ ...state, notice: `${buffer.label} is already saved.` });
+  if (buffer.editor.state.editor.error !== null) return result({ ...state, notice: 'Retry the failed edit with /retry before saving.' });
   const requestId = `save-${String(state.nextOperation)}`;
-  const document = buffer.editor.state.editor.document;
-  return {
-    state: {
-      ...state,
-      operation: {
-        kind: 'pending',
-        operation: 'save',
-        requestId,
-        label: `Saving ${buffer.path}`,
-        path: buffer.path,
-        document,
-      },
-      nextOperation: state.nextOperation + 1
-    },
-    effects: [saveEffect(requestId, buffer.path, textDocumentText(document), operations)]
+  const settled = editorPanel.update(buffer.editor, { ...buffer.editor, message: { kind: 'settle', token: requestId } }, context);
+  const edited = settled.state === buffer.editor ? state : updateBuffer(state, buffer.path, candidate => ({ ...candidate, editor: settled.state }));
+  if (settled.outputs?.some(output => output.kind === 'rejected') === true) return applyEditorOutputs({ ...settled, state: edited }, buffer.path, settled.outputs, operations);
+  const next: EditorState = {
+    ...edited,
+    operation: { kind: 'pending', operation: 'settle', requestId, path: buffer.path, label: `Waiting for accepted edits in ${buffer.label}` },
+    nextOperation: state.nextOperation + 1,
   };
+  return applyEditorOutputs({ ...settled, state: next }, buffer.path, settled.outputs ?? [], operations);
+}
+
+function applyEditorOutputs(
+  update: TuiUpdateResult<EditorState, EditorMessage>,
+  targetPath: string,
+  outputs: readonly TuiControlledEditorOutput[],
+  operations: IdeEditorOperations,
+): TuiUpdateResult<EditorState, EditorMessage> {
+  let result = update;
+  for (const output of outputs) {
+    if (output.kind === 'settled') {
+      const pending = result.state.operation;
+      if (pending.kind !== 'pending' || pending.operation !== 'settle' || pending.path !== targetPath || pending.requestId !== output.token) continue;
+      const state: EditorState = { ...result.state, operation: { kind: 'pending', operation: 'save', requestId: output.token,
+        label: `Saving ${targetPath}`, path: targetPath, snapshot: output.snapshot } };
+      result = combineTuiResults(state, result, { state, effects: [saveEffect(output.token, targetPath, output.snapshot.document, operations)] });
+    } else if (output.kind === 'failed' || output.kind === 'rejected' || output.kind === 'historyRejected') {
+      const notice = output.kind === 'failed' ? `${output.diagnostic.message}; use /retry to retry the accepted edit.`
+        : output.kind === 'rejected' ? `Editor operation was not accepted: ${output.reason}` : 'Edit accepted without an undo record: history budget exceeded.';
+      result = { ...result, state: { ...result.state, notice } };
+    }
+  }
+  return result;
 }
 
 function openEffect(
@@ -385,9 +407,17 @@ function openEffect(
       context.signal.throwIfAborted();
       const opened = await operations.open(mode, targetPath, context.signal);
       context.signal.throwIfAborted();
-      return opened.kind === 'folder'
-        ? { kind: 'message', message: { kind: 'workspaceLoaded', requestId, root: opened.root, nodes: opened.nodes } }
-        : { kind: 'message', message: { kind: 'fileLoaded', requestId, path: opened.path, content: opened.content } };
+      if (opened.kind === 'folder') {
+        const expandedIds: string[] = [];
+        const source = await prepareTreeSource(workspaceBatches(opened.nodes, expandedIds), createTuiCooperativeWorkContext(context));
+        const first = opened.nodes[0]?.id;
+        const tree: ScrollableTreeState = { expandedIds, ...(first === undefined ? {} : { activeId: first }),
+          selection: { mode: 'single', selectionFollowsActive: true, ...(first === undefined ? {} : { selectedId: first }) }, scroll: createScrollState() };
+        return { kind: 'message', message: { kind: 'workspaceLoaded', requestId, root: opened.root, source, tree } };
+      }
+      if (Buffer.byteLength(opened.content, 'utf8') > MAX_EDITOR_FILE_BYTES) throw new RangeError(`File exceeds ${formatByteLimit(MAX_EDITOR_FILE_BYTES)}.`);
+      const document = await prepareTextDocument(opened.content, createTuiCooperativeWorkContext(context));
+      return { kind: 'message', message: { kind: 'fileLoaded', requestId, path: opened.path, document } };
     },
     onError: ({ diagnostic }) => ({
       kind: 'message',
@@ -399,7 +429,7 @@ function openEffect(
 function saveEffect(
   requestId: string,
   targetPath: string,
-  content: string,
+  document: TextDocument,
   operations: IdeEditorOperations
 ): TuiEffect<EditorMessage> {
   return {
@@ -407,7 +437,7 @@ function saveEffect(
     concurrency: 'replace',
     async run(context) {
       context.signal.throwIfAborted();
-      await operations.save(targetPath, content, context.signal);
+      await operations.save(targetPath, textDocumentText(document), context.signal);
       context.signal.throwIfAborted();
       return { kind: 'message', message: { kind: 'fileSaved', requestId, path: targetPath } };
     },
@@ -623,7 +653,7 @@ function editorStatus(state: EditorState) {
     id: 'editor-status',
     leading: [{ id: 'operation', kind: 'status', text: state.operation.kind, status: state.operation.kind === 'failed' ? 'error' : state.operation.kind === 'pending' ? 'running' : 'success' }],
     center: [{ id: 'file', kind: 'text', text: active === undefined ? 'No buffer' : shortPath(state.root, active.path) }],
-    trailing: [{ id: 'dirty', kind: 'text', text: `${String(state.buffers.filter(isDirty).length)} unsaved` }]
+    trailing: [{ id: 'pending-edits', kind: 'text', text: `${String(state.buffers.reduce((count, buffer) => count + buffer.editor.state.editor.queue.length, 0))} pending` }, { id: 'dirty', kind: 'text', text: `${String(state.buffers.filter(isDirty).length)} unsaved` }]
   });
 }
 
@@ -651,40 +681,16 @@ function chooserDialog(chooser: ChooserState): Element<EditorMessage> {
   });
 }
 
-function openBuffer(state: EditorState, targetPath: string, content: string, context: TuiContext): EditorState {
-  const existing = state.buffers.find((buffer) => buffer.path === targetPath);
-  if (existing !== undefined) {
-    return { ...state, activePath: targetPath, operation: { kind: 'idle' }, notice: `Selected ${existing.label}` };
-  }
-  if (Buffer.byteLength(content, 'utf8') > MAX_EDITOR_FILE_BYTES) {
-    return {
-      ...state,
-      operation: { kind: 'idle' },
-      notice: `${targetPath} exceeds the ${formatByteLimit(MAX_EDITOR_FILE_BYTES)} example file limit.`,
-    };
-  }
-  if (state.buffers.length >= MAX_EDITOR_BUFFERS) {
-    return {
-      ...state,
-      operation: { kind: 'idle' },
-      notice: `Close a buffer before opening more than ${String(MAX_EDITOR_BUFFERS)} files.`,
-    };
-  }
-  const initialized = editorPanel.init({ id: targetPath, generation: state.nextOperation }, context).state;
-  const editor = editorPanel.update(initialized, { ...initialized, message: { kind: 'load', label: path.basename(targetPath), content } }, context).state;
-  const buffer: EditorBuffer = {
-    path: targetPath,
-    label: path.basename(targetPath),
-    editor,
-    savedDocument: editor.state.editor.document,
-  };
-  return {
-    ...state,
-    buffers: [...state.buffers, buffer],
-    activePath: targetPath,
-    operation: { kind: 'idle' },
-    notice: `Opened ${shortPath(state.root, targetPath)}`
-  };
+function openBuffer(state: EditorState, targetPath: string, document: TextDocument, context: TuiContext): TuiUpdateResult<EditorState, EditorMessage> {
+  const existing = state.buffers.find(buffer => buffer.path === targetPath);
+  if (existing !== undefined) return result({ ...state, activePath: targetPath, operation: { kind: 'idle' }, notice: `Selected ${existing.label}` });
+  if (textDocumentBytes(document) > MAX_EDITOR_FILE_BYTES) return result({ ...state, operation: { kind: 'idle' }, notice: `${targetPath} exceeds the ${formatByteLimit(MAX_EDITOR_FILE_BYTES)} example file limit.` });
+  if (state.buffers.length >= MAX_EDITOR_BUFFERS) return result({ ...state, operation: { kind: 'idle' }, notice: `Close a buffer before opening more than ${String(MAX_EDITOR_BUFFERS)} files.` });
+  const initialized = editorPanel.init({ id: targetPath, generation: state.nextOperation }, context);
+  const loaded = editorPanel.update(initialized.state, { ...initialized.state, message: { kind: 'loadDocument', label: path.basename(targetPath), document, pending: 'reject' } }, context);
+  const buffer: EditorBuffer = { path: targetPath, label: path.basename(targetPath), editor: loaded.state };
+  return combineTuiResults({ ...state, buffers: [...state.buffers, buffer], activePath: targetPath,
+    operation: { kind: 'idle' as const }, notice: `Opened ${shortPath(state.root, targetPath)}` }, initialized, loaded);
 }
 
 function closeActive(state: EditorState): EditorState {
@@ -727,7 +733,7 @@ function activeBuffer(state: EditorState): EditorBuffer | undefined {
 }
 
 function isDirty(buffer: EditorBuffer): boolean {
-  return buffer.editor.state.editor.document !== buffer.savedDocument;
+  return editorPanelController.isDirty(buffer.editor.state.editor);
 }
 
 function isCurrentOperation(
@@ -760,18 +766,21 @@ function withoutChooser(state: EditorState): EditorState {
   return rest;
 }
 
-function findTreeNode(
-  nodes: readonly TreeNode<EntryMetadata>[],
-  id: string
-): TreeNode<EntryMetadata> | undefined {
-  for (const node of nodes) {
-    if (node.id === id) return node;
-    if (node.kind === 'branch') {
-      const nested = findTreeNode(node.children, id);
-      if (nested !== undefined) return nested;
-    }
+function* workspaceBatches(nodes: readonly TreeNode<EntryMetadata>[], expandedIds: string[]): Generator<readonly TreeSourceEntry<EntryMetadata>[]> {
+  const stack: { nodes: readonly TreeNode<EntryMetadata>[]; index: number; parentId?: string }[] = [{ nodes, index: 0 }];
+  let batch: TreeSourceEntry<EntryMetadata>[] = [];
+  while (stack.length > 0) {
+    const frame = stack.at(-1);
+    if (frame === undefined) break;
+    const node = frame.nodes[frame.index++];
+    if (node === undefined) { stack.pop(); continue; }
+    if (frame.parentId === undefined && node.kind !== 'leaf') expandedIds.push(node.id);
+    const descriptor = node.kind === 'branch' ? (() => { const { children, ...value } = node; void children; return value; })() : node;
+    batch.push({ node: descriptor, ...(frame.parentId === undefined ? {} : { parentId: frame.parentId }) });
+    if (node.kind === 'branch') stack.push({ nodes: node.children, index: 0, parentId: node.id });
+    if (batch.length === 256) { yield batch; batch = []; }
   }
-  return undefined;
+  if (batch.length > 0) yield batch;
 }
 
 function resolveRequestedPath(root: string | undefined, requestedPath: string): string {

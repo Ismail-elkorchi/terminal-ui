@@ -1,4 +1,6 @@
 import type { GraphicsBudgetLimits } from '../../graphics/budget.ts';
+import { resolveTuiRuntimePolicy } from './runtime-policy.ts';
+import { normalizeEffectPolicy } from './effects.ts';
 import { decodeTuiOutputMode } from '../commit/accessible-output.ts';
 import { resolveGraphicsBudgetLimits } from '../../graphics/budget.ts';
 import { decodeTerminalGraphicsMode } from '../../graphics/mode.ts';
@@ -16,11 +18,13 @@ import type {
   SessionProtocolPolicy,
 } from './session-policy.ts';
 import { defaultSessionProtocolPolicy } from './session-policy.ts';
-import type { TuiLifecyclePolicy, TuiRunInputPolicy, TuiTheme } from '../types.ts';
+import type { TuiLifecyclePolicy, TuiRunInputPolicy, TuiTheme, TuiRuntimePolicy, TuiEffectPolicy } from '../types.ts';
 
 export type NormalizedTuiLifecyclePolicy = Readonly<Required<Omit<TuiLifecyclePolicy, 'defaultTimeoutMs'>>>;
 
 export interface NormalizedTuiRunOptions<TState> {
+  readonly runtimePolicy: TuiRuntimePolicy;
+  readonly effectPolicy: TuiEffectPolicy;
   readonly outputMode: 'visual' | 'accessible';
   readonly host?: TerminalHost;
   readonly initialFocus?: InitialFocusSelector;
@@ -56,6 +60,8 @@ export function resolveTuiRunOptions<TState>(
   }
   const sessionPolicy = resolveTuiSessionPolicy(supplied['sessionPolicy']);
   return Object.freeze({
+    runtimePolicy: resolveTuiRuntimePolicy(optionalObjectValue(supplied['runtimePolicy'], 'TUI runtime policy')),
+    effectPolicy: normalizeEffectPolicy(supplied['effectPolicy'] === undefined ? undefined : objectValue(supplied['effectPolicy'], 'TUI effect policy') as unknown as TuiEffectPolicy),
     ...(host === undefined ? {} : { host }),
     ...(initialFocus === undefined ? {} : { initialFocus }),
     ...(theme === undefined ? {} : { theme }),

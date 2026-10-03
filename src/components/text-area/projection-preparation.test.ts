@@ -137,7 +137,7 @@ void test('shared projection work handles dense virtual and conceal spans with s
   }
   let yields = 0;
   const prepared = await prepareWork(createTextAreaProjectionWork(createTextDocument(source), decorations, defaultTextWidthProfile), {
-    signal: new AbortController().signal, yield: () => { yields++; return Promise.resolve(); },
+    signal: new AbortController().signal, operationLimit: 512, yield: () => { yields++; return Promise.resolve(); },
   });
   assert.ok(yields > 100);
   const direct = createTextAreaProjection(createTextDocument(source), decorations, defaultTextWidthProfile);

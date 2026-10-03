@@ -26,6 +26,7 @@ import {
   pointerOffset,
   textAreaDragScrollRequest,
   textAreaVisualHandlers,
+  textAreaPendingVisualHandlers,
   textAreaWordSelectionAt,
 } from './interaction.ts';
 import { createTextAreaModel } from './model.ts';
@@ -36,13 +37,13 @@ type TextAreaFactory = <const TMessage extends ComponentMessage = never>(
   options: TextAreaOptions<TMessage>,
 ) => Element<TMessage>;
 
-const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onTransition' | 'onContextMenu' | 'styles' | 'meta'>, TextAreaComponentAction>()({
+const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'busy' | 'onTransition' | 'onContextMenu' | 'styles' | 'meta'>, TextAreaComponentAction>()({
   name: 'terminal-ui/components/text-area',
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
   accessibleRole: 'textbox',
-  states: ['disabled', 'readOnly'],
+  states: ['disabled', 'readOnly', 'busy'],
   metadata: ['focus', 'layer', 'styles'],
   parts: [
     'value',
@@ -77,11 +78,11 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
     const snapshot = textAreaCommittedLayout(input);
     return snapshot === undefined ? ignoreMessage() : { kind: 'layout', snapshot };
   },
-  retainPaint: true as const,
+  reuse: { paint: (model: object) => [model] as const },
   render: paintTextArea,
   keys: (input) => controlKeyBindings<TextAreaKeyAction, TextAreaComponentAction>(input.model.keymap, {
     ...textEditingHandlers(input.readOnly),
-    ...(textAreaLayoutPending(input) ? {} : textAreaVisualHandlers(input)),
+    ...(textAreaLayoutPending(input) ? textAreaPendingVisualHandlers() : textAreaVisualHandlers(input)),
     ...(input.readOnly ? {} : {
       undo: () => ({ kind: 'undo' }),
       redo: () => ({ kind: 'redo' }),
@@ -133,7 +134,12 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
     }];
   },
   hitTargets(input) {
-    if (textAreaLayoutPending(input)) return [];
+    if (textAreaLayoutPending(input)) return [{
+      id: `${input.id ?? 'text-area'}:pending`, bounds: input.bounds, cursor: 'text',
+      focus: { kind: 'target' as const, targetId: 'self' },
+      accepts: ['pointerDown', 'click', 'dragStart', 'drag', 'dragEnd', 'contextMenu', 'scroll'],
+      message: () => ({ kind: 'unavailable' as const, reason: 'layout-pending' as const }),
+    }];
     const geometry = textAreaGeometry(input);
     const selectionRange = input.model.selection === undefined
       ? undefined

@@ -1,3 +1,4 @@
+import { createSuggestionFixture } from '../../support/collection-fixtures.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -185,7 +186,8 @@ test('commandInput renders controlled state and separates transitions from submi
       selection: { startOffset: 0, endOffsetExclusive: 1 },
     },
     open: true,
-    suggestions: createCommandSuggestions([commandSuggestion('test', 'test', 2)]),
+    suggestions: command.suggestions,
+    suggestionView: command.suggestionView,
     activeSuggestionId: 'test',
     submissionIndex: 0
   });
@@ -205,7 +207,7 @@ test('commandInput component renders prompt, suggestions, cursor, and accessibil
     testCommandInput({
       id: 'command',
       prompt: '/',
-      view: { input: { text: 'op', cursor: 2 }, open: true, suggestions: createCommandSuggestions([
+      view: { input: { text: 'op', cursor: 2 }, open: true, ...createSuggestionFixture([
         commandSuggestion('open', 'open', 2, { description: 'Open item' }),
         commandSuggestion('options', 'options', 2)
       ]), activeSuggestionId: 'options' },
@@ -238,7 +240,7 @@ test('commandInput popup anchors suggestions without increasing the input height
     view: {
       input: { text: 'exa', cursor: 3 },
       open: true,
-      suggestions: createCommandSuggestions([
+      ...createSuggestionFixture([
         commandSuggestion('example-com', 'https://example.com', 3, { label: 'Example', description: 'History' }),
         commandSuggestion('example-org', 'https://example.org', 3, { label: 'Example.org', description: 'Bookmark' })
       ]),
@@ -273,7 +275,7 @@ test('read-only command input rejects pointer suggestion activation', () => {
     view: {
       input: { text: 'a', cursor: 1 },
       open: true,
-      suggestions: createCommandSuggestions([commandSuggestion('alpha', 'alpha', 1, { label: 'Alpha' })]),
+      ...createSuggestionFixture([commandSuggestion('alpha', 'alpha', 1, { label: 'Alpha' })]),
       activeSuggestionId: 'alpha'
     },
     display: 'popup',
@@ -293,7 +295,7 @@ test('commandInput fills tall bounds while preserving its one-row natural size',
   const element = testCommandInput({
     id: 'tall-command',
     prompt: '› ',
-    view: { input: { text: 'open', cursor: 4 }, open: false, suggestions: createCommandSuggestions([]) },
+    view: { input: { text: 'open', cursor: 4 }, open: false, ...createSuggestionFixture([]) },
     display: 'popup',
     onTransition: (action) => ({ action })
   });
@@ -337,7 +339,7 @@ test('commandInput generated keys navigate and submit the selected suggestion', 
       view: {
         input: { text: 'exa', cursor: 3 },
         open: true,
-        suggestions: createCommandSuggestions([
+        ...createSuggestionFixture([
           commandSuggestion('one', 'https://one.example', 3, { label: 'One' }),
           commandSuggestion('two', 'https://two.example', 3, { label: 'Two' })
         ])
@@ -395,7 +397,7 @@ test('commandInput leaves Tab available for focus traversal without suggestions'
     view: () => row([
       testCommandInput({
         id: 'command',
-        view: { input: { text: '', cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
+        view: { input: { text: '', cursor: 0 }, open: false, ...createSuggestionFixture([]) },
         onTransition: (action) => ({ kind: 'command', action })
       }),
       button({ id: 'next', label: 'Next', onPress: () => ({ kind: 'button' }) })
@@ -478,7 +480,7 @@ test('commandInput renders completion preview validation footer match styles and
     testCommandInput({
       id: 'launcher',
       prompt: '?',
-      view: { input: { text: 'a🙂', cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length } }, open: true, suggestions: createCommandSuggestions([
+      view: { input: { text: 'a🙂', cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length } }, open: true, ...createSuggestionFixture([
         commandSuggestion('emoji-match', 'a🙂bc', 'a🙂'.length, { description: 'first match' })
       ]), activeSuggestionId: 'emoji-match' },
       completionPreview: 'bc',
@@ -515,7 +517,7 @@ test('commandInput stays compact by default even when suggestions are provided',
     testCommandInput({
       id: 'compact-command',
       prompt: '/',
-      view: { input: { text: '', cursor: 0 }, open: true, suggestions: createCommandSuggestions([
+      view: { input: { text: '', cursor: 0 }, open: true, ...createSuggestionFixture([
         commandSuggestion('open', 'open', 0, { description: 'Open item' })
       ]), activeSuggestionId: 'open' },
       placeholder: 'Type a command',
@@ -537,7 +539,7 @@ test('commandInput windows long input around the cursor', () => {
     testCommandInput({
       id: 'long-command',
       prompt: '>',
-      view: { input: { text: value, cursor: value.length }, open: false, suggestions: createCommandSuggestions([]) }
+      view: { input: { text: value, cursor: value.length }, open: false, ...createSuggestionFixture([]) }
     }),
     { columns: 18, rows: 3 }
   );
@@ -559,7 +561,7 @@ test('commandInput maps pointer positions through the cursor-relative input wind
     testCommandInput({
       id: 'windowed-command',
       prompt: '>',
-      view: { input: { text: 'abcdef', cursor: 6 }, open: false, suggestions: createCommandSuggestions([]) },
+      view: { input: { text: 'abcdef', cursor: 6 }, open: false, ...createSuggestionFixture([]) },
       onTransition: (action) => ({ action })
     }),
     { columns: 5, rows: 1 }
@@ -589,7 +591,7 @@ test('commandInput exposes shared drag word-selection and context-menu semantics
         selection: { startOffset: 0, endOffsetExclusive: 5 },
       },
       open: false,
-      suggestions: createCommandSuggestions([]),
+      ...createSuggestionFixture([]),
     },
     onTransition: (transition) => ({ transition }),
     onContextMenu: (event) => ({ context: event }),
@@ -624,11 +626,11 @@ test('commandInput renders one prompt without a separate focus marker', () => {
   const explicit = renderElementFrame(testCommandInput({
     id: 'explicit-prompt',
     prompt: '› ',
-    view: { input: { text: 'open', cursor: 4 }, open: false, suggestions: createCommandSuggestions([]) }
+    view: { input: { text: 'open', cursor: 4 }, open: false, ...createSuggestionFixture([]) }
   }), { columns: 16, rows: 1 }, { focusPath: ['explicit-prompt'] });
   const defaultPrompt = renderElementFrame(testCommandInput({
     id: 'default-prompt',
-    view: { input: { text: 'open', cursor: 4 }, open: false, suggestions: createCommandSuggestions([]) }
+    view: { input: { text: 'open', cursor: 4 }, open: false, ...createSuggestionFixture([]) }
   }), { columns: 16, rows: 1 }, { focusPath: ['default-prompt'] });
 
   assert.equal(renderFramePlain(explicit), '› open');
@@ -684,7 +686,7 @@ test('commandInput exposes prompt value selection suggestion validation and foot
     testCommandInput({
       id: 'cmd-source',
       prompt: ':',
-      view: { input: { text: 'open file', cursor: 0, selection: { startOffset: 5, endOffsetExclusive: 9 } }, open: true, suggestions: createCommandSuggestions([
+      view: { input: { text: 'open file', cursor: 0, selection: { startOffset: 5, endOffsetExclusive: 9 } }, open: true, ...createSuggestionFixture([
         commandSuggestion('open-file', 'open-file', 9, { label: 'Open file', description: 'recent' }, 5)
       ]), activeSuggestionId: 'open-file' },
       completionPreview: 's',
@@ -717,7 +719,7 @@ test('commandInput exposes prompt value selection suggestion validation and foot
 test('commandInput rejects invalid validation levels at its factory boundary', () => {
   assert.throws(() => testCommandInput({
     id: 'invalid-validation-level',
-    view: { input: { text: '', cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
+    view: { input: { text: '', cursor: 0 }, open: false, ...createSuggestionFixture([]) },
     validation: { message: 'Invalid', level: 'success' }
   }), /validation level must be one of info, warning, error/u);
 });

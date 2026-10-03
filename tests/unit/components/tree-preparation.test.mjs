@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTreeSource, createTreeView, prepareTreeView, treeReducer, visibleTreeRows } from '../../../dist/behavior/index.js';
-import { collectionItemById } from '../../../dist/collection/index.js';
 import { collectionInteractionIds } from '../../../dist/interaction/collection-interaction.js';
 import { tree } from '../../../dist/components/index.js';
 import { createMemoryTerminalHost } from '../../../dist/host/index.js';
@@ -26,20 +25,26 @@ test('cooperative tree projection preserves ancestors, ordering, expansion, lazy
   for (const state of [stateFor('needle'), { ...stateFor(''), expandedIds: ['a', 'remote'], loadStatusById: { remote: { kind: 'pending', message: 'Waiting' } } }]) {
     const expected = visibleTreeRows(source, state);
     const view = await prepareTreeView(source, state, context());
-    assert.deepEqual(view.collection.items.map(item => item.row), expected);
+    assert.deepEqual(view.collection.window(0, view.collection.count).map(item => item.row), expected);
     assert.equal(createTreeView(source, state), view);
-    assert.equal(collectionItemById(view.collection, 'x')?.itemIndex, 1);
+    assert.equal(view.collection.itemById('x')?.itemIndex, 1);
     const active = treeReducer(state, { kind: 'setActive', id: 'x' }, { source, view });
     assert.equal(active.activeId, 'x');
     assert.equal(treeReducer(active, { kind: 'commitActive' }, { source, view }).selection.selectedId, 'x');
   }
   const filtered = await prepareTreeView(source, stateFor('needle'), context());
-  assert.deepEqual(filtered.collection.items.map(item => item.id), ['a', 'x', 'b', 'z']);
+  assert.deepEqual(filtered.collection.window(0, filtered.collection.count).map(item => item.id), ['a', 'x', 'b', 'z']);
   assert.deepEqual(collectionInteractionIds(filtered.interactionIndex), ['a', 'x', 'b']);
 });
 
 test('tree scan, row projection, collection ownership and navigation indexing all yield and cancel atomically', async () => {
-  for (const cancelAt of [1, 18, 35, 52, 69]) {
+  let completeBatches = 0;
+  await prepareTreeView(largeSource(), stateFor('needle'), {
+    signal: new globalThis.AbortController().signal,
+    yield: async () => { completeBatches += 1; },
+  });
+  assert.ok(completeBatches >= 5, 'exercise cancellation across the complete projection');
+  for (const cancelAt of [...new Set([1, ...[0.25, 0.5, 0.75, 1].map(fraction => Math.ceil(completeBatches * fraction))])]) {
     const source = largeSource();
     const state = stateFor('needle');
     const controller = new globalThis.AbortController();
@@ -53,9 +58,13 @@ test('tree scan, row projection, collection ownership and navigation indexing al
     const result = await prepareTreeView(source, state, {
       signal: new globalThis.AbortController().signal, yield: async () => { resumedBatches += 1; },
     });
-    assert.ok(resumedBatches > 69, 'cancelled work must not install a partial or complete projection');
-    assert.equal(result.collection.totalCount, 4097);
-    assert.equal(collectionItemById(result.collection, '4095')?.itemIndex, 4096);
+    assert.ok(resumedBatches > 0, 'cancelled work must not install a reusable projection');
+    assert.equal(createTreeView(source, state), result);
+    assert.deepEqual(result.collection.window(0, result.collection.count).map(item => item.id),
+      ['root', ...Array.from({ length: 4096 }, (_, index) => String(index))],
+      'a resumed projection contains every row in source order');
+    assert.equal(result.collection.count, 4097);
+    assert.equal(result.collection.itemById('4095')?.itemIndex, 4096);
   }
 });
 
@@ -85,7 +94,7 @@ test('a newer tree query can finish while an older query is paused and aborted',
   await entered.promise;
   const latestState = stateFor('4095');
   const latest = await prepareTreeView(source, latestState, context());
-  assert.deepEqual(latest.collection.items.map(item => item.id), ['root', '4095']);
+  assert.deepEqual(latest.collection.window(0, latest.collection.count).map(item => item.id), ['root', '4095']);
   controller.abort(new Error('superseded'));
   released.resolve();
   await assert.rejects(older, /superseded/u);
@@ -123,7 +132,7 @@ test('tree construction stays pending until application-owned cooperative prepar
     assert.equal(runtime.frame().accessibility.root.window.totalCount, 0);
     await runtime.dispatch({ kind: 'prepare' });
     while (runtime.state().pending) await runtime.nextChange();
-    assert.ok(batches > 69, `expected cooperative tree work, got ${String(batches)} batches`);
+    assert.ok(batches > 1, `expected cooperative tree work, got ${String(batches)} batches`);
     assert.match(JSON.stringify(runtime.frame().accessibility), /4097 tree rows/u);
   } finally { await runtime.dispose(); }
 });

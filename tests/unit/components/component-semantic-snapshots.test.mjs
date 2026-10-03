@@ -1,16 +1,11 @@
+import { createSuggestionFixture } from '../../support/collection-fixtures.mjs';
+import { createListboxFixture, createOptionsFixture } from '../../support/collection-fixtures.mjs';
+import { createTableCollection } from '../../../dist/behavior/index.js';
 import { createLogViewerView } from '../../../dist/behavior/index.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../../support/calendar.mjs';
-import {
-  createScrollState,
-  createCommandSuggestions,
-  createSearchPickerIndex,
-  createLogHistory,
-  createTreeSource,
-  createTreeView,
-  querySearchPickerIndex,
-} from '../../../dist/behavior/index.js';
+import { createScrollState, createSearchPickerIndex, createLogHistory, createTreeSource, createTreeView, querySearchPickerIndex } from '../../../dist/behavior/index.js';
 import {
   createMeasuredCollection,
   measuredWindow,
@@ -206,9 +201,8 @@ const cases = [
   {
     name: 'listbox',
     element: () => listbox({ meta: { accessibleName: "List" },
-    toOption: (item) => ({ id: String(item), label: String(item) }),
       id: 'listbox',
-      items: [unsafe, 'Second', 'Third'],
+      ...createListboxFixture([unsafe, 'Second', 'Third'], (item) => ({ id: String(item), label: String(item) })),
       state: {
         activeId: 'Second',
         selection: { mode: 'single', selectedId: 'Second' }
@@ -221,9 +215,8 @@ const cases = [
   {
     name: 'dataGrid',
     element: () => dataGrid({ meta: { accessibleName: "Data grid" },
-    getRowId: (_row, index) => String(index),
     id: 'dataGrid',
-      rows: [{ name: unsafe, status: 'ok' }, { name: 'Second', status: 'idle' }],
+      collection: createTableCollection([{ name: unsafe, status: 'ok' }, { name: 'Second', status: 'idle' }], (_row, index) => String(index)),
       state: {
         interaction: {
           kind: 'row', activeRowId: '1', selection: { mode: 'single', selectedRowId: '1' },
@@ -416,7 +409,7 @@ const cases = [
     element: () => combobox({
       id: 'combobox',
       label: 'Choice',
-      options: optionItems,
+      ...createOptionsFixture(optionItems),
       state: {
         kind: 'select',
         open: false,
@@ -722,7 +715,7 @@ const cases = [
     name: 'commandInput',
     element: () => commandInput({ meta: { accessibleName: "Command input" },
       id: 'command-input',
-      view: { input: { text: unsafe, cursor: 0 }, open: true, suggestions: createCommandSuggestions([{ id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: unsafe.length }, text: 'open' }, label: unsafe, description: 'Open action' }]), activeSuggestionId: 'open' },
+      view: { input: { text: unsafe, cursor: 0 }, open: true, ...createSuggestionFixture([{ id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: unsafe.length }, text: 'open' }, label: unsafe, description: 'Open action' }]), activeSuggestionId: 'open' },
       prompt: '>',
       onTransition: (action) => action
     }),

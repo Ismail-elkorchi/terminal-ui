@@ -1,3 +1,4 @@
+import { createTableCollection } from '../../../dist/behavior/index.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ignoreMessage } from '../../../dist/component/index.js';
@@ -217,8 +218,7 @@ test('inline adornments use component part styles and source anatomy', () => {
 test('dataGrid inline cell content preserves caller style while replacing injected source metadata', () => {
   const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     id: 'results',
-    rows: [{ id: 'one', state: 'ready' }],
-    getRowId: (row) => row.id,
+    collection: createTableCollection([{ id: 'one', state: 'ready' }], (row) => row.id),
     state: { interaction: { kind: 'row', selection: { mode: 'single' } } },
     onTransition: (action) => action,
     columns: [tableColumn({

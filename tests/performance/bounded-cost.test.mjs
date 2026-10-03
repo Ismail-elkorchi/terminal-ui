@@ -1,3 +1,6 @@
+import { createListboxFixture } from '../support/collection-fixtures.mjs';
+import { createListboxView } from '../../dist/behavior/index.js';
+import { createSuggestionFixture } from '../support/collection-fixtures.mjs';
 import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
 import test from 'node:test';
@@ -181,8 +184,7 @@ test('large listbox rendering is bounded by terminal size, not collection size',
   const frame = renderElementFrame(listbox({
     id: 'large-listbox',
     meta: { accessibleName: 'Large list' },
-    items,
-    toOption: (item) => ({ id: item, label: item }),
+    ...createListboxFixture(items, (item) => ({ id: item, label: item })),
     state: {
       activeId: 'Item 40000',
       selection: { mode: 'single', selectedId: 'Item 40000' }
@@ -209,6 +211,7 @@ test('retained listbox collections retain item decoding across renders and actio
   assert.equal(mapperCalls, values.length);
   mapperCalls = 0;
   renderElementFrame(listbox({
+    view: createListboxView(collection),
     id: 'retained-listbox',
     meta: { accessibleName: 'Retained list' },
     collection,
@@ -216,6 +219,7 @@ test('retained listbox collections retain item decoding across renders and actio
     onTransition: () => ignoreMessage()
   }), { columns: 32, rows: 10 });
   renderElementFrame(listbox({
+    view: createListboxView(collection),
     id: 'retained-listbox',
     meta: { accessibleName: 'Retained list' },
     collection,
@@ -225,7 +229,7 @@ test('retained listbox collections retain item decoding across renders and actio
   const state = listboxReducer(
     { activeId: '25000', selection: { mode: 'single', selectedId: '25000' } },
     { kind: 'moveActive', delta: 1 },
-    { collection }
+    { view: createListboxView(collection),  collection }
   );
 
   assert.equal(state.activeId, '25001');
@@ -241,6 +245,7 @@ test('windowed listbox collections map only supplied rows while preserving globa
     return { id: String(index), label: value };
   }, { startIndex: start, totalCount: 50_000, scope: { kind: 'source' } });
   const frame = renderElementFrame(listbox({
+    view: createListboxView(collection),
     id: 'windowed-listbox',
     meta: { accessibleName: 'Windowed list' },
     collection,
@@ -274,7 +279,7 @@ test('command suggestions retain only a supplied window while preserving global 
     meta: { accessibleName: 'Command' },
     display: 'expanded',
     maxVisibleSuggestions: 8,
-    view: {
+    view: { suggestionView: createListboxView(suggestions),
       input: { text: '', cursor: 0 },
       open: true,
       suggestions,
@@ -380,14 +385,13 @@ test('full frame render stays bounded by terminal size for mixed element trees',
       id: 'search',
       meta: { accessibleName: 'Search' },
       prompt: '?',
-      view: { input: { text: 'fil', cursor: 0 }, open: true, suggestions: createCommandSuggestions([
+      view: { input: { text: 'fil', cursor: 0 }, open: true, ...createSuggestionFixture([
         { id: 'file', completion: { range: { startOffset: 0, endOffsetExclusive: 3 }, text: 'file' }, label: 'file' },
         { id: 'filter', completion: { range: { startOffset: 0, endOffsetExclusive: 3 }, text: 'filter' }, label: 'filter' }
       ]), activeSuggestionId: 'file' },
       onTransition: (transition) => transition
     }),
     table({
-    getRowId: (_row, index) => String(index),
     id: 'summary',
       meta: { accessibleName: 'Summary' },
       columns: [
@@ -396,7 +400,7 @@ test('full frame render stays bounded by terminal size for mixed element trees',
         {
           id: 'value-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Value', width: { kind: 'fill' } }
       ],
-      rows: Array.from({ length: 1_000 }, (_value, index) => [`Item ${index}`, index])
+      collection: createTableCollection(Array.from({ length: 1_000 }, (_value, index) => [`Item ${index}`, index]), (_row, index) => String(index))
     }),
     logViewer({ view: null,
       id: 'events',
@@ -441,7 +445,6 @@ test('append-heavy log viewer diffs stay bounded by visible rows', () => {
 
 test('large dataGrid rendering is bounded by terminal size independently from row count', () => {
   const frame = renderElementFrame(dataGrid({
-    getRowId: (_row, index) => String(index),
     id: 'large-dataGrid',
     meta: { accessibleName: 'Large data grid' },
     state: {
@@ -462,7 +465,7 @@ test('large dataGrid rendering is bounded by terminal size independently from ro
       {
         id: 'notes-2', value: (row) => Array.isArray(row) ? row[2] : undefined, header: 'Notes', width: { kind: 'fill' } }
     ],
-    rows: Array.from({ length: 50_000 }, (_value, index) => [`Row ${index}`, index, `metadata ${index}`])
+    collection: createTableCollection(Array.from({ length: 50_000 }, (_value, index) => [`Row ${index}`, index, `metadata ${index}`]), (_row, index) => String(index))
   }), { columns: 64, rows: 12 });
 
   assert.match(renderFramePlain(frame), /Row 42000/u);
@@ -549,10 +552,9 @@ test('fill-width tables evaluate each visible row once without scanning offscree
   let valueReads = 0;
   const rows = Array.from({ length: 20_000 }, (_value, index) => ({ name: `Row ${String(index)}` }));
   const frame = renderElementFrame(dataGrid({
-    getRowId: (_row, index) => String(index),
     id: 'fill-dataGrid-cost',
     meta: { accessibleName: 'Fill data grid' },
-    rows,
+    collection: createTableCollection(rows, (_row, index) => String(index)),
     columns: [{
       id: 'name',
       width: { kind: 'fill' },
@@ -577,7 +579,6 @@ test('large dataGrid retained damage is narrowed to changed visible rows', () =>
   const terminalSize = { columns: 64, rows: 12 };
   const rows = Array.from({ length: 20_000 }, (_value, index) => [`Row ${index}`, index, `metadata ${index}`]);
   const previousElement = dataGrid({
-    getRowId: (_row, index) => String(index),
     id: 'large-dataGrid-damage',
     meta: { accessibleName: 'Damage data grid' },
     state: {
@@ -598,10 +599,9 @@ test('large dataGrid retained damage is narrowed to changed visible rows', () =>
       {
         id: 'notes-2', value: (row) => Array.isArray(row) ? row[2] : undefined, header: 'Notes', width: { kind: 'fill' } }
     ],
-    rows
+    collection: createTableCollection(rows, (_row, index) => String(index))
   });
   const nextElement = dataGrid({
-    getRowId: (_row, index) => String(index),
     id: 'large-dataGrid-damage',
     meta: { accessibleName: 'Damage data grid' },
     state: {
@@ -622,7 +622,7 @@ test('large dataGrid retained damage is narrowed to changed visible rows', () =>
       {
         id: 'notes-2', value: (row) => Array.isArray(row) ? row[2] : undefined, header: 'Notes', width: { kind: 'fill' } }
     ],
-    rows
+    collection: createTableCollection(rows, (_row, index) => String(index))
   });
   const dirty = dirtyRegionsForRegionChanges(
     renderElementRegions(previousElement, terminalSize),
@@ -816,8 +816,8 @@ test('collection snapshots copy source membership instead of retaining mutable a
   values.splice(0, values.length, 'changed');
   rows.splice(0, rows.length, { name: 'changed' });
 
-  assert.deepEqual(listCollection.items.map((item) => item.id), ['alpha', 'bravo']);
-  assert.deepEqual(tableCollection.items.map((item) => item.id), ['alpha', 'bravo']);
+  assert.deepEqual(listCollection.window(0, listCollection.count).map((item) => item.id), ['alpha', 'bravo']);
+  assert.deepEqual(tableCollection.window(0, tableCollection.count).map((item) => item.id), ['alpha', 'bravo']);
 });
 
 test('searchPicker filtering returns bounded windows for large entry sets', () => {

@@ -44,6 +44,7 @@ import {
 } from './instance-validation.ts';
 import type { ComponentInstanceOptions, ComponentRuntimeContract } from './runtime-contracts.ts';
 import { componentInstanceSlotContent } from './slots.ts';
+import { componentReuse } from './reuse.ts';
 
 export function createDefinedComponentElement<
   TOptions extends object,
@@ -112,6 +113,7 @@ export function createDefinedComponentElement<
       kind: 'component',
       props: {
         model,
+        reuse: executeComponentPhase(ownedDefinition.name, instance.id, 'reuse', () => componentReuse(model, ownedDefinition.reuse)),
         slots: slotContent.ranges,
         ...(accessibleRole === undefined ? {} : { accessibleRole }),
         ...(meta.accessibleName === undefined ? {} : { accessibleName: meta.accessibleName }),

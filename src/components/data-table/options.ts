@@ -28,25 +28,10 @@ interface TableCommonOptions {
   readonly emptyText?: string;
 }
 
-type TableDataOptions<TRow> =
-  | {
-      readonly rows: readonly TRow[];
-      readonly getRowId: (row: TRow, index: number) => string;
-      readonly collection?: never;
-      readonly columns?: readonly TableColumn<TRow>[];
-    }
-  | {
-      readonly collection: CompleteTableCollection<TRow>;
-      readonly rows?: never;
-      readonly getRowId?: never;
-      readonly columns?: readonly TableColumn<TRow>[];
-    }
-  | {
-      readonly collection: WindowedTableCollection<TRow>;
-      readonly rows?: never;
-      readonly getRowId?: never;
-      readonly columns: readonly TableColumn<TRow>[];
-    };
+interface TableDataOptions<TRow> {
+  readonly collection: CompleteTableCollection<TRow> | WindowedTableCollection<TRow>;
+  readonly columns: readonly TableColumn<TRow>[];
+}
 
 interface TableOptionsBase extends TableCommonOptions {
   readonly state?: TableState;

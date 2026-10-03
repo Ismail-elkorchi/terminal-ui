@@ -8,7 +8,7 @@ export function createRowOffsetMap(
 }
 
 /** Shared validation and ownership for large cooperative layout observations. */
-export function* createRowOffsetMapWork(rowSourceOffsets: readonly number[]): Generator<void, RowOffsetMap> {
+export function* createRowOffsetMapWork(rowSourceOffsets: readonly number[]): Generator<number, RowOffsetMap> {
   if (!Array.isArray(rowSourceOffsets)) {
     throw new TypeError('Row source offsets must be an array.');
   }
@@ -20,12 +20,13 @@ export function* createRowOffsetMapWork(rowSourceOffsets: readonly number[]): Ge
     if (!Number.isSafeInteger(offset) || offset < 0) {
       throw new RangeError(`Row source offset ${String(row)} must be a non-negative safe integer.`);
     }
-    if (row > 0 && offset < (rowSourceOffsets[row - 1] ?? 0)) {
+    if (row > 0 && offset < (offsets[row - 1] ?? 0)) {
       throw new RangeError('Row source offsets must be monotonically ordered.');
     }
     offsets.push(offset);
-    if (offsets.length % 128 === 0) yield;
+    if (offsets.length % 128 === 0) yield 128;
   }
+  if (offsets.length % 128 !== 0) yield offsets.length % 128;
   Object.freeze(offsets);
   return Object.freeze({
     rowCount: offsets.length,

@@ -1,18 +1,5 @@
-import {
-  commandInput,
-  createCommandSuggestions,
-  searchPicker,
-  textArea,
-  tree,
-  type CommandInputSubmitEvent,
-  type CommandInputTransition,
-  type Element,
-  type SearchPickerAcceptEvent,
-  type SearchPickerControlTransition,
-  type TextAreaTransition,
-  type TreeActivateEvent,
-  type TreeControlTransition,
-} from '@ismail-elkorchi/terminal-ui/components';
+import { createSuggestionFixture } from '../../../support/collection-fixtures.mjs';
+import { commandInput, searchPicker, textArea, tree, type CommandInputSubmitEvent, type CommandInputTransition, type Element, type SearchPickerAcceptEvent, type SearchPickerControlTransition, type TextAreaTransition, type TreeActivateEvent, type TreeControlTransition } from '@ismail-elkorchi/terminal-ui/components';
 import { createSearchPickerIndex, createTreeSource } from '@ismail-elkorchi/terminal-ui/behavior';
 import { createTextDocument, textCaretAt } from '@ismail-elkorchi/terminal-ui/text';
 
@@ -35,7 +22,7 @@ const editor = textArea({
 
 const commands = commandInput({
   id: 'commands',
-  view: { input: { text: '', cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
+  view: { input: { text: '', cursor: 0 }, open: false, ...createSuggestionFixture([]) },
   onTransition: (transition) => ({ kind: 'commandTransition' as const, transition }),
   onSubmit: (event) => ({ kind: 'commandSubmit' as const, event }),
 });

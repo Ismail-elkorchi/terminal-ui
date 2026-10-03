@@ -1,3 +1,5 @@
+import { snapshotArray } from '../foundation/array-snapshot.ts';
+import { orderedItemByIdWork, createOrderedSource, createOrderedSourceWork, appendOrderedItemsWork, type OrderedSource } from '../foundation/ordered-source.ts';
 import { finishWork, prepareWork, stableSortWork, type CooperativeWorkContext } from '../foundation/cooperative-work.ts';
 import type {
   CollectionQuery,
@@ -9,11 +11,11 @@ import {
   collectionQuerySearch,
   indexQueryCandidateWork,
   matchCompiledCollectionQueryWork,
+  queryFieldSearchIndexWork,
 } from '../text/query.ts';
-import { sanitizeTerminalText, sanitizeTerminalTextWork } from '../text/sanitize.ts';
+import { sanitizeTerminalTextWork } from '../text/sanitize.ts';
 import type { CompiledTextSearchQuery, TextSearchIndex } from '../text/search-index.ts';
 import {
-  createTextSearchIndexWork,
   textMatchEvents,
   textSearchOffset,
 } from '../text/search-index.ts';
@@ -77,7 +79,8 @@ export interface LogHistory {
 }
 
 interface LogHistoryData {
-  readonly segments: readonly LogHistorySegment[];
+  readonly segments: OrderedSource<LogHistorySegment>;
+  readonly records: OrderedSource<LogHistoryRecord>;
   readonly bodyLength: number;
 }
 
@@ -89,44 +92,94 @@ export function appendLogHistory(
   history: LogHistory,
   entries: readonly LogEntry[]
 ): LogHistory {
-  return finishWork(appendLogHistoryWork(history, entries));
+  return finishWork(appendLogHistoryWork(history, eagerLogBatches(entries), false));
 }
 
-/** Raw descriptor adoption is indivisible; record normalization and indexing cooperate. */
-export function prepareLogHistory(entries: readonly LogEntry[], context: CooperativeWorkContext): Promise<LogHistory> {
-  return prepareAppendLogHistory(emptyLogHistory, entries, context);
+/** Batches own at most 256 descriptors and 1024 metadata fields before yielding.
+ * Immutable strings and application payloads are consumed without deep cloning. */
+export function prepareLogHistory(batches: Iterable<readonly LogEntry[]>, context: CooperativeWorkContext): Promise<LogHistory> {
+  return prepareAppendLogHistory(emptyLogHistory, batches, context);
 }
-
-export function prepareAppendLogHistory(history: LogHistory, entries: readonly LogEntry[], context: CooperativeWorkContext): Promise<LogHistory> {
-  context.signal.throwIfAborted();
-  return prepareWork(appendLogHistoryWork(history, adoptLogEntries(entries)), context);
+export function prepareAppendLogHistory(history: LogHistory, batches: Iterable<readonly LogEntry[]>, context: CooperativeWorkContext): Promise<LogHistory> {
+  return prepareWork(appendLogHistoryWork(history, batches), context);
 }
-
-function adoptLogEntries(entries: readonly LogEntry[]): readonly LogEntry[] {
-  return entries.map(entry => ({ ...entry,
-    ...(entry.metadata === undefined ? {} : { metadata: { ...entry.metadata } }),
-    ...(entry.style === undefined ? {} : { style: decodeTerminalStyle(entry.style, 'log entry style') }),
-  }));
+function* eagerLogBatches(entries: readonly LogEntry[]): IterableIterator<readonly LogEntry[]> {
+  if (!Array.isArray(entries)) throw new TypeError('Log entries must be an array.');
+  const owned = snapshotArray(entries);
+  for (let start = 0; start < owned.length; start += 256) yield owned.slice(start, start + 256);
 }
-
-function* appendLogHistoryWork(history: LogHistory, entries: readonly LogEntry[]): Generator<void, LogHistory> {
-  const data = historyData(history);
-  if (entries.length === 0) return history;
-  const records = yield* createLogRecordsWork(history, data, entries);
-  let segments = data.segments;
-  for (let start = 0; start < records.length; start += 256) {
-    segments = appendSegment(segments, logHistorySegment(Object.freeze(records.slice(start, start + 256))));
-    yield;
-  }
-  const last = records.at(-1);
-  const next = Object.freeze({
-    kind: 'log-history',
-    entryCount: history.entryCount + records.length,
-  }) as LogHistory;
-  return registerHistory(next, {
-    segments,
-    bodyLength: last === undefined ? data.bodyLength : last.bodyOffset + last.bodyText.length,
+function ownLogBatch(batch: readonly LogEntry[], bounded: boolean): readonly LogEntry[] {
+  if (!Array.isArray(batch)) throw new TypeError('Log batches must be arrays of at most 256 entries.');
+  const length = batch.length;
+  if (length > 256) throw new TypeError('Log batches must be arrays of at most 256 entries.');
+  let fields = 0;
+  return snapshotArray<LogEntry>(batch, length).map(entry => {
+    const candidate: unknown = entry;
+    if (candidate === null || typeof candidate !== 'object' || Array.isArray(entry)) throw new TypeError('Log entry must be an object.');
+    const { id, text, timestamp, level, metadata, style } = entry;
+    if (typeof id !== 'string' || typeof text !== 'string' || timestamp !== undefined && typeof timestamp !== 'string') throw new TypeError('Log text fields must be strings.');
+    if (level !== undefined && !['info', 'warning', 'error'].includes(level)) throw new TypeError('Log level is invalid.');
+    const ownedMetadata: Record<string, string> = Object.create(null) as Record<string, string>;
+    if (metadata !== undefined) {
+      const metadataValue: unknown = metadata;
+      if (metadataValue === null || typeof metadataValue !== 'object' || Array.isArray(metadata)) throw new TypeError('Log metadata must be an object.');
+      for (const key in metadata) {
+        if (!Object.hasOwn(metadata, key)) continue;
+        if (++fields > 1024 && bounded) throw new TypeError('Log batches must contain at most 1024 metadata fields.');
+        const value = metadata[key];
+        if (typeof value !== 'string') throw new TypeError('Log metadata values must be strings.');
+        ownedMetadata[key] = value;
+      }
+    }
+    return Object.freeze({ id, text,
+      ...(timestamp === undefined ? {} : { timestamp }), ...(level === undefined ? {} : { level }),
+      ...(metadata === undefined ? {} : { metadata: Object.freeze(ownedMetadata) }),
+      ...(style === undefined ? {} : { style: decodeTerminalStyle(style, 'log entry style') }),
+    });
   });
+}
+function* appendLogHistoryWork(history: LogHistory, batches: Iterable<readonly LogEntry[]>, bounded = true): Generator<number, LogHistory> {
+  if (history.entryCount === 0) return yield* createLogHistoryWork(history, batches, bounded);
+  let data = historyData(history);
+  let current = history;
+  for (const supplied of batches) {
+    const entries = ownLogBatch(supplied, bounded);
+    if (entries.length === 0) { yield 1; continue; }
+    const records = yield* createLogRecordsWork(current.entryCount, data, entries);
+    let global = data.records;
+    for (const record of records) {
+      global = yield* appendOrderedItemsWork(global, [{ id: record.entry.id, value: record }]);
+      yield 1;
+    }
+    const segment = logHistorySegment(records);
+    const segments = yield* appendOrderedItemsWork(data.segments, [{ id: String(segment.startIndex), value: segment }]);
+    const last = records.at(-1);
+    data = { segments, records: global, bodyLength: last === undefined ? data.bodyLength : last.bodyOffset + last.bodyText.length };
+    current = Object.freeze({ kind: 'log-history', entryCount: global.count }) as LogHistory;
+    yield 1;
+  }
+  return current === history ? history : registerHistory(current, data);
+}
+
+function* createLogHistoryWork(history: LogHistory, batches: Iterable<readonly LogEntry[]>, bounded = true): Generator<number, LogHistory> {
+  let data = historyData(history);
+  let count = 0;
+  function* events() {
+    for (const supplied of batches) {
+      const entries = ownLogBatch(supplied, bounded);
+      if (entries.length === 0) { yield 1; continue; }
+      const records = yield* createLogRecordsWork(count, data, entries);
+      const segment = logHistorySegment(records);
+      const segments = yield* appendOrderedItemsWork(data.segments, [{ id: String(segment.startIndex), value: segment }]);
+      const last = records.at(-1);
+      data = { ...data, segments, bodyLength: last === undefined ? data.bodyLength : last.bodyOffset + last.bodyText.length };
+      count += records.length;
+      yield 1;
+      for (const record of records) yield { id: record.entry.id, value: record };
+    }
+  }
+  const records = yield* createOrderedSourceWork(events());
+  return records.count === 0 ? history : registerHistory(Object.freeze({ kind: 'log-history', entryCount: records.count }) as LogHistory, { ...data, records });
 }
 
 export function logHistoryEntryAt(
@@ -135,12 +188,11 @@ export function logHistoryEntryAt(
 ): LogHistoryRecord | undefined {
   const data = historyData(history);
   if (!Number.isInteger(index) || index < 0 || index >= history.entryCount) return undefined;
-  const segment = segmentContainingIndex(data.segments, index);
-  return segment?.records[index - segment.startIndex];
+  return data.records.itemAt(index);
 }
 
 export function logHistoryEntries(history: LogHistory): readonly LogEntry[] {
-  return logHistorySegments(history).flatMap((segment) => segment.records.map((record) => record.entry));
+  return Object.freeze(Array.from(historyData(history).records.values(), record => record.entry));
 }
 
 export function logHistoryRecordMatches(
@@ -170,7 +222,7 @@ export function logHistoryRecordMatchesCompiled(
 export function* logHistoryRecordMatchesWork(
   record: LogHistoryRecord, query: CompiledLogSearchQuery,
   fields: readonly LogSearchField[] = record.searchFields,
-): Generator<void, readonly LogSearchMatch[]> {
+): Generator<number, readonly LogSearchMatch[]> {
   const textQuery = compiledLogQueries.get(query);
   if (textQuery === undefined) throw new TypeError('log query must be created by compileLogSearchQuery().');
   const matches: LogSearchMatch[] = [];
@@ -178,7 +230,7 @@ export function* logHistoryRecordMatchesWork(
     if (query.query.mode === 'contains') {
       const index = yield* searchIndexForWork(field, query.query.caseSensitive);
       for (const start of textMatchEvents(index, textQuery)) {
-        if (start === undefined) { yield; continue; }
+        if (start < 0) { yield -start; continue; }
         appendMatch(matches, record, field, textSearchOffset(index, start),
           textSearchOffset(index, start + textQuery.graphemes.length));
       }
@@ -207,11 +259,7 @@ export function logHistoryRecordById(
   history: LogHistory,
   id: string
 ): LogHistoryRecord | undefined {
-  for (const segment of logHistorySegments(history)) {
-    const record = segmentRecordsById.get(segment)?.get(id);
-    if (record !== undefined) return record;
-  }
-  return undefined;
+  return historyData(history).records.itemById(id);
 }
 
 export function isLogHistory(value: unknown): value is LogHistory {
@@ -226,59 +274,55 @@ export function assertLogHistory(value: unknown): asserts value is LogHistory {
 
 const histories = new WeakSet<object>();
 const dataByHistory = new WeakMap<LogHistory, LogHistoryData>();
-const segmentIds = new WeakMap<LogHistorySegment, ReadonlySet<string>>();
-const segmentRecordsById = new WeakMap<LogHistorySegment, ReadonlyMap<string, LogHistoryRecord>>();
-const searchIndexes = new WeakMap<LogSearchField, {
-  sensitive?: TextSearchIndex;
-  insensitive?: TextSearchIndex;
-}>();
 const compiledLogQueries = new WeakMap<CompiledLogSearchQuery, CompiledTextSearchQuery>();
 
 const emptyLogHistory: LogHistory = registerHistory(Object.freeze({
   kind: 'log-history',
   entryCount: 0,
-}) as LogHistory, { segments: Object.freeze([]), bodyLength: 0 });
+}) as LogHistory, { segments: createOrderedSource<LogHistorySegment>(), records: createOrderedSource<LogHistoryRecord>(), bodyLength: 0 });
 
 function* createLogRecordsWork(
-  history: LogHistory,
+  entryStart: number,
   data: LogHistoryData,
   entries: readonly LogEntry[]
-): Generator<void, readonly LogHistoryRecord[]> {
+): Generator<number, readonly LogHistoryRecord[]> {
   const appendedIds = new Set<string>();
-  let bodyOffset = history.entryCount === 0 ? 0 : data.bodyLength + 1;
+  let bodyOffset = entryStart === 0 ? 0 : data.bodyLength + 1;
   const records: LogHistoryRecord[] = [];
   for (const [offset, entry] of entries.entries()) {
     const id = (yield* sanitizeTerminalTextWork(entry.id)).text;
     if (id.length === 0) throw new TypeError('log entry ids must not be empty.');
     if (appendedIds.has(id)) throw new TypeError(`Duplicate log entry id: ${id}`);
-    for (const [index, segment] of data.segments.entries()) {
-      if (segmentIds.get(segment)?.has(id) === true) throw new TypeError(`Duplicate log entry id: ${id}`);
-      if ((index + 1) % 256 === 0) yield;
-    }
+    if ((yield* orderedItemByIdWork(data.records, id)) !== undefined) throw new TypeError(`Duplicate log entry id: ${id}`);
     appendedIds.add(id);
     const bodyText = (yield* sanitizeTerminalTextWork(entry.text)).text;
     const metadataEntries = yield* normalizedMetadataEntriesWork(entry.metadata);
-    const normalized = normalizeEntry(entry, id, bodyText, metadataEntries);
+    const timestamp = entry.timestamp === undefined ? undefined : (yield* sanitizeTerminalTextWork(entry.timestamp)).text;
+    const normalized = normalizeEntry(entry, id, bodyText, metadataEntries, timestamp);
     const displayText = displayTextForEntry(normalized, bodyText, metadataEntries);
     const record = Object.freeze({
       entry: normalized,
-      entryIndex: history.entryCount + offset,
+      entryIndex: entryStart + offset,
       bodyOffset,
       bodyText,
       displayText,
       metadataEntries,
       searchFields: Object.freeze(searchFieldsForEntry(normalized, bodyText, metadataEntries))
     });
+    for (const field of record.searchFields) {
+      yield* candidateForWork(field);
+      yield 1;
+    }
     bodyOffset += bodyText.length + 1;
     records.push(record);
-    if (records.length % 256 === 0) yield;
+    if (records.length % 256 === 0) yield 256;
   }
   return Object.freeze(records);
 }
 
 const queryCandidates = new WeakMap<LogSearchField, IndexedQueryCandidate>();
 
-function* candidateForWork(field: LogSearchField): Generator<void, IndexedQueryCandidate> {
+function* candidateForWork(field: LogSearchField): Generator<number, IndexedQueryCandidate> {
   let candidate = queryCandidates.get(field);
   if (candidate === undefined) {
     candidate = yield* indexQueryCandidateWork({ id: '', primary: field.text });
@@ -287,24 +331,17 @@ function* candidateForWork(field: LogSearchField): Generator<void, IndexedQueryC
   return candidate;
 }
 
-function* searchIndexForWork(field: LogSearchField, caseSensitive: boolean): Generator<void, TextSearchIndex> {
-  let indexes = searchIndexes.get(field);
-  if (indexes === undefined) {
-    indexes = {};
-    searchIndexes.set(field, indexes);
-  }
-  return caseSensitive
-    ? indexes.sensitive ??= yield* createTextSearchIndexWork(field.text, { caseSensitive: true })
-    : indexes.insensitive ??= yield* createTextSearchIndexWork(field.text);
+function* searchIndexForWork(field: LogSearchField, caseSensitive: boolean): Generator<number, TextSearchIndex> {
+  return yield* queryFieldSearchIndexWork(yield* candidateForWork(field), 0, caseSensitive);
 }
 
 function normalizeEntry(
   entry: LogEntry,
   id: string,
   bodyText: string,
-  metadataEntries: readonly (readonly [string, string])[]
+  metadataEntries: readonly (readonly [string, string])[],
+  timestamp: string | undefined,
 ): LogEntry {
-  const timestamp = entry.timestamp === undefined ? undefined : sanitizeTerminalText(entry.timestamp).text;
   return Object.freeze({
     id,
     text: bodyText,
@@ -348,13 +385,13 @@ function searchFieldsForEntry(
 
 function* normalizedMetadataEntriesWork(
   metadata: Readonly<Record<string, string>> | undefined,
-): Generator<void, readonly (readonly [string, string])[]> {
+): Generator<number, readonly (readonly [string, string])[]> {
   if (metadata === undefined) return Object.freeze([]);
   const entries: (readonly [string, string])[] = [];
   for (const [key, value] of Object.entries(metadata)) {
     entries.push(Object.freeze([(yield* sanitizeTerminalTextWork(key)).text,
       (yield* sanitizeTerminalTextWork(value)).text] as const));
-    if (entries.length % 256 === 0) yield;
+    if (entries.length % 256 === 0) yield 256;
   }
   return Object.freeze(yield* stableSortWork(entries, ([left], [right]) => compareCodePoints(left, right)));
 }
@@ -366,50 +403,15 @@ function logHistorySegment(records: readonly LogHistoryRecord[]): LogHistorySegm
     startBodyOffset: first?.bodyOffset ?? 0,
     records
   });
-  segmentIds.set(segment, new Set(records.map((record) => record.entry.id)));
-  segmentRecordsById.set(segment, new Map(records.map((record) => [record.entry.id, record])));
   return segment;
-}
-
-function appendSegment(
-  previous: readonly LogHistorySegment[],
-  appended: LogHistorySegment
-): readonly LogHistorySegment[] {
-  const segments = [...previous];
-  let carry = appended;
-  while ((segments.at(-1)?.records.length ?? Number.POSITIVE_INFINITY) <= carry.records.length
-    && (segments.at(-1)?.records.length ?? 0) + carry.records.length <= 256) {
-    const left = segments.pop();
-    if (left === undefined) break;
-    carry = logHistorySegment(Object.freeze([...left.records, ...carry.records]));
-  }
-  segments.push(carry);
-  return Object.freeze(segments);
-}
-
-function segmentContainingIndex(
-  segments: readonly LogHistorySegment[],
-  index: number
-): LogHistorySegment | undefined {
-  let low = 0;
-  let high = segments.length - 1;
-  while (low <= high) {
-    const middle = Math.floor((low + high) / 2);
-    const segment = segments[middle];
-    if (segment === undefined) return undefined;
-    if (index < segment.startIndex) high = middle - 1;
-    else if (index >= segment.startIndex + segment.records.length) low = middle + 1;
-    else return segment;
-  }
-  return undefined;
 }
 
 function compareCodePoints(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-export function logHistorySegments(history: LogHistory): readonly LogHistorySegment[] {
-  return historyData(history).segments;
+export function logHistorySegments(history: LogHistory): IterableIterator<LogHistorySegment> {
+  return historyData(history).segments.values();
 }
 
 function historyData(history: LogHistory): LogHistoryData {

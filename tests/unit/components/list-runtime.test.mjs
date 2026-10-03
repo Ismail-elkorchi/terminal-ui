@@ -1,3 +1,5 @@
+import { createListboxView } from '../../../dist/behavior/index.js';
+import { createListboxFixture } from '../../support/collection-fixtures.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../../dist/tui/index.js';
@@ -344,7 +346,8 @@ test('windowed collection uses its declared external window query', () => {
       scope: { kind: 'query', query: { text: 'item', mode: 'contains' } }
     }
   );
-  const frame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
+  const frame = renderElementFrame(listbox({
+    view: createListboxView(collection), meta: { accessibleName: "List" },
     id: 'window-filter',
     collection,
     state: { selection: { mode: 'none' } },
@@ -356,9 +359,8 @@ test('windowed collection uses its declared external window query', () => {
 
 test('listbox component filters items and can use explicit shared scroll state', () => {
   const frame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
-    toOption: (item) => ({ id: String(item), label: String(item) }),
     id: 'filtered-listbox',
-    items: ['alpha', 'bravo', 'charlie', 'delta'],
+    ...createListboxFixture(['alpha', 'bravo', 'charlie', 'delta'], (item) => ({ id: String(item), label: String(item) }), { text: 'a' }),
     query: { text: 'a' },
     state: {
       selection: { mode: 'none' },
@@ -376,17 +378,15 @@ test('listbox component filters items and can use explicit shared scroll state',
 
 test('listbox component exposes source-aware row values matches and empty filter state', () => {
   const frame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
-    toOption: (item) => ({ id: String(item), label: String(item) }),
     id: 'items',
-    items: ['Atlas', 'Pulse'],
+    ...createListboxFixture(['Atlas', 'Pulse'], (item) => ({ id: String(item), label: String(item) }), { text: 'at' }),
     state: { activeId: 'Atlas', selection: { mode: 'single', selectedId: 'Atlas' } },
     query: { text: 'at' },
     onTransition: (transition) => transition
   }), { columns: 24, rows: 2 });
   const emptyFrame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
-    toOption: (item) => ({ id: String(item), label: String(item) }),
     id: 'empty-items',
-    items: [],
+    ...createListboxFixture([], (item) => ({ id: String(item), label: String(item) }), { text: 'missing' }),
     state: { selection: { mode: 'none' } },
     query: { text: 'missing' },
     onTransition: (transition) => transition
@@ -404,16 +404,15 @@ test('listbox component exposes source-aware row values matches and empty filter
 test('listbox maps object values once for visible text filtering and accessibility', () => {
   const frame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
     id: 'object-listbox',
-    items: [
+    ...createListboxFixture([
       { key: 'atlas', title: 'Atlas', detail: 'Primary workspace', aliases: ['north'] },
       { key: 'pulse', title: 'Pulse', detail: 'Telemetry workspace', aliases: ['metrics'] }
-    ],
-    toOption: (item) => ({
+    ], (item) => ({
       id: item.key,
       label: item.title,
       description: item.detail,
       keywords: item.aliases
-    }),
+    }), { text: 'metrics' }),
     state: { selection: { mode: 'none' } },
     query: { text: 'metrics' },
     onTransition: (transition) => transition
@@ -429,9 +428,8 @@ test('listbox maps object values once for visible text filtering and accessibili
 
 test('listbox cursor and mouse hit targets use the filtered visible rows', async () => {
   const frame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
-    toOption: (item) => ({ id: String(item), label: String(item) }),
     id: 'clickable-listbox',
-    items: ['alpha', 'bravo', 'charlie', 'delta'],
+    ...createListboxFixture(['alpha', 'bravo', 'charlie', 'delta'], (item) => ({ id: String(item), label: String(item) }), { text: 'br' }),
     query: { text: 'br' },
     state: { activeId: 'bravo', selection: { mode: 'single', selectedId: 'bravo' } },
     onTransition: (action) => ({ kind: 'chosen', action })
@@ -462,9 +460,8 @@ test('listbox cursor and mouse hit targets use the filtered visible rows', async
       state: { selected: message.action.id }
     }),
     view: () => listbox({ meta: { accessibleName: "List" },
-    toOption: (item) => ({ id: String(item), label: String(item) }),
     id: 'clickable-listbox',
-      items: ['alpha', 'bravo'],
+      ...createListboxFixture(['alpha', 'bravo'], (item) => ({ id: String(item), label: String(item) })),
       state: { selection: { mode: 'single' } },
       onTransition: (action) => ({ kind: 'chosen', action })
     })
@@ -486,18 +483,17 @@ test('listbox active position and committed selection use stable identity across
   const selected = listboxReducer(
     { activeId: 'bravo', selection: { mode: 'single', selectedId: 'bravo' } },
     { kind: 'commitActive' },
-    { items, toOption }
+    { ...createListboxFixture(items, toOption),  }
   );
   const reordered = [items[2], items[1], items[0]];
-  const moved = listboxReducer(selected, { kind: 'moveActive', delta: 1 }, { items: reordered, toOption });
+  const moved = listboxReducer(selected, { kind: 'moveActive', delta: 1 }, { ...createListboxFixture(reordered, toOption),  });
   const inserted = ['delta', ...reordered];
   const filtered = listboxReducer(selected, { kind: 'moveActive', delta: 1 }, {
-    items: inserted,
-    toOption,
+    ...createListboxFixture(inserted, toOption, { text: 'bravo' }),
     query: { text: 'bravo' }
   });
   const deleted = inserted.filter((item) => item !== 'bravo');
-  const recovered = listboxReducer(selected, { kind: 'moveActive', delta: 1 }, { items: deleted, toOption });
+  const recovered = listboxReducer(selected, { kind: 'moveActive', delta: 1 }, { ...createListboxFixture(deleted, toOption),  });
 
   assert.equal(selected.selection.selectedId, 'bravo');
   assert.equal(moved.activeId, 'alpha');
@@ -524,14 +520,12 @@ test('filtered listbox scrolling uses visible positions instead of sparse source
   };
 
   const first = listboxReducer(base, { kind: 'commitActive' }, {
-    items,
-    toOption,
+    ...createListboxFixture(items, toOption, { text: 'visible' }),
     query: { text: 'visible' },
     pageSize: 1
   });
   const paged = listboxReducer(first, { kind: 'pageActive', delta: 1 }, {
-    items,
-    toOption,
+    ...createListboxFixture(items, toOption, { text: 'visible' }),
     query: { text: 'visible' },
     pageSize: 1
   });
@@ -555,7 +549,7 @@ test('windowed listbox active position keeps global collection identity while sc
     scroll: createScrollState()
   };
 
-  const selected = listboxReducer(state, { kind: 'commitActive' }, {
+  const selected = listboxReducer(state, { kind: 'commitActive' }, { view: createListboxView(collection),
     collection,
     pageSize: 10
   });
@@ -571,8 +565,7 @@ test('listbox pointer selection and double-click activation match keyboard seman
     update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
     view: () => listbox({ meta: { accessibleName: "List" },
       id: 'activation-listbox',
-      items: ['alpha'],
-      toOption: (item) => ({ id: item, label: item }),
+      ...createListboxFixture(['alpha'], (item) => ({ id: item, label: item })),
       state: { selection: { mode: 'single' } },
       onTransition: (action) => action,
       onActivate: (event) => event
@@ -598,8 +591,7 @@ test('listbox preserves the component runtime rejection of null application mess
     update: (state) => ({ state }),
     view: () => listbox({ meta: { accessibleName: "List" },
       id: 'null-listbox',
-      items: ['alpha'],
-      toOption: (item) => ({ id: item, label: item }),
+      ...createListboxFixture(['alpha'], (item) => ({ id: item, label: item })),
       state: { selection: { mode: 'single' } },
       onTransition: () => null
     })

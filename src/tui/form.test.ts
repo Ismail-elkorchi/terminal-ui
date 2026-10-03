@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { diagnostic } from '../diagnostics.ts';
+import { decodeTuiUpdateResult } from './hook-results.ts';
 import { createTuiForm } from './form.ts';
 import type { TuiFormMessage } from './form.ts';
 
@@ -18,7 +19,7 @@ void test('forms preserve no-op identity, touched state and reversible dirty dec
   assert.equal(form.touch(touched, 'name').state, touched);
   const changed = form.change(touched, { name: 'B' });
   assert.equal(form.dirty(changed.state), true);
-  assert.equal(changed.cancel?.length, 2);
+  assert.equal(decodeTuiUpdateResult(changed).contributions.flatMap(entry => entry.cancel ?? []).length, 2);
   assert.equal(form.dirty(form.change(changed.state, { name: 'A' }).state), false);
 });
 

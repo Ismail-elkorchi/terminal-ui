@@ -15,6 +15,8 @@ export type {
   ListboxActivateEvent,
   ListboxCollection,
   ListboxCollectionItem,
+  ListboxCollectionChange,
+  ListboxView,
   ListboxControlTransition,
   ListboxOption,
   ListboxOptionMapper,
@@ -35,6 +37,7 @@ export type {
   ScrollableDataGridState,
   TableCollection,
   TableCollectionRow,
+  TableCollectionChange,
   TableSortDirection,
   TableSortState,
   TableState,
@@ -51,6 +54,10 @@ export type {
   TreeDisclosureTransition,
   TreeLoadStatus,
   TreeNode,
+  TreeSourceEntry,
+  TreeSourceChange,
+  TreeNodeDescriptor,
+  TreeNodeBase,
   TreeSource,
   TreeState,
   TreeTransition,
@@ -106,3 +113,5 @@ export { tabs } from './tabs/definition.ts';
 export type { TabItem, TabsOptions } from './tabs/options.ts';
 export { tree } from './tree/definition.ts';
 export type { ScrollableTreeOptions, TreeOptions, UnscrolledTreeOptions } from './tree/options.ts';
+
+export { inferTableColumns } from "./data-table/column.ts";

@@ -23,6 +23,6 @@ the same graphics-independent task application under Node, Deno and Bun,
 including real Unix PTY input/session regressions and an interactive procedure
 for native terminal combinations. Automated Unix PTY results do not qualify
 macOS Terminal, Windows ConPTY, hardware input methods or screen-reader speech.
-Bun 1.3.14 and 1.4.2 currently fail that lane's Unicode caret assertion on Linux
-because of an `Intl.Segments.containing()` boundary result; see the guide's
-[verified limitation](./native-terminal-qualification.md#verified-bun-qualification-limitation).
+The automated Linux Unix PTY lane passes with the current Bun 1.3.14 pin.
+The earlier `.containing()` boundary disagreement is no longer on the editing
+path; see the [segmentation history](./native-terminal-qualification.md#previously-observed-bun-segmentation-issue).

@@ -28,6 +28,7 @@ export type TextAreaControlState =
   | ScrollableTextAreaControlState;
 
 export type TextAreaTransition =
+  | { readonly kind: 'unavailable'; readonly reason: 'layout-pending' }
   | { readonly kind: 'edit'; readonly operation: TextEditOperation }
   | { readonly kind: 'applyChanges'; readonly changeSet: TextChangeSet; readonly caretOffset?: number }
   | { readonly kind: 'undo' }

@@ -4,7 +4,7 @@ import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
 import { measureTextCells } from '../../text/measure.ts';
 import { terminalStyleHasBackground } from '../../theme/theme.ts';
 import { inlineSegmentText } from '../../visual/inline-content.ts';
-import { sameModelDependencies } from '../../visual/model-dependencies.ts';
+import { sameStyleDependencies } from '../../visual/style-dependencies.ts';
 import type { TerminalStyle } from '../../visual/render-content.ts';
 import { clipRenderSpans, measureRenderSpans, span } from '../../visual/render-content.ts';
 import type { TableStylePart } from '../style-parts.ts';
@@ -196,7 +196,7 @@ function sameRowDependencies(a: TableRowPaintDependencies, b: TableRowPaintDepen
   if (a.id !== b.id || a.theme !== b.theme || a.emoji !== b.emoji || a.ambiguous !== b.ambiguous
     || a.columns !== b.columns || a.semanticRole !== b.semanticRole || a.interactionKind !== b.interactionKind
     || a.density !== b.density || a.selected !== b.selected || a.active !== b.active
-    || a.activeColumnId !== b.activeColumnId || a.pointer !== b.pointer || !sameModelDependencies(a.styles, b.styles, 'paint')
+    || a.activeColumnId !== b.activeColumnId || a.pointer !== b.pointer || !sameStyleDependencies(a.styles, b.styles)
     || a.disabled !== b.disabled || a.busy !== b.busy || a.readOnly !== b.readOnly || a.inert !== b.inert
     || a.widths.length !== b.widths.length || a.selectedCells.length !== b.selectedCells.length
     || a.cellPointers.length !== b.cellPointers.length) return false;

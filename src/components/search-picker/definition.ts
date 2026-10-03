@@ -231,7 +231,7 @@ const instantiateSearchPicker = defineComponent<SearchPickerComponentOptions, Se
       ),
     };
   },
-  retainPaint: true as const,
+  reuse: { paint: (model: object) => [model] as const },
   render: paintSearchPicker,
   accessibility(input) {
     return {

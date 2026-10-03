@@ -1,7 +1,5 @@
 import type {
   CollectionItem,
-  CollectionSnapshot,
-  CompleteCollectionSnapshot,
   WindowedCollectionSnapshot,
 } from '../collection/snapshot.ts';
 import type {
@@ -27,8 +25,22 @@ export interface ListboxCollectionItem<TValue> extends CollectionItem {
   readonly option: ListboxOption & { readonly disabled: boolean };
 }
 
-export type ListboxCollection<TValue> = CollectionSnapshot<ListboxCollectionItem<TValue>>;
-export type CompleteListboxCollection<TValue> = CompleteCollectionSnapshot<ListboxCollectionItem<TValue>>;
+declare const listboxSourceBrand: unique symbol;
+export interface CompleteListboxCollection<TValue> {
+  readonly [listboxSourceBrand]: TValue;
+  readonly kind: 'listbox-source';
+  readonly count: number;
+  readonly startIndex: 0;
+  readonly totalCount: number;
+  readonly itemAt: (rank: number) => ListboxCollectionItem<TValue> | undefined;
+  readonly itemById: (id: string) => ListboxCollectionItem<TValue> | undefined;
+  readonly rank: (id: string) => number | undefined;
+  readonly window: (start: number, end: number) => readonly ListboxCollectionItem<TValue>[];
+}
+export type ListboxCollection<TValue> = CompleteListboxCollection<TValue> | WindowedListboxCollection<TValue>;
+export type ListboxCollectionChange<TValue> =
+  | { readonly kind: 'append' | 'replace'; readonly value: TValue; readonly option: ListboxOption }
+  | { readonly kind: 'remove'; readonly id: string };
 export type WindowedListboxCollection<TValue> = WindowedCollectionSnapshot<ListboxCollectionItem<TValue>>;
 
 export interface ListboxViewEntry<TValue> {
@@ -45,8 +57,10 @@ export interface ListboxView<TValue> {
   readonly kind: 'listbox-view';
   readonly source: ListboxCollection<TValue>;
   readonly query: import('../text/query.ts').CompiledCollectionQuery;
-  readonly entries: readonly ListboxViewEntry<TValue>[];
-  readonly selectable: readonly ListboxViewEntry<TValue>[];
+  readonly count: number;
+  readonly entryAt: (rank: number) => ListboxViewEntry<TValue> | undefined;
+  readonly entryById: (id: string) => ListboxViewEntry<TValue> | undefined;
+  readonly window: (start: number, end: number) => readonly ListboxViewEntry<TValue>[];
   readonly interactionIndex: CollectionInteractionIndex;
   readonly startIndex: number;
   readonly totalCount: number;

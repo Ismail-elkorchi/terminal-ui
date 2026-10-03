@@ -1,5 +1,5 @@
 import { prepareWork, type CooperativeWorkContext } from '../../foundation/cooperative-work.ts';
-import { textDocumentLineBoundaries, textDocumentLines } from '../../text/document.ts';
+import { textDocumentLineBoundaries, textDocumentLineEvents } from '../../text/document.ts';
 import { sanitizeTerminalTextWork } from '../../text/sanitize.ts';
 import { measureTextAreaWork, textAreaGeometryWork, textAreaRowOffsetMapWork } from './geometry.ts';
 import { createTextAreaModel } from './model.ts';
@@ -33,13 +33,13 @@ export function prepareTextAreaLayout(
     ...(dependencies.lineNumbers === undefined ? {} : { lineNumbers: dependencies.lineNumbers }),
     ...(dependencies.scrollbar === undefined ? {} : { scrollbar: dependencies.scrollbar }),
   };
-  function* work(): Generator<void, PreparedTextAreaLayout> {
+  function* work(): Generator<number, PreparedTextAreaLayout> {
     // Source caret/selection normalization must also remain cheap after a
     // projection concealed or replaced parts of the original document.
-    let lines = 0;
-    for (const line of textDocumentLines(adopted.state.document)) {
+    for (const line of textDocumentLineEvents(adopted.state.document)) {
+      if (typeof line === 'number') { yield line; continue; }
       yield* textDocumentLineBoundaries(adopted.state.document, line).prepareThroughWork(line.endOffsetExclusive - line.startOffset);
-      if (++lines % 128 === 0) yield;
+      yield 1;
     }
     const placeholder = (yield* sanitizeTerminalTextWork(adopted.placeholder)).text;
     const error = (yield* sanitizeTerminalTextWork(adopted.error)).text;

@@ -1,3 +1,5 @@
+import { createTableCollection } from '@ismail-elkorchi/terminal-ui/behavior';
+import { inferTableColumns } from '@ismail-elkorchi/terminal-ui/components';
 import {
   createListboxKeymap, createTextInputKeymap, createDataGridKeymap,
   controlKeymapHelp, textInput, dataGrid,
@@ -13,5 +15,6 @@ controlKeymapHelp(keys, ['nextRow']);
 // @ts-expect-error a listbox keymap cannot configure text input
 textInput({ id: 'field', state: { text: '', cursor: 0 }, keymap: createListboxKeymap(), onTransition: (value) => value });
 const gridKeys = createDataGridKeymap({ nextRow: [{ kind: 'key', key: 'j' }] });
-dataGrid({ id: 'grid', keymap: gridKeys, rows: [{ id: 'one' }], getRowId: (row) => row.id,
+dataGrid({
+  columns: inferTableColumns([{ id: 'one' }]),  id: 'grid', keymap: gridKeys, collection: createTableCollection([{ id: 'one' }], (row) => row.id),
   state: { interaction: { kind: 'row', selection: { mode: 'none' } } }, onTransition: (value) => value });

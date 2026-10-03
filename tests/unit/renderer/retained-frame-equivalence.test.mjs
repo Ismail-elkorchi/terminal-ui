@@ -11,7 +11,7 @@ const picture = rasterImage({ width: 1, height: 1, format: 'rgb8', data: new Uin
 const paint = defineComponent({
   name: 'terminal-ui-tests/retained-frame-equivalence',
   identity: 'required', structure: 'leaf', semantics: 'semantic', accessibleRole: 'text',
-  metadata: ['styles', 'layer'], retainPaint: true,
+  metadata: ['styles', 'layer'], reuse: { paint: model => [model] },
   createModel: options => options.model,
   measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 24, preferredHeight: 5 }),
   render({ model, target }) {

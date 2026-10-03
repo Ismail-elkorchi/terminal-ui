@@ -11,8 +11,8 @@ See [API stability](../guides/api-stability.md) for stability labels.
 ### @ismail-elkorchi/terminal-ui
 
 - [`DiagnosticOccurrence`](#root-diagnosticoccurrence), [`DiagnosticOccurrenceReporter`](#root-diagnosticoccurrencereporter), [`JsonPrimitive`](#root-jsonprimitive), [`Result`](#root-result), [`TerminalDiagnostic`](#root-terminaldiagnostic), [`TerminalDiagnosticCode`](#root-terminaldiagnosticcode), [`TerminalDiagnosticValue`](#root-terminaldiagnosticvalue), [`TerminalSeverity`](#root-terminalseverity)
-- [`TerminalUiError`](#root-terminaluierror), [`behavior`](#root-behavior), [`collection`](#root-collection), [`createDiagnosticOccurrenceReporter`](#root-creatediagnosticoccurrencereporter), [`diagnostic`](#root-diagnostic), [`diagnosticOccurrenceIssue`](#root-diagnosticoccurrenceissue), [`failure`](#root-failure), [`success`](#root-success)
-- [`terminalDiagnosticCodes`](#root-terminaldiagnosticcodes)
+- [`TerminalUiError`](#root-terminaluierror), [`TerminalUiErrorOptions`](#root-terminaluierroroptions), [`behavior`](#root-behavior), [`collection`](#root-collection), [`createDiagnosticOccurrenceReporter`](#root-creatediagnosticoccurrencereporter), [`diagnostic`](#root-diagnostic), [`diagnosticOccurrenceIssue`](#root-diagnosticoccurrenceissue), [`failure`](#root-failure)
+- [`success`](#root-success), [`terminalDiagnosticCodes`](#root-terminaldiagnosticcodes)
 
 ### @ismail-elkorchi/terminal-ui/host
 
@@ -47,18 +47,18 @@ See [API stability](../guides/api-stability.md) for stability labels.
 - [`ControlKeymapDefaults`](#interaction-controlkeymapdefaults), [`ControlKeymapOverrides`](#interaction-controlkeymapoverrides), [`CreateEditablePopupInputStateInput`](#interaction-createeditablepopupinputstateinput), [`EditablePopupCompletion`](#interaction-editablepopupcompletion), [`EditablePopupInputReducerOptions`](#interaction-editablepopupinputreduceroptions), [`EditablePopupInputState`](#interaction-editablepopupinputstate), [`EditablePopupInputTransition`](#interaction-editablepopupinputtransition), [`FocusPath`](#interaction-focuspath)
 - [`InitialFocusSelector`](#interaction-initialfocusselector), [`MeasuredViewportAnchor`](#interaction-measuredviewportanchor), [`MeasuredViewportLayout`](#interaction-measuredviewportlayout), [`PlaceAnchoredSurfaceInput`](#interaction-placeanchoredsurfaceinput), [`PointerFocusIntent`](#interaction-pointerfocusintent), [`PointerInteractionState`](#interaction-pointerinteractionstate), [`PointerVisualState`](#interaction-pointervisualstate), [`PopupDismissalPolicy`](#interaction-popupdismissalpolicy)
 - [`PopupFocusPolicy`](#interaction-popupfocuspolicy), [`PopupFocusScope`](#interaction-popupfocusscope), [`PopupRelationship`](#interaction-popuprelationship), [`ResolvedPointerFocusIntent`](#interaction-resolvedpointerfocusintent), [`ScrollGeometry`](#interaction-scrollgeometry), [`ScrollKeyboardPolicy`](#interaction-scrollkeyboardpolicy), [`ScrollbarOptions`](#interaction-scrollbaroptions), [`ScrollbarState`](#interaction-scrollbarstate)
-- [`ScrollbarVisualState`](#interaction-scrollbarvisualstate), [`TextContextMenuEvent`](#interaction-textcontextmenuevent), [`acceptEditablePopupCompletion`](#interaction-accepteditablepopupcompletion), [`assertAnchoredSurfaceOptions`](#interaction-assertanchoredsurfaceoptions), [`assertCollectionInteractionReferences`](#interaction-assertcollectioninteractionreferences), [`collectionInteractionHas`](#interaction-collectioninteractionhas), [`collectionInteractionIds`](#interaction-collectioninteractionids), [`collectionInteractionPosition`](#interaction-collectioninteractionposition)
-- [`containedPopupFocus`](#interaction-containedpopupfocus), [`controlKeymapHelp`](#interaction-controlkeymaphelp), [`createCollectionInteractionIndex`](#interaction-createcollectioninteractionindex), [`createControlKeymap`](#interaction-createcontrolkeymap), [`createEditablePopupInputState`](#interaction-createeditablepopupinputstate), [`decodeSelectionState`](#interaction-decodeselectionstate), [`editablePopupInputReducer`](#interaction-editablepopupinputreducer), [`focusPathsEqual`](#interaction-focuspathsequal)
-- [`isIgnoredMessage`](#interaction-isignoredmessage), [`navigateIndex`](#interaction-navigateindex), [`noSelection`](#interaction-noselection), [`placeAnchoredSurface`](#interaction-placeanchoredsurface), [`placeAnchoredSurfaceFromValidatedInput`](#interaction-placeanchoredsurfacefromvalidatedinput), [`pointerVisualState`](#interaction-pointervisualstate), [`popupActiveDescendantId`](#interaction-popupactivedescendantid), [`popupAllowsDismissal`](#interaction-popupallowsdismissal)
-- [`popupFocusScope`](#interaction-popupfocusscope), [`popupRelationship`](#interaction-popuprelationship), [`selectionContains`](#interaction-selectioncontains), [`standardPopupDismissal`](#interaction-standardpopupdismissal), [`standardPopupFocus`](#interaction-standardpopupfocus)
+- [`ScrollbarVisualState`](#interaction-scrollbarvisualstate), [`TextContextMenuEvent`](#interaction-textcontextmenuevent), [`acceptEditablePopupCompletion`](#interaction-accepteditablepopupcompletion), [`assertAnchoredSurfaceOptions`](#interaction-assertanchoredsurfaceoptions), [`collectionInteractionHas`](#interaction-collectioninteractionhas), [`collectionInteractionIds`](#interaction-collectioninteractionids), [`collectionInteractionPosition`](#interaction-collectioninteractionposition), [`containedPopupFocus`](#interaction-containedpopupfocus)
+- [`controlKeymapHelp`](#interaction-controlkeymaphelp), [`createCollectionInteractionIndex`](#interaction-createcollectioninteractionindex), [`createControlKeymap`](#interaction-createcontrolkeymap), [`createEditablePopupInputState`](#interaction-createeditablepopupinputstate), [`decodeSelectionState`](#interaction-decodeselectionstate), [`editablePopupInputReducer`](#interaction-editablepopupinputreducer), [`focusPathsEqual`](#interaction-focuspathsequal), [`isIgnoredMessage`](#interaction-isignoredmessage)
+- [`navigateIndex`](#interaction-navigateindex), [`noSelection`](#interaction-noselection), [`placeAnchoredSurface`](#interaction-placeanchoredsurface), [`placeAnchoredSurfaceFromValidatedInput`](#interaction-placeanchoredsurfacefromvalidatedinput), [`pointerVisualState`](#interaction-pointervisualstate), [`popupActiveDescendantId`](#interaction-popupactivedescendantid), [`popupAllowsDismissal`](#interaction-popupallowsdismissal), [`popupFocusScope`](#interaction-popupfocusscope)
+- [`popupRelationship`](#interaction-popuprelationship), [`selectionContains`](#interaction-selectioncontains), [`standardPopupDismissal`](#interaction-standardpopupdismissal), [`standardPopupFocus`](#interaction-standardpopupfocus)
 
 ### @ismail-elkorchi/terminal-ui/collection
 
-- [`ChoiceItem`](#collection-choiceitem), [`CollectionItem`](#collection-collectionitem), [`CollectionSnapshot`](#collection-collectionsnapshot), [`CompleteCollectionSnapshot`](#collection-completecollectionsnapshot), [`LabeledItem`](#collection-labeleditem), [`MeasuredAnchorAtOptions`](#collection-measuredanchoratoptions), [`MeasuredCollection`](#collection-measuredcollection), [`MeasuredCollectionItem`](#collection-measuredcollectionitem)
-- [`MeasuredWindowAnchor`](#collection-measuredwindowanchor), [`MeasuredWindowEntry`](#collection-measuredwindowentry), [`MeasuredWindowOptions`](#collection-measuredwindowoptions), [`MeasurementGeometry`](#collection-measurementgeometry), [`MeasurementOptions`](#collection-measurementoptions), [`MeasurementRequest`](#collection-measurementrequest), [`MeasurementState`](#collection-measurementstate), [`MeasurementUpdate`](#collection-measurementupdate)
-- [`SearchEntry`](#collection-searchentry), [`WindowedCollectionSnapshot`](#collection-windowedcollectionsnapshot), [`acceptMeasurements`](#collection-acceptmeasurements), [`appendMeasuredItems`](#collection-appendmeasureditems), [`assertStableIds`](#collection-assertstableids), [`collectionIds`](#collection-collectionids), [`collectionItemById`](#collection-collectionitembyid), [`createCompleteCollection`](#collection-createcompletecollection)
-- [`createMeasuredCollection`](#collection-createmeasuredcollection), [`createMeasurementState`](#collection-createmeasurementstate), [`createWindowedCollection`](#collection-createwindowedcollection), [`isCollectionSnapshot`](#collection-iscollectionsnapshot), [`isMeasuredWindow`](#collection-ismeasuredwindow), [`measuredAnchorAt`](#collection-measuredanchorat), [`measuredCollectionItemById`](#collection-measuredcollectionitembyid), [`measuredWindow`](#collection-measuredwindow)
-- [`measurementRequests`](#collection-measurementrequests), [`prependMeasuredItems`](#collection-prependmeasureditems), [`removeMeasuredItems`](#collection-removemeasureditems), [`replaceMeasuredItem`](#collection-replacemeasureditem), [`updateMeasurementState`](#collection-updatemeasurementstate)
+- [`ChoiceItem`](#collection-choiceitem), [`CollectionItem`](#collection-collectionitem), [`CollectionOrderReader`](#collection-collectionorderreader), [`CollectionSnapshot`](#collection-collectionsnapshot), [`CompleteCollectionSnapshot`](#collection-completecollectionsnapshot), [`LabeledItem`](#collection-labeleditem), [`MeasuredAnchorAtOptions`](#collection-measuredanchoratoptions), [`MeasuredCollection`](#collection-measuredcollection)
+- [`MeasuredCollectionItem`](#collection-measuredcollectionitem), [`MeasuredWindowAnchor`](#collection-measuredwindowanchor), [`MeasuredWindowEntry`](#collection-measuredwindowentry), [`MeasuredWindowOptions`](#collection-measuredwindowoptions), [`MeasurementGeometry`](#collection-measurementgeometry), [`MeasurementOptions`](#collection-measurementoptions), [`MeasurementRequest`](#collection-measurementrequest), [`MeasurementState`](#collection-measurementstate)
+- [`MeasurementUpdate`](#collection-measurementupdate), [`SearchEntry`](#collection-searchentry), [`WindowedCollectionSnapshot`](#collection-windowedcollectionsnapshot), [`acceptMeasurements`](#collection-acceptmeasurements), [`appendMeasuredItems`](#collection-appendmeasureditems), [`assertStableIds`](#collection-assertstableids), [`collectionIds`](#collection-collectionids), [`collectionItemById`](#collection-collectionitembyid)
+- [`createCompleteCollection`](#collection-createcompletecollection), [`createMeasuredCollection`](#collection-createmeasuredcollection), [`createMeasurementState`](#collection-createmeasurementstate), [`createWindowedCollection`](#collection-createwindowedcollection), [`isCollectionSnapshot`](#collection-iscollectionsnapshot), [`isMeasuredWindow`](#collection-ismeasuredwindow), [`measuredAnchorAt`](#collection-measuredanchorat), [`measuredCollectionItemById`](#collection-measuredcollectionitembyid)
+- [`measuredWindow`](#collection-measuredwindow), [`measurementRequests`](#collection-measurementrequests), [`prependMeasuredItems`](#collection-prependmeasureditems), [`removeMeasuredItems`](#collection-removemeasureditems), [`replaceMeasuredItem`](#collection-replacemeasureditem), [`updateMeasurementState`](#collection-updatemeasurementstate)
 
 ### @ismail-elkorchi/terminal-ui/protocol
 
@@ -114,18 +114,20 @@ See [API stability](../guides/api-stability.md) for stability labels.
 
 - [`AnimationFrame`](#tui-animationframe), [`AnimationTimeline`](#tui-animationtimeline), [`CopySelectedTextInput`](#tui-copyselectedtextinput), [`CopySelectedTextResult`](#tui-copyselectedtextresult), [`CursorVisibilityPolicy`](#tui-cursorvisibilitypolicy), [`ProtocolRequirement`](#tui-protocolrequirement), [`SelectedText`](#tui-selectedtext), [`SessionProtocolOperation`](#tui-sessionprotocoloperation)
 - [`SessionProtocolOperationKind`](#tui-sessionprotocoloperationkind), [`SessionProtocolPolicy`](#tui-sessionprotocolpolicy), [`SessionProtocolSetupResult`](#tui-sessionprotocolsetupresult), [`TuiApp`](#tui-tuiapp), [`TuiBindingHelpItem`](#tui-tuibindinghelpitem), [`TuiCancellation`](#tui-tuicancellation), [`TuiChild`](#tui-tuichild), [`TuiChildDefinition`](#tui-tuichilddefinition)
-- [`TuiChildIdentity`](#tui-tuichildidentity), [`TuiChildMessage`](#tui-tuichildmessage), [`TuiChildResult`](#tui-tuichildresult), [`TuiChildState`](#tui-tuichildstate), [`TuiCommand`](#tui-tuicommand), [`TuiCommands`](#tui-tuicommands), [`TuiContext`](#tui-tuicontext), [`TuiControlMessage`](#tui-tuicontrolmessage)
-- [`TuiControlReducers`](#tui-tuicontrolreducers), [`TuiControlTransitionMessage`](#tui-tuicontroltransitionmessage), [`TuiControls`](#tui-tuicontrols), [`TuiDefinition`](#tui-tuidefinition), [`TuiEffect`](#tui-tuieffect), [`TuiEffectConcurrency`](#tui-tuieffectconcurrency), [`TuiEffectContext`](#tui-tuieffectcontext), [`TuiEffectFailure`](#tui-tuieffectfailure)
-- [`TuiEffectOutput`](#tui-tuieffectoutput), [`TuiEffectPolicy`](#tui-tuieffectpolicy), [`TuiEventSource`](#tui-tuieventsource), [`TuiExit`](#tui-tuiexit), [`TuiExitHandler`](#tui-tuiexithandler), [`TuiExitRequest`](#tui-tuiexitrequest), [`TuiForm`](#tui-tuiform), [`TuiFormErrors`](#tui-tuiformerrors)
-- [`TuiFormMessage`](#tui-tuiformmessage), [`TuiFormState`](#tui-tuiformstate), [`TuiInit`](#tui-tuiinit), [`TuiInitialResult`](#tui-tuiinitialresult), [`TuiInputBatchResult`](#tui-tuiinputbatchresult), [`TuiInputBinding`](#tui-tuiinputbinding), [`TuiInputBindingContext`](#tui-tuiinputbindingcontext), [`TuiInputBindingPhase`](#tui-tuiinputbindingphase)
-- [`TuiInputResult`](#tui-tuiinputresult), [`TuiLifecyclePolicy`](#tui-tuilifecyclepolicy), [`TuiMessageSource`](#tui-tuimessagesource), [`TuiNavigationScreen`](#tui-tuinavigationscreen), [`TuiNonTtyMode`](#tui-tuinonttymode), [`TuiNonTtyPolicy`](#tui-tuinonttypolicy), [`TuiPreparedQuery`](#tui-tuipreparedquery), [`TuiPreparedQueryMessage`](#tui-tuipreparedquerymessage)
-- [`TuiPreparedQueryState`](#tui-tuipreparedquerystate), [`TuiResizeContext`](#tui-tuiresizecontext), [`TuiResizeMessage`](#tui-tuiresizemessage), [`TuiRunError`](#tui-tuirunerror), [`TuiRunInputPolicy`](#tui-tuiruninputpolicy), [`TuiRunOptions`](#tui-tuirunoptions), [`TuiRunResult`](#tui-tuirunresult), [`TuiRuntime`](#tui-tuiruntime)
-- [`TuiRuntimeChange`](#tui-tuiruntimechange), [`TuiRuntimeDisposeOptions`](#tui-tuiruntimedisposeoptions), [`TuiRuntimeMetrics`](#tui-tuiruntimemetrics), [`TuiRuntimeOptions`](#tui-tuiruntimeoptions), [`TuiSourceChannelMetrics`](#tui-tuisourcechannelmetrics), [`TuiSourceChannelPolicy`](#tui-tuisourcechannelpolicy), [`TuiSourceEmission`](#tui-tuisourceemission), [`TuiSourceLifecycle`](#tui-tuisourcelifecycle)
-- [`TuiSourceSink`](#tui-tuisourcesink), [`TuiSubscriptionContext`](#tui-tuisubscriptioncontext), [`TuiSubscriptions`](#tui-tuisubscriptions), [`TuiTheme`](#tui-tuitheme), [`TuiUpdate`](#tui-tuiupdate), [`TuiUpdateContribution`](#tui-tuiupdatecontribution), [`TuiUpdateResult`](#tui-tuiupdateresult), [`TuiView`](#tui-tuiview)
-- [`advanceAnimationTimeline`](#tui-advanceanimationtimeline), [`animationSource`](#tui-animationsource), [`applySessionProtocolPolicy`](#tui-applysessionprotocolpolicy), [`createAnimationTimeline`](#tui-createanimationtimeline), [`createSessionProtocolPlan`](#tui-createsessionprotocolplan), [`createTuiChild`](#tui-createtuichild), [`createTuiCommands`](#tui-createtuicommands), [`createTuiControls`](#tui-createtuicontrols)
-- [`createTuiForm`](#tui-createtuiform), [`createTuiPreparedQuery`](#tui-createtuipreparedquery), [`createTuiRuntime`](#tui-createtuiruntime), [`defaultSessionProtocolPolicy`](#tui-defaultsessionprotocolpolicy), [`defaultTuiEffectPolicy`](#tui-defaulttuieffectpolicy), [`defaultTuiLifecyclePolicy`](#tui-defaulttuilifecyclepolicy), [`defaultTuiSourceChannelCapacity`](#tui-defaulttuisourcechannelcapacity), [`defineTui`](#tui-definetui)
-- [`intervalSource`](#tui-intervalsource), [`liftTuiResult`](#tui-lifttuiresult), [`nextAnimationDeadline`](#tui-nextanimationdeadline), [`reliableSourceMessage`](#tui-reliablesourcemessage), [`replaceableSourceMessage`](#tui-replaceablesourcemessage), [`runTui`](#tui-runtui), [`timeoutSource`](#tui-timeoutsource), [`tuiBindingHelp`](#tui-tuibindinghelp)
-- [`updateTuiNavigation`](#tui-updatetuinavigation)
+- [`TuiChildIdentity`](#tui-tuichildidentity), [`TuiChildMessage`](#tui-tuichildmessage), [`TuiChildResult`](#tui-tuichildresult), [`TuiChildState`](#tui-tuichildstate), [`TuiCommand`](#tui-tuicommand), [`TuiCommands`](#tui-tuicommands), [`TuiContext`](#tui-tuicontext), [`TuiContribution`](#tui-tuicontribution)
+- [`TuiControlMessage`](#tui-tuicontrolmessage), [`TuiControlReducers`](#tui-tuicontrolreducers), [`TuiControlTransitionMessage`](#tui-tuicontroltransitionmessage), [`TuiControlledEditor`](#tui-tuicontrollededitor), [`TuiControlledEditorMessage`](#tui-tuicontrollededitormessage), [`TuiControlledEditorOutput`](#tui-tuicontrollededitoroutput), [`TuiControlledEditorResult`](#tui-tuicontrollededitorresult), [`TuiControlledEditorState`](#tui-tuicontrollededitorstate)
+- [`TuiControls`](#tui-tuicontrols), [`TuiDefinition`](#tui-tuidefinition), [`TuiEditorIntent`](#tui-tuieditorintent), [`TuiEditorIntentOrigin`](#tui-tuieditorintentorigin), [`TuiEditorOperation`](#tui-tuieditoroperation), [`TuiEditorPreparedLayout`](#tui-tuieditorpreparedlayout), [`TuiEditorSnapshot`](#tui-tuieditorsnapshot), [`TuiEffect`](#tui-tuieffect)
+- [`TuiEffectConcurrency`](#tui-tuieffectconcurrency), [`TuiEffectContext`](#tui-tuieffectcontext), [`TuiEffectFailure`](#tui-tuieffectfailure), [`TuiEffectOutput`](#tui-tuieffectoutput), [`TuiEffectPolicy`](#tui-tuieffectpolicy), [`TuiEventSource`](#tui-tuieventsource), [`TuiExit`](#tui-tuiexit), [`TuiExitHandler`](#tui-tuiexithandler)
+- [`TuiExitRequest`](#tui-tuiexitrequest), [`TuiForm`](#tui-tuiform), [`TuiFormErrors`](#tui-tuiformerrors), [`TuiFormMessage`](#tui-tuiformmessage), [`TuiFormState`](#tui-tuiformstate), [`TuiInit`](#tui-tuiinit), [`TuiInitialResult`](#tui-tuiinitialresult), [`TuiInputBatchResult`](#tui-tuiinputbatchresult)
+- [`TuiInputBinding`](#tui-tuiinputbinding), [`TuiInputBindingContext`](#tui-tuiinputbindingcontext), [`TuiInputBindingPhase`](#tui-tuiinputbindingphase), [`TuiInputResult`](#tui-tuiinputresult), [`TuiLifecyclePolicy`](#tui-tuilifecyclepolicy), [`TuiMessageSource`](#tui-tuimessagesource), [`TuiNavigationScreen`](#tui-tuinavigationscreen), [`TuiNonTtyMode`](#tui-tuinonttymode)
+- [`TuiNonTtyPolicy`](#tui-tuinonttypolicy), [`TuiPreparedQuery`](#tui-tuipreparedquery), [`TuiPreparedQueryMessage`](#tui-tuipreparedquerymessage), [`TuiPreparedQueryState`](#tui-tuipreparedquerystate), [`TuiResizeContext`](#tui-tuiresizecontext), [`TuiResizeMessage`](#tui-tuiresizemessage), [`TuiRunError`](#tui-tuirunerror), [`TuiRunInputPolicy`](#tui-tuiruninputpolicy)
+- [`TuiRunOptions`](#tui-tuirunoptions), [`TuiRunResult`](#tui-tuirunresult), [`TuiRuntime`](#tui-tuiruntime), [`TuiRuntimeChange`](#tui-tuiruntimechange), [`TuiRuntimeDisposeOptions`](#tui-tuiruntimedisposeoptions), [`TuiRuntimeMetrics`](#tui-tuiruntimemetrics), [`TuiRuntimeOptions`](#tui-tuiruntimeoptions), [`TuiRuntimePolicy`](#tui-tuiruntimepolicy)
+- [`TuiScopedResult`](#tui-tuiscopedresult), [`TuiScopedSource`](#tui-tuiscopedsource), [`TuiSourceChannelMetrics`](#tui-tuisourcechannelmetrics), [`TuiSourceChannelPolicy`](#tui-tuisourcechannelpolicy), [`TuiSourceEmission`](#tui-tuisourceemission), [`TuiSourceLifecycle`](#tui-tuisourcelifecycle), [`TuiSourceSink`](#tui-tuisourcesink), [`TuiSubscriptionContext`](#tui-tuisubscriptioncontext)
+- [`TuiSubscriptions`](#tui-tuisubscriptions), [`TuiTheme`](#tui-tuitheme), [`TuiUpdate`](#tui-tuiupdate), [`TuiUpdateContribution`](#tui-tuiupdatecontribution), [`TuiUpdateResult`](#tui-tuiupdateresult), [`TuiView`](#tui-tuiview), [`advanceAnimationTimeline`](#tui-advanceanimationtimeline), [`animationSource`](#tui-animationsource)
+- [`applySessionProtocolPolicy`](#tui-applysessionprotocolpolicy), [`combineTuiResults`](#tui-combinetuiresults), [`createAnimationTimeline`](#tui-createanimationtimeline), [`createSessionProtocolPlan`](#tui-createsessionprotocolplan), [`createTuiChild`](#tui-createtuichild), [`createTuiCommands`](#tui-createtuicommands), [`createTuiControlledEditor`](#tui-createtuicontrollededitor), [`createTuiControls`](#tui-createtuicontrols)
+- [`createTuiCooperativeWorkContext`](#tui-createtuicooperativeworkcontext), [`createTuiForm`](#tui-createtuiform), [`createTuiPreparedQuery`](#tui-createtuipreparedquery), [`createTuiRuntime`](#tui-createtuiruntime), [`defaultSessionProtocolPolicy`](#tui-defaultsessionprotocolpolicy), [`defaultTuiEffectPolicy`](#tui-defaulttuieffectpolicy), [`defaultTuiLifecyclePolicy`](#tui-defaulttuilifecyclepolicy), [`defaultTuiRuntimePolicy`](#tui-defaulttuiruntimepolicy)
+- [`defaultTuiSourceChannelCapacity`](#tui-defaulttuisourcechannelcapacity), [`defineTui`](#tui-definetui), [`intervalSource`](#tui-intervalsource), [`liftTuiResult`](#tui-lifttuiresult), [`nextAnimationDeadline`](#tui-nextanimationdeadline), [`reconcileTuiChildren`](#tui-reconciletuichildren), [`reliableSourceMessage`](#tui-reliablesourcemessage), [`replaceableSourceMessage`](#tui-replaceablesourcemessage)
+- [`runTui`](#tui-runtui), [`timeoutSource`](#tui-timeoutsource), [`tuiBindingHelp`](#tui-tuibindinghelp), [`updateTuiNavigation`](#tui-updatetuinavigation)
 
 ### @ismail-elkorchi/terminal-ui/components
 
@@ -169,16 +171,17 @@ See [API stability](../guides/api-stability.md) for stability labels.
 
 - [`CompleteTableCollection`](#components-collections-completetablecollection), [`DataGridActivateEvent`](#components-collections-datagridactivateevent), [`DataGridCell`](#components-collections-datagridcell), [`DataGridControlTransition`](#components-collections-datagridcontroltransition), [`DataGridInteraction`](#components-collections-datagridinteraction), [`DataGridKeyAction`](#components-collections-datagridkeyaction), [`DataGridOptions`](#components-collections-datagridoptions), [`DataGridState`](#components-collections-datagridstate)
 - [`DataGridTransition`](#components-collections-datagridtransition), [`ListOptions`](#components-collections-listoptions), [`ListViewActivateEvent`](#components-collections-listviewactivateevent), [`ListViewControlTransition`](#components-collections-listviewcontroltransition), [`ListViewItemContent`](#components-collections-listviewitemcontent), [`ListViewItemRenderer`](#components-collections-listviewitemrenderer), [`ListViewOptions`](#components-collections-listviewoptions), [`ListViewScrollbarOptions`](#components-collections-listviewscrollbaroptions)
-- [`ListViewState`](#components-collections-listviewstate), [`ListViewTransition`](#components-collections-listviewtransition), [`ListboxActivateEvent`](#components-collections-listboxactivateevent), [`ListboxCollection`](#components-collections-listboxcollection), [`ListboxCollectionItem`](#components-collections-listboxcollectionitem), [`ListboxControlTransition`](#components-collections-listboxcontroltransition), [`ListboxKeyAction`](#components-collections-listboxkeyaction), [`ListboxOption`](#components-collections-listboxoption)
-- [`ListboxOptionMapper`](#components-collections-listboxoptionmapper), [`ListboxOptions`](#components-collections-listboxoptions), [`ListboxState`](#components-collections-listboxstate), [`ListboxTransition`](#components-collections-listboxtransition), [`MeasuredWindow`](#components-collections-measuredwindow), [`PaginationOptions`](#components-collections-paginationoptions), [`PaginationTransition`](#components-collections-paginationtransition), [`ScrollableDataGridOptions`](#components-collections-scrollabledatagridoptions)
-- [`ScrollableDataGridState`](#components-collections-scrollabledatagridstate), [`ScrollableListViewOptions`](#components-collections-scrollablelistviewoptions), [`ScrollableListViewState`](#components-collections-scrollablelistviewstate), [`ScrollableListboxOptions`](#components-collections-scrollablelistboxoptions), [`ScrollableListboxState`](#components-collections-scrollablelistboxstate), [`ScrollableTableOptions`](#components-collections-scrollabletableoptions), [`ScrollableTreeOptions`](#components-collections-scrollabletreeoptions), [`ScrollableTreeState`](#components-collections-scrollabletreestate)
-- [`SemanticListItem`](#components-collections-semanticlistitem), [`SemanticListMessage`](#components-collections-semanticlistmessage), [`TabCloseEvent`](#components-collections-tabcloseevent), [`TabItem`](#components-collections-tabitem), [`TableCellRenderInput`](#components-collections-tablecellrenderinput), [`TableCollection`](#components-collections-tablecollection), [`TableCollectionRow`](#components-collections-tablecollectionrow), [`TableColumn`](#components-collections-tablecolumn)
-- [`TableColumnAlignment`](#components-collections-tablecolumnalignment), [`TableColumnBuilder`](#components-collections-tablecolumnbuilder), [`TableColumnDefinition`](#components-collections-tablecolumndefinition), [`TableColumnSemantic`](#components-collections-tablecolumnsemantic), [`TableColumnWidth`](#components-collections-tablecolumnwidth), [`TableCustomColumn`](#components-collections-tablecustomcolumn), [`TableOptions`](#components-collections-tableoptions), [`TableSortDirection`](#components-collections-tablesortdirection)
-- [`TableSortState`](#components-collections-tablesortstate), [`TableState`](#components-collections-tablestate), [`TableValueColumn`](#components-collections-tablevaluecolumn), [`TabsActivation`](#components-collections-tabsactivation), [`TabsOptions`](#components-collections-tabsoptions), [`TabsState`](#components-collections-tabsstate), [`TabsTransition`](#components-collections-tabstransition), [`TreeActivateEvent`](#components-collections-treeactivateevent)
-- [`TreeCollection`](#components-collections-treecollection), [`TreeCollectionRow`](#components-collections-treecollectionrow), [`TreeControlTransition`](#components-collections-treecontroltransition), [`TreeDisclosureTransition`](#components-collections-treedisclosuretransition), [`TreeKeyAction`](#components-collections-treekeyaction), [`TreeLoadStatus`](#components-collections-treeloadstatus), [`TreeNode`](#components-collections-treenode), [`TreeOptions`](#components-collections-treeoptions)
-- [`TreeSource`](#components-collections-treesource), [`TreeState`](#components-collections-treestate), [`TreeTransition`](#components-collections-treetransition), [`TreeView`](#components-collections-treeview), [`TreeVisibleRow`](#components-collections-treevisiblerow), [`UnscrolledDataGridOptions`](#components-collections-unscrolleddatagridoptions), [`UnscrolledDataGridState`](#components-collections-unscrolleddatagridstate), [`UnscrolledListViewOptions`](#components-collections-unscrolledlistviewoptions)
-- [`UnscrolledListViewState`](#components-collections-unscrolledlistviewstate), [`UnscrolledListboxOptions`](#components-collections-unscrolledlistboxoptions), [`UnscrolledListboxState`](#components-collections-unscrolledlistboxstate), [`UnscrolledTableOptions`](#components-collections-unscrolledtableoptions), [`UnscrolledTreeOptions`](#components-collections-unscrolledtreeoptions), [`UnscrolledTreeState`](#components-collections-unscrolledtreestate), [`WindowedTableCollection`](#components-collections-windowedtablecollection), [`createDataGridKeymap`](#components-collections-createdatagridkeymap)
-- [`createListboxKeymap`](#components-collections-createlistboxkeymap), [`createTreeKeymap`](#components-collections-createtreekeymap), [`dataGrid`](#components-collections-datagrid), [`list`](#components-collections-list), [`listView`](#components-collections-listview), [`listbox`](#components-collections-listbox), [`pagination`](#components-collections-pagination), [`table`](#components-collections-table)
+- [`ListViewState`](#components-collections-listviewstate), [`ListViewTransition`](#components-collections-listviewtransition), [`ListboxActivateEvent`](#components-collections-listboxactivateevent), [`ListboxCollection`](#components-collections-listboxcollection), [`ListboxCollectionChange`](#components-collections-listboxcollectionchange), [`ListboxCollectionItem`](#components-collections-listboxcollectionitem), [`ListboxControlTransition`](#components-collections-listboxcontroltransition), [`ListboxKeyAction`](#components-collections-listboxkeyaction)
+- [`ListboxOption`](#components-collections-listboxoption), [`ListboxOptionMapper`](#components-collections-listboxoptionmapper), [`ListboxOptions`](#components-collections-listboxoptions), [`ListboxState`](#components-collections-listboxstate), [`ListboxTransition`](#components-collections-listboxtransition), [`ListboxView`](#components-collections-listboxview), [`MeasuredWindow`](#components-collections-measuredwindow), [`PaginationOptions`](#components-collections-paginationoptions)
+- [`PaginationTransition`](#components-collections-paginationtransition), [`ScrollableDataGridOptions`](#components-collections-scrollabledatagridoptions), [`ScrollableDataGridState`](#components-collections-scrollabledatagridstate), [`ScrollableListViewOptions`](#components-collections-scrollablelistviewoptions), [`ScrollableListViewState`](#components-collections-scrollablelistviewstate), [`ScrollableListboxOptions`](#components-collections-scrollablelistboxoptions), [`ScrollableListboxState`](#components-collections-scrollablelistboxstate), [`ScrollableTableOptions`](#components-collections-scrollabletableoptions)
+- [`ScrollableTreeOptions`](#components-collections-scrollabletreeoptions), [`ScrollableTreeState`](#components-collections-scrollabletreestate), [`SemanticListItem`](#components-collections-semanticlistitem), [`SemanticListMessage`](#components-collections-semanticlistmessage), [`TabCloseEvent`](#components-collections-tabcloseevent), [`TabItem`](#components-collections-tabitem), [`TableCellRenderInput`](#components-collections-tablecellrenderinput), [`TableCollection`](#components-collections-tablecollection)
+- [`TableCollectionChange`](#components-collections-tablecollectionchange), [`TableCollectionRow`](#components-collections-tablecollectionrow), [`TableColumn`](#components-collections-tablecolumn), [`TableColumnAlignment`](#components-collections-tablecolumnalignment), [`TableColumnBuilder`](#components-collections-tablecolumnbuilder), [`TableColumnDefinition`](#components-collections-tablecolumndefinition), [`TableColumnSemantic`](#components-collections-tablecolumnsemantic), [`TableColumnWidth`](#components-collections-tablecolumnwidth)
+- [`TableCustomColumn`](#components-collections-tablecustomcolumn), [`TableOptions`](#components-collections-tableoptions), [`TableSortDirection`](#components-collections-tablesortdirection), [`TableSortState`](#components-collections-tablesortstate), [`TableState`](#components-collections-tablestate), [`TableValueColumn`](#components-collections-tablevaluecolumn), [`TabsActivation`](#components-collections-tabsactivation), [`TabsOptions`](#components-collections-tabsoptions)
+- [`TabsState`](#components-collections-tabsstate), [`TabsTransition`](#components-collections-tabstransition), [`TreeActivateEvent`](#components-collections-treeactivateevent), [`TreeCollection`](#components-collections-treecollection), [`TreeCollectionRow`](#components-collections-treecollectionrow), [`TreeControlTransition`](#components-collections-treecontroltransition), [`TreeDisclosureTransition`](#components-collections-treedisclosuretransition), [`TreeKeyAction`](#components-collections-treekeyaction)
+- [`TreeLoadStatus`](#components-collections-treeloadstatus), [`TreeNode`](#components-collections-treenode), [`TreeNodeBase`](#components-collections-treenodebase), [`TreeNodeDescriptor`](#components-collections-treenodedescriptor), [`TreeOptions`](#components-collections-treeoptions), [`TreeSource`](#components-collections-treesource), [`TreeSourceChange`](#components-collections-treesourcechange), [`TreeSourceEntry`](#components-collections-treesourceentry)
+- [`TreeState`](#components-collections-treestate), [`TreeTransition`](#components-collections-treetransition), [`TreeView`](#components-collections-treeview), [`TreeVisibleRow`](#components-collections-treevisiblerow), [`UnscrolledDataGridOptions`](#components-collections-unscrolleddatagridoptions), [`UnscrolledDataGridState`](#components-collections-unscrolleddatagridstate), [`UnscrolledListViewOptions`](#components-collections-unscrolledlistviewoptions), [`UnscrolledListViewState`](#components-collections-unscrolledlistviewstate)
+- [`UnscrolledListboxOptions`](#components-collections-unscrolledlistboxoptions), [`UnscrolledListboxState`](#components-collections-unscrolledlistboxstate), [`UnscrolledTableOptions`](#components-collections-unscrolledtableoptions), [`UnscrolledTreeOptions`](#components-collections-unscrolledtreeoptions), [`UnscrolledTreeState`](#components-collections-unscrolledtreestate), [`WindowedTableCollection`](#components-collections-windowedtablecollection), [`createDataGridKeymap`](#components-collections-createdatagridkeymap), [`createListboxKeymap`](#components-collections-createlistboxkeymap)
+- [`createTreeKeymap`](#components-collections-createtreekeymap), [`dataGrid`](#components-collections-datagrid), [`inferTableColumns`](#components-collections-infertablecolumns), [`list`](#components-collections-list), [`listView`](#components-collections-listview), [`listbox`](#components-collections-listbox), [`pagination`](#components-collections-pagination), [`table`](#components-collections-table)
 - [`tableColumn`](#components-collections-tablecolumn), [`tabs`](#components-collections-tabs), [`tree`](#components-collections-tree)
 
 ### @ismail-elkorchi/terminal-ui/components/overlays
@@ -215,17 +218,17 @@ See [API stability](../guides/api-stability.md) for stability labels.
 - [`CollectionInteractionOptions`](#component-collectioninteractionoptions), [`CollectionInteractionState`](#component-collectioninteractionstate), [`CollectionInteractionTransition`](#component-collectioninteractiontransition), [`CollectionQuery`](#component-collectionquery), [`CompiledCollectionQuery`](#component-compiledcollectionquery), [`ComponentAccessibilityInput`](#component-componentaccessibilityinput), [`ComponentCallerSlotValues`](#component-componentcallerslotvalues), [`ComponentCapturedMessageInput`](#component-componentcapturedmessageinput)
 - [`ComponentCompositionInput`](#component-componentcompositioninput), [`ComponentDefinition`](#component-componentdefinition), [`ComponentDefinitionName`](#component-componentdefinitionname), [`ComponentExecutionError`](#component-componentexecutionerror), [`ComponentExecutionPhase`](#component-componentexecutionphase), [`ComponentFrameSourceInput`](#component-componentframesourceinput), [`ComponentIdentity`](#component-componentidentity), [`ComponentImplementationSlotValues`](#component-componentimplementationslotvalues)
 - [`ComponentInput`](#component-componentinput), [`ComponentInspectionInput`](#component-componentinspectioninput), [`ComponentInspectionRecord`](#component-componentinspectionrecord), [`ComponentInspectionValue`](#component-componentinspectionvalue), [`ComponentInteractionInput`](#component-componentinteractioninput), [`ComponentKeyInput`](#component-componentkeyinput), [`ComponentLayoutCommitInput`](#component-componentlayoutcommitinput), [`ComponentLayoutInput`](#component-componentlayoutinput)
-- [`ComponentMeasureConstraints`](#component-componentmeasureconstraints), [`ComponentMeasureInput`](#component-componentmeasureinput), [`ComponentMessage`](#component-componentmessage), [`ComponentMetadataCapability`](#component-componentmetadatacapability), [`ComponentMetadataOptions`](#component-componentmetadataoptions), [`ComponentModelContext`](#component-componentmodelcontext), [`ComponentRenderInput`](#component-componentrenderinput), [`ComponentScrollbarLayout`](#component-componentscrollbarlayout)
-- [`ComponentScrollbarPlan`](#component-componentscrollbarplan), [`ComponentScrollbarThumb`](#component-componentscrollbarthumb), [`ComponentScrollbarTrack`](#component-componentscrollbartrack), [`ComponentSemanticInspection`](#component-componentsemanticinspection), [`ComponentSlotCardinality`](#component-componentslotcardinality), [`ComponentSlotDefinition`](#component-componentslotdefinition), [`ComponentSlotLayout`](#component-componentslotlayout), [`ComponentSlotMessagePolicy`](#component-componentslotmessagepolicy)
-- [`ComponentSlotOwner`](#component-componentslotowner), [`ComponentSlotShape`](#component-componentslotshape), [`ComponentSlotsDefinition`](#component-componentslotsdefinition), [`ComponentStateCapability`](#component-componentstatecapability), [`ComponentStyleInput`](#component-componentstyleinput), [`ComponentStylePartMapping`](#component-componentstylepartmapping), [`ComponentTextInput`](#component-componenttextinput), [`ComponentVisualState`](#component-componentvisualstate)
-- [`DecorativeLeafComponentDefinition`](#component-decorativeleafcomponentdefinition), [`DecorativeLeafComponentFactory`](#component-decorativeleafcomponentfactory), [`Element`](#component-element), [`ElementChildren`](#component-elementchildren), [`ElementChildrenMessage`](#component-elementchildrenmessage), [`ElementMessage`](#component-elementmessage), [`ElementState`](#component-elementstate), [`ElementStyles`](#component-elementstyles)
-- [`ElementVisualState`](#component-elementvisualstate), [`FocusLifecycleEvent`](#component-focuslifecycleevent), [`FocusNavigation`](#component-focusnavigation), [`FocusTargetLifecycleEvent`](#component-focustargetlifecycleevent), [`HitTarget`](#component-hittarget), [`IgnoredMessage`](#component-ignoredmessage), [`IndexedQueryCandidate`](#component-indexedquerycandidate), [`KeyboardBinding`](#component-keyboardbinding)
-- [`MessageResolution`](#component-messageresolution), [`PopupState`](#component-popupstate), [`PopupTransition`](#component-popuptransition), [`QueryCandidate`](#component-querycandidate), [`QueryMatch`](#component-querymatch), [`QueryMatchRange`](#component-querymatchrange), [`RenderBlock`](#component-renderblock), [`RenderLine`](#component-renderline)
-- [`RenderSpan`](#component-renderspan), [`SelectionState`](#component-selectionstate), [`SemanticComposedComponentDefinition`](#component-semanticcomposedcomponentdefinition), [`SemanticCompositeComponentDefinition`](#component-semanticcompositecomponentdefinition), [`SemanticCompositeComponentFactory`](#component-semanticcompositecomponentfactory), [`SemanticLeafComponentDefinition`](#component-semanticleafcomponentdefinition), [`SemanticLeafComponentFactory`](#component-semanticleafcomponentfactory), [`StagedComponentFactory`](#component-stagedcomponentfactory)
-- [`TerminalStyle`](#component-terminalstyle), [`clipRenderLine`](#component-cliprenderline), [`clipRenderSpans`](#component-cliprenderspans), [`collectionInteractionReducer`](#component-collectioninteractionreducer), [`compareCollectionText`](#component-comparecollectiontext), [`compileCollectionQuery`](#component-compilecollectionquery), [`componentScrollbarHitTargets`](#component-componentscrollbarhittargets), [`decodeComponentScrollPolicy`](#component-decodecomponentscrollpolicy)
-- [`decodeComponentScrollState`](#component-decodecomponentscrollstate), [`decodeComponentScrollbarOptions`](#component-decodecomponentscrollbaroptions), [`decodeTerminalStyle`](#component-decodeterminalstyle), [`defineComponent`](#component-definecomponent), [`formatKeyboardBinding`](#component-formatkeyboardbinding), [`ignoreMessage`](#component-ignoremessage), [`layoutComponentScrollbar`](#component-layoutcomponentscrollbar), [`line`](#component-line)
-- [`mapComponentStyles`](#component-mapcomponentstyles), [`matchCollectionQuery`](#component-matchcollectionquery), [`measureConstrainedBox`](#component-measureconstrainedbox), [`measureRenderSpans`](#component-measurerenderspans), [`mergeElementStyles`](#component-mergeelementstyles), [`mergeTerminalStyles`](#component-mergeterminalstyles), [`normalizeCollectionInteraction`](#component-normalizecollectioninteraction), [`padRenderLine`](#component-padrenderline)
-- [`paintComponentScrollbar`](#component-paintcomponentscrollbar), [`popupReducer`](#component-popupreducer), [`queryCandidates`](#component-querycandidates), [`span`](#component-span), [`wrapRenderSpans`](#component-wraprenderspans)
+- [`ComponentMeasureConstraints`](#component-componentmeasureconstraints), [`ComponentMeasureInput`](#component-componentmeasureinput), [`ComponentMessage`](#component-componentmessage), [`ComponentMetadataCapability`](#component-componentmetadatacapability), [`ComponentMetadataOptions`](#component-componentmetadataoptions), [`ComponentModelContext`](#component-componentmodelcontext), [`ComponentRenderInput`](#component-componentrenderinput), [`ComponentReuse`](#component-componentreuse)
+- [`ComponentReuseDependencies`](#component-componentreusedependencies), [`ComponentReuseSelector`](#component-componentreuseselector), [`ComponentScrollbarLayout`](#component-componentscrollbarlayout), [`ComponentScrollbarPlan`](#component-componentscrollbarplan), [`ComponentScrollbarThumb`](#component-componentscrollbarthumb), [`ComponentScrollbarTrack`](#component-componentscrollbartrack), [`ComponentSemanticInspection`](#component-componentsemanticinspection), [`ComponentSlotCardinality`](#component-componentslotcardinality)
+- [`ComponentSlotDefinition`](#component-componentslotdefinition), [`ComponentSlotLayout`](#component-componentslotlayout), [`ComponentSlotMessagePolicy`](#component-componentslotmessagepolicy), [`ComponentSlotOwner`](#component-componentslotowner), [`ComponentSlotShape`](#component-componentslotshape), [`ComponentSlotsDefinition`](#component-componentslotsdefinition), [`ComponentStateCapability`](#component-componentstatecapability), [`ComponentStyleInput`](#component-componentstyleinput)
+- [`ComponentStylePartMapping`](#component-componentstylepartmapping), [`ComponentTextInput`](#component-componenttextinput), [`ComponentVisualState`](#component-componentvisualstate), [`DecorativeLeafComponentDefinition`](#component-decorativeleafcomponentdefinition), [`DecorativeLeafComponentFactory`](#component-decorativeleafcomponentfactory), [`Element`](#component-element), [`ElementChildren`](#component-elementchildren), [`ElementChildrenMessage`](#component-elementchildrenmessage)
+- [`ElementMessage`](#component-elementmessage), [`ElementState`](#component-elementstate), [`ElementStyles`](#component-elementstyles), [`ElementVisualState`](#component-elementvisualstate), [`FocusLifecycleEvent`](#component-focuslifecycleevent), [`FocusNavigation`](#component-focusnavigation), [`FocusTargetLifecycleEvent`](#component-focustargetlifecycleevent), [`HitTarget`](#component-hittarget)
+- [`IgnoredMessage`](#component-ignoredmessage), [`IndexedQueryCandidate`](#component-indexedquerycandidate), [`KeyboardBinding`](#component-keyboardbinding), [`MessageResolution`](#component-messageresolution), [`PopupState`](#component-popupstate), [`PopupTransition`](#component-popuptransition), [`QueryCandidate`](#component-querycandidate), [`QueryMatch`](#component-querymatch)
+- [`QueryMatchRange`](#component-querymatchrange), [`RenderBlock`](#component-renderblock), [`RenderLine`](#component-renderline), [`RenderSpan`](#component-renderspan), [`SelectionState`](#component-selectionstate), [`SemanticComposedComponentDefinition`](#component-semanticcomposedcomponentdefinition), [`SemanticCompositeComponentDefinition`](#component-semanticcompositecomponentdefinition), [`SemanticCompositeComponentFactory`](#component-semanticcompositecomponentfactory)
+- [`SemanticLeafComponentDefinition`](#component-semanticleafcomponentdefinition), [`SemanticLeafComponentFactory`](#component-semanticleafcomponentfactory), [`StagedComponentFactory`](#component-stagedcomponentfactory), [`TerminalStyle`](#component-terminalstyle), [`clipRenderLine`](#component-cliprenderline), [`clipRenderSpans`](#component-cliprenderspans), [`collectionInteractionReducer`](#component-collectioninteractionreducer), [`compareCollectionText`](#component-comparecollectiontext)
+- [`compileCollectionQuery`](#component-compilecollectionquery), [`componentScrollbarHitTargets`](#component-componentscrollbarhittargets), [`decodeComponentScrollPolicy`](#component-decodecomponentscrollpolicy), [`decodeComponentScrollState`](#component-decodecomponentscrollstate), [`decodeComponentScrollbarOptions`](#component-decodecomponentscrollbaroptions), [`decodeTerminalStyle`](#component-decodeterminalstyle), [`defineComponent`](#component-definecomponent), [`formatKeyboardBinding`](#component-formatkeyboardbinding)
+- [`ignoreMessage`](#component-ignoremessage), [`layoutComponentScrollbar`](#component-layoutcomponentscrollbar), [`line`](#component-line), [`mapComponentStyles`](#component-mapcomponentstyles), [`matchCollectionQuery`](#component-matchcollectionquery), [`measureConstrainedBox`](#component-measureconstrainedbox), [`measureRenderSpans`](#component-measurerenderspans), [`mergeElementStyles`](#component-mergeelementstyles)
+- [`mergeTerminalStyles`](#component-mergeterminalstyles), [`normalizeCollectionInteraction`](#component-normalizecollectioninteraction), [`padRenderLine`](#component-padrenderline), [`paintComponentScrollbar`](#component-paintcomponentscrollbar), [`popupReducer`](#component-popupreducer), [`queryCandidates`](#component-querycandidates), [`span`](#component-span), [`wrapRenderSpans`](#component-wraprenderspans)
 
 ### @ismail-elkorchi/terminal-ui/layout
 
@@ -258,18 +261,21 @@ See [API stability](../guides/api-stability.md) for stability labels.
 - [`activeNavigationEntry`](#behavior-activenavigationentry), [`activeNotificationItems`](#behavior-activenotificationitems), [`activeSearchPickerEntry`](#behavior-activesearchpickerentry), [`addDays`](#behavior-adddays), [`addMonths`](#behavior-addmonths), [`adjacentItemId`](#behavior-adjacentitemid), [`appendLogHistory`](#behavior-appendloghistory), [`applyScrollRequest`](#behavior-applyscrollrequest)
 - [`applyTextPointerTransition`](#behavior-applytextpointertransition), [`autocompleteComboboxReducer`](#behavior-autocompletecomboboxreducer), [`autocompleteComboboxView`](#behavior-autocompletecomboboxview), [`barChartReducer`](#behavior-barchartreducer), [`calendarDateId`](#behavior-calendardateid), [`calendarReducer`](#behavior-calendarreducer), [`calendarView`](#behavior-calendarview), [`chartReducer`](#behavior-chartreducer)
 - [`checkboxGroupReducer`](#behavior-checkboxgroupreducer), [`colorSwatchPickerReducer`](#behavior-colorswatchpickerreducer), [`comboboxReducer`](#behavior-comboboxreducer), [`commandInputReducer`](#behavior-commandinputreducer), [`commandInputView`](#behavior-commandinputview), [`commitAutocompleteCombobox`](#behavior-commitautocompletecombobox), [`commitCombobox`](#behavior-commitcombobox), [`compareDates`](#behavior-comparedates)
-- [`contextMenuReducer`](#behavior-contextmenureducer), [`contextMenuView`](#behavior-contextmenuview), [`createAutocompleteComboboxState`](#behavior-createautocompletecomboboxstate), [`createCommandInputState`](#behavior-createcommandinputstate), [`createListboxCollection`](#behavior-createlistboxcollection), [`createLogHistory`](#behavior-createloghistory), [`createLogViewerView`](#behavior-createlogviewerview), [`createNotificationState`](#behavior-createnotificationstate)
-- [`createNumberInputConfiguration`](#behavior-createnumberinputconfiguration), [`createNumberInputState`](#behavior-createnumberinputstate), [`createScrollState`](#behavior-createscrollstate), [`createSearchPickerIndex`](#behavior-createsearchpickerindex), [`createSearchPickerState`](#behavior-createsearchpickerstate), [`createSplitPaneState`](#behavior-createsplitpanestate), [`createTableCollection`](#behavior-createtablecollection), [`createTextAreaState`](#behavior-createtextareastate)
-- [`createTreeCollection`](#behavior-createtreecollection), [`createTreeCollectionFromRows`](#behavior-createtreecollectionfromrows), [`createTreeSource`](#behavior-createtreesource), [`createTreeView`](#behavior-createtreeview), [`dataGridReducer`](#behavior-datagridreducer), [`defaultCalendarFocusSearchLimitDays`](#behavior-defaultcalendarfocussearchlimitdays), [`defaultNavigationPolicy`](#behavior-defaultnavigationpolicy), [`defaultNumberInputConfiguration`](#behavior-defaultnumberinputconfiguration)
-- [`extractLogViewerSelectionText`](#behavior-extractlogviewerselectiontext), [`followTailScrollState`](#behavior-followtailscrollstate), [`heatmapReducer`](#behavior-heatmapreducer), [`indeterminateProgressFrame`](#behavior-indeterminateprogressframe), [`isTreeView`](#behavior-istreeview), [`listViewReducer`](#behavior-listviewreducer), [`listboxReducer`](#behavior-listboxreducer), [`logHistoryEntries`](#behavior-loghistoryentries)
-- [`logHistoryEntryAt`](#behavior-loghistoryentryat), [`logHistoryRecordById`](#behavior-loghistoryrecordbyid), [`logHistoryRecordMatches`](#behavior-loghistoryrecordmatches), [`logViewerReducer`](#behavior-logviewerreducer), [`matchingLogViewerView`](#behavior-matchinglogviewerview), [`matchingSearchPickerQuery`](#behavior-matchingsearchpickerquery), [`matchingTreeView`](#behavior-matchingtreeview), [`menuBarReducer`](#behavior-menubarreducer)
-- [`menuBarView`](#behavior-menubarview), [`menuReducer`](#behavior-menureducer), [`menuTriggerReducer`](#behavior-menutriggerreducer), [`menuTriggerView`](#behavior-menutriggerview), [`menuView`](#behavior-menuview), [`navigationStackReducer`](#behavior-navigationstackreducer), [`nextLogViewerMatch`](#behavior-nextlogviewermatch), [`nextNotificationExpiry`](#behavior-nextnotificationexpiry)
-- [`normalizeCheckboxGroupState`](#behavior-normalizecheckboxgroupstate), [`normalizeColorSwatchPickerState`](#behavior-normalizecolorswatchpickerstate), [`normalizeRadioGroupState`](#behavior-normalizeradiogroupstate), [`normalizeScrollState`](#behavior-normalizescrollstate), [`notificationHistoryItems`](#behavior-notificationhistoryitems), [`notificationReducer`](#behavior-notificationreducer), [`notificationTransitionFromHistory`](#behavior-notificationtransitionfromhistory), [`numberInputAnalysis`](#behavior-numberinputanalysis)
-- [`numberInputReducer`](#behavior-numberinputreducer), [`numberInputView`](#behavior-numberinputview), [`paginationReducer`](#behavior-paginationreducer), [`paginationView`](#behavior-paginationview), [`paginationWindow`](#behavior-paginationwindow), [`prepareAppendLogHistory`](#behavior-prepareappendloghistory), [`prepareLogHistory`](#behavior-prepareloghistory), [`prepareLogViewerView`](#behavior-preparelogviewerview)
-- [`prepareSearchPickerIndex`](#behavior-preparesearchpickerindex), [`prepareSearchPickerIndexUpdate`](#behavior-preparesearchpickerindexupdate), [`prepareSearchPickerQuery`](#behavior-preparesearchpickerquery), [`prepareTreeSource`](#behavior-preparetreesource), [`prepareTreeView`](#behavior-preparetreeview), [`progressValueStatus`](#behavior-progressvaluestatus), [`querySearchPickerIndex`](#behavior-querysearchpickerindex), [`radioGroupReducer`](#behavior-radiogroupreducer)
-- [`rangeSliderReducer`](#behavior-rangesliderreducer), [`scrollReducer`](#behavior-scrollreducer), [`searchPickerEntryById`](#behavior-searchpickerentrybyid), [`searchPickerQueryPosition`](#behavior-searchpickerqueryposition), [`searchPickerReducer`](#behavior-searchpickerreducer), [`searchPickerView`](#behavior-searchpickerview), [`searchPickerWindow`](#behavior-searchpickerwindow), [`selectableTreeRows`](#behavior-selectabletreerows)
-- [`selectionFromTextPointerTransition`](#behavior-selectionfromtextpointertransition), [`sliceVisibleRows`](#behavior-slicevisiblerows), [`sortTableRows`](#behavior-sorttablerows), [`splitPaneLayout`](#behavior-splitpanelayout), [`splitPaneReducer`](#behavior-splitpanereducer), [`tabsReducer`](#behavior-tabsreducer), [`textAreaReducer`](#behavior-textareareducer), [`textInputReducer`](#behavior-textinputreducer)
-- [`treeDisclosureTransition`](#behavior-treedisclosuretransition), [`treeNodeMatches`](#behavior-treenodematches), [`treeReducer`](#behavior-treereducer), [`updateSearchPickerIndex`](#behavior-updatesearchpickerindex), [`visibleListboxEntries`](#behavior-visiblelistboxentries), [`visibleRowWindow`](#behavior-visiblerowwindow), [`visibleTreeRows`](#behavior-visibletreerows), [`visibleWindowFromScroll`](#behavior-visiblewindowfromscroll)
+- [`contextMenuReducer`](#behavior-contextmenureducer), [`contextMenuView`](#behavior-contextmenuview), [`createAutocompleteComboboxState`](#behavior-createautocompletecomboboxstate), [`createCommandInputState`](#behavior-createcommandinputstate), [`createListboxCollection`](#behavior-createlistboxcollection), [`createListboxView`](#behavior-createlistboxview), [`createLogHistory`](#behavior-createloghistory), [`createLogViewerView`](#behavior-createlogviewerview)
+- [`createNotificationState`](#behavior-createnotificationstate), [`createNumberInputConfiguration`](#behavior-createnumberinputconfiguration), [`createNumberInputState`](#behavior-createnumberinputstate), [`createScrollState`](#behavior-createscrollstate), [`createSearchPickerIndex`](#behavior-createsearchpickerindex), [`createSearchPickerState`](#behavior-createsearchpickerstate), [`createSplitPaneState`](#behavior-createsplitpanestate), [`createTableCollection`](#behavior-createtablecollection)
+- [`createTextAreaState`](#behavior-createtextareastate), [`createTreeCollection`](#behavior-createtreecollection), [`createTreeCollectionFromRows`](#behavior-createtreecollectionfromrows), [`createTreeSource`](#behavior-createtreesource), [`createTreeView`](#behavior-createtreeview), [`dataGridReducer`](#behavior-datagridreducer), [`defaultCalendarFocusSearchLimitDays`](#behavior-defaultcalendarfocussearchlimitdays), [`defaultNavigationPolicy`](#behavior-defaultnavigationpolicy)
+- [`defaultNumberInputConfiguration`](#behavior-defaultnumberinputconfiguration), [`extractLogViewerSelectionText`](#behavior-extractlogviewerselectiontext), [`followTailScrollState`](#behavior-followtailscrollstate), [`heatmapReducer`](#behavior-heatmapreducer), [`indeterminateProgressFrame`](#behavior-indeterminateprogressframe), [`isTreeView`](#behavior-istreeview), [`listViewReducer`](#behavior-listviewreducer), [`listboxReducer`](#behavior-listboxreducer)
+- [`logHistoryEntries`](#behavior-loghistoryentries), [`logHistoryEntryAt`](#behavior-loghistoryentryat), [`logHistoryRecordById`](#behavior-loghistoryrecordbyid), [`logHistoryRecordMatches`](#behavior-loghistoryrecordmatches), [`logViewerReducer`](#behavior-logviewerreducer), [`matchingListboxView`](#behavior-matchinglistboxview), [`matchingLogViewerView`](#behavior-matchinglogviewerview), [`matchingSearchPickerQuery`](#behavior-matchingsearchpickerquery)
+- [`matchingTreeView`](#behavior-matchingtreeview), [`menuBarReducer`](#behavior-menubarreducer), [`menuBarView`](#behavior-menubarview), [`menuReducer`](#behavior-menureducer), [`menuTriggerReducer`](#behavior-menutriggerreducer), [`menuTriggerView`](#behavior-menutriggerview), [`menuView`](#behavior-menuview), [`navigationStackReducer`](#behavior-navigationstackreducer)
+- [`nextLogViewerMatch`](#behavior-nextlogviewermatch), [`nextNotificationExpiry`](#behavior-nextnotificationexpiry), [`normalizeCheckboxGroupState`](#behavior-normalizecheckboxgroupstate), [`normalizeColorSwatchPickerState`](#behavior-normalizecolorswatchpickerstate), [`normalizeRadioGroupState`](#behavior-normalizeradiogroupstate), [`normalizeScrollState`](#behavior-normalizescrollstate), [`notificationHistoryItems`](#behavior-notificationhistoryitems), [`notificationReducer`](#behavior-notificationreducer)
+- [`notificationTransitionFromHistory`](#behavior-notificationtransitionfromhistory), [`numberInputAnalysis`](#behavior-numberinputanalysis), [`numberInputReducer`](#behavior-numberinputreducer), [`numberInputView`](#behavior-numberinputview), [`paginationReducer`](#behavior-paginationreducer), [`paginationView`](#behavior-paginationview), [`paginationWindow`](#behavior-paginationwindow), [`prepareAppendLogHistory`](#behavior-prepareappendloghistory)
+- [`prepareListboxCollection`](#behavior-preparelistboxcollection), [`prepareListboxCollectionUpdate`](#behavior-preparelistboxcollectionupdate), [`prepareListboxView`](#behavior-preparelistboxview), [`prepareLogHistory`](#behavior-prepareloghistory), [`prepareLogViewerView`](#behavior-preparelogviewerview), [`prepareSearchPickerIndex`](#behavior-preparesearchpickerindex), [`prepareSearchPickerIndexUpdate`](#behavior-preparesearchpickerindexupdate), [`prepareSearchPickerQuery`](#behavior-preparesearchpickerquery)
+- [`prepareTableCollection`](#behavior-preparetablecollection), [`prepareTableCollectionUpdate`](#behavior-preparetablecollectionupdate), [`prepareTableRows`](#behavior-preparetablerows), [`prepareTextAreaReduction`](#behavior-preparetextareareduction), [`prepareTextAreaState`](#behavior-preparetextareastate), [`prepareTreeSource`](#behavior-preparetreesource), [`prepareTreeSourceUpdate`](#behavior-preparetreesourceupdate), [`prepareTreeView`](#behavior-preparetreeview)
+- [`progressValueStatus`](#behavior-progressvaluestatus), [`querySearchPickerIndex`](#behavior-querysearchpickerindex), [`radioGroupReducer`](#behavior-radiogroupreducer), [`rangeSliderReducer`](#behavior-rangesliderreducer), [`scrollReducer`](#behavior-scrollreducer), [`searchPickerEntryById`](#behavior-searchpickerentrybyid), [`searchPickerQueryEntries`](#behavior-searchpickerqueryentries), [`searchPickerQueryPosition`](#behavior-searchpickerqueryposition)
+- [`searchPickerReducer`](#behavior-searchpickerreducer), [`searchPickerView`](#behavior-searchpickerview), [`searchPickerWindow`](#behavior-searchpickerwindow), [`selectableTreeRows`](#behavior-selectabletreerows), [`selectionFromTextPointerTransition`](#behavior-selectionfromtextpointertransition), [`sliceVisibleRows`](#behavior-slicevisiblerows), [`sortTableRows`](#behavior-sorttablerows), [`splitPaneLayout`](#behavior-splitpanelayout)
+- [`splitPaneReducer`](#behavior-splitpanereducer), [`tableCollectionCount`](#behavior-tablecollectioncount), [`tableCollectionItemAt`](#behavior-tablecollectionitemat), [`tableCollectionItemById`](#behavior-tablecollectionitembyid), [`tabsReducer`](#behavior-tabsreducer), [`textAreaReducer`](#behavior-textareareducer), [`textInputReducer`](#behavior-textinputreducer), [`treeDisclosureTransition`](#behavior-treedisclosuretransition)
+- [`treeNodeMatches`](#behavior-treenodematches), [`treeReducer`](#behavior-treereducer), [`treeSourceChildren`](#behavior-treesourcechildren), [`treeSourceNodeById`](#behavior-treesourcenodebyid), [`updateListboxCollection`](#behavior-updatelistboxcollection), [`updateSearchPickerIndex`](#behavior-updatesearchpickerindex), [`updateTableCollection`](#behavior-updatetablecollection), [`updateTreeSource`](#behavior-updatetreesource)
+- [`visibleListboxEntries`](#behavior-visiblelistboxentries), [`visibleRowWindow`](#behavior-visiblerowwindow), [`visibleTreeRows`](#behavior-visibletreerows), [`visibleWindowFromScroll`](#behavior-visiblewindowfromscroll)
 
 ### @ismail-elkorchi/terminal-ui/renderer
 
@@ -600,6 +606,80 @@ export declare class TerminalUiError extends Error { … }
 readonly name: string;
 ```
 
+<a id="root-terminaluierror-code"></a>
+#### code
+
+```ts
+readonly code: TerminalUiErrorOptions['code'];
+```
+
+<a id="root-terminaluierror-reason"></a>
+#### reason
+
+```ts
+readonly reason: string | undefined;
+```
+
+<a id="root-terminaluierror-limit"></a>
+#### limit
+
+```ts
+readonly limit: number | undefined;
+```
+
+<a id="root-terminaluierror-observed"></a>
+#### observed
+
+```ts
+readonly observed: number | undefined;
+```
+
+<a id="root-terminaluierror-constructor"></a>
+#### constructor
+
+```ts
+constructor(message: string, options?: TerminalUiErrorOptions);
+```
+
+<a id="root-terminaluierroroptions"></a>
+### TerminalUiErrorOptions
+
+interface · beta · [source](../../src/errors.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only)
+
+```ts
+export interface TerminalUiErrorOptions extends ErrorOptions { … }
+```
+
+<a id="root-terminaluierroroptions-code"></a>
+#### code
+
+```ts
+readonly code?: 'TUI_OVERLOAD' | 'TUI_RUNTIME_FAULT';
+```
+
+<a id="root-terminaluierroroptions-reason"></a>
+#### reason
+
+```ts
+readonly reason?: string;
+```
+
+<a id="root-terminaluierroroptions-limit"></a>
+#### limit
+
+```ts
+readonly limit?: number;
+```
+
+<a id="root-terminaluierroroptions-observed"></a>
+#### observed
+
+```ts
+readonly observed?: number;
+```
+
 <a id="root-behavior"></a>
 ### behavior
 
@@ -627,9 +707,9 @@ export type { CommandInputState, CreateCommandInputStateInput, } from './command
 export type { CommandCompletion, CommandInputSubmitEvent, CommandInputTransition, CommandInputView, CommandSuggestion, } from './command-input.ts';
 export { listViewReducer } from './list-view.ts';
 export type { ListViewReducerOptions } from './list-view.ts';
-export { createListboxCollection, listboxReducer, visibleListboxEntries, } from './listbox-operations.ts';
+export { createListboxCollection, prepareListboxCollection, updateListboxCollection, prepareListboxCollectionUpdate, listboxReducer, visibleListboxEntries, } from './listbox-operations.ts';
 export type { ListboxReducerOptions } from './listbox-operations.ts';
-export type { CompleteListboxCollection, ListboxActivateEvent, ListboxCollection, ListboxCollectionItem, ListboxControlTransition, ListboxOption, ListboxOptionMapper, ListboxState, ListboxTransition, ListboxViewEntry, ScrollableListboxState, UnscrolledListboxState, WindowedListboxCollection, } from './listbox.ts';
+export type { CompleteListboxCollection, ListboxActivateEvent, ListboxCollection, ListboxCollectionItem, ListboxCollectionChange, ListboxControlTransition, ListboxOption, ListboxOptionMapper, ListboxState, ListboxTransition, ListboxViewEntry, ScrollableListboxState, UnscrolledListboxState, WindowedListboxCollection, } from './listbox.ts';
 export { appendLogHistory, createLogHistory, prepareLogHistory, prepareAppendLogHistory, logHistoryEntries, logHistoryEntryAt, logHistoryRecordById, logHistoryRecordMatches, } from './log-history.ts';
 export type { LogEntry, LogHistory, LogHistoryRecord, LogSearchField, LogSearchMatch, } from './log-history.ts';
 export { followTailScrollState, logViewerReducer, } from './log-viewer-operations.ts';
@@ -656,7 +736,7 @@ export type { ProgressFrame, ProgressFrameCell, ProgressValueStatus } from './pr
 export { rangeSliderReducer } from './range-slider-operations.ts';
 export type { NumericRange, RangeSliderHandle, RangeSliderReducerOptions, RangeSliderState, RangeSliderStepDirection, RangeSliderTransition, RangeSliderValue, } from './range-slider.ts';
 export { applyScrollRequest, createScrollState, normalizeScrollState, scrollReducer, visibleWindowFromScroll, } from './scroll.ts';
-export { createSearchPickerIndex, prepareSearchPickerIndex, updateSearchPickerIndex, prepareSearchPickerIndexUpdate, querySearchPickerIndex, prepareSearchPickerQuery, matchingSearchPickerQuery, searchPickerEntryById, searchPickerQueryPosition } from './search-picker-index.ts';
+export { createSearchPickerIndex, prepareSearchPickerIndex, updateSearchPickerIndex, prepareSearchPickerIndexUpdate, querySearchPickerIndex, prepareSearchPickerQuery, matchingSearchPickerQuery, searchPickerEntryById, searchPickerQueryPosition, searchPickerQueryEntries } from './search-picker-index.ts';
 export type { SearchPickerIndex, SearchPickerQueryResult, SearchPickerIndexChange } from './search-picker-index.ts';
 export { activeSearchPickerEntry, createSearchPickerState, searchPickerReducer, searchPickerView, searchPickerWindow, } from './search-picker-operations.ts';
 export type { CreateSearchPickerStateInput, ScrollableSearchPickerState, SearchPickerActiveInput, SearchPickerReducerOptions, SearchPickerState, SearchPickerWindow, SearchPickerWindowInput, UnscrolledSearchPickerState, } from './search-picker-operations.ts';
@@ -664,17 +744,17 @@ export type { ScrollableSearchPickerView, SearchPickerAcceptEvent, SearchPickerC
 export { createSplitPaneState, splitPaneLayout, splitPaneReducer, } from './split-pane-operations.ts';
 export type { SplitPaneConstraint, SplitPaneDragState, SplitPaneLayout, SplitPaneReducerOptions, SplitPaneState, } from './split-pane-operations.ts';
 export type { SplitPaneTransition } from './split-pane.ts';
-export { createTableCollection, dataGridReducer, sortTableRows } from './table-operations.ts';
+export { createTableCollection, prepareTableCollection, updateTableCollection, prepareTableCollectionUpdate, tableCollectionItemAt, tableCollectionItemById, tableCollectionCount, dataGridReducer, sortTableRows, prepareTableRows } from './table-operations.ts';
 export type { DataGridReducerOptions, TableCellValueGetter } from './table-operations.ts';
-export type { CompleteTableCollection, DataGridActivateEvent, DataGridCell, DataGridControlTransition, DataGridInteraction, DataGridState, DataGridTransition, ScrollableDataGridState, TableCollection, TableCollectionRow, TableSortState, TableState, UnscrolledDataGridState, WindowedTableCollection, } from './table.ts';
+export type { CompleteTableCollection, DataGridActivateEvent, DataGridCell, DataGridControlTransition, DataGridInteraction, DataGridState, DataGridTransition, ScrollableDataGridState, TableCollection, TableCollectionRow, TableCollectionChange, TableSortState, TableState, UnscrolledDataGridState, WindowedTableCollection, } from './table.ts';
 export { tabsReducer } from './tabs-operations.ts';
 export type { TabBehaviorItem, TabsReducerOptions } from './tabs-operations.ts';
 export type { TabCloseEvent, TabsActivation, TabsState, TabsTransition } from './tabs.ts';
 export type { ScrollableTextAreaControlState, TextAreaControlState, TextAreaControlTransition, TextAreaTransition, UnscrolledTextAreaControlState, } from './text-area.ts';
-export { applyTextPointerTransition, createTextAreaState, selectionFromTextPointerTransition, textAreaReducer, textInputReducer, } from './text-editing.ts';
+export { applyTextPointerTransition, createTextAreaState, prepareTextAreaState, prepareTextAreaReduction, selectionFromTextPointerTransition, textAreaReducer, textInputReducer, } from './text-editing.ts';
 export type { CreateTextAreaStateInput, TextAreaEditHistory, TextAreaEditPoint, TextAreaEditRecord, TextAreaHistoryRejection, TextAreaReduction, TextAreaState, } from './text-editing.ts';
 export type { TextInputTransition } from './text-input.ts';
-export { createTreeCollection, createTreeCollectionFromRows, createTreeSource, prepareTreeSource, createTreeView, matchingTreeView, prepareTreeView, isTreeView, selectableTreeRows, treeDisclosureTransition, treeNodeMatches, treeReducer, visibleTreeRows, } from './tree-operations.ts';
+export { createTreeCollection, createTreeCollectionFromRows, createTreeSource, prepareTreeSource, updateTreeSource, prepareTreeSourceUpdate, treeSourceNodeById, treeSourceChildren, createTreeView, matchingTreeView, prepareTreeView, isTreeView, selectableTreeRows, treeDisclosureTransition, treeNodeMatches, treeReducer, visibleTreeRows, } from './tree-operations.ts';
 export type { TreeReducerOptions } from './tree-operations.ts';
 export type { CompleteTreeCollection, ScrollableTreeState, TreeCollection, TreeCollectionRow, TreeControlTransition, TreeDisclosureTransition, TreeLoadStatus, TreeState, TreeTransition, TreeVisibleRow, UnscrolledTreeState, WindowedTreeCollection, } from './tree.ts';
 export { sliceVisibleRows, visibleRowWindow } from './visible-row-window.ts';
@@ -686,6 +766,9 @@ export type { BarChartTransition, ChartTransition, HeatmapTransition, Visualizat
 export type { CooperativeWorkContext } from '../foundation/cooperative-work.ts';
 export { matchingLogViewerView, prepareLogViewerView, createLogViewerView, nextLogViewerMatch } from './log-viewer-view.ts';
 export type { LogViewerViewInput, LogViewerView } from './log-viewer-view.ts';
+export { createListboxView, prepareListboxView, matchingListboxView } from "./listbox-view.ts";
+export type { TreeSource, TreeSourceEntry, TreeSourceChange, TreeNodeDescriptor, TreeView, TreeNode, TreeNodeBase } from './tree.ts';
+export type { ListboxView } from './listbox.ts';
 
 ```
 
@@ -707,6 +790,7 @@ export { collectionIds, collectionItemById, createCompleteCollection, createWind
 export type { CollectionItem, CollectionSnapshot, CollectionWindow, CollectionWindowScope, CollectionWindowScopeInput, CompleteCollectionSnapshot, WindowedCollectionSnapshot, } from './snapshot.ts';
 export { acceptMeasurements, createMeasurementState, measurementRequests, updateMeasurementState } from './measurement.ts';
 export type { MeasurementGeometry, MeasurementOptions, MeasurementRequest, MeasurementState, MeasurementUpdate } from './measurement.ts';
+export type { CollectionOrderReader } from "../foundation/order-reader.ts";
 
 ```
 
@@ -1947,18 +2031,86 @@ readonly submissionIndex?: number;
 readonly suggestions: ListboxCollection<CommandCompletion>;
 ```
 
+<a id="behavior-commandinputstate-suggestionview"></a>
+#### suggestionView
+
+```ts
+readonly suggestionView: ListboxView<CommandCompletion>;
+```
+
 <a id="behavior-completelistboxcollection"></a>
 ### CompleteListboxCollection
 
-type · beta · [source](../../src/behavior/listbox.ts)
+interface · beta · [source](../../src/behavior/listbox.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/behavior` (type only)
 
 ```ts
-export type CompleteListboxCollection<TValue> = CompleteCollectionSnapshot<ListboxCollectionItem<TValue>>;
+export interface CompleteListboxCollection<TValue> { … }
 ```
 
-Related types: [`CompleteCollectionSnapshot`](#collection-completecollectionsnapshot), [`ListboxCollectionItem`](#components-collections-listboxcollectionitem)
+<a id="behavior-completelistboxcollection--listboxsourcebrand-"></a>
+#### [listboxSourceBrand]
+
+```ts
+readonly [listboxSourceBrand]: TValue;
+```
+
+<a id="behavior-completelistboxcollection-kind"></a>
+#### kind
+
+```ts
+readonly kind: 'listbox-source';
+```
+
+<a id="behavior-completelistboxcollection-count"></a>
+#### count
+
+```ts
+readonly count: number;
+```
+
+<a id="behavior-completelistboxcollection-startindex"></a>
+#### startIndex
+
+```ts
+readonly startIndex: 0;
+```
+
+<a id="behavior-completelistboxcollection-totalcount"></a>
+#### totalCount
+
+```ts
+readonly totalCount: number;
+```
+
+<a id="behavior-completelistboxcollection-itemat"></a>
+#### itemAt
+
+```ts
+readonly itemAt: (rank: number) => ListboxCollectionItem<TValue> | undefined;
+```
+
+<a id="behavior-completelistboxcollection-itembyid"></a>
+#### itemById
+
+```ts
+readonly itemById: (id: string) => ListboxCollectionItem<TValue> | undefined;
+```
+
+<a id="behavior-completelistboxcollection-rank"></a>
+#### rank
+
+```ts
+readonly rank: (id: string) => number | undefined;
+```
+
+<a id="behavior-completelistboxcollection-window"></a>
+#### window
+
+```ts
+readonly window: (start: number, end: number) => readonly ListboxCollectionItem<TValue>[];
+```
 
 <a id="behavior-completetreecollection"></a>
 ### CompleteTreeCollection
@@ -1999,7 +2151,7 @@ interface · beta · [source](../../src/foundation/cooperative-work.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/behavior` (type only), `@ismail-elkorchi/terminal-ui/text` (type only)
 
-Caller-owned cancellation and scheduling for bounded collection work.
+Caller-owned cancellation and scheduling for cooperative collection work.
 
 ```ts
 export interface CooperativeWorkContext { … }
@@ -2015,8 +2167,37 @@ readonly signal: AbortSignal;
 <a id="behavior-cooperativeworkcontext-yield"></a>
 #### yield
 
+Yield to the host scheduler, rather than merely another microtask.
+
 ```ts
 readonly yield: () => Promise<void>;
+```
+
+<a id="behavior-cooperativeworkcontext-monotonicnow"></a>
+#### monotonicNow
+
+Injected monotonic clock. Time slicing is advisory; no ambient clock is read.
+
+```ts
+readonly monotonicNow?: () => number;
+```
+
+<a id="behavior-cooperativeworkcontext-operationlimit"></a>
+#### operationLimit
+
+Maximum charged work between scheduler turns (default 2048).
+
+```ts
+readonly operationLimit?: number;
+```
+
+<a id="behavior-cooperativeworkcontext-timeslicems"></a>
+#### timeSliceMs
+
+Advisory elapsed milliseconds per turn when a clock is supplied (default 4).
+
+```ts
+readonly timeSliceMs?: number;
 ```
 
 <a id="behavior-createautocompletecomboboxstateinput"></a>
@@ -2183,7 +2364,16 @@ export interface CreateTextAreaStateInput { … }
 #### value
 
 ```ts
-readonly value: string;
+readonly value?: string;
+```
+
+<a id="behavior-createtextareastateinput-document"></a>
+#### document
+
+Adopt an immutable prepared document without rebuilding its source.
+
+```ts
+readonly document?: TextDocument;
 ```
 
 <a id="behavior-createtextareastateinput-caret"></a>
@@ -2344,27 +2534,19 @@ Import from: `@ismail-elkorchi/terminal-ui/behavior` (type only)
 
 ```ts
 export type ListboxReducerOptions<TValue> = ({
-    readonly items: readonly TValue[];
-    readonly toOption: ListboxOptionMapper<TValue>;
-    readonly collection?: never;
+    readonly collection: import('./listbox.ts').CompleteListboxCollection<TValue>;
     readonly query?: import('../text/query.ts').CollectionQuery;
 } | {
-    readonly collection: CompleteListboxCollection<TValue>;
-    readonly items?: never;
-    readonly toOption?: never;
-    readonly query?: import('../text/query.ts').CollectionQuery;
-} | {
-    readonly collection: WindowedListboxCollection<TValue>;
-    readonly items?: never;
-    readonly toOption?: never;
+    readonly collection: import('./listbox.ts').WindowedListboxCollection<TValue>;
     readonly query?: never;
 }) & {
+    readonly view: ListboxView<TValue> | null;
     readonly navigation?: NavigationPolicy;
     readonly pageSize?: number;
 };
 ```
 
-Related types: [`collection`](#root-collection), [`CompleteListboxCollection`](#behavior-completelistboxcollection), [`NavigationPolicy`](#behavior-navigationpolicy), [`WindowedListboxCollection`](#behavior-windowedlistboxcollection), [`CollectionQuery`](#component-collectionquery), [`ListboxOptionMapper`](#components-collections-listboxoptionmapper), [`text`](#components-foundations-text)
+Related types: [`collection`](#root-collection), [`CompleteListboxCollection`](#behavior-completelistboxcollection), [`NavigationPolicy`](#behavior-navigationpolicy), [`WindowedListboxCollection`](#behavior-windowedlistboxcollection), [`CollectionQuery`](#component-collectionquery), [`ListboxView`](#components-collections-listboxview), [`listbox`](#components-collections-listbox), [`text`](#components-foundations-text)
 
 <a id="behavior-listboxviewentry"></a>
 ### ListboxViewEntry
@@ -4009,11 +4191,25 @@ readonly searchPickerIndex: SearchPickerIndex<TValue>;
 readonly query: CompiledCollectionQuery;
 ```
 
-<a id="behavior-searchpickerqueryresult-entries"></a>
-#### entries
+<a id="behavior-searchpickerqueryresult-count"></a>
+#### count
 
 ```ts
-readonly entries: readonly SearchEntry<TValue>[];
+readonly count: number;
+```
+
+<a id="behavior-searchpickerqueryresult-entryat"></a>
+#### entryAt
+
+```ts
+readonly entryAt: (rank: number) => SearchEntry<TValue> | undefined;
+```
+
+<a id="behavior-searchpickerqueryresult-window"></a>
+#### window
+
+```ts
+readonly window: (start: number, end: number) => readonly SearchEntry<TValue>[];
 ```
 
 <a id="behavior-searchpickerqueryresult-matches"></a>
@@ -5364,30 +5560,45 @@ Related types: [`CommandInputState`](#behavior-commandinputstate), [`CreateComma
 <a id="behavior-createlistboxcollection"></a>
 ### createListboxCollection
 
-function · beta · [source](../../src/behavior/listbox-operations.ts)
+function · beta · [source](../../src/behavior/listbox-source.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/behavior`
 
 ```ts
-export declare function createListboxCollection<
-  TValue
->(
-  values: readonly TValue[],
-  toOption: ListboxOptionMapper<TValue>
-): CompleteListboxCollection<TValue>;
+export declare function createListboxCollection<T>(values: readonly T[], toOption: ListboxOptionMapper<T>): CompleteListboxCollection<T>;
 ```
 
 ```ts
 export declare function createListboxCollection<
-  TValue
+  T
 >(
-  values: readonly TValue[],
-  toOption: ListboxOptionMapper<TValue>,
+  values: readonly T[],
+  toOption: ListboxOptionMapper<T>,
   window: CollectionWindow
-): WindowedListboxCollection<TValue>;
+): WindowedListboxCollection<T>;
 ```
 
 Related types: [`CollectionWindow`](#behavior-collectionwindow), [`CompleteListboxCollection`](#behavior-completelistboxcollection), [`WindowedListboxCollection`](#behavior-windowedlistboxcollection), [`ListboxOptionMapper`](#components-collections-listboxoptionmapper)
+
+<a id="behavior-createlistboxview"></a>
+### createListboxView
+
+function · beta · [source](../../src/behavior/listbox-view.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+```ts
+export declare function createListboxView<
+  T
+>(
+  collection: ListboxCollection<T>,
+  options?: {
+    readonly query?: CollectionQuery;
+}
+): ListboxView<T>;
+```
+
+Related types: [`collection`](#root-collection), [`CollectionQuery`](#component-collectionquery), [`ListboxCollection`](#components-collections-listboxcollection), [`ListboxView`](#components-collections-listboxview)
 
 <a id="behavior-createloghistory"></a>
 ### createLogHistory
@@ -5943,6 +6154,25 @@ export declare function logViewerReducer(
 
 Related types: [`LogViewerReducerOptions`](#behavior-logviewerreduceroptions), [`ScrollableLogViewerState`](#behavior-scrollablelogviewerstate), [`UnscrolledLogViewerState`](#behavior-unscrolledlogviewerstate), [`LogViewerControlTransition`](#components-patterns-logviewercontroltransition), [`LogViewerTransition`](#components-patterns-logviewertransition)
 
+<a id="behavior-matchinglistboxview"></a>
+### matchingListboxView
+
+function · beta · [source](../../src/behavior/listbox-view.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+```ts
+export declare function matchingListboxView<
+  T
+>(
+  collection: ListboxCollection<T>,
+  query: CollectionQuery | undefined,
+  view: ListboxView<T> | null
+): ListboxView<T> | undefined;
+```
+
+Related types: [`collection`](#root-collection), [`CollectionQuery`](#component-collectionquery), [`ListboxCollection`](#components-collections-listboxcollection), [`ListboxView`](#components-collections-listboxview)
+
 <a id="behavior-matchinglogviewerview"></a>
 ### matchingLogViewerView
 
@@ -6329,12 +6559,73 @@ Import from: `@ismail-elkorchi/terminal-ui/behavior`
 ```ts
 export declare function prepareAppendLogHistory(
   history: LogHistory,
-  entries: readonly LogEntry[],
+  batches: Iterable<readonly LogEntry[]>,
   context: CooperativeWorkContext
 ): Promise<LogHistory>;
 ```
 
 Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`LogEntry`](#components-patterns-logentry), [`LogHistory`](#components-patterns-loghistory)
+
+<a id="behavior-preparelistboxcollection"></a>
+### prepareListboxCollection
+
+function · beta · [source](../../src/behavior/listbox-source.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+Each bounded batch is owned before normalization yields. Payloads remain immutable application values.
+
+```ts
+export declare function prepareListboxCollection<
+  T
+>(
+  batches: Iterable<readonly T[]>,
+  toOption: ListboxOptionMapper<T>,
+  context: CooperativeWorkContext
+): Promise<CompleteListboxCollection<T>>;
+```
+
+Related types: [`CompleteListboxCollection`](#behavior-completelistboxcollection), [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`ListboxOptionMapper`](#components-collections-listboxoptionmapper)
+
+<a id="behavior-preparelistboxcollectionupdate"></a>
+### prepareListboxCollectionUpdate
+
+function · beta · [source](../../src/behavior/listbox-source.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+```ts
+export declare function prepareListboxCollectionUpdate<
+  T
+>(
+  source: CompleteListboxCollection<T>,
+  batches: Iterable<readonly ListboxCollectionChange<T>[]>,
+  context: CooperativeWorkContext
+): Promise<CompleteListboxCollection<T>>;
+```
+
+Related types: [`CompleteListboxCollection`](#behavior-completelistboxcollection), [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`ListboxCollectionChange`](#components-collections-listboxcollectionchange)
+
+<a id="behavior-preparelistboxview"></a>
+### prepareListboxView
+
+function · beta · [source](../../src/behavior/listbox-view.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+```ts
+export declare function prepareListboxView<
+  T
+>(
+  collection: ListboxCollection<T>,
+  options: {
+    readonly query?: CollectionQuery;
+},
+  context: CooperativeWorkContext
+): Promise<ListboxView<T>>;
+```
+
+Related types: [`collection`](#root-collection), [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`CollectionQuery`](#component-collectionquery), [`ListboxCollection`](#components-collections-listboxcollection), [`ListboxView`](#components-collections-listboxview)
 
 <a id="behavior-prepareloghistory"></a>
 ### prepareLogHistory
@@ -6343,10 +6634,11 @@ function · beta · [source](../../src/behavior/log-history.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/behavior`
 
-Raw descriptor adoption is indivisible; record normalization and indexing cooperate.
+Batches own at most 256 descriptors and 1024 metadata fields before yielding.
+Immutable strings and application payloads are consumed without deep cloning.
 
 ```ts
-export declare function prepareLogHistory(entries: readonly LogEntry[], context: CooperativeWorkContext): Promise<LogHistory>;
+export declare function prepareLogHistory(batches: Iterable<readonly LogEntry[]>, context: CooperativeWorkContext): Promise<LogHistory>;
 ```
 
 Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`LogEntry`](#components-patterns-logentry), [`LogHistory`](#components-patterns-loghistory)
@@ -6432,6 +6724,101 @@ export declare function prepareSearchPickerQuery<
 
 Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`SearchPickerIndex`](#behavior-searchpickerindex), [`SearchPickerQueryResult`](#behavior-searchpickerqueryresult), [`CollectionQuery`](#component-collectionquery)
 
+<a id="behavior-preparetablecollection"></a>
+### prepareTableCollection
+
+function · beta · [source](../../src/behavior/table-operations.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+Each batch owns at most 256 membership references before yielding; row payloads must be immutable.
+
+```ts
+export declare function prepareTableCollection<
+  TRow
+>(
+  batches: Iterable<readonly TRow[]>,
+  getRowId: (row: TRow, index: number) => string,
+  context: CooperativeWorkContext
+): Promise<CompleteTableCollection<TRow>>;
+```
+
+Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`CompleteTableCollection`](#components-collections-completetablecollection), [`row`](#layout-row)
+
+<a id="behavior-preparetablecollectionupdate"></a>
+### prepareTableCollectionUpdate
+
+function · beta · [source](../../src/behavior/table-operations.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+```ts
+export declare function prepareTableCollectionUpdate<
+  TRow
+>(
+  source: CompleteTableCollection<TRow>,
+  batches: Iterable<readonly TableCollectionChange<TRow>[]>,
+  context: CooperativeWorkContext
+): Promise<CompleteTableCollection<TRow>>;
+```
+
+Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`CompleteTableCollection`](#components-collections-completetablecollection), [`TableCollectionChange`](#components-collections-tablecollectionchange)
+
+<a id="behavior-preparetablerows"></a>
+### prepareTableRows
+
+function · beta · [source](../../src/behavior/table-operations.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+Immutable rows; callbacks are indivisible and must bound their own work.
+
+```ts
+export declare function prepareTableRows<
+  TRow
+>(
+  rows: CompleteTableCollection<TRow>,
+  sort: TableSortState | undefined,
+  valueForColumn: TableCellValueGetter<TRow>,
+  context: CooperativeWorkContext,
+  compare?: (left: unknown, right: unknown) => number
+): Promise<readonly TRow[]>;
+```
+
+Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`TableCellValueGetter`](#behavior-tablecellvaluegetter), [`CompleteTableCollection`](#components-collections-completetablecollection), [`TableSortState`](#components-collections-tablesortstate)
+
+<a id="behavior-preparetextareareduction"></a>
+### prepareTextAreaReduction
+
+function · beta · [source](../../src/behavior/text-editing.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+Computes the complete atomic edit, inverse, history and navigation transition.
+
+```ts
+export declare function prepareTextAreaReduction(
+  state: TextAreaState,
+  transition: TextAreaTransition,
+  context: CooperativeWorkContext
+): Promise<TextAreaReduction>;
+```
+
+Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`TextAreaReduction`](#behavior-textareareduction), [`TextAreaState`](#behavior-textareastate), [`TextAreaTransition`](#components-forms-textareatransition)
+
+<a id="behavior-preparetextareastate"></a>
+### prepareTextAreaState
+
+function · beta · [source](../../src/behavior/text-editing.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+```ts
+export declare function prepareTextAreaState(input: CreateTextAreaStateInput, context: CooperativeWorkContext): Promise<TextAreaState>;
+```
+
+Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`CreateTextAreaStateInput`](#behavior-createtextareastateinput), [`TextAreaState`](#behavior-textareastate), [`input`](#prompts-input)
+
 <a id="behavior-preparetreesource"></a>
 ### prepareTreeSource
 
@@ -6439,18 +6826,37 @@ function · beta · [source](../../src/behavior/tree-operations.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/behavior`
 
-Snapshot adoption is indivisible; normalization and source indexing cooperate.
+Topologically ordered batches own at most 256 flat descriptors. Parents precede children.
 
 ```ts
 export declare function prepareTreeSource<
   TMetadata extends Readonly<Record<string, unknown>>
 >(
-  nodes: readonly TreeNode<TMetadata>[],
+  batches: Iterable<readonly TreeSourceEntry<TMetadata>[]>,
   context: CooperativeWorkContext
 ): Promise<TreeSource<TMetadata>>;
 ```
 
-Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`TreeNode`](#components-collections-treenode), [`TreeSource`](#components-collections-treesource)
+Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`TreeSource`](#components-collections-treesource), [`TreeSourceEntry`](#components-collections-treesourceentry)
+
+<a id="behavior-preparetreesourceupdate"></a>
+### prepareTreeSourceUpdate
+
+function · beta · [source](../../src/behavior/tree-operations.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+```ts
+export declare function prepareTreeSourceUpdate<
+  TMetadata extends Readonly<Record<string, unknown>>
+>(
+  source: TreeSource<TMetadata>,
+  batches: Iterable<readonly TreeSourceChange<TMetadata>[]>,
+  context: CooperativeWorkContext
+): Promise<TreeSource<TMetadata>>;
+```
+
+Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`TreeSource`](#components-collections-treesource), [`TreeSourceChange`](#components-collections-treesourcechange)
 
 <a id="behavior-preparetreeview"></a>
 ### prepareTreeView
@@ -6565,6 +6971,21 @@ export declare function searchPickerEntryById<TValue>(index: SearchPickerIndex<T
 ```
 
 Related types: [`SearchPickerIndex`](#behavior-searchpickerindex), [`SearchEntry`](#collection-searchentry)
+
+<a id="behavior-searchpickerqueryentries"></a>
+### searchPickerQueryEntries
+
+function · beta · [source](../../src/behavior/search-picker-index.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+Explicit O(result count) materialization for exports and deliberate eager consumers.
+
+```ts
+export declare function searchPickerQueryEntries<T>(result: SearchPickerQueryResult<T>): readonly SearchEntry<T>[];
+```
+
+Related types: [`SearchPickerQueryResult`](#behavior-searchpickerqueryresult), [`SearchEntry`](#collection-searchentry)
 
 <a id="behavior-searchpickerqueryposition"></a>
 ### searchPickerQueryPosition
@@ -6758,6 +7179,45 @@ export declare function splitPaneReducer(
 
 Related types: [`SplitPaneReducerOptions`](#behavior-splitpanereduceroptions), [`SplitPaneState`](#behavior-splitpanestate), [`SplitPaneTransition`](#behavior-splitpanetransition)
 
+<a id="behavior-tablecollectioncount"></a>
+### tableCollectionCount
+
+function · beta · [source](../../src/behavior/table-operations.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+```ts
+export declare function tableCollectionCount(source: TableCollection<unknown>): number;
+```
+
+Related types: [`TableCollection`](#components-collections-tablecollection)
+
+<a id="behavior-tablecollectionitemat"></a>
+### tableCollectionItemAt
+
+function · beta · [source](../../src/behavior/table-operations.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+```ts
+export declare function tableCollectionItemAt<TRow>(source: TableCollection<TRow>, rank: number): TableCollectionRow<TRow> | undefined;
+```
+
+Related types: [`TableCollection`](#components-collections-tablecollection), [`TableCollectionRow`](#components-collections-tablecollectionrow)
+
+<a id="behavior-tablecollectionitembyid"></a>
+### tableCollectionItemById
+
+function · beta · [source](../../src/behavior/table-operations.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+```ts
+export declare function tableCollectionItemById<TRow>(source: TableCollection<TRow>, id: string): TableCollectionRow<TRow> | undefined;
+```
+
+Related types: [`TableCollection`](#components-collections-tablecollection), [`TableCollectionRow`](#components-collections-tablecollectionrow)
+
 <a id="behavior-tabsreducer"></a>
 ### tabsReducer
 
@@ -6831,12 +7291,12 @@ Import from: `@ismail-elkorchi/terminal-ui/behavior`
 export declare function treeNodeMatches<
   TMetadata extends Readonly<Record<string, unknown>>
 >(
-  node: TreeNode<TMetadata>,
+  node: TreeNodeDescriptor<TMetadata>,
   query: CollectionQuery
 ): boolean;
 ```
 
-Related types: [`CollectionQuery`](#component-collectionquery), [`TreeNode`](#components-collections-treenode)
+Related types: [`CollectionQuery`](#component-collectionquery), [`TreeNodeDescriptor`](#components-collections-treenodedescriptor)
 
 <a id="behavior-treereducer"></a>
 ### treeReducer
@@ -6867,6 +7327,64 @@ export declare function treeReducer<
 
 Related types: [`TreeReducerOptions`](#behavior-treereduceroptions), [`ScrollableTreeState`](#components-collections-scrollabletreestate), [`TreeControlTransition`](#components-collections-treecontroltransition), [`TreeTransition`](#components-collections-treetransition), [`UnscrolledTreeState`](#components-collections-unscrolledtreestate)
 
+<a id="behavior-treesourcechildren"></a>
+### treeSourceChildren
+
+function · beta · [source](../../src/behavior/tree-operations.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+```ts
+export declare function treeSourceChildren<
+  TMetadata extends Readonly<Record<string, unknown>>
+>(
+  source: TreeSource<TMetadata>,
+  parentId: string | undefined,
+  start?: number,
+  end?: number
+): readonly TreeNodeDescriptor<TMetadata>[];
+```
+
+Related types: [`TreeNodeDescriptor`](#components-collections-treenodedescriptor), [`TreeSource`](#components-collections-treesource)
+
+<a id="behavior-treesourcenodebyid"></a>
+### treeSourceNodeById
+
+function · beta · [source](../../src/behavior/tree-operations.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+O(log n) lookup and bounded sibling reads, independent of visible projection.
+
+```ts
+export declare function treeSourceNodeById<
+  TMetadata extends Readonly<Record<string, unknown>>
+>(
+  source: TreeSource<TMetadata>,
+  id: string
+): TreeNodeDescriptor<TMetadata> | undefined;
+```
+
+Related types: [`TreeNodeDescriptor`](#components-collections-treenodedescriptor), [`TreeSource`](#components-collections-treesource)
+
+<a id="behavior-updatelistboxcollection"></a>
+### updateListboxCollection
+
+function · beta · [source](../../src/behavior/listbox-source.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+```ts
+export declare function updateListboxCollection<
+  T
+>(
+  source: CompleteListboxCollection<T>,
+  changes: readonly ListboxCollectionChange<T>[]
+): CompleteListboxCollection<T>;
+```
+
+Related types: [`CompleteListboxCollection`](#behavior-completelistboxcollection), [`ListboxCollectionChange`](#components-collections-listboxcollectionchange)
+
 <a id="behavior-updatesearchpickerindex"></a>
 ### updateSearchPickerIndex
 
@@ -6884,6 +7402,42 @@ export declare function updateSearchPickerIndex<
 ```
 
 Related types: [`SearchPickerIndex`](#behavior-searchpickerindex), [`SearchPickerIndexChange`](#behavior-searchpickerindexchange)
+
+<a id="behavior-updatetablecollection"></a>
+### updateTableCollection
+
+function · beta · [source](../../src/behavior/table-operations.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+```ts
+export declare function updateTableCollection<
+  TRow
+>(
+  source: CompleteTableCollection<TRow>,
+  changes: readonly TableCollectionChange<TRow>[]
+): CompleteTableCollection<TRow>;
+```
+
+Related types: [`CompleteTableCollection`](#components-collections-completetablecollection), [`TableCollectionChange`](#components-collections-tablecollectionchange)
+
+<a id="behavior-updatetreesource"></a>
+### updateTreeSource
+
+function · beta · [source](../../src/behavior/tree-operations.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior`
+
+```ts
+export declare function updateTreeSource<
+  TMetadata extends Readonly<Record<string, unknown>>
+>(
+  source: TreeSource<TMetadata>,
+  changes: readonly TreeSourceChange<TMetadata>[]
+): TreeSource<TMetadata>;
+```
+
+Related types: [`TreeSource`](#components-collections-treesource), [`TreeSourceChange`](#components-collections-treesourcechange)
 
 <a id="behavior-visiblelistboxentries"></a>
 ### visibleListboxEntries
@@ -6992,6 +7546,96 @@ readonly itemIndex: number;
 
 ```ts
 readonly sectionId?: string;
+```
+
+<a id="collection-collectionorderreader"></a>
+### CollectionOrderReader
+
+interface · beta · [source](../../src/foundation/order-reader.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/collection` (type only)
+
+A persistent identity and order receipt. Item payloads must be immutable.
+
+```ts
+export interface CollectionOrderReader<T> { … }
+```
+
+<a id="collection-collectionorderreader--collectionorderreaderbrand-"></a>
+#### [collectionOrderReaderBrand]
+
+```ts
+readonly [collectionOrderReaderBrand]: T;
+```
+
+<a id="collection-collectionorderreader-kind"></a>
+#### kind
+
+```ts
+readonly kind: 'ordered-source';
+```
+
+<a id="collection-collectionorderreader-count"></a>
+#### count
+
+```ts
+readonly count: number;
+```
+
+<a id="collection-collectionorderreader-enabledcount"></a>
+#### enabledCount
+
+```ts
+readonly enabledCount: number;
+```
+
+<a id="collection-collectionorderreader-itemat"></a>
+#### itemAt
+
+```ts
+readonly itemAt: (rank: number) => T | undefined;
+```
+
+<a id="collection-collectionorderreader-itembyid"></a>
+#### itemById
+
+```ts
+readonly itemById: (id: string) => T | undefined;
+```
+
+<a id="collection-collectionorderreader-rank"></a>
+#### rank
+
+```ts
+readonly rank: (id: string) => number | undefined;
+```
+
+<a id="collection-collectionorderreader-enabledat"></a>
+#### enabledAt
+
+```ts
+readonly enabledAt: (rank: number) => T | undefined;
+```
+
+<a id="collection-collectionorderreader-enabledrank"></a>
+#### enabledRank
+
+```ts
+readonly enabledRank: (id: string) => number | undefined;
+```
+
+<a id="collection-collectionorderreader-window"></a>
+#### window
+
+```ts
+readonly window: (start: number, end: number) => readonly T[];
+```
+
+<a id="collection-collectionorderreader-values"></a>
+#### values
+
+```ts
+readonly values: (start?: number, end?: number) => IterableIterator<T>;
 ```
 
 <a id="collection-collectionsnapshot"></a>
@@ -7582,11 +8226,11 @@ Import from: `@ismail-elkorchi/terminal-ui/collection`
 
 ```ts
 export declare function appendMeasuredItems<
-  TValue
+  T
 >(
-  collection: MeasuredCollection<TValue>,
-  items: readonly MeasuredCollectionItem<TValue>[]
-): MeasuredCollection<TValue>;
+  collection: MeasuredCollection<T>,
+  items: readonly MeasuredCollectionItem<T>[]
+): MeasuredCollection<T>;
 ```
 
 Related types: [`collection`](#root-collection), [`MeasuredCollection`](#collection-measuredcollection), [`MeasuredCollectionItem`](#collection-measuredcollectionitem)
@@ -7660,7 +8304,7 @@ function · beta · [source](../../src/collection/measured-collection.ts)
 Import from: `@ismail-elkorchi/terminal-ui/collection`
 
 ```ts
-export declare function createMeasuredCollection<TValue>(items: readonly MeasuredCollectionItem<TValue>[]): MeasuredCollection<TValue>;
+export declare function createMeasuredCollection<T>(items: readonly MeasuredCollectionItem<T>[]): MeasuredCollection<T>;
 ```
 
 Related types: [`MeasuredCollection`](#collection-measuredcollection), [`MeasuredCollectionItem`](#collection-measuredcollectionitem)
@@ -7752,12 +8396,7 @@ function · beta · [source](../../src/collection/measured-collection.ts)
 Import from: `@ismail-elkorchi/terminal-ui/collection`
 
 ```ts
-export declare function measuredCollectionItemById<
-  TValue
->(
-  collection: MeasuredCollection<TValue>,
-  id: string
-): MeasuredCollectionItem<TValue> | undefined;
+export declare function measuredCollectionItemById<T>(collection: MeasuredCollection<T>, id: string): MeasuredCollectionItem<T> | undefined;
 ```
 
 Related types: [`collection`](#root-collection), [`MeasuredCollection`](#collection-measuredcollection), [`MeasuredCollectionItem`](#collection-measuredcollectionitem)
@@ -7809,11 +8448,11 @@ Import from: `@ismail-elkorchi/terminal-ui/collection`
 
 ```ts
 export declare function prependMeasuredItems<
-  TValue
+  T
 >(
-  collection: MeasuredCollection<TValue>,
-  items: readonly MeasuredCollectionItem<TValue>[]
-): MeasuredCollection<TValue>;
+  collection: MeasuredCollection<T>,
+  items: readonly MeasuredCollectionItem<T>[]
+): MeasuredCollection<T>;
 ```
 
 Related types: [`collection`](#root-collection), [`MeasuredCollection`](#collection-measuredcollection), [`MeasuredCollectionItem`](#collection-measuredcollectionitem)
@@ -7826,12 +8465,7 @@ function · beta · [source](../../src/collection/measured-collection.ts)
 Import from: `@ismail-elkorchi/terminal-ui/collection`
 
 ```ts
-export declare function removeMeasuredItems<
-  TValue
->(
-  collection: MeasuredCollection<TValue>,
-  ids: readonly string[]
-): MeasuredCollection<TValue>;
+export declare function removeMeasuredItems<T>(collection: MeasuredCollection<T>, ids: readonly string[]): MeasuredCollection<T>;
 ```
 
 Related types: [`collection`](#root-collection), [`MeasuredCollection`](#collection-measuredcollection)
@@ -7844,12 +8478,7 @@ function · beta · [source](../../src/collection/measured-collection.ts)
 Import from: `@ismail-elkorchi/terminal-ui/collection`
 
 ```ts
-export declare function replaceMeasuredItem<
-  TValue
->(
-  collection: MeasuredCollection<TValue>,
-  item: MeasuredCollectionItem<TValue>
-): MeasuredCollection<TValue>;
+export declare function replaceMeasuredItem<T>(collection: MeasuredCollection<T>, item: MeasuredCollectionItem<T>): MeasuredCollection<T>;
 ```
 
 Related types: [`collection`](#root-collection), [`MeasuredCollection`](#collection-measuredcollection), [`MeasuredCollectionItem`](#collection-measuredcollectionitem)
@@ -8254,7 +8883,7 @@ type · beta · [source](../../src/component/execution-error.ts)
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
 ```ts
-export type ComponentExecutionPhase = 'createModel' | 'inspection' | 'compose' | 'measure' | 'layout' | 'paint' | 'accessibility' | 'focus' | 'action' | 'pointer' | 'keyboard' | 'input' | 'paste' | 'metadata';
+export type ComponentExecutionPhase = 'createModel' | 'reuse' | 'inspection' | 'compose' | 'measure' | 'layout' | 'paint' | 'accessibility' | 'focus' | 'action' | 'pointer' | 'keyboard' | 'input' | 'paste' | 'metadata';
 ```
 
 Related types: [`input`](#prompts-input)
@@ -8681,6 +9310,77 @@ readonly focus: RenderFocusRelation;
 readonly focusedTargetId?: string;
 ```
 
+<a id="component-componentreuse"></a>
+### ComponentReuse
+
+interface · beta · [source](../../src/component/contracts.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
+
+Independent opt-in proofs; omitted phases always execute normally.
+
+```ts
+export interface ComponentReuse<TModel extends object> { … }
+```
+
+<a id="component-componentreuse-measurement"></a>
+#### measurement
+
+```ts
+readonly measurement?: ComponentReuseSelector<TModel>;
+```
+
+<a id="component-componentreuse-layout"></a>
+#### layout
+
+Includes allocation, focus targets and cursor geometry; measurement must also match.
+
+```ts
+readonly layout?: ComponentReuseSelector<TModel>;
+```
+
+<a id="component-componentreuse-paint"></a>
+#### paint
+
+```ts
+readonly paint?: ComponentReuseSelector<TModel>;
+```
+
+<a id="component-componentreuse-accessibility"></a>
+#### accessibility
+
+```ts
+readonly accessibility?: ComponentReuseSelector<TModel>;
+```
+
+<a id="component-componentreusedependencies"></a>
+### ComponentReuseDependencies
+
+type · beta · [source](../../src/component/contracts.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
+
+An immutable, bounded dependency tuple. Opaque resources are compared by identity.
+
+```ts
+export type ComponentReuseDependencies = readonly [] | readonly [unknown, ...unknown[]];
+```
+
+<a id="component-componentreuseselector"></a>
+### ComponentReuseSelector
+
+type · beta · [source](../../src/component/contracts.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
+
+Select only inputs used by the phase; undefined deliberately disables reuse for this instance.
+
+```ts
+export type ComponentReuseSelector<TModel extends object> = (this: undefined, model: Readonly<TModel>) => ComponentReuseDependencies | undefined;
+```
+
+Related types: [`ComponentReuseDependencies`](#component-componentreusedependencies)
+
 <a id="component-componentscrollbarlayout"></a>
 ### ComponentScrollbarLayout
 
@@ -9061,13 +9761,12 @@ export type DecorativeLeafComponentDefinition<TOptions extends object = Readonly
     readonly metadata?: TMetadata;
     readonly slots?: never;
     readonly structure: 'leaf';
-    /** Deterministic paint from immutable inputs only. Models/resources use identity; replace changed inputs. */
-    readonly retainPaint?: boolean;
+    readonly reuse?: ComponentReuse<TModel>;
     readonly render: (this: undefined, input: ComponentRenderInput<TModel, TPart>) => undefined;
 };
 ```
 
-Related types: [`ComponentRenderInput`](#component-componentrenderinput), [`input`](#prompts-input)
+Related types: [`ComponentRenderInput`](#component-componentrenderinput), [`ComponentReuse`](#component-componentreuse), [`input`](#prompts-input)
 
 <a id="component-decorativeleafcomponentfactory"></a>
 ### DecorativeLeafComponentFactory
@@ -9674,13 +10373,16 @@ export type SemanticComposedComponentDefinition<TOptions extends object = Readon
     readonly metadata?: TMetadata;
     readonly slots?: TSlots;
     readonly structure: 'composed';
+    readonly reuse?: Omit<ComponentReuse<TModel>, 'paint'> & {
+        readonly paint?: never;
+    };
     readonly capture?: (this: undefined, input: ComponentCapturedMessageInput<TModel>) => MessageResolution<TAction>;
     readonly compose: (this: undefined, input: ComponentCompositionInput<TModel, TSlots, TAction, TPart, TVisualStates[number]>) => Element<ComponentMessage>;
     readonly clipChildren?: boolean;
 };
 ```
 
-Related types: [`ComponentCapturedMessageInput`](#component-componentcapturedmessageinput), [`ComponentCompositionInput`](#component-componentcompositioninput), [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`MessageResolution`](#component-messageresolution), [`input`](#prompts-input)
+Related types: [`ComponentCapturedMessageInput`](#component-componentcapturedmessageinput), [`ComponentCompositionInput`](#component-componentcompositioninput), [`ComponentMessage`](#component-componentmessage), [`ComponentReuse`](#component-componentreuse), [`Element`](#component-element), [`MessageResolution`](#component-messageresolution), [`input`](#prompts-input)
 
 <a id="component-semanticcompositecomponentdefinition"></a>
 ### SemanticCompositeComponentDefinition
@@ -9694,6 +10396,9 @@ export type SemanticCompositeComponentDefinition<TOptions extends object = Reado
     readonly metadata?: TMetadata;
     readonly slots: TSlots;
     readonly structure: 'composite';
+    readonly reuse?: Omit<ComponentReuse<TModel>, 'paint'> & {
+        readonly paint?: never;
+    };
     readonly capture?: (this: undefined, input: ComponentCapturedMessageInput<TModel>) => MessageResolution<TAction>;
     readonly implementationSlots?: (this: undefined, input: ComponentCompositionInput<TModel, TSlots, TAction, TPart, TVisualStates[number]>) => ComponentImplementationSlotValues<TSlots>;
     readonly clipChildren?: boolean;
@@ -9703,7 +10408,7 @@ export type SemanticCompositeComponentDefinition<TOptions extends object = Reado
 };
 ```
 
-Related types: [`ComponentCapturedMessageInput`](#component-componentcapturedmessageinput), [`ComponentCompositionInput`](#component-componentcompositioninput), [`ComponentImplementationSlotValues`](#component-componentimplementationslotvalues), [`ComponentLayoutInput`](#component-componentlayoutinput), [`ComponentRenderInput`](#component-componentrenderinput), [`ComponentSlotLayout`](#component-componentslotlayout), [`MessageResolution`](#component-messageresolution), [`input`](#prompts-input)
+Related types: [`ComponentCapturedMessageInput`](#component-componentcapturedmessageinput), [`ComponentCompositionInput`](#component-componentcompositioninput), [`ComponentImplementationSlotValues`](#component-componentimplementationslotvalues), [`ComponentLayoutInput`](#component-componentlayoutinput), [`ComponentRenderInput`](#component-componentrenderinput), [`ComponentReuse`](#component-componentreuse), [`ComponentSlotLayout`](#component-componentslotlayout), [`MessageResolution`](#component-messageresolution), [`input`](#prompts-input)
 
 <a id="component-semanticcompositecomponentfactory"></a>
 ### SemanticCompositeComponentFactory
@@ -9730,13 +10435,12 @@ export type SemanticLeafComponentDefinition<TOptions extends object = Readonly<R
     readonly metadata?: TMetadata;
     readonly slots?: never;
     readonly structure: 'leaf';
-    /** Deterministic paint from immutable inputs only. Models/resources use identity; replace changed inputs. */
-    readonly retainPaint?: boolean;
+    readonly reuse?: ComponentReuse<TModel>;
     readonly render: (this: undefined, input: ComponentRenderInput<TModel, TPart>) => undefined;
 };
 ```
 
-Related types: [`ComponentRenderInput`](#component-componentrenderinput), [`input`](#prompts-input)
+Related types: [`ComponentRenderInput`](#component-componentrenderinput), [`ComponentReuse`](#component-componentreuse), [`input`](#prompts-input)
 
 <a id="component-semanticleafcomponentfactory"></a>
 ### SemanticLeafComponentFactory
@@ -11360,15 +12064,78 @@ Related types: [`ElementInspection`](#components-elementinspection), [`ElementVa
 <a id="components-collections-completetablecollection"></a>
 ### CompleteTableCollection
 
-type · beta · [source](../../src/behavior/table.ts)
+interface · beta · [source](../../src/behavior/table.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/behavior` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
+Immutable row source; payloads are application-owned immutable values.
+
 ```ts
-export type CompleteTableCollection<TRow> = CompleteCollectionSnapshot<TableCollectionRow<TRow>>;
+export interface CompleteTableCollection<TRow> { … }
 ```
 
-Related types: [`CompleteCollectionSnapshot`](#collection-completecollectionsnapshot), [`TableCollectionRow`](#components-collections-tablecollectionrow)
+<a id="components-collections-completetablecollection--tablesourcebrand-"></a>
+#### [tableSourceBrand]
+
+```ts
+readonly [tableSourceBrand]: TRow;
+```
+
+<a id="components-collections-completetablecollection-kind"></a>
+#### kind
+
+```ts
+readonly kind: 'table-source';
+```
+
+<a id="components-collections-completetablecollection-count"></a>
+#### count
+
+```ts
+readonly count: number;
+```
+
+<a id="components-collections-completetablecollection-startindex"></a>
+#### startIndex
+
+```ts
+readonly startIndex: 0;
+```
+
+<a id="components-collections-completetablecollection-totalcount"></a>
+#### totalCount
+
+```ts
+readonly totalCount: number;
+```
+
+<a id="components-collections-completetablecollection-itemat"></a>
+#### itemAt
+
+```ts
+readonly itemAt: (rank: number) => TableCollectionRow<TRow> | undefined;
+```
+
+<a id="components-collections-completetablecollection-itembyid"></a>
+#### itemById
+
+```ts
+readonly itemById: (id: string) => TableCollectionRow<TRow> | undefined;
+```
+
+<a id="components-collections-completetablecollection-rank"></a>
+#### rank
+
+```ts
+readonly rank: (id: string) => number | undefined;
+```
+
+<a id="components-collections-completetablecollection-window"></a>
+#### window
+
+```ts
+readonly window: (start: number, end: number) => readonly TableCollectionRow<TRow>[];
+```
 
 <a id="components-collections-datagridactivateevent"></a>
 ### DataGridActivateEvent
@@ -11786,10 +12553,30 @@ type · beta · [source](../../src/behavior/listbox.ts)
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/behavior` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
 ```ts
-export type ListboxCollection<TValue> = CollectionSnapshot<ListboxCollectionItem<TValue>>;
+export type ListboxCollection<TValue> = CompleteListboxCollection<TValue> | WindowedListboxCollection<TValue>;
 ```
 
-Related types: [`CollectionSnapshot`](#collection-collectionsnapshot), [`ListboxCollectionItem`](#components-collections-listboxcollectionitem)
+Related types: [`CompleteListboxCollection`](#behavior-completelistboxcollection), [`WindowedListboxCollection`](#behavior-windowedlistboxcollection)
+
+<a id="components-collections-listboxcollectionchange"></a>
+### ListboxCollectionChange
+
+type · beta · [source](../../src/behavior/listbox.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
+
+```ts
+export type ListboxCollectionChange<TValue> = {
+    readonly kind: 'append' | 'replace';
+    readonly value: TValue;
+    readonly option: ListboxOption;
+} | {
+    readonly kind: 'remove';
+    readonly id: string;
+};
+```
+
+Related types: [`ListboxOption`](#components-collections-listboxoption)
 
 <a id="components-collections-listboxcollectionitem"></a>
 ### ListboxCollectionItem
@@ -11949,6 +12736,87 @@ export type ListboxTransition = CollectionInteractionTransition | {
 ```
 
 Related types: [`ScrollRequest`](#behavior-scrollrequest), [`CollectionInteractionTransition`](#component-collectioninteractiontransition)
+
+<a id="components-collections-listboxview"></a>
+### ListboxView
+
+interface · beta · [source](../../src/behavior/listbox.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
+
+```ts
+export interface ListboxView<TValue> { … }
+```
+
+<a id="components-collections-listboxview-kind"></a>
+#### kind
+
+```ts
+readonly kind: 'listbox-view';
+```
+
+<a id="components-collections-listboxview-source"></a>
+#### source
+
+```ts
+readonly source: ListboxCollection<TValue>;
+```
+
+<a id="components-collections-listboxview-query"></a>
+#### query
+
+```ts
+readonly query: import('../text/query.ts').CompiledCollectionQuery;
+```
+
+<a id="components-collections-listboxview-count"></a>
+#### count
+
+```ts
+readonly count: number;
+```
+
+<a id="components-collections-listboxview-entryat"></a>
+#### entryAt
+
+```ts
+readonly entryAt: (rank: number) => ListboxViewEntry<TValue> | undefined;
+```
+
+<a id="components-collections-listboxview-entrybyid"></a>
+#### entryById
+
+```ts
+readonly entryById: (id: string) => ListboxViewEntry<TValue> | undefined;
+```
+
+<a id="components-collections-listboxview-window"></a>
+#### window
+
+```ts
+readonly window: (start: number, end: number) => readonly ListboxViewEntry<TValue>[];
+```
+
+<a id="components-collections-listboxview-interactionindex"></a>
+#### interactionIndex
+
+```ts
+readonly interactionIndex: CollectionInteractionIndex;
+```
+
+<a id="components-collections-listboxview-startindex"></a>
+#### startIndex
+
+```ts
+readonly startIndex: number;
+```
+
+<a id="components-collections-listboxview-totalcount"></a>
+#### totalCount
+
+```ts
+readonly totalCount: number;
+```
 
 <a id="components-collections-measuredwindow"></a>
 ### MeasuredWindow
@@ -12424,10 +13292,30 @@ type · beta · [source](../../src/behavior/table.ts)
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/behavior` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
 ```ts
-export type TableCollection<TRow> = CollectionSnapshot<TableCollectionRow<TRow>>;
+export type TableCollection<TRow> = CompleteTableCollection<TRow> | WindowedTableCollection<TRow>;
 ```
 
-Related types: [`CollectionSnapshot`](#collection-collectionsnapshot), [`TableCollectionRow`](#components-collections-tablecollectionrow)
+Related types: [`CompleteTableCollection`](#components-collections-completetablecollection), [`WindowedTableCollection`](#components-collections-windowedtablecollection)
+
+<a id="components-collections-tablecollectionchange"></a>
+### TableCollectionChange
+
+type · beta · [source](../../src/behavior/table.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
+
+```ts
+export type TableCollectionChange<TRow> = {
+    readonly kind: 'append' | 'replace';
+    readonly id: string;
+    readonly row: TRow;
+} | {
+    readonly kind: 'remove';
+    readonly id: string;
+};
+```
+
+Related types: [`row`](#layout-row)
 
 <a id="components-collections-tablecollectionrow"></a>
 ### TableCollectionRow
@@ -12862,7 +13750,7 @@ export type TreeLoadStatus = {
 
 type · beta · [source](../../src/behavior/tree.ts)
 
-Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/behavior` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
 Immutable application data. Expansion and loading status live in TreeState.
 
@@ -12876,6 +13764,50 @@ export type TreeNode<TMetadata extends Readonly<Record<string, unknown>> = Reado
     readonly kind: 'lazy';
 };
 ```
+
+Related types: [`TreeNodeBase`](#components-collections-treenodebase)
+
+<a id="components-collections-treenodebase"></a>
+### TreeNodeBase
+
+interface · beta · [source](../../src/behavior/tree.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
+
+```ts
+export interface TreeNodeBase<TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>> extends LabeledItem { … }
+```
+
+<a id="components-collections-treenodebase-icon"></a>
+#### icon
+
+```ts
+readonly icon?: string;
+```
+
+<a id="components-collections-treenodebase-metadata"></a>
+#### metadata
+
+```ts
+readonly metadata?: TMetadata;
+```
+
+<a id="components-collections-treenodedescriptor"></a>
+### TreeNodeDescriptor
+
+type · beta · [source](../../src/behavior/tree.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
+
+Flat descriptor used by bounded source ingestion. Metadata must be immutable.
+
+```ts
+export type TreeNodeDescriptor<TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>> = TreeNodeBase<TMetadata> & {
+    readonly kind: 'leaf' | 'branch' | 'lazy';
+};
+```
+
+Related types: [`TreeNodeBase`](#components-collections-treenodebase)
 
 <a id="components-collections-treeoptions"></a>
 ### TreeOptions
@@ -12895,7 +13827,7 @@ Related types: [`ScrollableTreeOptions`](#components-collections-scrollabletreeo
 
 interface · beta · [source](../../src/behavior/tree.ts)
 
-Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/behavior` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
 ```ts
 export interface TreeSource<TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>> { … }
@@ -12920,6 +13852,53 @@ readonly kind: 'tree-source';
 
 ```ts
 readonly nodeCount: number;
+```
+
+<a id="components-collections-treesourcechange"></a>
+### TreeSourceChange
+
+type · beta · [source](../../src/behavior/tree.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
+
+```ts
+export type TreeSourceChange<TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>> = {
+    readonly kind: 'append';
+    readonly entry: TreeSourceEntry<TMetadata>;
+} | {
+    readonly kind: 'replace';
+    readonly node: TreeNodeDescriptor<TMetadata>;
+} | {
+    readonly kind: 'remove';
+    readonly id: string;
+};
+```
+
+Related types: [`TreeNodeDescriptor`](#components-collections-treenodedescriptor), [`TreeSourceEntry`](#components-collections-treesourceentry)
+
+<a id="components-collections-treesourceentry"></a>
+### TreeSourceEntry
+
+interface · beta · [source](../../src/behavior/tree.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/behavior` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
+
+```ts
+export interface TreeSourceEntry<TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>> { … }
+```
+
+<a id="components-collections-treesourceentry-node"></a>
+#### node
+
+```ts
+readonly node: TreeNodeDescriptor<TMetadata>;
+```
+
+<a id="components-collections-treesourceentry-parentid"></a>
+#### parentId
+
+```ts
+readonly parentId?: string;
 ```
 
 <a id="components-collections-treestate"></a>
@@ -12959,7 +13938,7 @@ Related types: [`ScrollRequest`](#behavior-scrollrequest), [`CollectionInteracti
 
 interface · beta · [source](../../src/behavior/tree.ts)
 
-Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/behavior` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/collections` (type only)
 
 ```ts
 export interface TreeView<TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>> { … }
@@ -12983,7 +13962,7 @@ readonly source: TreeSource<TMetadata>;
 #### collection
 
 ```ts
-readonly collection: CompleteTreeCollection<TMetadata>;
+readonly collection: import("../foundation/order-reader.ts").CollectionOrderReader<TreeCollectionRow<TMetadata>>;
 ```
 
 <a id="components-collections-treeview-interactionindex"></a>
@@ -13008,7 +13987,7 @@ export interface TreeVisibleRow<TMetadata extends Readonly<Record<string, unknow
 #### node
 
 ```ts
-readonly node: TreeNode<TMetadata>;
+readonly node: TreeNodeDescriptor<TMetadata>;
 ```
 
 <a id="components-collections-treevisiblerow-depth"></a>
@@ -13283,6 +14262,21 @@ export declare function dataGrid<
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`ScrollableDataGridOptions`](#components-collections-scrollabledatagridoptions), [`UnscrolledDataGridOptions`](#components-collections-unscrolleddatagridoptions)
+
+<a id="components-collections-infertablecolumns"></a>
+### inferTableColumns
+
+function · beta · [source](../../src/components/data-table/column.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/collections`
+
+Explicit eager schema inference for simple scalar or array rows. O(rows).
+
+```ts
+export declare function inferTableColumns<TRow>(rows: readonly TRow[]): readonly TableColumn<TRow>[];
+```
+
+Related types: [`TableColumn`](#components-collections-tablecolumn)
 
 <a id="components-collections-list"></a>
 ### list
@@ -16067,6 +17061,9 @@ Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/termi
 
 ```ts
 export type TextAreaTransition = {
+    readonly kind: 'unavailable';
+    readonly reason: 'layout-pending';
+} | {
     readonly kind: 'edit';
     readonly operation: TextEditOperation;
 } | {
@@ -18505,6 +19502,13 @@ readonly open: boolean;
 
 ```ts
 readonly suggestions: ListboxCollection<CommandCompletion>;
+```
+
+<a id="components-patterns-commandinputview-suggestionview"></a>
+#### suggestionView
+
+```ts
+readonly suggestionView: ListboxView<CommandCompletion>;
 ```
 
 <a id="components-patterns-commandinputview-activesuggestionid"></a>
@@ -25959,29 +26963,12 @@ export declare function assertAnchoredSurfaceOptions(
 
 Related types: [`label`](#components-forms-label), [`input`](#prompts-input)
 
-<a id="interaction-assertcollectioninteractionreferences"></a>
-### assertCollectionInteractionReferences
-
-function · beta · [source](../../src/interaction/collection-interaction.ts)
-
-Import from: `@ismail-elkorchi/terminal-ui/interaction` (type only)
-
-```ts
-export declare function assertCollectionInteractionReferences(
-  state: CollectionInteractionState,
-  index: CollectionInteractionIndex,
-  subject: string
-): void;
-```
-
-Related types: [`CollectionInteractionState`](#component-collectioninteractionstate), [`CollectionInteractionIndex`](#interaction-collectioninteractionindex)
-
 <a id="interaction-collectioninteractionhas"></a>
 ### collectionInteractionHas
 
 function · beta · [source](../../src/interaction/collection-interaction.ts)
 
-Import from: `@ismail-elkorchi/terminal-ui/interaction` (type only)
+Import from: `@ismail-elkorchi/terminal-ui/interaction`
 
 ```ts
 export declare function collectionInteractionHas(index: CollectionInteractionIndex, id: string): boolean;
@@ -25994,7 +26981,7 @@ Related types: [`CollectionInteractionIndex`](#interaction-collectioninteraction
 
 function · beta · [source](../../src/interaction/collection-interaction.ts)
 
-Import from: `@ismail-elkorchi/terminal-ui/interaction` (type only)
+Import from: `@ismail-elkorchi/terminal-ui/interaction`
 
 ```ts
 export declare function collectionInteractionIds(index: CollectionInteractionIndex): readonly string[];
@@ -26007,7 +26994,7 @@ Related types: [`CollectionInteractionIndex`](#interaction-collectioninteraction
 
 function · beta · [source](../../src/interaction/collection-interaction.ts)
 
-Import from: `@ismail-elkorchi/terminal-ui/interaction` (type only)
+Import from: `@ismail-elkorchi/terminal-ui/interaction`
 
 ```ts
 export declare function collectionInteractionPosition(index: CollectionInteractionIndex, id: string): number | undefined;
@@ -26176,7 +27163,7 @@ Related types: [`NavigationPolicy`](#behavior-navigationpolicy)
 
 value · beta · [source](../../src/interaction/collection-interaction.ts)
 
-Import from: `@ismail-elkorchi/terminal-ui/interaction` (type only)
+Import from: `@ismail-elkorchi/terminal-ui/interaction`
 
 ```ts
 noSelection: SelectionState
@@ -26284,7 +27271,7 @@ Related types: [`PopupRelationship`](#interaction-popuprelationship)
 
 function · beta · [source](../../src/interaction/collection-interaction.ts)
 
-Import from: `@ismail-elkorchi/terminal-ui/interaction` (type only)
+Import from: `@ismail-elkorchi/terminal-ui/interaction`
 
 ```ts
 export declare function selectionContains(selection: SelectionState, id: string): boolean;
@@ -39452,14 +40439,14 @@ export interface TuiChild<TState, TMessage, TParentMessage, TOutput = never> { �
 #### init
 
 ```ts
-readonly init: (identity: TuiChildIdentity, context: TuiContext) => TuiChildResult<TuiChildState<TState>, TParentMessage, TOutput>;
+readonly init: (identity: TuiChildIdentity, context: TuiContext) => TuiScopedResult<TuiChildState<TState>, TParentMessage, TOutput>;
 ```
 
 <a id="tui-tuichild-update"></a>
 #### update
 
 ```ts
-readonly update: (child: TuiChildState<TState>, message: TuiChildMessage<TMessage>, context: TuiContext) => TuiChildResult<TuiChildState<TState>, TParentMessage, TOutput>;
+readonly update: (child: TuiChildState<TState>, message: TuiChildMessage<TMessage>, context: TuiContext) => TuiScopedResult<TuiChildState<TState>, TParentMessage, TOutput>;
 ```
 
 <a id="tui-tuichild-view"></a>
@@ -39473,7 +40460,7 @@ readonly view: (child: TuiChildState<TState>, context: TuiContext) => Element<TP
 #### subscriptions
 
 ```ts
-readonly subscriptions: (child: TuiChildState<TState>, context: TuiContext) => readonly TuiEventSource<TParentMessage>[];
+readonly subscriptions: (child: TuiChildState<TState> | undefined, context: TuiContext) => readonly TuiScopedSource<TParentMessage>[];
 ```
 
 <a id="tui-tuichild-remove"></a>
@@ -39482,7 +40469,7 @@ readonly subscriptions: (child: TuiChildState<TState>, context: TuiContext) => r
 Cancel this lifetime and remove its state and subscriptions in the same update.
 
 ```ts
-readonly remove: (child: TuiChildState<TState>) => TuiCancellation;
+readonly remove: (child: TuiChildState<TState>) => TuiScopedResult<undefined, TParentMessage>;
 ```
 
 <a id="tui-tuichild-elementid"></a>
@@ -39746,6 +40733,26 @@ readonly diagnostics: readonly DiagnosticOccurrence[];
 readonly clock: TerminalClock;
 ```
 
+<a id="tui-tuicontribution"></a>
+### TuiContribution
+
+interface · beta · [source](../../src/tui/contribution-types.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+An immutable, owned update contribution. Forward it whole through result composition.
+
+```ts
+export interface TuiContribution<TMessage> { … }
+```
+
+<a id="tui-tuicontribution--contributionbrand-"></a>
+#### [contributionBrand]
+
+```ts
+readonly [contributionBrand]: TMessage;
+```
+
 <a id="tui-tuicontrolmessage"></a>
 ### TuiControlMessage
 
@@ -39793,6 +40800,272 @@ export type TuiControlTransitionMessage<TState, TReducers extends TuiControlRedu
         readonly transition: Parameters<NonNullable<TReducers[TKey]>>[1];
     };
 }[keyof TReducers & keyof TState & string];
+```
+
+<a id="tui-tuicontrollededitor"></a>
+### TuiControlledEditor
+
+interface · beta · [source](../../src/tui/controlled-editor.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+```ts
+export interface TuiControlledEditor<TMessage> { … }
+```
+
+<a id="tui-tuicontrollededitor-init"></a>
+#### init
+
+```ts
+init(editing: TextAreaState, generation?: string | number): TuiControlledEditorState;
+```
+
+<a id="tui-tuicontrollededitor-requestintent"></a>
+#### requestIntent
+
+```ts
+requestIntent(
+  state: TuiControlledEditorState,
+  transition: TextAreaTransition,
+  origin?: TuiEditorIntentOrigin
+): TuiControlledEditorResult<TMessage>;
+```
+
+<a id="tui-tuicontrollededitor-requestlayout"></a>
+#### requestLayout
+
+```ts
+requestLayout(state: TuiControlledEditorState, request: TextAreaLayoutRequest): TuiControlledEditorResult<TMessage>;
+```
+
+<a id="tui-tuicontrollededitor-update"></a>
+#### update
+
+```ts
+update(state: TuiControlledEditorState, message: TuiControlledEditorMessage): TuiControlledEditorResult<TMessage>;
+```
+
+<a id="tui-tuicontrollededitor-requestsettlement"></a>
+#### requestSettlement
+
+The FIFO barrier snapshots all preceding accepted intents; later edits can continue.
+
+```ts
+requestSettlement(state: TuiControlledEditorState, token: string): TuiControlledEditorResult<TMessage>;
+```
+
+<a id="tui-tuicontrollededitor-retry"></a>
+#### retry
+
+```ts
+retry(state: TuiControlledEditorState): TuiControlledEditorResult<TMessage>;
+```
+
+<a id="tui-tuicontrollededitor-discardpending"></a>
+#### discardPending
+
+```ts
+discardPending(state: TuiControlledEditorState): TuiControlledEditorResult<TMessage>;
+```
+
+<a id="tui-tuicontrollededitor-replacesource"></a>
+#### replaceSource
+
+```ts
+replaceSource(
+  state: TuiControlledEditorState,
+  editing: TextAreaState,
+  options: {
+        readonly pending: 'reject' | 'discard';
+    }
+): TuiControlledEditorResult<TMessage>;
+```
+
+<a id="tui-tuicontrollededitor-marksaved"></a>
+#### markSaved
+
+```ts
+markSaved(state: TuiControlledEditorState, snapshot: TuiEditorSnapshot): TuiControlledEditorState;
+```
+
+<a id="tui-tuicontrollededitor-isdirty"></a>
+#### isDirty
+
+```ts
+isDirty(state: TuiControlledEditorState): boolean;
+```
+
+<a id="tui-tuicontrollededitormessage"></a>
+### TuiControlledEditorMessage
+
+type · beta · [source](../../src/tui/controlled-editor.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+```ts
+export type TuiControlledEditorMessage = {
+    readonly kind: 'reduced';
+    readonly operation: TuiEditorOperation;
+    readonly reduction: TextAreaReduction;
+} | {
+    readonly kind: 'failed';
+    readonly operation: TuiEditorOperation;
+    readonly diagnostic: TerminalDiagnostic;
+} | {
+    readonly kind: 'layout';
+    readonly message: TuiPreparedQueryMessage<TuiEditorPreparedLayout>;
+};
+```
+
+Related types: [`TerminalDiagnostic`](#root-terminaldiagnostic), [`diagnostic`](#root-diagnostic), [`TextAreaReduction`](#behavior-textareareduction), [`TuiEditorOperation`](#tui-tuieditoroperation), [`TuiEditorPreparedLayout`](#tui-tuieditorpreparedlayout), [`TuiPreparedQueryMessage`](#tui-tuipreparedquerymessage)
+
+<a id="tui-tuicontrollededitoroutput"></a>
+### TuiControlledEditorOutput
+
+type · beta · [source](../../src/tui/controlled-editor.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+```ts
+export type TuiControlledEditorOutput = {
+    readonly kind: 'settled';
+    readonly token: string;
+    readonly snapshot: TuiEditorSnapshot;
+} | {
+    readonly kind: 'rejected';
+    readonly reason: 'intent-count-limit' | 'payload-byte-limit' | 'stale-coordinates' | 'pending-intents' | 'layout-pending';
+} | {
+    readonly kind: 'failed';
+    readonly operationId: number;
+    readonly diagnostic: TerminalDiagnostic;
+} | {
+    readonly kind: 'discarded';
+    readonly operationIds: readonly number[];
+} | {
+    readonly kind: 'historyRejected';
+    readonly rejection: NonNullable<TextAreaReduction['historyRejection']>;
+};
+```
+
+Related types: [`TerminalDiagnostic`](#root-terminaldiagnostic), [`diagnostic`](#root-diagnostic), [`TextAreaReduction`](#behavior-textareareduction), [`TuiEditorSnapshot`](#tui-tuieditorsnapshot)
+
+<a id="tui-tuicontrollededitorresult"></a>
+### TuiControlledEditorResult
+
+interface · beta · [source](../../src/tui/controlled-editor.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+```ts
+export interface TuiControlledEditorResult<TMessage> extends TuiChildResult<TuiControlledEditorState, TMessage, TuiControlledEditorOutput> { … }
+```
+
+<a id="tui-tuicontrollededitorresult-accepted"></a>
+#### accepted
+
+Admission is explicit. A runtime capacity rejection also leaves caller state unpublished.
+
+```ts
+readonly accepted: boolean;
+```
+
+<a id="tui-tuicontrollededitorstate"></a>
+### TuiControlledEditorState
+
+interface · beta · [source](../../src/tui/controlled-editor.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+Ordinary caller-owned state. A fresh generation identifies each child lifetime.
+
+```ts
+export interface TuiControlledEditorState { … }
+```
+
+<a id="tui-tuicontrollededitorstate-editing"></a>
+#### editing
+
+```ts
+readonly editing: TextAreaState;
+```
+
+<a id="tui-tuicontrollededitorstate-generation"></a>
+#### generation
+
+```ts
+readonly generation: string | number;
+```
+
+<a id="tui-tuicontrollededitorstate-sourceepoch"></a>
+#### sourceEpoch
+
+```ts
+readonly sourceEpoch: number;
+```
+
+<a id="tui-tuicontrollededitorstate-semanticrevision"></a>
+#### semanticRevision
+
+```ts
+readonly semanticRevision: number;
+```
+
+<a id="tui-tuicontrollededitorstate-nextoperationid"></a>
+#### nextOperationId
+
+```ts
+readonly nextOperationId: number;
+```
+
+<a id="tui-tuicontrollededitorstate-queue"></a>
+#### queue
+
+```ts
+readonly queue: readonly TuiEditorIntent[];
+```
+
+<a id="tui-tuicontrollededitorstate-queuedpayloadbytes"></a>
+#### queuedPayloadBytes
+
+```ts
+readonly queuedPayloadBytes: number;
+```
+
+<a id="tui-tuicontrollededitorstate-active"></a>
+#### active
+
+```ts
+readonly active: TuiEditorOperation | null;
+```
+
+<a id="tui-tuicontrollededitorstate-error"></a>
+#### error
+
+A failed head remains accepted and blocks its successors until retry or explicit discard.
+
+```ts
+readonly error: TerminalDiagnostic | null;
+```
+
+<a id="tui-tuicontrollededitorstate-layout"></a>
+#### layout
+
+```ts
+readonly layout: TuiPreparedQueryState<TuiEditorPreparedLayout>;
+```
+
+<a id="tui-tuicontrollededitorstate-preparedlayout"></a>
+#### preparedLayout
+
+```ts
+readonly preparedLayout: PreparedTextAreaLayout | null;
+```
+
+<a id="tui-tuicontrollededitorstate-saveddocument"></a>
+#### savedDocument
+
+```ts
+readonly savedDocument: TextDocument;
 ```
 
 <a id="tui-tuicontrols"></a>
@@ -39915,6 +41188,175 @@ readonly transcript?: boolean;
 
 ```ts
 readonly nonTty?: TuiNonTtyPolicy;
+```
+
+<a id="tui-tuieditorintent"></a>
+### TuiEditorIntent
+
+type · beta · [source](../../src/tui/controlled-editor.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+```ts
+export type TuiEditorIntent = {
+    readonly kind: 'transition';
+    readonly operationId: number;
+    readonly transition: TextAreaTransition;
+    readonly payloadBytes: number;
+} | {
+    readonly kind: 'settlement';
+    readonly operationId: number;
+    readonly token: string;
+    readonly payloadBytes: number;
+};
+```
+
+Related types: [`TextAreaTransition`](#components-forms-textareatransition)
+
+<a id="tui-tuieditorintentorigin"></a>
+### TuiEditorIntentOrigin
+
+interface · beta · [source](../../src/tui/controlled-editor.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+Capture this revision in view callbacks for absolute coordinates.
+
+```ts
+export interface TuiEditorIntentOrigin { … }
+```
+
+<a id="tui-tuieditorintentorigin-sourceepoch"></a>
+#### sourceEpoch
+
+```ts
+readonly sourceEpoch: number;
+```
+
+<a id="tui-tuieditorintentorigin-semanticrevision"></a>
+#### semanticRevision
+
+```ts
+readonly semanticRevision: number;
+```
+
+<a id="tui-tuieditorintentorigin-generation"></a>
+#### generation
+
+```ts
+readonly generation: string | number;
+```
+
+<a id="tui-tuieditoroperation"></a>
+### TuiEditorOperation
+
+interface · beta · [source](../../src/tui/controlled-editor.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+Identity of one prepared edit attempt. Forward unchanged; numeric fields are diagnostic metadata.
+
+```ts
+export interface TuiEditorOperation { … }
+```
+
+<a id="tui-tuieditoroperation--editoroperationbrand-"></a>
+#### [editorOperationBrand]
+
+```ts
+readonly [editorOperationBrand]: true;
+```
+
+<a id="tui-tuieditoroperation-operationid"></a>
+#### operationId
+
+```ts
+readonly operationId: number;
+```
+
+<a id="tui-tuieditoroperation-sourceepoch"></a>
+#### sourceEpoch
+
+```ts
+readonly sourceEpoch: number;
+```
+
+<a id="tui-tuieditoroperation-semanticrevision"></a>
+#### semanticRevision
+
+```ts
+readonly semanticRevision: number;
+```
+
+<a id="tui-tuieditoroperation-generation"></a>
+#### generation
+
+```ts
+readonly generation: string | number;
+```
+
+<a id="tui-tuieditorpreparedlayout"></a>
+### TuiEditorPreparedLayout
+
+interface · beta · [source](../../src/tui/controlled-editor.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+```ts
+export interface TuiEditorPreparedLayout { … }
+```
+
+<a id="tui-tuieditorpreparedlayout-request"></a>
+#### request
+
+```ts
+readonly request: TextAreaLayoutRequest;
+```
+
+<a id="tui-tuieditorpreparedlayout-prepared"></a>
+#### prepared
+
+```ts
+readonly prepared: PreparedTextAreaLayout;
+```
+
+<a id="tui-tuieditorpreparedlayout-sourceepoch"></a>
+#### sourceEpoch
+
+```ts
+readonly sourceEpoch: number;
+```
+
+<a id="tui-tuieditorpreparedlayout-generation"></a>
+#### generation
+
+```ts
+readonly generation: string | number;
+```
+
+<a id="tui-tuieditorsnapshot"></a>
+### TuiEditorSnapshot
+
+interface · beta · [source](../../src/tui/controlled-editor.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+```ts
+export interface TuiEditorSnapshot extends TuiEditorIntentOrigin { … }
+```
+
+<a id="tui-tuieditorsnapshot-document"></a>
+#### document
+
+```ts
+readonly document: TextDocument;
+```
+
+<a id="tui-tuieditorsnapshot-operationid"></a>
+#### operationId
+
+```ts
+readonly operationId: number;
 ```
 
 <a id="tui-tuieffect"></a>
@@ -40052,6 +41494,24 @@ Import from: `@ismail-elkorchi/terminal-ui/tui` (type only)
 
 ```ts
 export interface TuiEffectPolicy { … }
+```
+
+<a id="tui-tuieffectpolicy-maxowned"></a>
+#### maxOwned
+
+All provisional, queued, running, settling and retiring effect obligations.
+
+```ts
+readonly maxOwned?: number;
+```
+
+<a id="tui-tuieffectpolicy-maxoutputmessages"></a>
+#### maxOutputMessages
+
+Maximum success or recovery messages in one atomic effect output.
+
+```ts
+readonly maxOutputMessages?: number;
 ```
 
 <a id="tui-tuieffectpolicy-maxactive"></a>
@@ -40870,6 +42330,20 @@ Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/termi
 export interface TuiRunOptions<TState = unknown> { … }
 ```
 
+<a id="tui-tuirunoptions-runtimepolicy"></a>
+#### runtimePolicy
+
+```ts
+readonly runtimePolicy?: Partial<TuiRuntimePolicy>;
+```
+
+<a id="tui-tuirunoptions-effectpolicy"></a>
+#### effectPolicy
+
+```ts
+readonly effectPolicy?: TuiEffectPolicy;
+```
+
 <a id="tui-tuirunoptions-outputmode"></a>
 #### outputMode
 
@@ -41210,6 +42684,7 @@ readonly effects: {
         readonly active: number;
         readonly queued: number;
         readonly rejected: number;
+        readonly owned: number;
     };
 ```
 
@@ -41217,7 +42692,11 @@ readonly effects: {
 #### sources
 
 ```ts
-readonly sources: TuiSourceChannelMetrics;
+readonly sources: TuiSourceChannelMetrics & {
+        readonly owned: number;
+        readonly capacity: number;
+        readonly retiring: number;
+    };
 ```
 
 <a id="tui-tuiruntimeoptions"></a>
@@ -41229,6 +42708,13 @@ Import from: `@ismail-elkorchi/terminal-ui/tui` (type only)
 
 ```ts
 export interface TuiRuntimeOptions<TState, TMessage> { … }
+```
+
+<a id="tui-tuiruntimeoptions-runtimepolicy"></a>
+#### runtimePolicy
+
+```ts
+readonly runtimePolicy?: Partial<TuiRuntimePolicy>;
 ```
 
 <a id="tui-tuiruntimeoptions-outputmode"></a>
@@ -41322,6 +42808,122 @@ readonly effectPolicy?: TuiEffectPolicy;
 
 ```ts
 readonly withTerminalSuspended?: <TValue>(operation: () => Promise<TValue>, signal: AbortSignal) => Promise<TValue>;
+```
+
+<a id="tui-tuiruntimepolicy"></a>
+### TuiRuntimePolicy
+
+interface · beta · [source](../../src/tui/types.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+Finite retained-operation limits; generic message object graphs remain application-owned.
+
+```ts
+export interface TuiRuntimePolicy { … }
+```
+
+<a id="tui-tuiruntimepolicy-maxpendingoperations"></a>
+#### maxPendingOperations
+
+```ts
+readonly maxPendingOperations: number;
+```
+
+<a id="tui-tuiruntimepolicy-maxmessagespertransaction"></a>
+#### maxMessagesPerTransaction
+
+```ts
+readonly maxMessagesPerTransaction: number;
+```
+
+<a id="tui-tuiruntimepolicy-maxcontributionspertransaction"></a>
+#### maxContributionsPerTransaction
+
+```ts
+readonly maxContributionsPerTransaction: number;
+```
+
+<a id="tui-tuiruntimepolicy-maxownedsources"></a>
+#### maxOwnedSources
+
+```ts
+readonly maxOwnedSources: number;
+```
+
+<a id="tui-tuiruntimepolicy-maxsourcecapacity"></a>
+#### maxSourceCapacity
+
+```ts
+readonly maxSourceCapacity: number;
+```
+
+<a id="tui-tuiruntimepolicy-maxcontinuationmessages"></a>
+#### maxContinuationMessages
+
+```ts
+readonly maxContinuationMessages: number;
+```
+
+<a id="tui-tuiruntimepolicy-maxcontinuationturns"></a>
+#### maxContinuationTurns
+
+```ts
+readonly maxContinuationTurns: number;
+```
+
+<a id="tui-tuiscopedresult"></a>
+### TuiScopedResult
+
+interface · beta · [source](../../src/tui/child.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+Scoped executable work is an opaque capability, never a reconstructible descriptor.
+
+```ts
+export interface TuiScopedResult<TState, TMessage, TOutput = never> { … }
+```
+
+<a id="tui-tuiscopedresult-state"></a>
+#### state
+
+```ts
+readonly state: TState;
+```
+
+<a id="tui-tuiscopedresult-contribution"></a>
+#### contribution
+
+```ts
+readonly contribution?: TuiContribution<TMessage>;
+```
+
+<a id="tui-tuiscopedresult-outputs"></a>
+#### outputs
+
+```ts
+readonly outputs?: readonly TOutput[];
+```
+
+<a id="tui-tuiscopedsource"></a>
+### TuiScopedSource
+
+interface · beta · [source](../../src/tui/contribution-types.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only)
+
+A child-owned subscription. Its lifetime and executable descriptor are private.
+
+```ts
+export interface TuiScopedSource<TMessage> { … }
+```
+
+<a id="tui-tuiscopedsource--sourcebrand-"></a>
+#### [sourceBrand]
+
+```ts
+readonly [sourceBrand]: TMessage;
 ```
 
 <a id="tui-tuisourcechannelmetrics"></a>
@@ -41493,10 +43095,10 @@ type · beta · [source](../../src/tui/types.ts)
 Import from: `@ismail-elkorchi/terminal-ui/tui` (type only)
 
 ```ts
-export type TuiSubscriptions<TState, TMessage> = (state: TState, context: TuiContext) => readonly TuiEventSource<TMessage>[];
+export type TuiSubscriptions<TState, TMessage> = (state: TState, context: TuiContext) => readonly (TuiEventSource<TMessage> | TuiScopedSource<TMessage>)[];
 ```
 
-Related types: [`TuiContext`](#tui-tuicontext), [`TuiEventSource`](#tui-tuieventsource)
+Related types: [`TuiContext`](#tui-tuicontext), [`TuiEventSource`](#tui-tuieventsource), [`TuiScopedSource`](#tui-tuiscopedsource)
 
 <a id="tui-tuitheme"></a>
 ### TuiTheme
@@ -41542,6 +43144,13 @@ export interface TuiUpdateContribution<TState, TMessage, TFocus extends InitialF
 
 ```ts
 readonly state: TState;
+```
+
+<a id="tui-tuiupdatecontribution-contribution"></a>
+#### contribution
+
+```ts
+readonly contribution?: TuiContribution<TMessage>;
 ```
 
 <a id="tui-tuiupdatecontribution-cancel"></a>
@@ -41651,6 +43260,33 @@ export declare function applySessionProtocolPolicy(
 
 Related types: [`TerminalOperationContext`](#host-terminaloperationcontext), [`TerminalSession`](#host-terminalsession), [`SessionProtocolPolicy`](#tui-sessionprotocolpolicy), [`SessionProtocolSetupResult`](#tui-sessionprotocolsetupresult)
 
+<a id="tui-combinetuiresults"></a>
+### combineTuiResults
+
+function · beta · [source](../../src/tui/result.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/tui`
+
+Combine ordered work using the caller's final state, never merge stale state snapshots.
+
+```ts
+export declare function combineTuiResults<
+  TState,
+  TMessage,
+  TOutput = never
+>(
+  state: TState,
+  ...results: readonly (TuiUpdateContribution<unknown, TMessage> & {
+    readonly outputs?: readonly TOutput[];
+    readonly exit?: TuiExitRequest;
+})[]
+): TuiScopedResult<TState, TMessage, TOutput> & {
+    readonly exit?: TuiExitRequest;
+};
+```
+
+Related types: [`TuiExitRequest`](#tui-tuiexitrequest), [`TuiScopedResult`](#tui-tuiscopedresult), [`TuiUpdateContribution`](#tui-tuiupdatecontribution)
+
 <a id="tui-createanimationtimeline"></a>
 ### createAnimationTimeline
 
@@ -41722,6 +43358,33 @@ export declare function createTuiCommands<
 
 Related types: [`TuiCommand`](#tui-tuicommand), [`TuiCommands`](#tui-tuicommands)
 
+<a id="tui-createtuicontrollededitor"></a>
+### createTuiControlledEditor
+
+function · beta · [source](../../src/tui/controlled-editor.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/tui`
+
+Bounded reliable editing and latest-wins exact layout work, using ordinary child effects.
+
+```ts
+export declare function createTuiControlledEditor<
+  TMessage
+>(
+  options: {
+    readonly id: string;
+    readonly toMessage: (message: TuiControlledEditorMessage) => TMessage;
+    readonly maxPendingIntents?: number;
+    /** Retained UTF-16 payload plus conservative descriptor overhead, including the active head. */
+    readonly maxPendingBytes?: number;
+    /** Candidate overflow blocks the accepted head with a visible recoverable failure. */
+    readonly maxDocumentBytes?: number;
+}
+): TuiControlledEditor<TMessage>;
+```
+
+Related types: [`TuiControlledEditor`](#tui-tuicontrollededitor), [`TuiControlledEditorMessage`](#tui-tuicontrollededitormessage)
+
 <a id="tui-createtuicontrols"></a>
 ### createTuiControls
 
@@ -41738,6 +43401,21 @@ export declare function createTuiControls<
 ```
 
 Related types: [`TuiControlReducers`](#tui-tuicontrolreducers), [`TuiControls`](#tui-tuicontrols)
+
+<a id="tui-createtuicooperativeworkcontext"></a>
+### createTuiCooperativeWorkContext
+
+function · beta · [source](../../src/tui/cooperative-work.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/tui`
+
+Use the runtime's injected clock and cancellation for prepared collection/text work.
+
+```ts
+export declare function createTuiCooperativeWorkContext(context: Pick<TuiEffectContext, 'signal' | 'clock'>): CooperativeWorkContext;
+```
+
+Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`TuiEffectContext`](#tui-tuieffectcontext)
 
 <a id="tui-createtuiform"></a>
 ### createTuiForm
@@ -41825,7 +43503,7 @@ value · beta · [source](../../src/tui/lifecycle/effects.ts)
 Import from: `@ismail-elkorchi/terminal-ui/tui`
 
 ```ts
-defaultTuiEffectPolicy: TuiEffectPolicy
+defaultTuiEffectPolicy: Required<TuiEffectPolicy>
 ```
 
 Related types: [`TuiEffectPolicy`](#tui-tuieffectpolicy)
@@ -41842,6 +43520,19 @@ defaultTuiLifecyclePolicy: NormalizedTuiLifecyclePolicy
 ```
 
 Related types: [`TuiLifecyclePolicy`](#tui-tuilifecyclepolicy)
+
+<a id="tui-defaulttuiruntimepolicy"></a>
+### defaultTuiRuntimePolicy
+
+value · beta · [source](../../src/tui/lifecycle/runtime-policy.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/tui`
+
+```ts
+defaultTuiRuntimePolicy: TuiRuntimePolicy
+```
+
+Related types: [`TuiRuntimePolicy`](#tui-tuiruntimepolicy)
 
 <a id="tui-defaulttuisourcechannelcapacity"></a>
 ### defaultTuiSourceChannelCapacity
@@ -41930,6 +43621,28 @@ export declare function nextAnimationDeadline(timeline: AnimationTimeline): numb
 ```
 
 Related types: [`AnimationTimeline`](#tui-animationtimeline)
+
+<a id="tui-reconciletuichildren"></a>
+### reconcileTuiChildren
+
+function · beta · [source](../../src/tui/result.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/tui`
+
+Replace an explicitly owned child collection and retire every absent lifetime.
+
+```ts
+export declare function reconcileTuiChildren<
+  TItem,
+  TChildState
+>(
+  previous: readonly TItem[],
+  next: readonly TItem[],
+  child: (item: TItem) => TuiChildState<TChildState>
+): TuiScopedResult<readonly TItem[], never>;
+```
+
+Related types: [`TuiChildState`](#tui-tuichildstate), [`TuiScopedResult`](#tui-tuiscopedresult)
 
 <a id="tui-reliablesourcemessage"></a>
 ### reliableSourceMessage
@@ -42030,9 +43743,8 @@ export declare function updateTuiNavigation<
 >(
   stack: NavigationStack<TuiNavigationScreen<TState>>,
   transition: NavigationStackTransition<TuiNavigationScreen<TState>>,
-  remove: (child: TuiChildState<TState>) => TuiCancellation,
   outputs?: readonly TOutput[]
 ): TuiChildResult<NavigationStack<TuiNavigationScreen<TState>>, TMessage, TOutput>;
 ```
 
-Related types: [`NavigationStack`](#behavior-navigationstack), [`NavigationStackTransition`](#behavior-navigationstacktransition), [`TuiCancellation`](#tui-tuicancellation), [`TuiChildResult`](#tui-tuichildresult), [`TuiChildState`](#tui-tuichildstate), [`TuiNavigationScreen`](#tui-tuinavigationscreen)
+Related types: [`NavigationStack`](#behavior-navigationstack), [`NavigationStackTransition`](#behavior-navigationstacktransition), [`TuiChildResult`](#tui-tuichildresult), [`TuiNavigationScreen`](#tui-tuinavigationscreen)

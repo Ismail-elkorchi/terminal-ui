@@ -1,3 +1,4 @@
+import { createSuggestionFixture } from '../../support/collection-fixtures.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -12,7 +13,7 @@ import {
   noColorTheme
 } from '../../../dist/theme/index.js';
 import { createVisualSnapshot } from '../../../dist/testing/index.js';
-import { createCommandSuggestions, createScrollState } from '../../../dist/behavior/index.js';
+import { createScrollState } from '../../../dist/behavior/index.js';
 import { renderElementRegions } from '../../../dist/renderer/internal/render-element.js';
 import { activityIndicator,
   commandInput as createCommandInput,
@@ -338,7 +339,7 @@ test('text components map Unicode cursor positions through the shared text contr
   const commandFrame = renderElementFrame(commandInput({ meta: { accessibleName: "Command input" },
     id: 'unicode-command',
     prompt: '> ',
-    view: { input: { text: value, cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length } }, open: false, suggestions: createCommandSuggestions([]) }
+    view: { input: { text: value, cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length } }, open: false, ...createSuggestionFixture([]) }
   }), { columns: 18, rows: 1 }, { focusPath: ['unicode-command'] });
 
   assert.deepEqual(cursorPosition(textInputFrame.cursor), { row: 1, column: 6 });
@@ -1044,7 +1045,7 @@ test('editable text controls remain readable in high contrast and no-color rende
     commandInput({ meta: { accessibleName: "Command input" },
       id: 'contrast-command',
       prompt: '/',
-      view: { input: { text: '', cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
+      view: { input: { text: '', cursor: 0 }, open: false, ...createSuggestionFixture([]) },
       placeholder: 'command',
       validation: { level: 'warning', message: 'Waiting' }
     })
@@ -1081,7 +1082,7 @@ test('editable text controls remain identifiable when the theme has no field fil
     commandInput({
       id: 'no-color-command',
       prompt: '› ',
-      view: { input: { text: '', cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
+      view: { input: { text: '', cursor: 0 }, open: false, ...createSuggestionFixture([]) },
       placeholder: '/open',
       meta: { accessibleName: "Command input", focus: { disabled: true } }
     })

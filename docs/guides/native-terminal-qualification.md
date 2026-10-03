@@ -106,19 +106,19 @@ Windows ConPTY qualification is implied by Linux automation. An unavailable
 native combination remains **unqualified**, rather than being represented by
 simulated capability flags or another OS.
 
-### Verified Bun qualification limitation
+### Previously observed Bun segmentation issue
 
-On Linux x86-64, Bun **1.3.14** (the CI pin) and **1.4.2** fail the Unicode
-caret assertion. For `alphaé-café é 世界 👩‍💻`, grapheme iteration places the final
-emoji at UTF-16 offset 18, but `Intl.Segments.containing(18)` returns the space
-plus emoji starting at 17. Consequently, Left moves the application's caret
-from 23 to 17 instead of 18. Both versions reproduced this independently of
-the terminal transport; Node 24.19.0 and Deno 2.9.0/2.9.6 passed the same native
-PTY assertion. These Bun versions remain unqualified for this input path.
-The regression is intentionally retained and fails when either affected Bun
-version is installed; it is not a skipped test or a change to the CI versions.
-The dependency-free `a😀` reproduction is reported in
+Bun 1.3.14 and 1.4.2 previously returned inconsistent boundaries from
+`Intl.Segments.containing()` and grapheme iteration for inputs such as
+`alphaé-café é 世界 👩‍💻`. That upstream behavior is recorded in
 [Bun issue #44386](https://github.com/oven-sh/bun/issues/44386).
+
+The authoritative editing path now uses iterator-derived source boundaries and
+no longer calls `.containing()`. The unchanged automated Unix PTY Unicode caret,
+input, resize, cancellation and restoration regressions pass under Bun 1.3.14 on
+Linux x86-64, alongside Node 24.19.0 and Deno 2.9.0. This qualifies that tested
+runtime/transport combination, not every Bun release or physical terminal.
+Bun 1.4.2 has not been requalified in this run.
 
 ## Automated Unix PTY regression
 
@@ -150,7 +150,7 @@ accessibility test.
 ### Native input handoff and suspension
 
 The independent `native-input-handoff-pty.test.mjs` integration regression uses
-ASCII sentinels, so it does not depend on the Bun Unicode caret path above. For
+ASCII sentinels, so it does not depend on the Unicode caret path above. For
 each available runtime it repeats three pending-read/release cycles, checks that
 an inherited-stdin subprocess receives `C`, and verifies a replacement reader
 receives `R`. It also repeats three `runTui()` effect calls to
@@ -169,4 +169,4 @@ building. Optional `TERMINAL_UI_NODE_EXECUTABLE`, `TERMINAL_UI_DENO_EXECUTABLE`
 and `TERMINAL_UI_BUN_EXECUTABLE` environment variables select exact runtime
 binaries instead of the current Node executable and `deno`/`bun` on `PATH`.
 Failed runs retain event journals, terminal output and supervisor exit evidence;
-passing this ASCII-only check does not qualify Bun's separate Unicode path.
+passing this ASCII-only check does not qualify the separate Unicode path.

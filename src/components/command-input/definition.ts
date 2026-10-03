@@ -5,9 +5,9 @@ import type {
   CommandInputView,
 } from '../../behavior/command-input.ts';
 import { createListboxCollection } from '../../behavior/listbox-operations.ts';
-import { createListboxView } from '../../behavior/listbox-view.ts';
+import { createListboxView, matchingListboxView } from '../../behavior/listbox-view.ts';
 import type { ListboxView, ListboxViewEntry } from '../../behavior/listbox.ts';
-import { isCollectionSnapshot } from '../../collection/snapshot.ts';
+import { isListboxCollection } from '../../behavior/listbox-source.ts';
 import type { ComponentInput, ComponentRenderInput } from '../../component/contracts.ts';
 import { defineComponent } from '../../component/definition.ts';
 import type { ComponentMessage } from '../../component/message.ts';
@@ -22,7 +22,6 @@ import {
 import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
 import {
   collectionInteractionHas,
-  collectionInteractionPosition,
 } from '../../interaction/collection-interaction.ts';
 import { ignoreMessage, isIgnoredMessage } from '../../interaction/message.ts';
 import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
@@ -133,17 +132,20 @@ const instantiateCommandInput = defineComponent<CommandInputComponentOptions, Co
     collection: {
       startIndex: model.suggestions.startIndex,
       totalCount: model.suggestions.totalCount,
-      visibleCount: model.suggestions.entries.length,
+      visibleCount: model.suggestions.count,
     },
   }),
   implementationSlots(input) {
-    if (input.model.display !== 'popup' || input.model.suggestions.entries.length === 0) {
+    if (input.model.display !== 'popup' || input.model.suggestions.count === 0) {
       return { suggestions: undefined };
     }
     const selected = input.model.activeSuggestionId;
     const suggestions = listbox({
       id: `${input.id ?? 'command-input'}:suggestions:list`,
-      collection: input.model.suggestions.source,
+      ...(input.model.suggestions.source.kind === 'window'
+        ? { collection: input.model.suggestions.source }
+        : { collection: input.model.suggestions.source }),
+      view: input.model.suggestions,
       state: {
         ...(selected === undefined ? {} : { activeId: selected }),
         selection: { mode: 'none' },
@@ -180,7 +182,7 @@ const instantiateCommandInput = defineComponent<CommandInputComponentOptions, Co
   measure(input) {
     const value = input.model.value.length === 0 ? input.model.placeholder : input.model.value;
     const expandedRows = input.model.display === 'expanded'
-      ? Math.min(input.model.suggestions.entries.length, input.model.maxVisibleSuggestions)
+      ? Math.min(input.model.suggestions.count, input.model.maxVisibleSuggestions)
       : 0;
     return {
       minWidth: 1,
@@ -197,7 +199,8 @@ const instantiateCommandInput = defineComponent<CommandInputComponentOptions, Co
   renderBeforeChildren: paintCommandInput,
   accessibility(input) {
     const relationship = popupRelationship(input.id);
-    const suggestions = input.model.display === 'compact' ? [] : input.model.suggestions.entries;
+    const suggestions = input.model.display === 'compact' ? [] : commandSuggestionsWindow(input.model, input.model.maxVisibleSuggestions);
+    const startIndex = suggestions[0]?.visibleIndex ?? input.model.suggestions.startIndex;
     const children = [
       ...(input.model.validation === undefined ? [] : [{
         id: `${input.id}:validation`,
@@ -210,13 +213,13 @@ const instantiateCommandInput = defineComponent<CommandInputComponentOptions, Co
         role: 'listbox' as const,
         label: 'Suggestions',
         window: {
-          startIndex: input.model.suggestions.startIndex,
-          endIndexExclusive: input.model.suggestions.startIndex + suggestions.length,
+          startIndex,
+          endIndexExclusive: startIndex + suggestions.length,
           totalCount: input.model.suggestions.totalCount,
-          omittedBefore: input.model.suggestions.startIndex,
+          omittedBefore: startIndex,
           omittedAfter: Math.max(
             0,
-            input.model.suggestions.totalCount - input.model.suggestions.startIndex - suggestions.length,
+            input.model.suggestions.totalCount - startIndex - suggestions.length,
           ),
         },
         children: suggestions.map((suggestion) => ({
@@ -280,17 +283,17 @@ const instantiateCommandInput = defineComponent<CommandInputComponentOptions, Co
         ...(canChangeStructure ? commandInputHistoryTriggers() : [])
       ],
       arrowUp: () =>
-        model.suggestions.entries.length === 0
+        model.suggestions.count === 0
           ? canEdit ? commandTransition({ kind: 'historyPrevious' }) : ignoreMessage()
           : commandTransition({ kind: 'moveSuggestion', delta: -1 }),
       arrowDown: () =>
-        model.suggestions.entries.length === 0
+        model.suggestions.count === 0
           ? canEdit ? commandTransition({ kind: 'historyNext' }) : ignoreMessage()
           : commandTransition({ kind: 'moveSuggestion', delta: 1 }),
-      ...(!canCommitSelection || model.suggestions.entries.length === 0
+      ...(!canCommitSelection || model.suggestions.count === 0
         ? {}
         : { tab: () => commandTransition({ kind: 'acceptSuggestion' }) }),
-      ...(model.suggestions.entries.length === 0 || !popupAllowsDismissal(standardPopupDismissal, 'escape')
+      ...(model.suggestions.count === 0 || !popupAllowsDismissal(standardPopupDismissal, 'escape')
         ? {}
         : { escape: () => commandTransition({ kind: 'dismissSuggestions', reason: 'escape' }) }),
       ...(canActivate ? { enter: () => ({ kind: 'submit' as const, event: { kind: 'submit' as const, value: submitted } }) } : {}),
@@ -305,7 +308,7 @@ const instantiateCommandInput = defineComponent<CommandInputComponentOptions, Co
       ? commandTransition({ kind: 'edit', operation: { kind: 'insert', text } })
       : ignoreMessage(),
   onFocus: (event, { model }) => event.kind === 'focusLeave'
-    && model.suggestions.entries.length > 0
+    && model.suggestions.count > 0
     && popupAllowsDismissal(standardPopupDismissal, 'focusLoss')
     ? commandTransition({ kind: 'dismissSuggestions', reason: 'focusLoss' })
     : ignoreMessage(),
@@ -409,13 +412,15 @@ function decodeCommandInputView(
   const text = clean(value.input.text, 'commandInput input text') ?? '';
   const cursor = nonNegativeInteger(value.input.cursor, 'commandInput input cursor');
   if (cursor > text.length) throw new RangeError('commandInput cursor is outside the value.');
-  if (!isCollectionSnapshot(value.suggestions)) {
+  if (!isListboxCollection(value.suggestions)) {
     throw new TypeError('commandInput suggestions must be a retained listbox collection.');
   }
   if (typeof value.open !== 'boolean') throw new TypeError('commandInput open must be a boolean.');
-  const suggestions = value.open
-    ? createListboxView(value.suggestions)
-    : emptyCommandInputSuggestions;
+  const prepared = matchingListboxView(value.suggestions, undefined, value.suggestionView);
+  if (prepared === undefined) {
+    throw new TypeError('commandInput suggestionView must match its suggestions.');
+  }
+  const suggestions = value.open ? prepared : emptyCommandInputSuggestions;
   const activeSuggestionId = value.activeSuggestionId === undefined
     ? undefined
     : nonEmpty(value.activeSuggestionId, 'commandInput activeSuggestionId');
@@ -573,7 +578,7 @@ function paintCommandInput(
       0,
       Math.min(input.model.maxVisibleSuggestions, input.bounds.height - row - reserveFooter),
     );
-    input.model.suggestions.entries.slice(0, available).forEach((suggestion, index) => {
+    commandSuggestionsWindow(input.model, available).forEach((suggestion, index) => {
       input.target.write(row + index, 0, commandSuggestionSpans(input, suggestion, index));
     });
     row += available;
@@ -813,7 +818,7 @@ function commandInputHitTargets(
   );
   return [
     textTarget,
-    ...input.model.suggestions.entries.slice(0, available).flatMap((
+    ...commandSuggestionsWindow(input.model, available).flatMap((
       suggestion,
       index,
     ): readonly HitTarget<CommandInputComponentAction>[] =>
@@ -828,10 +833,19 @@ function commandInputHitTargets(
   ];
 }
 
+function commandSuggestionsWindow(model: CommandInputModel, count: number) {
+  const active = activeSuggestion(model);
+  const relativeActive = active === undefined ? 0 : active.visibleIndex - model.suggestions.startIndex;
+  const start = Math.max(0, Math.min(
+    Math.max(0, model.suggestions.count - count),
+    relativeActive - Math.floor(count / 2),
+  ));
+  return model.suggestions.window(start, start + count);
+}
+
 function activeSuggestion(model: CommandInputModel): ListboxViewEntry<CommandCompletion> | undefined {
   if (model.activeSuggestionId === undefined) return undefined;
-  const position = collectionInteractionPosition(model.suggestions.interactionIndex, model.activeSuggestionId);
-  return position === undefined ? undefined : model.suggestions.selectable[position];
+  return model.suggestions.entryById(model.activeSuggestionId);
 }
 
 function commandInputHistoryTriggers() {

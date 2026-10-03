@@ -1,3 +1,4 @@
+import { createListboxFixture, createOptionsFixture } from '../support/collection-fixtures.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -80,8 +81,7 @@ runVirtualCollectionConformance('built-in', {
   active: ({ id, items, activeIndex }) => listbox({
     id,
     meta: { accessibleName: 'Rows' },
-    items,
-    toOption: (item) => ({ id: item, label: item }),
+    ...createListboxFixture(items, (item) => ({ id: item, label: item })),
     state: {
       activeId: items[activeIndex],
       selection: { mode: 'single', selectedId: items[activeIndex] }
@@ -91,8 +91,7 @@ runVirtualCollectionConformance('built-in', {
   disabled: ({ id, items, activeIndex }) => listbox({
     id,
     meta: { accessibleName: 'Rows' },
-    items,
-    toOption: (item) => ({ id: item, label: item }),
+    ...createListboxFixture(items, (item) => ({ id: item, label: item })),
     state: {
       activeId: items[activeIndex],
       selection: { mode: 'single', selectedId: items[activeIndex] }
@@ -112,10 +111,10 @@ runVirtualCollectionConformance('external', {
 runPopupChoiceConformance('built-in', (id) => combobox({
   id,
   label: 'Choice',
-  options: [
+  ...createOptionsFixture([
     { id: 'one', label: 'One', value: 'one' },
     { id: 'two', label: 'Two', value: 'two' }
-  ],
+  ]),
   state: {
     kind: 'select',
     open: true,

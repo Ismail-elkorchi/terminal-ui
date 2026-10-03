@@ -31,6 +31,7 @@ export interface RenderNodePropsByKind<TMessage> {
 
 export interface ComponentRenderProps {
   readonly model: unknown;
+  readonly reuse: import('../../../../visual/reuse-dependencies.ts').ReuseDependencies;
   readonly accessibleRole?: import('../../../../accessibility/types.ts').AccessibleRole;
   readonly accessibleName?: string;
   readonly slots: readonly {

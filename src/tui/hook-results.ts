@@ -1,4 +1,8 @@
+import { snapshotArray } from '../foundation/array-snapshot.ts';
 import { copyWorkOwnership } from './lifecycle/work-ownership.ts';
+import { readTuiContribution, unwrapTuiSource } from './lifecycle/contribution.ts';
+import type { ContributionEntry } from './lifecycle/contribution.ts';
+import { TerminalUiError } from '../errors.ts';
 import { effectExecutionId, subscriptionExecutionId } from '../foundation/identity.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
 import type { InitialFocusSelector } from '../interaction/focus.ts';
@@ -9,52 +13,62 @@ import type {
   TuiEffectContext,
   TuiEffectOutput,
   TuiEventSource,
-  TuiInitialResult,
   TuiSourceSink,
   TuiSubscriptionContext,
-  TuiUpdateResult,
 } from './types.ts';
 
+export interface DecodedTuiResult<TState, TMessage> {
+  readonly state: TState;
+  readonly contributions: readonly ContributionEntry<TMessage>[];
+  readonly focus?: InitialFocusSelector;
+  readonly exit?: { readonly reason?: string };
+}
+
 export function decodeTuiInitialResult<TState, TMessage>(
-  value: unknown,
-): TuiInitialResult<TState, TMessage> {
-  const result = objectResult(value, 'TUI initial result');
-  if (!Object.hasOwn(result, 'state')) {
-    throw new TypeError('TUI initial result must provide state.');
-  }
-  const effects = optionalArray(result['effects'], 'TUI initial effects')?.map(decodeTuiEffect<TMessage>);
-  const focus = result['focus'] === undefined
-    ? undefined
-    : decodeInitialFocusSelector(result['focus'], 'TUI initial focus');
-  const exit = decodeExitRequest(result['exit'], 'TUI initial exit');
-  return Object.freeze({
-    state: result['state'] as TState,
-    ...(effects === undefined ? {} : { effects: Object.freeze(effects) }),
-    ...(focus === undefined ? {} : { focus }),
-    ...(exit === undefined ? {} : { exit }),
-  });
+  value: unknown, maxEntries = 4096,
+): DecodedTuiResult<TState, TMessage> {
+  return decodeResult(value, 'TUI initial result', maxEntries);
 }
 
 export function decodeTuiUpdateResult<TState, TMessage>(
-  value: unknown
-): TuiUpdateResult<TState, TMessage> {
-  const result = objectResult(value, 'TUI update result');
-  if (!Object.hasOwn(result, 'state')) {
-    throw new TypeError('TUI update result must provide state.');
-  }
+  value: unknown, maxEntries = 4096,
+): DecodedTuiResult<TState, TMessage> {
+  return decodeResult(value, 'TUI update result', maxEntries);
+}
+
+function decodeResult<TState, TMessage>(value: unknown, label: string, maxEntries: number): DecodedTuiResult<TState, TMessage> {
+  const result = objectResult(value, label);
+  if (!Object.hasOwn(result, 'state')) throw new TypeError(`${label} must provide state.`);
   if (Object.hasOwn(result, 'cancelEffects')) throw new TypeError('TUI update cancelEffects is obsolete; use typed cancel requests.');
-  const cancel = optionalArray(result['cancel'], 'TUI update cancel')?.map(decodeCancellation);
-  const effects = optionalArray(result['effects'], 'TUI update effects')?.map(decodeTuiEffect<TMessage>);
-  const focus = result['focus'] === undefined
-    ? undefined
-    : decodeInitialFocusSelector(result['focus'], 'TUI update focus');
-  const exit = decodeExitRequest(result['exit'], 'TUI update exit');
-  return Object.freeze({
-    state: result['state'] as TState,
+  const entries = result['contribution'] === undefined ? [] : readTuiContribution<TMessage>(result['contribution']);
+  const rawCancel = optionalArray(result['cancel'], `${label} cancel`);
+  const rawEffects = optionalArray(result['effects'], `${label} effects`);
+  const cancelCount = rawCancel?.length ?? 0;
+  const effectCount = rawEffects?.length ?? 0;
+  let count = cancelCount + effectCount;
+  checkCount(count, maxEntries, 'transaction_contributions');
+  for (const entry of entries) {
+    count += Math.max(1, (entry.cancel?.length ?? 0) + (entry.effects?.length ?? 0));
+    checkCount(count, maxEntries, 'transaction_contributions');
+  }
+  const cancel = rawCancel === undefined ? undefined : snapshotArray(rawCancel, cancelCount).map(decodeCancellation);
+  const effects = rawEffects === undefined ? undefined : snapshotArray(rawEffects, effectCount).map(decodeTuiEffect<TMessage>);
+  const ownFocus = result['focus'] === undefined ? undefined : decodeInitialFocusSelector(result['focus'], `${label} focus`, maxEntries);
+  const contributions: ContributionEntry<TMessage>[] = [...entries];
+  if (cancel !== undefined || effects !== undefined || ownFocus !== undefined) contributions.push(Object.freeze({
     ...(cancel === undefined ? {} : { cancel: Object.freeze(cancel) }),
     ...(effects === undefined ? {} : { effects: Object.freeze(effects) }),
-    ...(focus === undefined ? {} : { focus }),
-    ...(exit === undefined ? {} : { exit })
+    ...(ownFocus === undefined ? {} : { focus: ownFocus }),
+  }));
+  const focus = contributions.findLast(entry => entry.focus !== undefined)?.focus;
+  const exit = decodeExitRequest(result['exit'], `${label} exit`);
+  return Object.freeze({ state: result['state'] as TState, contributions: Object.freeze(contributions),
+    ...(focus === undefined ? {} : { focus }), ...(exit === undefined ? {} : { exit }) });
+}
+
+function checkCount(observed: number, limit: number, reason: string): void {
+  if (observed > limit) throw new TerminalUiError(`TUI ${reason} exceeds its admitted limit.`, {
+    code: 'TUI_OVERLOAD', reason, limit, observed,
   });
 }
 
@@ -91,7 +105,8 @@ export function decodeTuiEffect<TMessage>(value: unknown, index?: number): TuiEf
 
 export function decodeTuiEffectOutput<TMessage>(
   value: unknown,
-  label = 'TUI effect output'
+  label = 'TUI effect output',
+  maxMessages = 1024,
 ): TuiEffectOutput<TMessage> {
   const output = objectResult(value, label);
   if (output['kind'] === 'none') return Object.freeze({ kind: 'none' });
@@ -102,17 +117,23 @@ export function decodeTuiEffectOutput<TMessage>(
     return Object.freeze({ kind: 'message', message: output['message'] as TMessage });
   }
   if (output['kind'] === 'messages') {
-    const messages = requiredArray(output['messages'], `${label} messages`);
+    const supplied = requiredArray(output['messages'], `${label} messages`);
+    const count = supplied.length;
+    checkCount(count, maxMessages, 'effect_output_messages');
+    const messages = snapshotArray(supplied, count);
     if (messages.some((message) => message === null || message === undefined)) {
       throw new TypeError(`${label} messages cannot contain null or undefined.`);
     }
-    return Object.freeze({ kind: 'messages', messages: Object.freeze([...messages]) as readonly TMessage[] });
+    return Object.freeze({ kind: 'messages', messages: Object.freeze(messages) as readonly TMessage[] });
   }
   throw new TypeError(`${label} kind is invalid.`);
 }
 
-export function decodeTuiEventSources<TMessage>(value: unknown): readonly TuiEventSource<TMessage>[] {
-  return Object.freeze(requiredArray(value, 'TUI subscriptions result').map(decodeTuiEventSource<TMessage>));
+export function decodeTuiEventSources<TMessage>(value: unknown, maxEntries = 4096): readonly TuiEventSource<TMessage>[] {
+  const entries = requiredArray(value, 'TUI subscriptions result');
+  const count = entries.length;
+  checkCount(count, maxEntries, 'source_generations');
+  return Object.freeze(snapshotArray(entries, count).map((entry, index) => decodeTuiEventSource<TMessage>(unwrapTuiSource(entry), index)));
 }
 
 export function decodeMessageResolution<TMessage>(value: unknown, label: string): MessageResolution<TMessage> {
@@ -191,14 +212,17 @@ function decodeTuiEventSourceCallbacks<TMessage>(
   };
 }
 
-function decodeInitialFocusSelector(value: unknown, label: string): InitialFocusSelector {
+function decodeInitialFocusSelector(value: unknown, label: string, maxEntries: number): InitialFocusSelector {
   const selector = objectResult(value, label);
   if (selector['kind'] === 'path') {
-    const path = requiredArray(selector['path'], `${label} path`);
+    const supplied = requiredArray(selector['path'], `${label} path`);
+    const count = supplied.length;
+    checkCount(count, maxEntries, 'focus_path');
+    const path = snapshotArray(supplied, count);
     if (path.length === 0 || path.some((segment) => typeof segment !== 'string' || segment.trim() === '')) {
       throw new TypeError(`${label} path must contain non-empty string segments.`);
     }
-    return Object.freeze({ kind: 'path', path: Object.freeze([...path]) as readonly string[] });
+    return Object.freeze({ kind: 'path', path: Object.freeze(path) as readonly string[] });
   }
   const elementId = nonEmptyString(selector['elementId'], `${label} elementId`);
   if (selector['kind'] === 'element') return Object.freeze({ kind: 'element', elementId });

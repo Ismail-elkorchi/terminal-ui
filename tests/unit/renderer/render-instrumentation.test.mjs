@@ -48,6 +48,7 @@ test('measurement calls and misses follow independent custom hooks and retained 
   let hooks = 0;
   const leaf = defineComponent({
     name: 'terminal-ui-tests/instrumented-measure',
+    reuse: { measurement: () => [] },
     identity: 'required', structure: 'leaf', semantics: 'semantic', accessibleRole: 'text',
     measure() { hooks += 1; return { minWidth: 1, minHeight: 1, preferredWidth: 2, preferredHeight: 1 }; },
     render() {},

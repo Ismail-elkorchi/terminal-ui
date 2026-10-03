@@ -84,7 +84,7 @@ const instantiateMenu = defineComponent<MenuOwnOptions, MenuComponentAction>()({
   visualStates: ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy'],
   createModel: createMenuModel,
   measure: measureMenu,
-  retainPaint: true as const,
+  reuse: { paint: (model: object) => [model] as const },
   render: paintMenu,
   keys: ({ model, busy }) => busy ? {} : ({
     arrowUp: () => menuComponentTransition({ kind: 'move', delta: -1 }),

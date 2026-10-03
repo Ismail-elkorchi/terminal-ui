@@ -1,3 +1,6 @@
+import { withEffectOutputLimit } from './effect-output-limit.ts';
+import { TerminalUiError, errorFromUnknown } from '../../errors.ts';
+import { assertRuntimeLimit } from './runtime-policy.ts';
 import { cancellationMatches, copyWorkOwnership } from './work-ownership.ts';
 import type { TerminalDiagnostic } from '../../diagnostics.ts';
 import { diagnostic } from '../../diagnostics.ts';
@@ -20,9 +23,27 @@ interface EffectExecution {
   readonly controller: AbortController;
   readonly lease: ProducerAdmissionLease;
   completion: Promise<void>;
+  physicallySettled: boolean;
 }
 
 interface ScheduledEffect<TMessage> {
+  readonly effect: TuiEffect<TMessage>;
+  readonly redacted: boolean;
+  readonly token: EffectObligation;
+}
+
+interface EffectObligation {
+  execution?: EffectExecution;
+  released: boolean;
+  creditReserved: boolean;
+}
+
+export interface PreparedTuiEffects {
+  activate(): void;
+  release(): void;
+}
+
+export interface TuiEffectRequest<TMessage> {
   readonly effect: TuiEffect<TMessage>;
   readonly redacted: boolean;
 }
@@ -31,9 +52,11 @@ export interface TuiEffectManagerMetrics {
   readonly active: number;
   readonly queued: number;
   readonly rejected: number;
+  readonly owned: number;
 }
 
 export interface TuiEffectManager<TMessage> {
+  prepare(effects: readonly TuiEffectRequest<TMessage>[], completing?: ProducerAdmissionLease): PreparedTuiEffects;
   start(effects: readonly TuiEffect<TMessage>[], redacted?: boolean): void;
   cancelRequests(requests: readonly TuiCancellation[]): void;
   cancel(): void;
@@ -42,6 +65,7 @@ export interface TuiEffectManager<TMessage> {
 }
 
 export interface TuiEffectManagerOptions<TMessage> {
+  readonly fatal?: (cause: unknown) => void;
   readonly clock: TerminalClock;
   readonly context: () => Promise<TuiContext>;
   readonly dispatch: (
@@ -59,7 +83,9 @@ export interface TuiEffectManagerOptions<TMessage> {
   readonly policy?: TuiEffectPolicy;
 }
 
-export const defaultTuiEffectPolicy: TuiEffectPolicy = Object.freeze({
+export const defaultTuiEffectPolicy: Required<TuiEffectPolicy> = Object.freeze({
+  maxOwned: 512,
+  maxOutputMessages: 1_024,
   maxActive: 32,
   maxActivePerId: 4,
   maxQueued: 256,
@@ -71,6 +97,7 @@ export function createTuiEffectManager<TMessage>(
   options: TuiEffectManagerOptions<TMessage>
 ): TuiEffectManager<TMessage> {
   const policy = normalizeEffectPolicy(options.policy);
+  const owned = new Set<EffectObligation>();
   const active = new Set<EffectExecution>();
   // Reliable terminal messages await ordinary dispatch; only their admission identity is retained here.
   const recovering = new Set<EffectExecution>();
@@ -78,7 +105,7 @@ export function createTuiEffectManager<TMessage>(
   const queues = new Map<string, ScheduledEffect<TMessage>[]>();
   const pendingReplacements = new Map<string, ScheduledEffect<TMessage>>();
   const replacementDeadlines = new Map<string, ReplacementDeadline>();
-  const executionFailures: unknown[] = [];
+  let executionFailure: unknown;
   let rejected = 0;
   let disposed = false;
 
@@ -86,13 +113,20 @@ export function createTuiEffectManager<TMessage>(
     const { effect } = scheduled;
     const id = effect.id;
     const execution = createExecution(effect);
-    execution.completion = executeEffect(effect, scheduled.redacted, execution, options)
+    scheduled.token.execution = execution;
+    execution.completion = executeEffect(effect, scheduled.redacted, execution, {
+      ...options,
+      maxOutputMessages: policy.maxOutputMessages,
+      physicallySettled: () => { execution.physicallySettled = true; },
+    })
       .catch((cause: unknown) => {
-        executionFailures.push(cause);
+        executionFailure ??= cause;
+        options.fatal?.(cause);
       })
       .finally(() => {
         execution.lease.revoke();
         active.delete(execution);
+        release(scheduled.token);
         const group = activeById.get(id);
         group?.delete(execution);
         if (group?.size === 0) activeById.delete(id);
@@ -151,6 +185,7 @@ export function createTuiEffectManager<TMessage>(
         if (hasCapacity(id)) launch(scheduled);
         else enqueue(scheduled, id);
       }
+      else release(scheduled.token);
       return;
     }
     if (effect.concurrency === 'replace') {
@@ -159,7 +194,7 @@ export function createTuiEffectManager<TMessage>(
       for (const execution of activeForId ?? []) {
         cancelExecution(execution);
       }
-      queues.delete(id);
+      clearScheduledId(id);
       if (hasCapacity(id)) {
         cancelReplacementDeadline(id);
         launch(scheduled);
@@ -180,9 +215,17 @@ export function createTuiEffectManager<TMessage>(
     else enqueue(scheduled, id);
   }
 
+  function clearScheduledId(id: string): void {
+    for (const queued of queues.get(id) ?? []) release(queued.token);
+    queues.delete(id);
+    const previous = pendingReplacements.get(id);
+    if (previous !== undefined) { release(previous.token); pendingReplacements.delete(id); }
+  }
+
   function enqueue(scheduled: ScheduledEffect<TMessage>, id: string): void {
     const queue = queues.get(id) ?? [];
-    if (queuedCount(queues) >= policy.maxQueued || queue.length >= policy.maxQueuedPerId) {
+    if (queuedCount(queues) + pendingReplacements.size >= policy.maxQueued
+      || queue.length + Number(pendingReplacements.has(id)) >= policy.maxQueuedPerId) {
       rejectEffect(scheduled, 'queue_limit');
       return;
     }
@@ -197,36 +240,80 @@ export function createTuiEffectManager<TMessage>(
     rejected += 1;
     const { effect, redacted } = scheduled;
     const execution = createExecution(effect);
-    // Recovery uses the ordinary producer admission path without consuming a run slot.
+    scheduled.token.execution = execution;
+    execution.physicallySettled = true;
+    // The reserved obligation owns rejection recovery and its terminal envelope.
     recovering.add(execution);
     execution.completion = recoverEffect(effect,
       diagnostic('TUI_EFFECT_REJECTED', `TUI effect ${effect.id} was rejected by the execution policy.`, {
         target: effect.id, data: { reason, ...policy }
-      }), execution.lease, options, redacted)
-      .catch((cause: unknown) => { executionFailures.push(cause); })
+      }), execution.lease, { ...options, maxOutputMessages: policy.maxOutputMessages }, redacted)
+      .catch((cause: unknown) => { executionFailure ??= cause; options.fatal?.(cause); })
       .finally(() => {
         execution.lease.revoke();
         recovering.delete(execution);
+        release(scheduled.token);
       });
   }
 
+  function release(token: EffectObligation): void {
+    if (token.released) return;
+    token.released = true;
+    owned.delete(token);
+  }
+
+  function prepare(effects: readonly TuiEffectRequest<TMessage>[], completing?: ProducerAdmissionLease): PreparedTuiEffects {
+    if (disposed) throw new TerminalUiError('TUI effect manager is closed.');
+    const credit = completing === undefined ? undefined : [...owned].find((token) =>
+      !token.creditReserved && token.execution?.lease === completing && token.execution.physicallySettled);
+    const neededCredit = owned.size + effects.length > policy.maxOwned && effects.length > 0 ? credit : undefined;
+    assertRuntimeLimit('owned_effects', owned.size + effects.length - Number(neededCredit !== undefined), policy.maxOwned);
+    if (neededCredit !== undefined) neededCredit.creditReserved = true;
+    const scheduled = effects.map((request) => {
+      const token: EffectObligation = { released: false, creditReserved: false };
+      owned.add(token);
+      return { ...request, token };
+    });
+    let pending = true;
+    return {
+      activate() {
+        if (!pending) return;
+        pending = false;
+        if (neededCredit !== undefined) release(neededCredit);
+        if (disposed) { for (const item of scheduled) release(item.token); return; }
+        for (const item of scheduled) schedule(item);
+      },
+      release() {
+        if (!pending) return;
+        pending = false;
+        if (neededCredit !== undefined) neededCredit.creditReserved = false;
+        for (const item of scheduled) release(item.token);
+      },
+    };
+  }
+
   return {
+    prepare,
     start(effects, redacted = false) {
       if (disposed) return;
-      for (const effect of effects) schedule({ effect, redacted });
+      prepare(effects.map((effect) => ({ effect, redacted }))).activate();
     },
     cancelRequests(requests) {
       if (disposed) return;
       for (const request of requests) {
         if (request.kind === 'effect') { cancelId(request.id); continue; }
         for (const [id, queue] of queues) {
-          const retained = queue.filter((item) => !cancellationMatches(request, item.effect));
+          const retained = queue.filter((item) => {
+            if (!cancellationMatches(request, item.effect)) return true;
+            release(item.token); return false;
+          });
           if (retained.length === 0) queues.delete(id);
           else queues.set(id, retained);
         }
         for (const [id, replacement] of pendingReplacements) {
           if (!cancellationMatches(request, replacement.effect)) continue;
           pendingReplacements.delete(id);
+          release(replacement.token);
           cancelReplacementDeadline(id);
         }
         for (const execution of [...active, ...recovering]) {
@@ -249,21 +336,24 @@ export function createTuiEffectManager<TMessage>(
       active.clear();
       recovering.clear();
       activeById.clear();
-      if (executionFailures.length > 0) {
-        throw new AggregateError(executionFailures.splice(0), 'TUI effect execution cleanup failed.');
-      }
+      const failure = executionFailure;
+      executionFailure = undefined;
+      if (failure !== undefined) throw new AggregateError([failure], 'TUI effect execution cleanup failed.');
     },
     metrics() {
       return {
         active: active.size,
         queued: queuedCount(queues) + pendingReplacements.size,
-        rejected
+        rejected,
+        owned: [...owned].filter((token) => !token.creditReserved).length,
       };
     }
   };
 
   function cancelAll(): void {
     disposed = true;
+    for (const queue of queues.values()) for (const item of queue) release(item.token);
+    for (const item of pendingReplacements.values()) release(item.token);
     queues.clear();
     pendingReplacements.clear();
     for (const deadline of replacementDeadlines.values()) deadline.controller.abort();
@@ -272,6 +362,9 @@ export function createTuiEffectManager<TMessage>(
   }
 
   function cancelId(id: string): void {
+    for (const item of queues.get(id) ?? []) release(item.token);
+    const pending = pendingReplacements.get(id);
+    if (pending !== undefined) release(pending.token);
     queues.delete(id);
     pendingReplacements.delete(id);
     cancelReplacementDeadline(id);
@@ -289,6 +382,10 @@ export function createTuiEffectManager<TMessage>(
     return queuedCount(queues) + pendingReplacements.size < policy.maxQueued;
   }
 
+  async function replacementSleep(signal: AbortSignal) {
+    return options.clock.sleep(policy.replacementGracePeriodMs, signal);
+  }
+
   function startReplacementDeadline(id: string, scheduled: ScheduledEffect<TMessage>): void {
     cancelReplacementDeadline(id);
     const controller = new AbortController();
@@ -296,14 +393,15 @@ export function createTuiEffectManager<TMessage>(
       controller,
       completion: Promise.resolve()
     };
-    deadline.completion = options.clock.sleep(policy.replacementGracePeriodMs, controller.signal)
+    deadline.completion = replacementSleep(controller.signal)
       .then((outcome) => {
         if (outcome === 'aborted' || pendingReplacements.get(id) !== scheduled) return;
         pendingReplacements.delete(id);
         rejectEffect(scheduled, 'replacement_timeout');
       })
       .catch((cause: unknown) => {
-        executionFailures.push(cause);
+        executionFailure ??= cause;
+        options.fatal?.(cause);
       })
       .finally(() => {
         if (replacementDeadlines.get(id) === deadline) replacementDeadlines.delete(id);
@@ -330,6 +428,7 @@ function createExecution(effect: TuiEffect<unknown>): EffectExecution {
     id: effect.id, controller,
     lease: createProducerAdmissionLease('effect', effect.id, controller.signal),
     completion: Promise.resolve(),
+    physicallySettled: false,
   });
 }
 
@@ -342,7 +441,7 @@ async function executeEffect<TMessage>(
   effect: TuiEffect<TMessage>,
   redacted: boolean,
   execution: EffectExecution,
-  options: TuiEffectManagerOptions<TMessage>
+  options: TuiEffectManagerOptions<TMessage> & { readonly maxOutputMessages: number; readonly physicallySettled: () => void }
 ): Promise<void> {
   const { controller, lease } = execution;
   let base: TuiContext;
@@ -350,30 +449,56 @@ async function executeEffect<TMessage>(
     base = await options.context();
   } catch (cause) {
     if (controller.signal.aborted) return;
+    options.physicallySettled();
     await recoverEffect(effect, effectFailure(effect.id, cause, 'context'), lease, options, redacted);
     return;
   }
   if (controller.signal.aborted) return;
   let output: TuiEffectOutput<TMessage>;
+  let terminalCompletion: Promise<unknown> | undefined;
+  let acceptingTerminalOperations = true;
   try {
-    const context: TuiEffectContext = {
+    let terminalOperation = false;
+    const runTerminalOperation = <TValue>(prepare: () => () => Promise<TValue>): Promise<TValue> => {
+      if (!acceptingTerminalOperations || !lease.authorized()) return Promise.reject(new TerminalUiError('TUI effect terminal authority is closed.'));
+      if (terminalOperation) return Promise.reject(new TerminalUiError('An effect already owns a terminal operation.', {
+        code: 'TUI_OVERLOAD', reason: 'effect_terminal_operation', limit: 1, observed: 2,
+      }));
+      terminalOperation = true;
+      let operation: () => Promise<TValue>;
+      try { operation = prepare(); }
+      catch (cause) { terminalOperation = false; return Promise.reject(errorFromUnknown(cause)); }
+      const completion = Promise.resolve().then(() => { controller.signal.throwIfAborted(); return operation(); })
+        .finally(() => { terminalOperation = false; });
+      terminalCompletion = completion;
+      void completion.catch(() => undefined);
+      return completion;
+    };
+    const context: TuiEffectContext = withEffectOutputLimit({
       ...base,
       signal: controller.signal,
       withTerminalSuspended: <TValue>(operation: () => Promise<TValue>) => {
         const suspend = options.withTerminalSuspended;
         return suspend === undefined
           ? Promise.reject(new Error('Terminal suspension is only available to runtimes owned by runTui().'))
-          : suspend(operation, controller.signal);
+          : runTerminalOperation(() => () => suspend(operation, controller.signal));
       },
-      copySelectedText: (input) => options.copySelectedText(
-        decodeCopySelectedTextInput(input),
-        controller.signal,
-      ),
-    };
+      copySelectedText: (input) => runTerminalOperation(() => {
+        const request = decodeCopySelectedTextInput(input);
+        return () => options.copySelectedText(request, controller.signal);
+      }),
+    }, options.maxOutputMessages);
     if (signalIsAborted(controller.signal)) return;
-    output = decodeTuiEffectOutput<TMessage>(await effect.run(context));
+    const supplied = await effect.run(context);
+    acceptingTerminalOperations = false;
+    await terminalCompletion;
+    options.physicallySettled();
+    output = boundedEffectOutput<TMessage>(supplied, 'TUI effect output', options.maxOutputMessages);
   } catch (cause) {
+    acceptingTerminalOperations = false;
+    await terminalCompletion?.catch(() => undefined);
     if (signalIsAborted(controller.signal)) return;
+    options.physicallySettled();
     await recoverEffect(effect, effectFailure(effect.id, cause, 'run'), lease, options, redacted);
     return;
   }
@@ -381,17 +506,8 @@ async function executeEffect<TMessage>(
   try {
     await options.dispatch(outputMessages(output), lease, redacted);
   } catch (cause) {
-    reportDispatchFailure(effect, cause, lease, options);
+    if (lease.authorized()) throw new TerminalUiError(`TUI effect ${effect.id} settlement failed.`, { code: 'TUI_RUNTIME_FAULT', cause });
   }
-}
-
-function reportDispatchFailure<TMessage>(
-  effect: TuiEffect<TMessage>,
-  cause: unknown,
-  lease: ProducerAdmissionLease,
-  options: TuiEffectManagerOptions<TMessage>
-): void {
-  if (lease.authorized()) options.reportDiagnostic(effectFailure(effect.id, cause, 'dispatch'));
 }
 
 function signalIsAborted(signal: AbortSignal): boolean {
@@ -402,22 +518,23 @@ function recoverEffect<TMessage>(
   effect: TuiEffect<TMessage>,
   initial: TerminalDiagnostic,
   lease: ProducerAdmissionLease,
-  options: TuiEffectManagerOptions<TMessage>,
+  options: TuiEffectManagerOptions<TMessage> & { readonly maxOutputMessages: number },
   redacted: boolean,
 ): Promise<void> {
-  let failure = initial;
+  const failure = initial;
   let output: TuiEffectOutput<TMessage> | undefined;
   try {
     output = effect.onError === undefined
       ? undefined
-      : decodeTuiEffectOutput<TMessage>(
-          effect.onError({ id: effect.id, diagnostic: initial }),
-          `TUI effect ${effect.id} onError output`
+      : boundedEffectOutput<TMessage>(
+          effect.onError(withEffectOutputLimit({ id: effect.id, diagnostic: initial }, options.maxOutputMessages)),
+          `TUI effect ${effect.id} onError output`,
+          options.maxOutputMessages,
         );
   } catch (handlerCause) {
-    failure = effectFailure(effect.id,
-      new AggregateError([initial.cause ?? initial, handlerCause], 'TUI effect and its error mapper failed.'),
-      'onError');
+    return Promise.reject(new TerminalUiError(`TUI effect ${effect.id} recovery mapper failed.`, {
+      code: 'TUI_RUNTIME_FAULT', reason: 'effect_recovery', cause: handlerCause,
+    }));
   }
   return dispatchRecovery(effect.id, failure, output, lease, options, redacted);
 }
@@ -430,14 +547,14 @@ async function dispatchRecovery<TMessage>(
   options: TuiEffectManagerOptions<TMessage>,
   redacted: boolean,
 ): Promise<void> {
-  let failure = initial;
+  const failure = initial;
   if (output !== undefined && output.kind !== 'none' && lease.authorized()) {
     try {
       await options.dispatch(outputMessages(output), lease, redacted);
     } catch (dispatchCause) {
-      failure = effectFailure(id,
-        new AggregateError([initial.cause ?? initial, dispatchCause], 'TUI effect recovery dispatch failed.'),
-        'error_dispatch');
+      if (lease.authorized()) throw new TerminalUiError(`TUI effect ${id} recovery settlement failed.`, {
+        code: 'TUI_RUNTIME_FAULT', reason: 'effect_recovery_dispatch', cause: dispatchCause,
+      });
     }
   }
   if (lease.authorized()) options.reportDiagnostic(failure);
@@ -465,8 +582,10 @@ function queuedCount<TMessage>(queues: ReadonlyMap<string, readonly ScheduledEff
   return count;
 }
 
-function normalizeEffectPolicy(policy: TuiEffectPolicy | undefined): TuiEffectPolicy {
+export function normalizeEffectPolicy(policy: TuiEffectPolicy | undefined): Required<TuiEffectPolicy> {
   const result = policy ?? defaultTuiEffectPolicy;
+  const maxOwned = positivePolicyInteger(result.maxOwned ?? defaultTuiEffectPolicy.maxOwned, 'maxOwned');
+  const maxOutputMessages = positivePolicyInteger(result.maxOutputMessages ?? defaultTuiEffectPolicy.maxOutputMessages, 'maxOutputMessages');
   const maxActive = positivePolicyInteger(result.maxActive, 'maxActive');
   const maxActivePerId = positivePolicyInteger(result.maxActivePerId, 'maxActivePerId');
   const maxQueued = positivePolicyInteger(result.maxQueued, 'maxQueued');
@@ -476,6 +595,8 @@ function normalizeEffectPolicy(policy: TuiEffectPolicy | undefined): TuiEffectPo
     'replacementGracePeriodMs',
   );
   return Object.freeze({
+    maxOwned,
+    maxOutputMessages,
     maxActive,
     maxActivePerId,
     maxQueued,
@@ -496,4 +617,12 @@ function nonNegativePolicyInteger(value: unknown, field: string): number {
     throw new RangeError(`TUI effect policy ${field} must be a non-negative safe integer.`);
   }
   return value as number;
+}
+
+function boundedEffectOutput<TMessage>(value: unknown, label: string, limit: number): TuiEffectOutput<TMessage> {
+  if (typeof value === 'object' && value !== null && 'kind' in value && value.kind === 'messages'
+    && 'messages' in value && Array.isArray(value.messages)) {
+    assertRuntimeLimit('effect_output_messages', value.messages.length, limit);
+  }
+  return decodeTuiEffectOutput<TMessage>(value, label, limit);
 }

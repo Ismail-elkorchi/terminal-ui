@@ -118,6 +118,25 @@ cooperative yielding for expensive work. Failure becomes a typed completion and
 is stored in `error`; a new request clears it. Duplicate or stale success/failure
 messages leave state unchanged.
 
+Use `createTuiCooperativeWorkContext(context)` from the TUI entry point when
+calling collection or text `prepare*` functions. It supplies the runtime's abort
+signal, monotonic clock and scheduler yield without an application sleep wrapper.
+A preparation has one operation budget across nested work: scanning, copying,
+normalization, matching and sort comparisons contribute to that same budget.
+Cheap checkpoints check cancellation independently of scheduling. The scheduler
+runs when the operation ceiling is reached (2048 by default) or the injected
+clock reaches the advisory slice target (4 ms by default). A frozen test clock
+still schedules by operation count. Custom callers may provide `monotonicNow`,
+`operationLimit` and `timeSliceMs` on `CooperativeWorkContext`; no ambient host
+clock is used by text or collection work.
+
+Synchronous and cooperative entry points drain the same computation. Native
+calls, allocation, final string assembly, getters and user callbacks are
+indivisible; they are charged after they return, and can exceed a slice target.
+This is cooperative scheduling, not hard preemption. Measure these boundaries
+with application-shaped input. Cancellation finalizes the suspended computation
+and does not return a partially built candidate.
+
 The helper owns `revision`, `pending`, `result` and `error`, and preserves other
 caller-owned fields. It retains the last complete result across request, failure
 and cancellation. The app explicitly chooses whether to display it: the
@@ -170,17 +189,35 @@ requests. It fences old-generation messages and preserves local error/source
 lifecycle identities. Child focus requests use `element` or `elementTarget`;
 explicit paths in view metadata are absolute parent paths.
 
-Forward scoped effects, sources, and cancellation requests unchanged or copy the
-whole descriptor with object spread or `Object.assign`. For example,
-`{ ...effect, concurrency: 'enqueue', run: context => effect.run(context) }`
-retains its child lifetime when decorating work. Ownership is carried by private,
-immutable metadata, including through nested children. Rebuilding descriptors
-from selected fields or serializing them discards that metadata; do transformations
-before child scoping if they cannot preserve the whole descriptor.
+Local child definitions author ordinary effects, cancellation and focus requests.
+`child.init` and `child.update` return a `TuiScopedResult`: local state, explicit
+domain outputs, and an opaque `contribution`. Forward that complete result with
+`liftTuiResult(parent, 'field', result)`. For multiple results, use
+`combineTuiResults(finalParentState, first, second)`; this preserves work order
+without merging stale state snapshots. Work cancelled later in the same accepted
+transaction never starts. A no-op local state preserves the child and lifted
+parent identity while still forwarding work and outputs.
 
-When removing or replacing a child, return `child.remove(instance)` in the
-parent's `cancel` array as `[child.remove(instance)]`, remove its state, and omit its subscriptions in that
-same update. Merely hiding its view does not remove it or cancel its work.
+Scoped contributions and sources are opaque capabilities. They can be stored and
+passed back, but cannot be reconstructed or serialized. Decorate ordinary local
+effect/source definitions before child composition. Callbacks and lifetime paths
+are not exposed on scoped values. Whole-result object spread preserves the opaque
+capability; spreading the capability itself produces an invalid value.
+
+`child.remove(instance)` returns `{ state: undefined, contribution }`. Lift that
+result to remove an optional child field together with its lifetime. For an
+explicit collection of children, `reconcileTuiChildren(previous, next, childOf)`
+returns the replacement collection and removal contributions for absent
+lifetimes. Combine it with the operation that produced `next`. Navigation uses
+this same removal operation internally. No manual cancellation IDs or second
+mounted-child set is needed.
+
+Derive subscriptions from retained child state using `child.subscriptions(instance,
+context)`; an absent instance produces no sources. Hidden children remain present
+and keep their work. Removal cancellation and replacement work only take effect
+after the corresponding state/frame is accepted; failed candidate output keeps
+the committed lifetime active.
+
 `outputs` from child initialization/update are explicit domain decisions for
 the parent to handle, such as closing a panel; they do not silently dispatch
 parent messages or exit the application. `liftTuiResult(parent, field, childResult)`

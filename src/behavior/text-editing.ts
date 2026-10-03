@@ -1,32 +1,33 @@
+import { finishWork, prepareWork, type CooperativeWorkContext } from '../foundation/cooperative-work.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import type { TextPointerTransition } from '../interaction/text-pointer.ts';
 import type { BoundedEditHistory, EditHistoryPolicy } from '../text/bounded-history.ts';
 import {
-  breakEditHistoryGroup,
+  breakEditHistoryGroupWork,
   createBoundedEditHistory,
-  recordEditHistory,
-  replaceEditHistoryGroup,
+  recordEditHistoryWork,
+  replaceEditHistoryGroupWork,
 } from '../text/bounded-history.ts';
 import {
-  applyTextChangePlan,
-  applyTextChangeSet,
-  createTextChangePlan,
+  applyTextChangePlanWork,
+  applyTextChangeSetWork,
+  createTextChangePlanWork,
   createTextChangeSet,
   emptyTextChangeSet,
-  invertTextChangePlan,
-  invertTextChangeSet,
+  invertTextChangePlanWork,
+  invertTextChangeSetWork,
 } from '../text/change-set.ts';
 import { sameDocumentSelection, sameTextCaret } from '../text/comparison.ts';
 import { textCaretAt, textDocumentSelectionBetween } from '../text/coordinates.ts';
-import { editTextDocument } from '../text/document-edit.ts';
+import { editTextDocumentWork } from '../text/document-edit.ts';
 import type { TextDocument } from '../text/document.ts';
 import {
-  createTextDocument,
-  normalizeTextCaret,
-  normalizeTextDocumentOffset,
-  normalizeTextDocumentSelection,
+  createTextDocumentWork,
+  normalizeTextCaretWork,
+  normalizeTextDocumentOffsetWork,
+  normalizeTextDocumentSelectionWork,
   textDocumentRevision,
-  textDocumentSlice,
+  textDocumentSliceWork,
 } from '../text/document.ts';
 import { editSourceTextBuffer } from '../text/edit.ts';
 import { normalizeTextCursor, normalizeTextSelection } from '../text/text-range.ts';
@@ -81,7 +82,9 @@ export interface TextAreaHistoryRejection {
 }
 
 export interface CreateTextAreaStateInput {
-  readonly value: string;
+  readonly value?: string;
+  /** Adopt an immutable prepared document without rebuilding its source. */
+  readonly document?: TextDocument;
   readonly caret?: TextCaret;
   readonly selection?: TextDocumentSelection;
   readonly scroll?: ScrollState;
@@ -89,9 +92,22 @@ export interface CreateTextAreaStateInput {
 }
 
 export function createTextAreaState(input: CreateTextAreaStateInput): TextAreaState {
-  const document = createTextDocument(input.value);
-  const caret = normalizeTextCaret(document, input.caret ?? textCaretAt(0));
-  const selection = normalizeTextDocumentSelection(document, input.selection);
+  return finishWork(createTextAreaStateWork(input));
+}
+
+export function prepareTextAreaState(input: CreateTextAreaStateInput, context: CooperativeWorkContext): Promise<TextAreaState> {
+  return prepareWork(createTextAreaStateWork(input), context);
+}
+
+function* createTextAreaStateWork(input: CreateTextAreaStateInput): Generator<number, TextAreaState> {
+  if ((input.value === undefined) === (input.document === undefined)) throw new TypeError('Text area state requires exactly one value or document.');
+  let document = input.document;
+  if (document === undefined) {
+    if (input.value === undefined) throw new TypeError('Text area state requires a source.');
+    document = yield* createTextDocumentWork(input.value);
+  }
+  const caret = yield* normalizeTextCaretWork(document, input.caret ?? textCaretAt(0));
+  const selection = yield* normalizeTextDocumentSelectionWork(document, input.selection);
   return {
     document,
     caret,
@@ -109,23 +125,35 @@ export function textInputReducer(state: TextEditBuffer, transition: TextInputTra
 }
 
 export function textAreaReducer(state: TextAreaState, transition: TextAreaTransition): TextAreaReduction {
+  return finishWork(textAreaReductionWork(state, transition));
+}
+
+/** Computes the complete atomic edit, inverse, history and navigation transition. */
+export function prepareTextAreaReduction(
+  state: TextAreaState, transition: TextAreaTransition, context: CooperativeWorkContext,
+): Promise<TextAreaReduction> {
+  return prepareWork(textAreaReductionWork(state, transition), context);
+}
+
+export function* textAreaReductionWork(state: TextAreaState, transition: TextAreaTransition): Generator<number, TextAreaReduction> {
   assertTextAreaHistoryRevision(state);
   switch (transition.kind) {
+    case 'unavailable': return unchangedTextAreaReduction(state);
     case 'edit': {
-      const edited = editTextDocument(state, transition.operation);
+      const edited = yield* editTextDocumentWork(state, transition.operation);
       if (edited === state) return unchangedTextAreaReduction(state);
       const textChanged = edited.document !== state.document;
       const changeSet = textChanged
-        ? changeSetFromEdit(edited)
+        ? yield* changeSetFromEditWork(edited)
         : emptyTextChangeSet;
       const inverseChanges = textChanged
-        ? invertTextChangeSet(state.document, changeSet)
+        ? yield* invertTextChangeSetWork(state.document, changeSet)
         : emptyTextChangeSet;
       const group = transition.operation.kind === 'insert' && state.selection === undefined
         ? 'insert' as const
         : undefined;
       const historyResult = textChanged
-        ? recordTextAreaHistory(state, edited, changeSet, inverseChanges, group)
+        ? yield* recordTextAreaHistoryWork(state, edited, changeSet, inverseChanges, group)
         : undefined;
       const next: TextAreaState = {
         document: edited.document,
@@ -133,20 +161,20 @@ export function textAreaReducer(state: TextAreaState, transition: TextAreaTransi
         ...(edited.selection === undefined ? {} : { selection: edited.selection }),
         scroll: state.scroll,
         revealCaret: true,
-        history: historyResult?.history ?? breakEditHistoryGroup(state.history)
+        history: historyResult?.history ?? (yield* breakEditHistoryGroupWork(state.history))
       };
       return textAreaReduction(next, changeSet, historyResult?.rejection);
     }
     case 'applyChanges': {
-      const changePlan = createTextChangePlan(state.document, transition.changeSet);
+      const changePlan = yield* createTextChangePlanWork(state.document, transition.changeSet);
       if (changePlan.changes.length === 0) return unchangedTextAreaReduction(state);
-      const document = applyTextChangePlan(state.document, changePlan);
+      const document = yield* applyTextChangePlanWork(state.document, changePlan);
       if (document === state.document) return unchangedTextAreaReduction(state);
-      const inverseChanges = invertTextChangePlan(state.document, changePlan);
-      const requestedCaret = transition.caretOffset ?? caretAfterChanges(changePlan);
-      const after = { caret: textCaretAt(normalizeTextDocumentOffset(document, requestedCaret)) };
+      const inverseChanges = yield* invertTextChangePlanWork(state.document, changePlan);
+      const requestedCaret = transition.caretOffset ?? (yield* caretAfterChangesWork(changePlan));
+      const after = { caret: textCaretAt(yield* normalizeTextDocumentOffsetWork(document, requestedCaret)) };
       const record = textAreaEditRecord(state, after, changePlan, inverseChanges);
-      const historyResult = recordTextAreaEdit(state.history, record);
+      const historyResult = yield* recordTextAreaEditWork(state.history, record);
       const next: TextAreaState = {
         document,
         caret: after.caret,
@@ -157,23 +185,23 @@ export function textAreaReducer(state: TextAreaState, transition: TextAreaTransi
       return textAreaReduction(next, changePlan, historyResult.rejection);
     }
     case 'undo':
-      return restoreTextAreaHistory(state, 'undo');
+      return yield* restoreTextAreaHistoryWork(state, 'undo');
     case 'redo':
-      return restoreTextAreaHistory(state, 'redo');
+      return yield* restoreTextAreaHistoryWork(state, 'redo');
     case 'pointer': {
-      const offset = normalizeTextDocumentOffset(state.document, transition.transition.offset);
+      const offset = yield* normalizeTextDocumentOffsetWork(state.document, transition.transition.offset);
       const selected = transition.transition.kind === 'placeCaret'
-        ? textAreaStateWithSelection(breakTextAreaHistoryGroup(state), {
+        ? textAreaStateWithSelection(yield* breakTextAreaHistoryGroupWork(state), {
           caret: textCaretAt(offset),
           revealCaret: true
         }, undefined)
-        : textAreaStateWithSelection(breakTextAreaHistoryGroup(state), {
+        : textAreaStateWithSelection(yield* breakTextAreaHistoryGroupWork(state), {
           caret: textCaretAt(offset),
           revealCaret: true
-        }, normalizeTextDocumentSelection(
+        }, yield* normalizeTextDocumentSelectionWork(
           state.document,
           textDocumentSelectionBetween(
-            normalizeTextDocumentOffset(state.document, transition.transition.anchor),
+            yield* normalizeTextDocumentOffsetWork(state.document, transition.transition.anchor),
             offset,
           ),
         ));
@@ -192,8 +220,8 @@ export function textAreaReducer(state: TextAreaState, transition: TextAreaTransi
   }
 }
 
-function breakTextAreaHistoryGroup(state: TextAreaState): TextAreaState {
-  const history = breakEditHistoryGroup(state.history);
+function* breakTextAreaHistoryGroupWork(state: TextAreaState): Generator<number, TextAreaState> {
+  const history = yield* breakEditHistoryGroupWork(state.history);
   return history === state.history ? state : { ...state, history };
 }
 
@@ -222,18 +250,18 @@ function textAreaStateWithSelection(
   };
 }
 
-function restoreTextAreaHistory(
+function* restoreTextAreaHistoryWork(
   state: TextAreaState,
   direction: 'undo' | 'redo'
-): TextAreaReduction {
+): Generator<number, TextAreaReduction> {
   const entry = direction === 'undo' ? state.history.undo.at(-1) : state.history.redo.at(-1);
   if (entry === undefined) {
-    const history = breakEditHistoryGroup(state.history);
+    const history = yield* breakEditHistoryGroupWork(state.history);
     return unchangedTextAreaReduction(history === state.history ? state : { ...state, history });
   }
   const record = entry.snapshot;
   const changeSet = direction === 'undo' ? record.inverseChanges : record.forwardChanges;
-  const document = applyTextChangeSet(state.document, changeSet);
+  const document = yield* applyTextChangeSetWork(state.document, changeSet);
   const point = direction === 'undo' ? record.before : record.after;
   return textAreaReduction({
     document,
@@ -241,7 +269,7 @@ function restoreTextAreaHistory(
     ...(point.selection === undefined ? {} : { selection: point.selection }),
     scroll: state.scroll,
     revealCaret: true,
-    history: moveTextAreaHistoryEntry(state.history, direction),
+    history: yield* moveTextAreaHistoryEntryWork(state.history, direction),
   }, changeSet);
 }
 
@@ -280,35 +308,47 @@ function textAreaEditPoint(
   });
 }
 
-function textAreaEditRecordBytes(
+function* textAreaEditRecordBytesWork(
   forwardChanges: TextChangeSet,
   inverseChanges: TextChangeSet
-): number {
-  const changeBytes = [...forwardChanges.changes, ...inverseChanges.changes]
-    .reduce((total, change) => (
-      total + utf8Encoder.encode(change.insertedText).byteLength + 24
-    ), 0);
-  return changeBytes + 64;
+): Generator<number, number> {
+  let changeBytes = 64;
+  for (const changes of [forwardChanges.changes, inverseChanges.changes]) {
+    for (const change of changes) {
+      changeBytes += 24;
+      const text = change.insertedText;
+      for (let start = 0; start < text.length;) {
+        let end = Math.min(text.length, start + 2048);
+        const code = text.charCodeAt(end - 1);
+        if (end < text.length && code >= 0xd800 && code <= 0xdbff) end -= 1;
+        changeBytes += utf8Encoder.encode(text.slice(start, end)).byteLength;
+        yield end - start;
+        start = end;
+      }
+      yield 1;
+    }
+  }
+  return changeBytes;
 }
 
-function recordTextAreaHistory(
+function* recordTextAreaHistoryWork(
   state: TextAreaState,
   after: Pick<TextAreaState, 'caret' | 'selection'>,
   forwardChanges: TextChangeSet,
   inverseChanges: TextChangeSet,
   group: 'insert' | undefined
-): TextAreaHistoryRecordResult {
+): Generator<number, TextAreaHistoryRecordResult> {
   if (group === 'insert' && state.history.currentGroup === group) {
     const previous = state.history.undo.at(-1)?.snapshot;
     const merged = previous === undefined
       ? undefined
       : mergeInsertionRecord(previous, after, forwardChanges);
     if (merged !== undefined) {
-      const retainedBytes = textAreaEditRecordBytes(
+      const retainedBytes = yield* textAreaEditRecordBytesWork(
         merged.forwardChanges,
         merged.inverseChanges,
       );
-      const history = replaceEditHistoryGroup(
+      const history = yield* replaceEditHistoryGroupWork(
         state.history,
         merged,
         retainedBytes,
@@ -318,7 +358,7 @@ function recordTextAreaHistory(
     }
   }
   const record = textAreaEditRecord(state, after, forwardChanges, inverseChanges);
-  return recordTextAreaEdit(state.history, record, group);
+  return yield* recordTextAreaEditWork(state.history, record, group);
 }
 
 interface TextAreaHistoryRecordResult {
@@ -326,14 +366,14 @@ interface TextAreaHistoryRecordResult {
   readonly rejection?: TextAreaHistoryRejection;
 }
 
-function recordTextAreaEdit(
+function* recordTextAreaEditWork(
   history: TextAreaEditHistory,
   record: TextAreaEditRecord,
   group?: 'insert',
-): TextAreaHistoryRecordResult {
-  const retainedBytes = textAreaEditRecordBytes(record.forwardChanges, record.inverseChanges);
+): Generator<number, TextAreaHistoryRecordResult> {
+  const retainedBytes = yield* textAreaEditRecordBytesWork(record.forwardChanges, record.inverseChanges);
   return textAreaHistoryRecordResult(
-    recordEditHistory(history, record, retainedBytes, group),
+    yield* recordEditHistoryWork(history, record, retainedBytes, group),
     record,
     retainedBytes,
   );
@@ -397,18 +437,19 @@ function mergeInsertionRecord(
   });
 }
 
-function moveTextAreaHistoryEntry(
+function* moveTextAreaHistoryEntryWork(
   history: TextAreaEditHistory,
   direction: 'undo' | 'redo',
-): TextAreaEditHistory {
+): Generator<number, TextAreaEditHistory> {
   const entry = direction === 'undo' ? history.undo.at(-1) : history.redo.at(-1);
-  if (entry === undefined) return breakEditHistoryGroup(history);
+  if (entry === undefined) return yield* breakEditHistoryGroupWork(history);
   const undo = direction === 'undo'
     ? history.undo.slice(0, -1)
     : [...history.undo, entry];
   const redo = direction === 'undo'
     ? [...history.redo, entry]
     : history.redo.slice(0, -1);
+  yield undo.length + redo.length;
   return Object.freeze({
     policy: history.policy,
     undo: Object.freeze(undo),
@@ -417,9 +458,9 @@ function moveTextAreaHistoryEntry(
   });
 }
 
-function changeSetFromEdit(
+function* changeSetFromEditWork(
   edited: import('../text/index.ts').TextDocumentEditResult
-): TextChangeSet {
+): Generator<number, TextChangeSet> {
   const range = edited.changedRange;
   if (range === undefined) {
     throw new Error('A changed text document must report its exact changed range.');
@@ -427,7 +468,7 @@ function changeSetFromEdit(
   return createTextChangeSet([{
     startOffset: range.startOffset,
     endOffsetExclusive: range.oldEndOffsetExclusive,
-    insertedText: textDocumentSlice(
+    insertedText: yield* textDocumentSliceWork(
       edited.document,
       range.startOffset,
       range.newEndOffsetExclusive
@@ -466,10 +507,11 @@ function unchangedTextAreaReduction(state: TextAreaState): TextAreaReduction {
   return textAreaReduction(state, emptyTextChangeSet);
 }
 
-function caretAfterChanges(changeSet: TextChangeSet): number {
+function* caretAfterChangesWork(changeSet: TextChangeSet): Generator<number, number> {
   let delta = 0;
   let caret = 0;
   for (const change of changeSet.changes) {
+    yield 1;
     caret = change.startOffset + delta + change.insertedText.length;
     delta += change.insertedText.length - (change.endOffsetExclusive - change.startOffset);
   }

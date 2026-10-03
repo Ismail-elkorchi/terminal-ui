@@ -1,3 +1,4 @@
+import { createListboxFixture } from '../../support/collection-fixtures.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -108,7 +109,7 @@ test('the interactive input loop watches each pending event source exactly once'
 
 test('the interactive input loop reduces every separately chunked navigation event', async () => {
   const items = Array.from({ length: 10 }, (_value, index) => `item-${String(index)}`);
-  const reducerOptions = { items, toOption: (item) => ({ id: item, label: item }) };
+  const reducerOptions = createListboxFixture(items, (item) => ({ id: item, label: item }));
   const app = defineTui({
     id: 'read-ahead-navigation',
     init: () => ({
@@ -135,8 +136,7 @@ test('the interactive input loop reduces every separately chunked navigation eve
     view: (state) => listbox({
       id: 'read-ahead-listbox',
       meta: { accessibleName: 'Read-ahead navigation' },
-      items,
-      toOption: reducerOptions.toOption,
+      ...reducerOptions,
       state: state.state,
       onTransition: (transition) => transition
     })

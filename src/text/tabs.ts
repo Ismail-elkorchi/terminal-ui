@@ -1,5 +1,5 @@
 import { finishWork } from '../foundation/cooperative-work.ts';
-import { measuredGraphemes } from './graphemes.ts';
+import { measuredGraphemeEvents } from './graphemes.ts';
 import type { TextMeasurementOptions } from './types.ts';
 
 /** Distance to the next four-cell terminal tab stop. */
@@ -11,12 +11,15 @@ export function expandTerminalTabs(text: string, options: TextMeasurementOptions
   return finishWork(expandTerminalTabsWork(text, options));
 }
 
-export function* expandTerminalTabsWork(text: string, options: TextMeasurementOptions): Generator<void, string> {
-  if (!text.includes('\t')) return text;
+export function* expandTerminalTabsWork(text: string, options: TextMeasurementOptions): Generator<number, string> {
+  const hasTabs = text.includes('\t');
+  yield text.length;
+  if (!hasTabs) return text;
   let column = 0;
   let result = '';
   let units = 0;
-  for (const segment of measuredGraphemes(text, options)) {
+  for (const segment of measuredGraphemeEvents(text, options)) {
+    if (typeof segment === 'number') { yield segment; continue; }
     if (segment.text === '\n') {
       result += '\n';
       column = 0;
@@ -29,7 +32,8 @@ export function* expandTerminalTabsWork(text: string, options: TextMeasurementOp
       column += segment.cells;
     }
     units += segment.text.length;
-    if (units >= 2048) { units = 0; yield; }
+    if (units >= 256) { yield units; units = 0; }
   }
+  if (units !== 0) yield units;
   return result;
 }

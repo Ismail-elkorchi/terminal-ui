@@ -1,3 +1,4 @@
+import { createOptionsFixture } from '../../support/collection-fixtures.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -361,7 +362,7 @@ test('form controls keep state visible in high contrast and no-color rendering m
       label: 'Region',
       placeholder: 'Select region',
       state: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } } },
-      options: [{ id: 'eu', label: 'Europe', value: 'eu' }],
+      ...createOptionsFixture([{ id: 'eu', label: 'Europe', value: 'eu' }]),
       onTransition: () => ignoreMessage()
     }),
     calendar({ meta: { accessibleName: "Calendar" },
@@ -403,7 +404,7 @@ test('controls clipped to an empty layout region expose no pointer targets', () 
       id: 'clipped-combobox',
       label: 'Clipped',
       state: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } } },
-      options: [{ id: 'one', label: 'One', value: 'one' }],
+      ...createOptionsFixture([{ id: 'one', label: 'One', value: 'one' }]),
       onTransition: (action) => action
     })
   ], {

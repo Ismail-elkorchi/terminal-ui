@@ -275,3 +275,48 @@ function deferred() {
   });
   return { promise, release };
 }
+
+test('IDE rejected save barrier never installs an unfinishable pending save', async () => {
+  const memory = createMemoryTerminalHost({ terminalSize: { columns: 120, rows: 36 } });
+  const blocked = deferred();
+  const release = deferred();
+  let hold = false;
+  let didHold = false;
+  const writes = [];
+  const host = { ...memory, clock: {
+    monotonicNow: () => memory.clock.monotonicNow(),
+    async sleep(ms, signal) {
+      if (ms === 0 && hold && !didHold) { didHold = true; blocked.release(); await release.promise; }
+      return memory.clock.sleep(ms, signal);
+    },
+  } };
+  const runtime = createTuiRuntime({ host, app: createIdeEditorApp({
+    open: async () => ({ kind: 'file', path: virtualFile('barrier.md'), content: 'base' }),
+    save: async (_path, content) => { writes.push(content); },
+  }) });
+  try {
+    await runtime.start();
+    await runtime.dispatch({ kind: 'requestOpen', mode: 'file', path: virtualFile('barrier.md') });
+    await waitUntil(() => runtime.state().buffers.length === 1 && runtime.state().operation.kind === 'idle');
+    const child = runtime.state().buffers[0].editor;
+    const insert = text => ({ kind: 'edit', message: { id: child.id, generation: child.generation,
+      message: { kind: 'transition', transition: { kind: 'edit', operation: { kind: 'insert', text } } } } });
+    hold = true;
+    await runtime.dispatch(insert('x'.repeat(5_000)));
+    await blocked.promise;
+    for (let index = 1; index < 128; index += 1) await runtime.dispatch(insert('z'));
+    assert.equal(runtime.state().buffers[0].editor.state.editor.queue.length, 128);
+    const priorOperation = runtime.state().operation;
+    await runtime.dispatch({ kind: 'saveActive' });
+    assert.equal(runtime.state().operation, priorOperation, 'a rejected barrier must not become pending');
+    assert.match(runtime.state().notice, /intent-count-limit/u);
+    assert.equal(writes.length, 0);
+    release.release();
+    const deadline = globalThis.AbortSignal.timeout(10_000);
+    while (runtime.state().buffers[0].editor.state.editor.queue.length !== 0) await runtime.nextChange(deadline);
+    assert.equal(writes.length, 0, 'rejection must not leave a hidden delayed save');
+    await runtime.dispatch({ kind: 'saveActive' });
+    await waitUntil(() => writes.length === 1 && runtime.state().operation.kind === 'idle');
+    assert.equal(writes[0], `${'x'.repeat(5_000)}${'z'.repeat(127)}base`);
+  } finally { release.release(); await runtime.dispose(); }
+});

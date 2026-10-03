@@ -87,7 +87,7 @@ function tableIntrinsicColumnWidth(
 ): number {
   const headerWidth = tableHeaderWidth(model, column, widthProfile);
   const source = tableSourceFor(model);
-  const sampleSize = Math.min(64, source.rows.length);
+  const sampleSize = Math.min(64, source.count);
   let cellWidth = 1;
   for (let localIndex = 0; localIndex < sampleSize; localIndex += 1) {
     const row = tableRowModel(model, localIndex);
@@ -207,15 +207,15 @@ export function tablePlan(input: ComponentInput<TableModel>): TablePlan {
     contentColumns,
     viewportColumns: geometry.contentBounds.width,
   });
-  const availableEnd = input.model.startIndex + source.rows.length;
+  const availableEnd = input.model.startIndex + source.count;
   const lastStart = Math.max(
     input.model.startIndex,
-    availableEnd - Math.min(bodyHeight, source.rows.length),
+    availableEnd - Math.min(bodyHeight, source.count),
   );
   const startIndex = Math.max(input.model.startIndex, Math.min(lastStart, requested.startIndex));
   const localStart = startIndex - input.model.startIndex;
   const rows = Object.freeze(Array.from(
-    { length: Math.min(bodyHeight, source.rows.length - localStart) },
+    { length: Math.min(bodyHeight, source.count - localStart) },
     (_unused, offset) => tableRowModel(input.model, localStart + offset),
   ));
   return Object.freeze({

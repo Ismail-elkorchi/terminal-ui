@@ -155,7 +155,7 @@ const baseDefinition = {
   parts,
   visualStates: ['focused', 'hovered', 'active', 'selected', 'disabled'] as const,
   measure: measureLogViewer,
-  retainPaint: true as const,
+  reuse: { paint: (model: object) => [model] as const },
   render: renderLogViewer,
   accessibility: logViewerAccessibility,
   onLayout(input: ComponentLayoutCommitInput<LogViewerModel>) {

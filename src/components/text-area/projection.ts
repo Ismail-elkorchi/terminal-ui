@@ -12,10 +12,10 @@ import {
   textDocumentLineBoundaries,
   textDocumentLineCount,
   textDocumentLineIndexAtOffset,
-  textDocumentLines,
+  textDocumentLineEvents,
   textDocumentPreviousMutation,
   textDocumentSlice,
-  textDocumentText,
+  textDocumentSliceWork,
 } from '../../text/document.ts';
 import { measureGraphemeCells } from '../../text/graphemes.ts';
 import type { SourceBoundaryIndex, SourceRevisionData } from '../../text/source-boundaries.ts';
@@ -148,7 +148,7 @@ export function* createTextAreaProjectionWork(
   document: TextDocument,
   decorations: readonly TextAreaDecorationModel[],
   widthProfile: TextWidthProfile,
-): Generator<void, TextAreaProjection> {
+): Generator<number, TextAreaProjection> {
   const profileKey = textWidthProfileKey(widthProfile);
   const existing = projectionCache.get(document)?.get(decorations)?.get(profileKey);
   if (existing !== undefined) return existing;
@@ -179,7 +179,7 @@ export function* createTextAreaProjectionWork(
   if (updated !== undefined) {
     return retainProjection(document, decorations, profileKey, updated);
   }
-  const source = textDocumentText(document);
+  const source = yield* textDocumentSliceWork(document);
   const built = yield* buildMaterializedProjectionWork(source, decorations, widthProfile);
   const displayDocument = yield* createTextDocumentWork(built.text);
   const accessibilityDocument = yield* createTextDocumentWork(built.accessibilityText);
@@ -223,21 +223,19 @@ export function* createTextAreaProjectionWork(
   return retainProjection(document, decorations, profileKey, created);
 }
 
-function* onlyStyleDecorationsWork(decorations: readonly TextAreaDecorationModel[]): Generator<void, boolean> {
-  let operations = 0;
+function* onlyStyleDecorationsWork(decorations: readonly TextAreaDecorationModel[]): Generator<number, boolean> {
   for (const decoration of decorations) {
     if (decoration.kind !== 'style') return false;
-    if (++operations % 256 === 0) yield;
+    yield 1;
   }
   return true;
 }
 
-function* styleDecorationsWork(decorations: readonly TextAreaDecorationModel[]): Generator<void, readonly TextAreaDecorationModel[]> {
+function* styleDecorationsWork(decorations: readonly TextAreaDecorationModel[]): Generator<number, readonly TextAreaDecorationModel[]> {
   const result: TextAreaDecorationModel[] = [];
-  let operations = 0;
   for (const decoration of decorations) {
     if (decoration.kind === 'style') result.push(decoration);
-    if (++operations % 256 === 0) yield;
+    yield 1;
   }
   return result;
 }
@@ -254,12 +252,12 @@ function* buildMaterializedProjectionWork(
   source: string,
   decorations: readonly TextAreaDecorationModel[],
   widthProfile: TextWidthProfile,
-): Generator<void, BuiltMaterializedProjection> {
+): Generator<number, BuiltMaterializedProjection> {
   const sanitizedSource = yield* sanitizeTerminalTextWork(source, { widthProfile });
   const removedSourceRanges: RemovedRange[] = [];
   for (const entry of sanitizedSource.removedControlSequences) {
     removedSourceRanges.push({ start: entry.codeUnitOffset, end: entry.codeUnitOffset + entry.sequence.length });
-    if (removedSourceRanges.length % 256 === 0) yield;
+    yield 1;
   }
   const builder: ProjectionBuilder = {
     widthProfile,
@@ -295,7 +293,7 @@ function* incrementalMaterializedProjectionWork(
   decorations: readonly TextAreaDecorationModel[],
   widthProfile: TextWidthProfile,
   profileKey: string,
-): Generator<void, TextAreaProjection | undefined> {
+): Generator<number, TextAreaProjection | undefined> {
   if (!textDocumentCanProjectLines(document)) return undefined;
   const mutation = textDocumentPreviousMutation(document);
   const decorationMapping = textAreaDecorationMapping(decorations);
@@ -313,10 +311,9 @@ function* incrementalMaterializedProjectionWork(
     || previous.decorations !== decorationMapping.previous
   ) return undefined;
   let sourceDelta = 0;
-  let operations = 0;
   for (const change of mutation.changes) {
     sourceDelta += change.insertedText.length - (change.endOffsetExclusive - change.startOffset);
-    if (++operations % 256 === 0) yield;
+    yield 1;
   }
   const previousRange = yield* completeMaterializedSourceRangeWork(
     mutation.document,
@@ -345,7 +342,7 @@ function* incrementalMaterializedProjectionWork(
     textDocumentLength(document),
   );
   const local = yield* buildMaterializedProjectionWork(
-    textDocumentSlice(document, nextSourceStart, nextSourceEnd),
+    yield* textDocumentSliceWork(document, nextSourceStart, nextSourceEnd),
     localDecorations,
     widthProfile,
   );
@@ -450,8 +447,7 @@ function* completeMaterializedSourceRangeWork(
   changedStart: number,
   changedEnd: number,
   decorations: readonly TextAreaDecorationModel[],
-): Generator<void, { readonly startOffset: number; readonly endOffsetExclusive: number }> {
-  let operations = 0;
+): Generator<number, { readonly startOffset: number; readonly endOffsetExclusive: number }> {
   let startOffset = changedStart;
   let endOffsetExclusive = changedEnd;
   let expanded = true;
@@ -468,7 +464,7 @@ function* completeMaterializedSourceRangeWork(
     startOffset = lineStart;
     endOffsetExclusive = lineEnd;
     for (const decoration of decorations) {
-      if (++operations % 256 === 0) yield;
+      yield 1;
       if (decoration.kind === 'style') continue;
       const point = decoration.startOffset === decoration.endOffsetExclusive;
       const overlaps = point
@@ -492,11 +488,10 @@ function* decorationsWithinRangeWork(
   startOffset: number,
   endOffsetExclusive: number,
   documentLength: number,
-): Generator<void, readonly TextAreaDecorationModel[]> {
+): Generator<number, readonly TextAreaDecorationModel[]> {
   const result: TextAreaDecorationModel[] = [];
-  let operations = 0;
   for (const decoration of decorations) {
-    if (++operations % 256 === 0) yield;
+    yield 1;
     const point = decoration.startOffset === decoration.endOffsetExclusive;
     const inside = point
       ? decoration.startOffset >= startOffset
@@ -523,14 +518,13 @@ interface ReplaceOffsetRangeInput {
   readonly previousTargetEnd: number;
 }
 
-function* replaceOffsetRangeWork(input: ReplaceOffsetRangeInput): Generator<void, OffsetProjection> {
-  let operations = 0;
+function* replaceOffsetRangeWork(input: ReplaceOffsetRangeInput): Generator<number, OffsetProjection> {
   const sourceDelta = input.nextSourceEnd - input.previousSourceEnd;
   const targetDelta = input.local.targetLength
     - (input.previousTargetEnd - input.previousTargetStart);
   const mappings: MappingSegment[] = [];
   for (const segment of input.previous.segments) {
-    if (++operations % 256 === 0) yield;
+    yield 1;
     if (segment.sourceStart < input.previousSourceStart) {
       const sourceEnd = Math.min(segment.sourceEnd, input.previousSourceStart);
       const targetEnd = segment.linear
@@ -540,7 +534,7 @@ function* replaceOffsetRangeWork(input: ReplaceOffsetRangeInput): Generator<void
     }
   }
   for (const segment of input.local.segments) {
-    if (++operations % 256 === 0) yield;
+    yield 1;
     appendMapping(mappings, {
       ...segment,
       sourceStart: segment.sourceStart + input.previousSourceStart,
@@ -550,7 +544,7 @@ function* replaceOffsetRangeWork(input: ReplaceOffsetRangeInput): Generator<void
     });
   }
   for (const segment of input.previous.segments) {
-    if (++operations % 256 === 0) yield;
+    yield 1;
     if (
       segment.sourceEnd < input.previousSourceEnd
       || segment.sourceEnd === input.previousSourceEnd
@@ -626,7 +620,7 @@ function* lineProjectionWork(
   decorations: readonly TextAreaDecorationModel[],
   widthProfile: TextWidthProfile,
   profileKey: string,
-): Generator<void, TextAreaProjection> {
+): Generator<number, TextAreaProjection> {
   const preparedLineMaps = new Map<number, OffsetProjection>();
   const displayDocument = yield* lineProjectedDocumentWork(sourceDocument, widthProfile, profileKey, preparedLineMaps);
   const lineMaps = new Map<number, OffsetProjection>();
@@ -713,7 +707,7 @@ function* lineProjectedDocumentWork(
   widthProfile: TextWidthProfile,
   profileKey: string,
   lineMaps: Map<number, OffsetProjection>,
-): Generator<void, TextDocument> {
+): Generator<number, TextDocument> {
   const mutation = textDocumentPreviousMutation(sourceDocument);
   const previousProjection = mutation === undefined
     ? undefined
@@ -737,13 +731,12 @@ function* lineProjectedDocumentWork(
     sourceDocument,
     mutation.changes,
   );
-  let operations = 0;
   // Retain completed expensive maps by logical-line identity. No old line text
   // is read here, and tiny lines remain bounded lazy queries.
   for (const [lineIndex, projection] of preparedLineProjectionMaps.get(previousProjection) ?? []) {
     const nextIndex = unchangedLineIndex(lineIndex, ranges);
     if (nextIndex !== undefined) lineMaps.set(nextIndex, projection);
-    if (++operations % 256 === 0) yield;
+    yield 1;
   }
   const changes = [];
   for (const range of ranges) {
@@ -765,7 +758,7 @@ function* lineProjectedDocumentWork(
         lineMaps,
       ),
     }));
-    if (changes.length % 256 === 0) yield;
+    yield 1;
   }
   return yield* textDocumentApplyChangesExactWork(previousProjection.document, changes);
 }
@@ -777,20 +770,20 @@ function* projectLineRangeWork(
   widthProfile: TextWidthProfile,
   profileKey: string,
   lineMaps: Map<number, OffsetProjection>,
-): Generator<void, string> {
-  let operations = 0;
+): Generator<number, string> {
   const lineCount = textDocumentLineCount(document);
   const parts: string[] = [];
   if (startLine === 0 && endLineExclusive >= lineCount) {
-    for (const line of textDocumentLines(document)) {
-      if (++operations % 256 === 0) yield;
+    for (const line of textDocumentLineEvents(document)) {
+      if (typeof line === 'number') { yield line; continue; }
+      yield 1;
       parts.push(yield* projectEditableLineWork(document, line, widthProfile, profileKey, lineMaps));
       if (line.lineIndex + 1 < lineCount) parts.push('\n');
     }
     return parts.join('');
   }
   for (let lineIndex = startLine; lineIndex < Math.min(lineCount, endLineExclusive); lineIndex += 1) {
-    if (++operations % 256 === 0) yield;
+    yield 1;
     const line = textDocumentLineAt(document, lineIndex);
     if (line === undefined) continue;
     parts.push(yield* projectEditableLineWork(document, line, widthProfile, profileKey, lineMaps));
@@ -819,7 +812,7 @@ function* projectEditableLineWork(
   widthProfile: TextWidthProfile,
   profileKey: string,
   lineMaps: Map<number, OffsetProjection>,
-): Generator<void, string> {
+): Generator<number, string> {
   const text = line.text;
   const display = yield* expandTerminalTabsWork(text, { widthProfile });
   if (text.length <= maximumLazyLineLength || !text.includes('\t')) return display;
@@ -844,7 +837,7 @@ function* lineOffsetProjectionWork(
   display: string,
   widthProfile: TextWidthProfile,
   ownedSource?: SourceBoundaryIndex,
-): Generator<void, OffsetProjection> {
+): Generator<number, OffsetProjection> {
   if (!source.includes('\t')) {
     return yield* createOffsetProjectionWork(source.length, display.length, [{
       sourceStart: 0,
@@ -859,7 +852,6 @@ function* lineOffsetProjectionWork(
   let column = 0;
   const boundaries = ownedSource ?? sourceBoundaries(source);
   let offset = 0;
-  let measured = 0;
   while (offset < source.length) {
     yield* boundaries.prepareThroughWork(offset);
     const endOffsetExclusive = boundaries.at(offset)?.endOffsetExclusive ?? source.length;
@@ -867,7 +859,7 @@ function* lineOffsetProjectionWork(
     const startOffset = offset;
     const cells = measureGraphemeCells(text, { widthProfile });
     offset = endOffsetExclusive;
-    if (++measured % 256 === 0) yield;
+    yield text.length;
     const targetLength = text === '\t'
       ? terminalTabCells(column)
       : text.length;
@@ -888,7 +880,7 @@ function* directProjectionWork(
   document: TextDocument,
   decorations: readonly TextAreaDecorationModel[],
   profileKey: string,
-): Generator<void, TextAreaProjection> {
+): Generator<number, TextAreaProjection> {
   const sourceLength = textDocumentLength(document);
   const segment: MappingSegment = Object.freeze({
     sourceStart: 0,
@@ -960,14 +952,13 @@ function* directStyleRangesWork(
     offset: number,
     affinity?: 'upstream' | 'downstream',
   ) => number = (offset) => offset,
-): Generator<void, readonly ProjectedTextStyleRange[]> {
-  let operations = 0;
+): Generator<number, readonly ProjectedTextStyleRange[]> {
   if (decorations.length === 0) return Object.freeze([]);
   const starts = new Map<number, TextAreaDecorationModel[]>();
   const ends = new Map<number, TextAreaDecorationModel[]>();
   const boundaries = new Set<number>([0, sourceLength]);
   for (const decoration of decorations) {
-    if (++operations % 256 === 0) yield;
+    yield 1;
     boundaries.add(decoration.startOffset);
     boundaries.add(decoration.endOffsetExclusive);
     appendEvent(starts, decoration.startOffset, decoration);
@@ -977,17 +968,17 @@ function* directStyleRangesWork(
   const active = new ActiveDecorationStyles();
   const ranges: ProjectedTextStyleRange[] = [];
   for (let index = 0; index < ordered.length - 1; index += 1) {
-    if (++operations % 256 === 0) yield;
+    yield 1;
     const start = ordered[index];
     const end = ordered[index + 1];
     if (start === undefined || end === undefined || end <= start) continue;
     for (const decoration of ends.get(start) ?? []) {
       active.remove(decoration);
-      if (++operations % 256 === 0) yield;
+      yield 1;
     }
     for (const decoration of starts.get(start) ?? []) {
       active.add(decoration);
-      if (++operations % 256 === 0) yield;
+      yield 1;
     }
     const resolved = yield* active.resolveWork();
     if (!resolved.decorated) continue;
@@ -1016,15 +1007,14 @@ function* projectSourceWork(
   builder: ProjectionBuilder,
   source: string,
   decorations: readonly TextAreaDecorationModel[]
-): Generator<void, void> {
-  let operations = 0;
+): Generator<number, void> {
   const boundaries = new Set<number>([0, source.length]);
   const starts = new Map<number, TextAreaDecorationModel[]>();
   const ends = new Map<number, TextAreaDecorationModel[]>();
   const replacements = new Map<number, TextAreaContentDecorationModel>();
   const virtual = new Map<number, TextAreaReplacementDecorationModel[]>();
   for (const decoration of decorations) {
-    if (++operations % 256 === 0) yield;
+    yield 1;
     boundaries.add(decoration.startOffset);
     boundaries.add(decoration.endOffsetExclusive);
     if (decoration.kind !== 'style') {
@@ -1043,21 +1033,21 @@ function* projectSourceWork(
   const active = new ActiveDecorationStyles();
   let consumedSource = 0;
   for (let index = 0; index < ordered.length; index += 1) {
-    if (++operations % 256 === 0) yield;
+    yield 1;
     const boundary = ordered[index];
     if (boundary === undefined) continue;
     for (const decoration of ends.get(boundary) ?? []) {
       active.remove(decoration);
-      if (++operations % 256 === 0) yield;
+      yield 1;
     }
     for (const decoration of starts.get(boundary) ?? []) {
       active.add(decoration);
-      if (++operations % 256 === 0) yield;
+      yield 1;
     }
     if (boundary < consumedSource) continue;
 
     for (const decoration of virtual.get(boundary) ?? []) {
-    if (++operations % 256 === 0) yield;
+    yield 1;
       yield* appendResolvedReplacementWork(builder, decoration, active);
     }
     const replacement = replacements.get(boundary);
@@ -1078,7 +1068,7 @@ function* appendResolvedReplacementWork(
   builder: ProjectionBuilder,
   decoration: TextAreaContentDecorationModel,
   active: ActiveDecorationStyles,
-): Generator<void, void> {
+): Generator<number, void> {
   active.add(decoration);
   const resolved = yield* active.resolveWork();
   active.remove(decoration);
@@ -1116,7 +1106,7 @@ class ActiveDecorationStyles {
     this.#active.delete(decoration.order);
   }
 
-  *resolveWork(): Generator<void, ResolvedDecoration> {
+  *resolveWork(): Generator<number, ResolvedDecoration> {
     const label = yield* heapValueWork(this.#labels, this.#active);
     if (label === undefined) return { decorated: false, label: 'decoration' };
     const style: Partial<Record<TerminalStyleField, TerminalStyle[TerminalStyleField]>> = {};
@@ -1148,12 +1138,11 @@ function heapPush<TValue>(heap: HeapEntry<TValue>[], entry: HeapEntry<TValue>): 
 function* heapValueWork<TValue>(
   heap: HeapEntry<TValue>[] | undefined,
   active: ReadonlySet<number>
-): Generator<void, TValue | undefined> {
+): Generator<number, TValue | undefined> {
   if (heap === undefined) return undefined;
-  let operations = 0;
   while (heap.length > 0 && !active.has(heap[0]?.order ?? -1)) {
     heapPop(heap);
-    if (++operations % 256 === 0) yield;
+    yield 1;
   }
   return heap[0]?.value;
 }
@@ -1184,13 +1173,12 @@ function* appendSourcePieceWork(
   start: number,
   end: number,
   decoration: ResolvedDecoration
-): Generator<void, void> {
-  let operations = 0;
+): Generator<number, void> {
   const rawText = source.slice(start, end);
   while ((builder.removedSourceRanges[builder.removedSourceIndex]?.end
     ?? Number.POSITIVE_INFINITY) <= start) {
     builder.removedSourceIndex += 1;
-    if (++operations % 256 === 0) yield;
+    yield 1;
   }
   const removed = builder.removedSourceRanges[builder.removedSourceIndex];
   if (
@@ -1206,7 +1194,6 @@ function* appendSourcePieceWork(
   }
   const boundaries = sourceBoundaries(rawText);
   let offset = 0;
-  let measured = 0;
   while (offset < rawText.length) {
     yield* boundaries.prepareThroughWork(offset);
     const endOffsetExclusive = boundaries.at(offset)?.endOffsetExclusive ?? rawText.length;
@@ -1214,13 +1201,13 @@ function* appendSourcePieceWork(
     const startOffset = offset;
     const cells = measureGraphemeCells(text, { widthProfile: builder.widthProfile });
     offset = endOffsetExclusive;
-    if (++measured % 256 === 0) yield;
+    yield text.length;
     const sourceStart = start + startOffset;
     const sourceEnd = start + endOffsetExclusive;
     while ((builder.removedSourceRanges[builder.removedSourceIndex]?.end
       ?? Number.POSITIVE_INFINITY) <= sourceStart) {
       builder.removedSourceIndex += 1;
-      if (++operations % 256 === 0) yield;
+      yield 1;
     }
     const removed = builder.removedSourceRanges[builder.removedSourceIndex];
     if (removed !== undefined && sourceStart >= removed.start && sourceStart < removed.end) {
@@ -1246,7 +1233,7 @@ function* appendReplacementWork(
   builder: ProjectionBuilder,
   decoration: TextAreaContentDecorationModel,
   resolved: ResolvedDecoration,
-): Generator<void, void> {
+): Generator<number, void> {
   const displayText = decoration.kind === 'conceal'
     ? ''
     : yield* projectReplacementTextWork(decoration.replacementText, builder);
@@ -1267,19 +1254,18 @@ function* appendReplacementWork(
   );
 }
 
-function* projectReplacementTextWork(rawText: string, builder: ProjectionBuilder): Generator<void, string> {
+function* projectReplacementTextWork(rawText: string, builder: ProjectionBuilder): Generator<number, string> {
   const sanitized = (yield* sanitizeTerminalControlTextWork(rawText)).text;
   const parts: string[] = [];
   const boundaries = sourceBoundaries(sanitized);
   let offset = 0;
-  let measured = 0;
   while (offset < sanitized.length) {
     yield* boundaries.prepareThroughWork(offset);
     const endOffsetExclusive = boundaries.at(offset)?.endOffsetExclusive ?? sanitized.length;
     const text = sanitized.slice(offset, endOffsetExclusive);
     const cells = measureGraphemeCells(text, { widthProfile: builder.widthProfile });
     offset = endOffsetExclusive;
-    if (++measured % 256 === 0) yield;
+    yield text.length;
     parts.push(projectedGrapheme(builder, text, cells));
   }
   return parts.join('');
@@ -1381,7 +1367,7 @@ function* createOffsetProjectionWork(
   sourceLength: number,
   targetLength: number,
   mappings: readonly MappingSegment[]
-): Generator<void, OffsetProjection> {
+): Generator<number, OffsetProjection> {
   const segments: MappingSegment[] = [];
   const sourceSegments: MappingSegment[] = [];
   const targetSegments: MappingSegment[] = [];
@@ -1393,7 +1379,7 @@ function* createOffsetProjectionWork(
     if (segment.sourceStart === segment.sourceEnd && segment.targetEnd > segment.targetStart) {
       virtualSegments.push(segment);
     }
-    if (segments.length % 256 === 0) yield;
+    yield 1;
   }
   return Object.freeze({
     sourceLength,

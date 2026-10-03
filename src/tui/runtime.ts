@@ -1,7 +1,8 @@
+import { snapshotArray } from '../foundation/array-snapshot.ts';
 import { matchesInputTrigger } from '../input/triggers.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import { diagnostic } from '../diagnostics.ts';
-import { errorFromUnknown } from '../errors.ts';
+import { TerminalUiError, errorFromUnknown } from '../errors.ts';
 import type { TerminalSize } from '../geometry/types.ts';
 import type { GraphicsBudgetLimits } from '../graphics/budget.ts';
 import { resolveGraphicsBudgetLimits } from '../graphics/budget.ts';
@@ -30,7 +31,8 @@ import type { PointerRouteResult } from '../renderer/internal/pointer-router.ts'
 import { createPointerRouter } from '../renderer/internal/pointer-router.ts';
 import { assertTuiApp, tuiDefinition } from './definition.ts';
 import { createSerializedDispatchQueue } from './dispatch-queue.ts';
-import { createTuiEffectManager } from './lifecycle/effects.ts';
+import { assertRuntimeLimit, resolveTuiRuntimePolicy } from './lifecycle/runtime-policy.ts';
+import { createTuiEffectManager, normalizeEffectPolicy } from './lifecycle/effects.ts';
 import { focusRevealMessages } from './lifecycle/focus-reveal.ts';
 import { decodeMessageResolution } from './hook-results.ts';
 import { createRuntimeInputSession } from './input/input-session.ts';
@@ -131,7 +133,10 @@ function createRuntime<TState, TMessage>(
     dispatchedMessages: 0,
     frameCommits: 0
   };
-  const dispatchQueue = createSerializedDispatchQueue();
+  const policy = resolveTuiRuntimePolicy(options.runtimePolicy);
+  const effectPolicy = normalizeEffectPolicy(options.effectPolicy);
+  const dispatchQueue = createSerializedDispatchQueue(policy.maxPendingOperations + effectPolicy.maxOwned * 2 + policy.maxOwnedSources * 2 + 32);
+  let pendingOperations = 0;
   const lifecycle = createRuntimeLifecycle<Frame>();
   let recordGraphicsDiagnostic: (item: TerminalDiagnostic) => void = ignoreTerminalDiagnostic;
   const commits = createRuntimeCommitCoordinator({
@@ -182,6 +187,8 @@ function createRuntime<TState, TMessage>(
   });
   const inputSession = createRuntimeInputSession<TState>({
     clock: options.host.clock,
+    maxPendingOperations: policy.maxPendingOperations,
+    reserveOperation,
     ...(options.input === undefined ? {} : { pipeline: options.input }),
     transaction: dispatchQueue,
     assertOperational: () => { lifecycle.assertOperational(); },
@@ -203,16 +210,21 @@ function createRuntime<TState, TMessage>(
     return dispatchQueue.run(() => resizeInternal(terminalSize));
   });
   const subscriptions = createTuiSubscriptionManager<TState, TMessage>({
+    maxOwned: policy.maxOwnedSources,
+    maxCapacity: policy.maxSourceCapacity,
+    maxBatchMessages: policy.maxMessagesPerTransaction,
+    fatal: failOwnedWork,
     ...(definition.subscriptions === undefined
       ? {}
       : { subscriptions: definition.subscriptions }),
     context: createRuntimeContext,
     reportDiagnostic: (item) => diagnostics.report(item),
     dispatchMany(messages, source, lease) {
-      return enqueueTransition(() => dispatchManyAdmitted(messages, source, lease)).then(() => undefined);
+      return enqueueTransition(() => dispatchManyAdmitted(messages, source, lease), true).then(() => undefined);
     }
   });
   const effects = createTuiEffectManager<TMessage>({
+    fatal: failOwnedWork,
     clock: options.host.clock,
     context: createRuntimeContext,
     reportDiagnostic: (item) => diagnostics.report(item),
@@ -225,16 +237,17 @@ function createRuntime<TState, TMessage>(
     dispatch(messages, lease, redacted) {
       return enqueueTransition(() => dispatchManyAdmitted(
         messages, 'effect', lease, redacted
-      )).then(() => undefined);
+      ), true).then(() => undefined);
     },
     ...(options.withTerminalSuspended === undefined
       ? {}
       : { withTerminalSuspended: options.withTerminalSuspended }),
-    ...(options.effectPolicy === undefined ? {} : { policy: options.effectPolicy })
+    policy: { ...effectPolicy, maxOutputMessages: Math.min(effectPolicy.maxOutputMessages, policy.maxMessagesPerTransaction) }
   });
 
   const transitions = createRuntimeTransitions({
     owner: options.app.id,
+    policy,
     definition,
     ...(options.initialFocus === undefined ? {} : { initialFocus: options.initialFocus }),
     ...(options.transcript === undefined ? {} : { transcript: options.transcript }),
@@ -254,8 +267,9 @@ function createRuntime<TState, TMessage>(
     clock: options.host.clock,
     lifecycle,
     stop(unavailable) {
+      dispatchQueue.close(unavailable);
       wheelInput.reset();
-      inputSession.cancel();
+      inputSession.cancel(unavailable);
       pointerMotion.dispose(unavailable);
       resizeCoordinator.dispose(unavailable);
       changes.close(unavailable);
@@ -286,15 +300,18 @@ function createRuntime<TState, TMessage>(
       if (!Array.isArray(candidate)) {
         return Promise.reject(new TypeError('TUI runtime dispatchMany() messages must be an array.'));
       }
-      if (suppliedMessages.some((message) => message === null || message === undefined)) {
-        return Promise.reject(new TypeError('TUI runtime dispatchMany() messages cannot contain null or undefined.'));
-      }
-      const ownedMessages = Object.freeze([...suppliedMessages]);
-      return enqueueTransition(() => ownedMessages.length === 0
-        ? operationalState()
-        : dispatchManyInternal(ownedMessages, 'external'));
+      const count = suppliedMessages.length;
+      try { assertRuntimeLimit('transaction_messages', count, policy.maxMessagesPerTransaction); }
+      catch (cause) { return Promise.reject(errorFromUnknown(cause)); }
+      return admitOperation(() => {
+        const ownedMessages = Object.freeze(snapshotArray(suppliedMessages, count));
+        if (ownedMessages.some(message => message === null || message === undefined)) throw new TypeError('TUI runtime dispatchMany() messages cannot contain null or undefined.');
+        return enqueueTransition(() => ownedMessages.length === 0
+          ? operationalState() : dispatchManyInternal(ownedMessages, 'external'), true);
+      });
     },
     copySelectedText(input) {
+      return admitOperation(() => {
       let request: ReturnType<typeof decodeCopySelectedTextInput>;
       try {
         request = decodeCopySelectedTextInput(input);
@@ -305,6 +322,7 @@ function createRuntime<TState, TMessage>(
         lifecycle.assertOperational();
         const context = await createRuntimeContext();
         return commits.copySelectedText(request, context.capabilities);
+      }, true);
       });
     },
     resize(terminalSize) {
@@ -424,11 +442,51 @@ function createRuntime<TState, TMessage>(
   });
   return runtime;
 
-  async function enqueueTransition<TValue>(operation: () => Promise<TValue>): Promise<TValue> {
-    await inputSession.drain();
-    await wheelInput.flush();
-    await pointerMotion.flush();
-    return dispatchQueue.run(operation);
+  function failOwnedWork(cause: unknown): void {
+    if (lifecycle.signal.aborted) return;
+    lifecycle.fail(); subscriptions.cancel(); effects.cancel();
+    void dispatchQueue.run(() => { transitions.fail(cause); }).catch((failure: unknown) => {
+      changes.close(errorFromUnknown(failure));
+    });
+  }
+
+  function reserveOperation(): () => void {
+    if (lifecycle.signal.aborted) throw new TerminalUiError(`TUI runtime is ${lifecycle.phase()}.`);
+    assertRuntimeLimit('pending_operations', pendingOperations + 1, policy.maxPendingOperations);
+    pendingOperations += 1;
+    return () => { pendingOperations -= 1; };
+  }
+
+  function admitOperation<TValue>(operation: () => Promise<TValue>): Promise<TValue> {
+    let release: () => void;
+    try { release = reserveOperation(); } catch (cause) { return Promise.reject(errorFromUnknown(cause)); }
+    try { return operation().finally(release); }
+    catch (cause) { release(); return Promise.reject(errorFromUnknown(cause)); }
+  }
+
+  function enqueueTransition<TValue>(operation: () => Promise<TValue>, owned = false): Promise<TValue> {
+    const execute = async (): Promise<TValue> => {
+      await waitForBarriers();
+      return dispatchQueue.run(operation);
+    };
+    return owned ? execute() : admitOperation(execute);
+  }
+
+  function waitForBarriers(): Promise<void> {
+    const barriers = (async () => {
+      await inputSession.drain();
+      lifecycle.signal.throwIfAborted();
+      await wheelInput.flush();
+      lifecycle.signal.throwIfAborted();
+      await pointerMotion.flush();
+      lifecycle.signal.throwIfAborted();
+    })();
+    return new Promise<void>((resolve, reject) => {
+      const aborted = (): void => { reject(new TerminalUiError(`TUI runtime is ${lifecycle.phase()}.`)); };
+      lifecycle.signal.addEventListener('abort', aborted, { once: true });
+      barriers.then(resolve, reject).finally(() => { lifecycle.signal.removeEventListener('abort', aborted); });
+      if (lifecycle.signal.aborted) aborted();
+    });
   }
 
   async function dispatchManyAdmitted(
@@ -437,7 +495,7 @@ function createRuntime<TState, TMessage>(
     lease: ProducerAdmissionLease,
     redacted = false,
   ): Promise<TState> {
-    return lease.authorized() ? dispatchManyInternal(messages, source, redacted) : commits.state();
+    return lease.authorized() ? dispatchManyInternal(messages, source, redacted, lease) : commits.state();
   }
 
   async function handleInputInTransaction(
@@ -532,10 +590,12 @@ function createRuntime<TState, TMessage>(
   async function dispatchManyInternal(
     messages: readonly TMessage[],
     source: TuiMessageSource,
-    redacted = false
+    redacted = false,
+    completing?: ProducerAdmissionLease,
   ): Promise<TState> {
     lifecycle.assertOperational();
     return commitRuntimeTransition({
+      ...(completing === undefined ? {} : { completing }),
       messages: messages.map((message) => ({
         message,
         source,

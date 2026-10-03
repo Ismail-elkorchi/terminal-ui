@@ -1,0 +1,155 @@
+{
+  "baselineCommit": "922a4d1e280f5cc38942a806eca0902159e66915",
+  "baselineSourceFilesVerifiedAgainstGitArchive": 625,
+  "candidateBaseCommit": "922a4d1e280f5cc38942a806eca0902159e66915",
+  "runtime": "v24.19.0",
+  "measurementBoundary": "Immediately before dynamic application-module import; excludes process launch and static framework/harness imports. Module-to-readiness includes host/runtime creation. Memory host commit is not physical terminal presentation.",
+  "sampleCounts": {
+    "headlinePerQueryScenario": 40,
+    "headlineCharacterEvents": 440,
+    "allocationPerQueryScenario": 20,
+    "sourceUpdateQualificationPerQueryScenario": 20
+  },
+  "quietHost": "Fresh processes ran sequentially after project builds/checks stopped. The first normal baseline overlapped concurrent project checks from 23:43:34\u201323:43:38 UTC, was excluded wholesale before comparison, and rerun at 23:45:54\u201323:46:16 UTC. Other shared-host users are not isolated.",
+  "candidate": {
+    "source": {
+      "sha256": "ffd5efb758ece10b116482968d2bfde17d415fb46fa07ae6a2a5c6665e7f4ecb",
+      "files": 650,
+      "method": "SHA256(sorted relative path + NUL + file SHA256 + newline)"
+    },
+    "dist": {
+      "sha256": "b31b72a16ec78a31591c928ae63f0c55e2e96b6a1cb02db771a5d629f3342168",
+      "method": "SHA256(sorted relative path + NUL + file SHA256 + newline)",
+      "captured": "Before final headline measurements; verified unchanged after headline, allocation and semantic runs. Subsequent aggregate-check rebuild is excluded from this fingerprint."
+    }
+  },
+  "baseline": {
+    "source": {
+      "sha256": "52e4b378e765a025965a6c9c4aaa38031c333810664b311eefe5d69c2775aa72",
+      "files": 622,
+      "method": "SHA256(sorted relative path + NUL + file SHA256 + newline)"
+    },
+    "dist": {
+      "sha256": "4a7e8f76e8f308909fb44acc4396a1f3dc95d7c6bf53fb58cfe4f034b04e9626",
+      "files": 1136,
+      "method": "SHA256(sorted relative path + NUL + file SHA256 + newline)"
+    }
+  },
+  "harness": {
+    "candidateSha256": "e39b52b7fc63a6342f0a35c266dee78265f2af1b1b61354652cdfd20416fbfe9",
+    "baselineSha256": "987acf4d75e5ecbec2ae1db6317129dd81c013393e971a58be0ce5003f506dc5",
+    "baselineAdapter": "Replace tableReadiness async state polling with Promise.resolve(initialFrameMs), because 922a4d1 constructs the table synchronously before the initial committed frame. No workload changes."
+  },
+  "results": [
+    {
+      "file": "workbench-final-baseline.json",
+      "sha256": "77abb396d6602fb401dc4733efb2e35624c0cc918beb23f10235fd4bfcca441d",
+      "measuredAt": "2026-10-02T23:46:16.655Z",
+      "allocationSampling": false
+    },
+    {
+      "file": "workbench-final-after.json",
+      "sha256": "c385aa1475d25d4a11e4e7df65f2916c57307dc698d05054d15c15a57204d836",
+      "measuredAt": "2026-10-02T23:44:26.083Z",
+      "allocationSampling": false
+    },
+    {
+      "file": "workbench-final-baseline-slow.json",
+      "sha256": "2a38bc79b940ce6e24b61aea334075d81deb109f6e7d2e2130728dfe9404098e",
+      "measuredAt": "2026-10-02T23:44:51.861Z",
+      "allocationSampling": false
+    },
+    {
+      "file": "workbench-final-after-slow.json",
+      "sha256": "e0fe5f35d1b406e50873a57a83bb9486bb5cdd317758b501e50baaeb6b6eebfd",
+      "measuredAt": "2026-10-02T23:45:24.195Z",
+      "allocationSampling": false
+    },
+    {
+      "file": "workbench-final-baseline-allocation.json",
+      "sha256": "cf53b01825026b5b1412a03a3c5c22ad160627855f1e8a6cb583eb58030ea26f",
+      "measuredAt": "2026-10-02T23:46:54.318Z",
+      "allocationSampling": true
+    },
+    {
+      "file": "workbench-final-after-allocation.json",
+      "sha256": "4877b83505ac69f49c97efc9b4e7d2911f0b8fad78049de41540299e544a4185",
+      "measuredAt": "2026-10-02T23:47:12.183Z",
+      "allocationSampling": true
+    },
+    {
+      "file": "workbench-final-source-updates.json",
+      "sha256": "9ec1384fa00b77d7abb9989031f61d4a75f2a9acceb6e94bef16f8ee74a2d27b",
+      "measuredAt": "2026-10-02T23:47:29.522Z",
+      "allocationSampling": false
+    },
+    {
+      "file": "workbench-final-pty.json",
+      "sha256": "20a6b12b02cda6b66d94e709b383d7cd69866c42328e8566595c84ad49f57191",
+      "measuredAt": "2026-10-02T23:47:33Z",
+      "allocationSampling": false
+    },
+    {
+      "file": "workbench-final-gc-diagnostic.json",
+      "sha256": "0d5573e86c6b137a4b5ffaf8b2943b52725ff6e23555bee492ea41c8cfda3725",
+      "measuredAt": "2026-10-02T23:51:00.922Z",
+      "kind": "Separate instrumented diagnostic, excluded from headline distributions"
+    }
+  ],
+  "rawInspectorProfiles": [
+    {
+      "variant": "baseline",
+      "phase": "setup",
+      "localPath": "/tmp/workbench-final-baseline-allocation.json.setup.heapprofile",
+      "bytes": 2737068,
+      "sha256": "96ed802109ecc81461a8b20c64a02eb4ca838102d0e59b149539c5e158bc0bf9"
+    },
+    {
+      "variant": "baseline",
+      "phase": "interaction",
+      "localPath": "/tmp/workbench-final-baseline-allocation.json.interaction.heapprofile",
+      "bytes": 11727239,
+      "sha256": "b1d7aaef98d47de3345e0d9087431181ac4eadb55bcd6d7f0afe09d683d4c21e"
+    },
+    {
+      "variant": "after",
+      "phase": "setup",
+      "localPath": "/tmp/workbench-final-after-allocation.json.setup.heapprofile",
+      "bytes": 3728626,
+      "sha256": "14887001ceee2fc321de6abb78659f6032473154ba7d6ba5c99d62a0717ed485"
+    },
+    {
+      "variant": "after",
+      "phase": "interaction",
+      "localPath": "/tmp/workbench-final-after-allocation.json.interaction.heapprofile",
+      "bytes": 10192131,
+      "sha256": "dca5bcd5bd69607c2b70d6c311acb71c143d28cb4d6773aa4b09023bc178caf2"
+    }
+  ],
+  "rawInspectorProfileNote": "Raw inspector sample graphs are retained locally outside the repository/package; complete sampled site summaries and forced-GC observations are in the allocation JSON reports. Copying report JSON does not copy its adjacent raw graph files.",
+  "measurementStartHashes": {
+    "src": "7caf276ad1c26da2005af2642a54c83730c31ef43bd59178c871d267c0802352",
+    "examples": "f8364d8795a0caeea5ed1e84010b10873bb7f45f1a4bf794c28d15fd1c5ea185",
+    "dist": "b31b72a16ec78a31591c928ae63f0c55e2e96b6a1cb02db771a5d629f3342168"
+  },
+  "measurementIntegrity": "The examples and built dist fingerprints remained unchanged throughout the final headline, allocation and semantic runs. Source hash includes tests: only src/text/query.test.ts changed in the initial excluded overlap window; built runtime remained unchanged.",
+  "headlineRunOrder": [
+    "excluded overlapped normal baseline",
+    "normal candidate",
+    "5ms-write baseline",
+    "5ms-write candidate",
+    "replacement clean normal baseline"
+  ],
+  "excludedRuns": [
+    {
+      "file": "workbench-overlap-baseline.json",
+      "reason": "Concurrent project ESLint/tests during initial 23:43:34\u201323:43:38 UTC. Entire run excluded and rerun, not selected by observed latency.",
+      "sha256": "83223cdf254df5d6977dc94375ad8012c33ef35a9bbd59d27dc484a3edb73b97"
+    }
+  ],
+  "gcDiagnosticReproduction": {
+    "command": "WORKBENCH_SAMPLES=40 WORKBENCH_WRITE_DELAY_MS=5 node scripts/performance/benchmark-workbench.mjs /tmp/workbench-gc-diagnostic.json",
+    "instructions": "In a disposable copy, apply this patch to the recorded harness before the command. Do not use the instrumented variant for headline timings. No forced GC or GC flags.",
+    "patch": "--- a/scripts/performance/benchmark-workbench.mjs\n+++ b/scripts/performance/benchmark-workbench.mjs\n@@ -1,5 +1,5 @@\n import assert from 'node:assert/strict';\n-import { performance } from 'node:perf_hooks';\n+import { performance, PerformanceObserver, constants } from 'node:perf_hooks';\n import { cpus, totalmem } from 'node:os';\n import process from 'node:process';\n import { writeFile } from 'node:fs/promises';\n@@ -9,6 +9,33 @@\n import { keyInput } from '../../dist/testing/index.js';\n import { searchPickerEntryById } from '../../dist/behavior/index.js';\n import { renderFramePlain } from '../../dist/renderer/index.js';\n+const gcEvents = [], inputWindows = [];\n+let activeInput;\n+function collectGc(list) {\n+  for (const entry of list) gcEvents.push({ startMs: entry.startTime,\n+    endMs: entry.startTime + entry.duration, durationMs: entry.duration,\n+    kind: entry.detail.kind === constants.NODE_PERFORMANCE_GC_MAJOR ? 'major'\n+      : entry.detail.kind === constants.NODE_PERFORMANCE_GC_MINOR ? 'minor'\n+      : entry.detail.kind === constants.NODE_PERFORMANCE_GC_INCREMENTAL ? 'incremental'\n+      : String(entry.detail.kind), flags: entry.detail.flags });\n+}\n+const gcObserver = new PerformanceObserver(list => collectGc(list.getEntries()));\n+gcObserver.observe({ entryTypes: ['gc'] });\n+const probeInstrumentation = { now: () => performance.now(), record(sample) {\n+  if (activeInput === undefined) return;\n+  const endMs = performance.now();\n+  activeInput.renderStages.push({ ...sample, startMs: endMs - sample.durationMs, endMs });\n+} };\n+async function observeInput(kind, trial, input) {\n+  const window = { kind, trial, input: input.kind === 'text' ? input.text : input.key,\n+    startMs: performance.now(), renderStages: [], hostWrites: [] };\n+  activeInput = window;\n+  try { return await runtime.handleInput(input); }\n+  finally {\n+    window.endMs = performance.now(); window.durationMs = window.endMs - window.startMs;\n+    activeInput = undefined; inputWindows.push(window);\n+  }\n+}\n // Allocation runs are separate from headline timing runs: inspector sampling changes cost.\n const allocationRun = process.env['WORKBENCH_ALLOCATIONS'] === '1';\n let allocationSession;\n@@ -67,13 +94,16 @@\n // Do not retain every historical frame/output in the benchmark observer: a real\n // terminal consumes writes rather than keeping hundreds of complete frame graphs.\n const host = { ...memoryHost, observer: {}, clock: clockHost.clock, async write(chunk, context) {\n+  const writeBegin = performance.now();\n+  const window = activeInput;\n   writes++;\n   if (writeDelayMs > 0) await delay(writeDelayMs);\n   const receipt = await memoryHost.write(chunk, context);\n   memoryHost.stdout.clear();\n+  if (window !== undefined) window.hostWrites.push({ startMs: writeBegin, endMs: performance.now(), durationMs: performance.now() - writeBegin });\n   return receipt;\n } };\n-const runtime = createTuiRuntime({ app: incidentWorkbenchApp, host });\n+const runtime = createTuiRuntime({ app: incidentWorkbenchApp, host, instrumentation: probeInstrumentation });\n const feedback = [], final = [], superseding = [], timerLag = [];\n const textInput = text => ({ kind: 'text', text, paste: false });\n function summary(samples) {\n@@ -165,7 +195,7 @@\n     const due = performance.now();\n     const timer = delay(0).then(() => { typingEventLoopDelay.push(Math.max(0, performance.now() - due)); });\n     const characterBegin = performance.now();\n-    await runtime.handleInput(textInput(character));\n+    await observeInput('character', i, textInput(character));\n     typingFeedback.push(performance.now() - characterBegin);\n     prefix += character;\n     assert.equal(runtime.state().searchPicker.state.control.editor.input.text, prefix, 'Reliable character events retain order');\n@@ -177,7 +207,7 @@\n   await selectAll();\n   await runtime.handleInput(textInput('gateway'));\n   const cancelBegin = performance.now();\n-  await runtime.handleInput(keyInput('escape'));\n+  await observeInput('escape', i, keyInput('escape'));\n   cancellation.push(performance.now() - cancelBegin);\n   assert.equal(runtime.state().searchPicker.state.open, false);\n   await runtime.dispatch({ kind: 'openSearchPicker' });\n@@ -254,7 +284,19 @@\n   globalThis.gc();\n   retainedHeap.activeAfterInteraction = process.memoryUsage();\n }\n+await delay(0);\n+collectGc(gcObserver.takeRecords());\n+gcObserver.disconnect();\n+for (const window of inputWindows) {\n+  window.overlappingGc = gcEvents.filter(gc => gc.startMs < window.endMs && gc.endMs > window.startMs);\n+  window.renderWallMs = window.renderStages.reduce((sum, stage) => sum + stage.durationMs, 0);\n+  window.hostWriteWallMs = window.hostWrites.reduce((sum, write) => sum + write.durationMs, 0);\n+  window.beforeFirstRenderMs = window.renderStages.length === 0 ? null : window.renderStages[0].startMs - window.startMs;\n+}\n const report = {\n+  diagnostic: { kind: 'Separate instrumented delayed-write typing/Escape GC/render/write correlation',\n+    note: 'PerformanceObserver and retained per-input render/write records perturb allocation and timing. No forced GC or GC tuning flags. GC overlaps are wall-time correlations, not additive costs or proof of cause. Windows include runtime dispatch/queue waiting; time before first render is not isolated queue time. This run cannot retrospectively attribute a prior uninstrumented outlier.',\n+    inputWindows, gcEvents },\n   metadata: { allocationSampling: allocationRun, measuredAt: new Date().toISOString(), runtime: process.version, platform: process.platform, architecture: process.arch, cpu: cpus()[0]?.model, logicalCpus: cpus().length, totalMemoryBytes: totalmem(), dataset: { incidents: incidentCount, commands: 4, deterministic: true }, terminalSize: { columns: 120, rows: 40 }, writeDelayMs, observedHostWrites: writes, sampleCount, warmupCount: 2, host: 'memory terminal output with native Node clock; no PTY/terminal-emulator presentation latency', workload: 'full incident workbench, unique literal trace queries plus character-by-character input and Escape, input through handleInput and committed frame; setup/index construction measured separately', limitations: 'Shared cloud CPU; polling adds up to ~1ms plus scheduling to final results. Two warmups precede unique, uncached measured queries. Module setup and initial/palette frames are measured separately; process launch and terminal-emulator presentation are excluded.' },\n   characterToCommittedFeedbackMs: summary(typingFeedback),\n   characterStreamToFinalResultMs: summary(typingFinal),\n"
+  }
+}

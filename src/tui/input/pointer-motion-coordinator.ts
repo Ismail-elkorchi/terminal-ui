@@ -61,13 +61,14 @@ export function createPointerMotionCoordinator<TResult>(
   };
 
   async function drain(active: MotionCycle<TResult>): Promise<void> {
-    const results: TResult[] = [];
+    // A cycle may remain active indefinitely; retain only its latest outcome.
+    let results: readonly TResult[] = [];
     try {
       while (latest !== undefined && disposedCause === undefined) {
         const sample = latest;
         latest = undefined;
         const result = await options.execute(sample);
-        results.push(result);
+        results = [result];
         if (options.stop(result)) {
           latest = undefined;
           break;

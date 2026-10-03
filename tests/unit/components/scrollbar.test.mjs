@@ -1,3 +1,4 @@
+import { createTableCollection } from '../../../dist/behavior/index.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ignoreMessage } from '../../../dist/component/index.js';
@@ -228,13 +229,12 @@ test('component scrollbars expose producing-element metadata and visual state', 
 
 test('dataGrid scrollbar can expose vertical and horizontal scroll scope together', () => {
   const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
-    getRowId: (_row, index) => String(index),
     id: 'wide',
-    rows: [
+    collection: createTableCollection([
       ['alpha-column', 'one'],
       ['bravo-column', 'two'],
       ['charlie-column', 'three']
-    ],
+    ], (_row, index) => String(index)),
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 14 } },

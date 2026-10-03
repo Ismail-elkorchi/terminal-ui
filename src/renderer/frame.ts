@@ -5,7 +5,7 @@ import type { GraphicOperation, GraphicPlacement } from '../graphics/types.ts';
 import { measureTerminalCellText } from '../text/measure.ts';
 import { textWidthProfileKey } from '../text/width-profile.ts';
 import { sameFrameCellSource } from '../visual/frame-source.ts';
-import type { RenderSpan, TerminalStyle } from '../visual/render-content.ts';
+import type { RenderSpan, TerminalLink, TerminalStyle } from '../visual/render-content.ts';
 import { sameTerminalLink, sameTerminalStyle, span } from '../visual/render-content.ts';
 import type {
   Frame,
@@ -310,19 +310,21 @@ function rowWriteOperations(
   canvasStyle?: TerminalStyle
 ): readonly RenderOperation[] {
   if (rowCells.length === 0) return [];
-  const spans: RenderSpan[] = [];
+  const spans: SpanRun[] = [];
   let nextColumn = fromColumn;
+  let previousCellStyle: TerminalStyle | undefined;
+  let effectiveStyle = canvasStyle;
   for (const cell of rowCells) {
     if (cell.column < nextColumn) continue;
     if (cell.column > toColumn || cell.column > width) break;
     if (cell.column > nextColumn) {
-      pushSpan(spans, span(' '.repeat(cell.column - nextColumn), styleOptions(canvasStyle)));
+      pushSpanRun(spans, ' '.repeat(cell.column - nextColumn), canvasStyle, undefined, undefined);
     }
-    pushSpan(spans, span(cell.text, {
-      ...styleOptions(mergeTerminalStyle(canvasStyle, cell.style)),
-      ...(cell.link === undefined ? {} : { link: cell.link }),
-      ...(cell.source === undefined ? {} : { source: cell.source })
-    }));
+    if (cell.style !== previousCellStyle) {
+      previousCellStyle = cell.style;
+      effectiveStyle = mergeTerminalStyle(canvasStyle, cell.style);
+    }
+    pushSpanRun(spans, cell.text, effectiveStyle, cell.link, cell.source);
     nextColumn = cell.column + cell.width;
   }
   return spans.length === 0 ? [] : [{ kind: 'write', row, column: fromColumn, spans: Object.freeze(spans) }];
@@ -482,9 +484,9 @@ function fingerprintsMatch(
   const nextRow = next.rows[row - 1];
   if (previousRow === undefined || nextRow === undefined) return previousRow === nextRow;
   if (previousRow.cells.size !== nextRow.cells.size) return false;
-  for (const [column, cell] of previousRow.cells) {
+  for (const cell of previousRow.cells.values()) {
     if (comparisons !== undefined) comparisons.count += 1;
-    if (!sameTerminalFrameCell(cell, nextRow.cells.get(column))) return false;
+    if (!sameTerminalFrameCell(cell, nextRow.cells.get(cell.column))) return false;
   }
   return true;
 }
@@ -493,17 +495,27 @@ function cellAt(cells: FrameIndex, row: number, column: number): FrameCell | und
   return cells.rows[row - 1]?.cells.get(column);
 }
 
-function pushSpan(spans: RenderSpan[], next: RenderSpan): void {
+type SpanRun = { -readonly [Key in keyof RenderSpan]: RenderSpan[Key] };
+
+/** Mutate only the unpublished current run; allocate one span per metadata run. */
+function pushSpanRun(
+  spans: SpanRun[], text: string, style: TerminalStyle | undefined,
+  link: TerminalLink | undefined, source: FrameCell['source'],
+): void {
   const previous = spans.at(-1);
   if (
     previous !== undefined
-    && sameTerminalStyle(previous.style, next.style)
-    && sameTerminalLink(previous.link, next.link)
-    && sameFrameCellSource(previous.source, next.source)
+    && sameTerminalStyle(previous.style, style)
+    && sameTerminalLink(previous.link, link)
+    && sameFrameCellSource(previous.source, source)
   ) {
-    spans[spans.length - 1] = { ...previous, text: `${previous.text}${next.text}` };
+    previous.text += text;
     return;
   }
+  const next: SpanRun = { text };
+  if (style !== undefined) next.style = style;
+  if (link !== undefined) next.link = link;
+  if (source !== undefined) next.source = source;
   spans.push(next);
 }
 

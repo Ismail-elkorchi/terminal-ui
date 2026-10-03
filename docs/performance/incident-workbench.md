@@ -18,6 +18,151 @@ Queue arrays and table collections are retained rather than rebuilt on every
 keystroke. Search descriptors are adopted in bounded batches; the index is constructed cooperatively
 when the picker opens and retained in its child state after acceptance.
 
+## Retained sources and bounded work (2026-10-02)
+
+The final candidate is compared with exact baseline
+`922a4d1e280f5cc38942a806eca0902159e66915`, using the same 100,000-incident
+application workload. Character feedback improves, but this is not an overall
+speedup: final-query readiness, cold table/search readiness and retained heap
+remain more expensive. The [manifest](./workbench-final-manifest.json) pins the
+harness, application/source and measured build fingerprints.
+
+Four clean headline processes used Node v24.19.0, 120×40 memory output and the
+native Node clock, with 40 whole-query samples, 40 superseding-input pairs,
+440 ordered character events and 40 Escape events per process. Two warmups
+precede unique measured queries. No profiler or forced GC ran in these processes.
+The first normal baseline accidentally overlapped concurrent project lint/tests;
+that entire run was excluded and rerun, without selecting by measured latency.
+The retained clean order was candidate, 5ms/write baseline, 5ms/write candidate,
+then replacement normal baseline. No project builds/tests overlapped these clean
+runs; other users of this shared cloud host were not isolated.
+
+Milliseconds, p50 / p95 / p99 / maximum:
+
+| Measurement | Baseline | Final candidate |
+| --- | ---: | ---: |
+| Character → committed feedback | 8.94 / 16.78 / 17.73 / 22.99 | 8.59 / 12.26 / 14.37 / 21.69 |
+| Whole query → final result | 63.89 / 84.16 / 145.27 / 145.27 | 75.22 / 100.53 / 112.34 / 112.34 |
+| Character stream → final result | 162.80 / 178.46 / 361.56 / 361.56 | 180.26 / 204.76 / 229.85 / 229.85 |
+| Superseding-input event-loop delay | 15.18 / 16.14 / 21.20 / 21.20 | 11.51 / 15.11 / 16.03 / 16.03 |
+| Escape → committed feedback | 13.79 / 15.24 / 16.00 / 16.00 | 12.51 / 17.18 / 18.56 / 18.56 |
+| Character, 5ms/write | 13.94 / 18.49 / 20.10 / 20.76 | 13.10 / 17.84 / 19.20 / 23.10 |
+| Whole query, 5ms/write | 64.43 / 87.75 / 129.55 / 129.55 | 78.16 / 94.26 / 103.33 / 103.33 |
+| Character stream, 5ms/write | 207.77 / 224.58 / 228.44 / 228.44 | 220.86 / 242.26 / 503.70 / 503.70 |
+| Escape, 5ms/write | 18.11 / 20.20 / 31.03 / 31.03 | 16.72 / 19.60 / 294.18 / 294.18 |
+
+Normal character-feedback p95 falls by 27%, while whole-query p95 rises by
+19%. Normal Escape p95 also regresses. The delayed-output cancellation maximum
+of 294ms and character-stream maximum of 504ms are retained, not discarded.
+At 40 query/Escape samples, nearest-rank p99 equals the maximum; the character
+percentiles use 440 samples. None of these observations establishes a latency
+ceiling or terminal-emulator/physical-display presentation latency.
+
+### Cold feedback and full readiness
+
+These are single cold observations from the normal-output processes, not
+percentile distributions. The absolute clock starts immediately before importing
+the application module, and includes fixture creation, host/runtime creation and
+startup. Process launch and earlier static framework/harness imports are excluded.
+
+| From application-module import start (ms) | Baseline | Final candidate |
+| --- | ---: | ---: |
+| Initial committed frame | 370.23 | 312.39 |
+| Initial table source ready | 370.23 | 727.26 |
+| First picker index and query ready | 1916.40 | 3136.43 |
+
+First picker feedback measured from opening is 60.96→51.98ms; readiness measured
+from opening is 1546.18→2823.81ms. The earlier initial frame is not a fully ready
+table: the candidate prepares its retained table source cooperatively while the
+picker also constructs its index. The baseline constructs its table synchronously
+before its initial frame. The only baseline harness adapter maps table readiness
+to that already-ready initial frame. Full cold readiness remains a material cost
+of this implementation and is not hidden in the feedback result.
+
+### Allocation investigation and final memory observations
+
+The first bounded implementation had a whole-query p95 of 226.69ms and sampled
+interaction allocation of 13,357.50 MiB. Separate profiling identified recursive
+per-node sequence iterators and per-candidate/per-field matcher allocation as
+large costs. The final paths use a rank-seeking stack iterator, a reusable matcher
+cursor and compact owned field metadata; bulk sequence construction was also
+improved. The shared cooperative defaults remain 2,048 charged operations and an
+advisory 4ms time slice. Full-corpus matching, ordered input, cancellation and the
+shared computation remain intact. Raising the scheduler ceiling was investigated
+separately and did not justify a change. Preliminary results are retained in the
+[pre-tuning manifest](./workbench-pre-tuning-manifest.json), and are not substituted
+for the clean final comparison above.
+
+Separate 20-sample inspector runs, MiB:
+
+| Whole-application observation | Baseline | Final candidate |
+| --- | ---: | ---: |
+| Cumulative sampled setup allocation | 1375.26 | 1889.80 |
+| Cumulative sampled interaction allocation | 6882.24 | 5638.50 |
+| Active heap after setup and forced GC | 152.75 | 216.13 |
+| Active heap after interactions and forced GC | 205.92 | 267.23 |
+
+Interaction allocation falls by 18%, but retained active heap rises by 30% and
+setup allocation rises by 37%. Allocation is cumulative churn, not retained
+memory. These figures include the fixture, retained source/index structures,
+application, runtime and instrumentation; they do not isolate a library-only
+footprint or establish a leak. The large raw inspector graphs were saved outside
+the repository/package and released before heap observations. Complete sampled
+site summaries and heap observations are retained in the JSON reports; profile
+locations and hashes are in the manifest.
+
+A separate 40-sample delayed-write diagnostic correlated `PerformanceObserver`
+GC entries with character/Escape windows, render stages and host-write intervals.
+The 294ms Escape outlier did not reproduce (diagnostic Escape maximum 19.98ms),
+so its original cause remains unproven. A 308.13ms character event did overlap a
+202.34ms major GC. Its render wall time was 272.52ms, including 242.91ms in region
+painting, while host writing took 4.17ms. GC and render durations overlap and must
+not be added. This identifies a GC/render-time stall in that separate event, not
+a retrospective diagnosis of the original Escape outlier. Instrumentation and
+retained diagnostic records perturb timing and allocation; this run is excluded
+from all headline distributions. No GC tuning flags or forced GC were used.
+
+### Semantic and transport qualification
+
+All final benchmark runs completed with zero runtime diagnostics. Every query
+selected its exact expected incident and every individual character was admitted
+in order. Three sizes were checked during matching. A separate source-update run
+verified successive append/replace/remove deltas, exact latest-query results,
+accepted-source identity on reopen and latest-source adoption after rapid whole
+source replacement. The strengthened Unix PTY smoke checked startup,
+`/palette`, `trace-42123` → `INC-042123`, Enter, then `/activity` displaying
+`Inspected INC-042123.`, followed by a clean Ctrl+Q exit. PTY byte transport does
+not qualify terminal pixels, physical presentation or screen-reader behavior.
+
+Final evidence: [normal baseline](./workbench-final-baseline.json),
+[normal candidate](./workbench-final-after.json),
+[delayed-write baseline](./workbench-final-baseline-slow.json),
+[delayed-write candidate](./workbench-final-after-slow.json),
+[baseline allocation](./workbench-final-baseline-allocation.json),
+[candidate allocation](./workbench-final-after-allocation.json),
+[source updates](./workbench-final-source-updates.json),
+[PTY smoke](./workbench-final-pty.json), and
+[separate GC/render/write diagnostic](./workbench-final-gc-diagnostic.json).
+The [excluded overlapped baseline](./workbench-overlap-baseline.json) remains
+available for audit but contributes no number above.
+
+Reproduce after building each revision in its own checkout, then stop builds and
+tests before timing. Copy the recorded harness into the baseline and apply only
+the table-readiness adapter described in the manifest. Run fresh processes
+sequentially with `WORKBENCH_SAMPLES=40`, optionally
+`WORKBENCH_WRITE_DELAY_MS=5`, using
+`node scripts/performance/benchmark-workbench.mjs /tmp/result.json`.
+For separate allocation runs use `WORKBENCH_SAMPLES=20 WORKBENCH_ALLOCATIONS=1`
+and `node --expose-gc`; keep the ordinary latency runs uninstrumented. Qualify
+source changes with a separate `WORKBENCH_SOURCE_UPDATES=1` run and transport with
+`python3 scripts/performance/workbench-pty-smoke.py`. The manifest retains the
+exact additional patch and command for reproducing the GC diagnostic in a
+disposable harness copy.
+
+The measurement sections below describe earlier snapshots. Their “current” or
+“this revision” labels belong to the recorded historical comparisons, not the
+final candidate measured above.
+
 ## Owned rendering and preparation (2026-10-02)
 
 This change is compared with `ec247ee4ac7b88042b1672b3dceecc90b914a9c8`.
@@ -334,3 +479,18 @@ an AMD EPYC 9V74; CPU load was not isolated. Polling for completion adds roughly
 1ms plus scheduling delay. The Unix PTY smoke separately verified startup,
 `/palette`, `trace-42123` producing `INC-042123`, Enter and a clean Ctrl+Q exit at
 120×40. It does not emulate terminal pixels or establish hardware latency.
+
+## Reliable notes editing
+
+The Notes panel now uses the same caller-owned controlled editor child as the
+IDE example. Editing is a bounded FIFO; each head prepares the full mutation and
+history reduction before it becomes state. Layout uses exact accepted component
+requests on a separate latest-wins query. Hiding Notes leaves accepted editing
+work alive. Input overflow, stale visual coordinates, pending-layout navigation,
+preparation failure and history-retention rejection are surfaced explicitly.
+
+These are structural correctness changes, not a new latency measurement. The
+historical benchmark numbers above remain tied to their recorded revisions.
+Focused tests exercise cold 200k-unit edits, a 200k-unit paste, cancellation
+through history accounting, Unicode/CRLF seams, capacity-one runtime settlement,
+hidden editing, save barriers, source replacement and nested resize fencing.

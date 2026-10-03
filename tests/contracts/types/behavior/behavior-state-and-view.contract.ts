@@ -1,3 +1,6 @@
+import { createListboxFixture } from '../../../support/collection-fixtures.mjs';
+import { createTableCollection } from '@ismail-elkorchi/terminal-ui/behavior';
+import { inferTableColumns } from '@ismail-elkorchi/terminal-ui/components';
 import {
   dataGrid,
   listbox,
@@ -58,15 +61,13 @@ const committedCombobox = commitCombobox(
 
 const unscrolledListbox = listbox({
   id: 'unscrolled-listbox',
-  items: ['one'],
-  toOption: (value) => ({ id: value, label: value }),
+  ...createListboxFixture(['one'], (value) => ({ id: value, label: value })),
   state: interaction,
   onTransition: (transition) => ({ kind: 'unscrolledListbox' as const, transition }),
 });
 const scrollableListbox = listbox({
   id: 'scrollable-listbox',
-  items: ['one'],
-  toOption: (value) => ({ id: value, label: value }),
+  ...createListboxFixture(['one'], (value) => ({ id: value, label: value })),
   state: { ...interaction, scroll },
   scrollbar: { visible: 'auto' },
   onTransition: (transition) => ({ kind: 'scrollableListbox' as const, transition }),
@@ -92,16 +93,16 @@ const rowInteraction = {
   selection: { mode: 'single' as const, selectedRowId: 'one' },
 };
 const unscrolledGrid = dataGrid({
+  columns: inferTableColumns(rows),
   id: 'unscrolled-grid',
-  rows,
-  getRowId: (row) => row.id,
+  collection: createTableCollection(rows, (row) => row.id),
   state: { interaction: rowInteraction },
   onTransition: (transition) => ({ kind: 'unscrolledGrid' as const, transition }),
 });
 const scrollableGrid = dataGrid({
+  columns: inferTableColumns(rows),
   id: 'scrollable-grid',
-  rows,
-  getRowId: (row) => row.id,
+  collection: createTableCollection(rows, (row) => row.id),
   state: { interaction: rowInteraction, scroll },
   scrollbar: { visible: 'auto' },
   onTransition: (transition) => ({ kind: 'scrollableGrid' as const, transition }),

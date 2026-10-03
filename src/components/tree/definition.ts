@@ -12,7 +12,7 @@ import type {
   TreeView,
 } from '../../behavior/tree.ts';
 import { visibleRowWindow } from '../../behavior/visible-row-window.ts';
-import { createCompleteCollection, collectionItemById } from '../../collection/snapshot.ts';
+import { createOrderedSource, type OrderedSource } from '../../foundation/ordered-source.ts';
 import type {
   ComponentInput,
   ComponentMeasureInput,
@@ -69,7 +69,7 @@ interface TreeRow {
 
 interface TreeModel {
   readonly keymap: ControlKeymap<TreeKeyAction>;
-  readonly collection: import('../../behavior/tree.ts').TreeCollection;
+  readonly collection: OrderedSource<TreeCollectionRow>;
   readonly pending: boolean;
   readonly view: TreeView | undefined;
   readonly activeId?: string;
@@ -102,16 +102,16 @@ const treeBase = {
   ] as const,
   visualStates: ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy'] as const,
   measure: measureTree,
-  retainPaint: true as const,
+  reuse: { paint: (model: object) => [model] as const },
   render: paintTree,
   accessibility: treeAccessibility,
   inspection: ({ model }: { readonly model: Readonly<TreeModel> }) => ({
     ...(model.activeId === undefined ? {} : { active: model.activeId }),
     selection: inspectSelection(model.selection),
     collection: {
-      startIndex: model.collection.startIndex,
-      totalCount: model.collection.totalCount,
-      visibleCount: model.collection.items.length,
+      startIndex: 0,
+      totalCount: model.collection.count,
+      visibleCount: model.collection.count,
     },
   }),
 };
@@ -237,7 +237,7 @@ function createTreeModel<
   };
 }
 
-const emptyTreeCollection = createCompleteCollection<TreeCollectionRow>([]);
+const emptyTreeCollection = createOrderedSource<TreeCollectionRow>();
 
 function isScrollableTreeOptions<
   TMetadata extends Readonly<Record<string, unknown>>,
@@ -300,7 +300,7 @@ function treeGeometry(input: ComponentInput<TreeModel>) {
   return layoutComponentScrollbar({
     bounds: input.bounds,
     scroll,
-    contentRows: input.model.collection.totalCount,
+    contentRows: input.model.collection.count,
     contentColumns: input.bounds.width,
     ...(input.model.scrollbar === undefined ? {} : { options: input.model.scrollbar }),
     defaultAxis: 'vertical',
@@ -312,24 +312,24 @@ function treePlan(input: ComponentInput<TreeModel>) {
   const geometry = treeGeometry(input);
   const activeIndex = input.model.activeId === undefined
     ? undefined
-    : collectionItemById(collection, input.model.activeId)?.itemIndex;
+    : collection.itemById(input.model.activeId)?.itemIndex;
   const requested = visibleRowWindow({
-    totalRows: input.model.collection.totalCount,
+    totalRows: input.model.collection.count,
     viewportRows: geometry.contentBounds.height,
     ...(activeIndex === undefined ? {} : { activeIndex }),
     ...(input.model.scroll === undefined ? {} : {
       scroll: input.model.scroll,
     }),
   });
-  const availableEnd = input.model.collection.startIndex + collection.items.length;
+  const availableEnd = 0 + collection.count;
   const lastStart = Math.max(
-    input.model.collection.startIndex,
-    availableEnd - Math.min(geometry.contentBounds.height, collection.items.length),
+    0,
+    availableEnd - Math.min(geometry.contentBounds.height, collection.count),
   );
-  const startIndex = Math.max(input.model.collection.startIndex, Math.min(lastStart, requested.startIndex));
-  const localStart = startIndex - input.model.collection.startIndex;
+  const startIndex = Math.max(0, Math.min(lastStart, requested.startIndex));
+  const localStart = startIndex - 0;
   const rows = Array.from(
-    { length: Math.min(geometry.contentBounds.height, collection.items.length - localStart) },
+    { length: Math.min(geometry.contentBounds.height, collection.count - localStart) },
     (_unused, offset) => treeRowAt(input.model, localStart + offset),
   );
   const activeVisibleIndex = activeIndex === undefined || activeIndex < startIndex ||
@@ -346,7 +346,7 @@ function treePlan(input: ComponentInput<TreeModel>) {
 }
 
 function measureTree(input: ComponentMeasureInput<TreeModel>) {
-  const sampleSize = Math.min(64, input.model.collection.items.length);
+  const sampleSize = Math.min(64, input.model.collection.count);
   let preferredWidth = 1;
   for (let localIndex = 0; localIndex < sampleSize; localIndex += 1) {
     const row = treeRowAt(input.model, localIndex);
@@ -362,13 +362,13 @@ function measureTree(input: ComponentMeasureInput<TreeModel>) {
     minWidth: 1,
     minHeight: 1,
     preferredWidth,
-    preferredHeight: Math.max(1, input.model.collection.totalCount),
+    preferredHeight: Math.max(1, input.model.collection.count),
   };
 }
 
 function paintTree(input: ComponentRenderInput<TreeModel, TreeStylePart>): undefined {
   const plan = treePlan(input);
-  if (input.model.collection.items.length === 0) {
+  if (input.model.collection.count === 0) {
     const style = input.style({
       part: 'empty',
       base: { fg: { kind: 'theme', token: 'text.muted' }, dim: true },
@@ -399,14 +399,14 @@ function paintTree(input: ComponentRenderInput<TreeModel, TreeStylePart>): undef
 }
 
 function treeRowAt(model: TreeModel, localIndex: number): TreeRow {
-  const item = model.collection.items[localIndex];
+  const item = model.collection.itemAt(localIndex);
   if (item === undefined) throw new RangeError('tree row index is outside the tree view.');
   return treeRow(item.row, item.itemIndex);
 }
 
 function activeTreeRow(model: TreeModel): TreeRow | undefined {
   if (model.activeId === undefined) return undefined;
-  const item = collectionItemById(model.collection, model.activeId);
+  const item = model.collection.itemById(model.activeId);
   return item === undefined ? undefined : treeRow(item.row, item.itemIndex);
 }
 
@@ -719,7 +719,7 @@ function treeAccessibility(
     id: input.id,
     role: 'tree' as const,
     description: input.model.pending ? 'Tree not ready.' : `Showing ${String(plan.startIndex + 1)}-${String(plan.endIndexExclusive)} of ${
-      String(input.model.collection.totalCount)
+      String(input.model.collection.count)
     } tree rows.`,
     ...(input.focused ? { focused: true } : {}),
     ...(input.model.activeId === undefined || !plan.rows.some((row) => row.id === input.model.activeId)
@@ -729,9 +729,9 @@ function treeAccessibility(
     window: {
       startIndex: plan.startIndex,
       endIndexExclusive: plan.endIndexExclusive,
-      totalCount: input.model.collection.totalCount,
+      totalCount: input.model.collection.count,
       omittedBefore: plan.startIndex,
-      omittedAfter: Math.max(0, input.model.collection.totalCount - plan.endIndexExclusive),
+      omittedAfter: Math.max(0, input.model.collection.count - plan.endIndexExclusive),
     },
     children: plan.rows.map((row, index) => ({
       id: `${input.id}:${row.id}`,
@@ -743,7 +743,7 @@ function treeAccessibility(
       ...(row.kind === 'leaf' ? {} : { expanded: row.expanded }),
       position: {
         positionInSet: plan.startIndex + index + 1,
-        setSize: input.model.collection.totalCount,
+        setSize: input.model.collection.count,
         level: row.depth + 1,
       },
       value: row.path.join('/'),

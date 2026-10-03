@@ -52,7 +52,9 @@ type ListEntryModel = ListboxViewEntry<unknown>;
 
 interface ListboxModel {
   readonly keymap: ControlKeymap<ListboxKeyAction>;
-  readonly entries: readonly ListEntryModel[];
+  readonly count: number;
+  readonly entryById: (id: string) => ListEntryModel | undefined;
+  readonly window: (start: number, end: number) => readonly ListEntryModel[];
   readonly startIndex: number;
   readonly totalCount: number;
   readonly windowed: boolean;
@@ -75,7 +77,7 @@ const listboxDefinitionBase = {
   visualStates: ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy'] as const,
   states: ['disabled', 'busy', 'inert'] as const,
   measure: measureListbox,
-  retainPaint: true as const,
+  reuse: { paint: (model: object) => [model] as const },
   render: renderListbox,
   accessibility: accessibleListbox,
   inspection: ({ model }: { readonly model: Readonly<ListboxModel> }) => ({
@@ -84,7 +86,7 @@ const listboxDefinitionBase = {
     collection: {
       startIndex: model.startIndex,
       totalCount: model.totalCount,
-      visibleCount: model.entries.length,
+      visibleCount: model.count,
     },
   }),
 };
@@ -226,11 +228,13 @@ function createListboxModel<TValue, TMessage extends ComponentMessage>(
   }
   return {
     keymap: resolveControlKeymap(value.keymap, defaultListboxKeymap),
-    entries: view.entries,
-    startIndex: view.startIndex,
-    totalCount: view.totalCount,
-    windowed: view.source.kind === 'window',
-    query: view.query,
+    count: view?.count ?? 0,
+    entryById: view?.entryById ?? (() => undefined),
+    window: view?.window ?? (() => []),
+    startIndex: view?.startIndex ?? 0,
+    totalCount: view?.totalCount ?? 0,
+    windowed: value.collection.kind === 'window',
+    query: view?.query ?? { kind: 'compiled-collection-query', text: value.query?.text ?? '', mode: value.query?.mode ?? 'contains', caseSensitive: value.query?.caseSensitive === true },
     ...(activeId === undefined ? {} : { activeId }),
     selection,
     ...(scroll === undefined ? {} : { scroll }),
@@ -245,7 +249,7 @@ function measureListbox(
     readonly widthProfile: import('../../text/index.ts').TextWidthProfile;
   },
 ) {
-  const rows = model.entries.slice(0, 64);
+  const rows = model.window(0, 64);
   const preferredWidth = Math.max(
     1,
     ...rows.map((entry) =>
@@ -445,7 +449,7 @@ function accessibleListbox(
     ...(input.focused ? { focused: true } : {}),
     ...(input.model.activeId === undefined
       ? {}
-      : input.model.entries.some((item) => item.id === input.model.activeId)
+      : input.model.entryById(input.model.activeId) !== undefined
         ? { activeDescendant: `${input.id}:option:${input.model.activeId}` }
         : {}),
     ...(input.model.selection.mode === 'multiple' ? { multiSelectable: true } : {}),
@@ -511,18 +515,18 @@ function listPlan(model: ListboxModel, bounds: import('../../geometry/types.ts')
       Math.min(
         Math.max(
           model.startIndex,
-          model.startIndex + model.entries.length - scrollbar.contentBounds.height,
+          model.startIndex + model.count - scrollbar.contentBounds.height,
         ),
         requestedStart,
       ),
     )
     : requestedStart;
   const rows = model.windowed
-    ? model.entries.slice(
+    ? model.window(
       startIndex - model.startIndex,
       startIndex - model.startIndex + scrollbar.contentBounds.height,
     )
-    : model.entries.slice(startIndex, startIndex + scrollbar.contentBounds.height);
+    : model.window(startIndex, startIndex + scrollbar.contentBounds.height);
   return { scrollbar, startIndex, rows };
 }
 
@@ -593,7 +597,7 @@ function optionalSpanStyle(style: TerminalStyle | undefined): { readonly style?:
 function activeEntry(model: ListboxModel): ListEntryModel | undefined {
   return model.activeId === undefined
     ? undefined
-    : model.entries.find((entry) => entry.id === model.activeId);
+    : model.entryById(model.activeId);
 }
 
 function transition(transition: ListboxTransition): ListboxComponentAction {

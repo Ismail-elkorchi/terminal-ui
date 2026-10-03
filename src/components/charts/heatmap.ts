@@ -56,7 +56,7 @@ const heatmapBase = {
   parts: ['label', 'axis', 'series', 'value', 'legend', 'muted'] as const,
   visualStates: ['active', 'selected', 'disabled', 'busy'] as const,
   measure: measureHeatmap,
-  retainPaint: true as const,
+  reuse: { paint: (model: object) => [model] as const },
   render: paintHeatmap,
   accessibility: heatmapAccessibility,
   inspection: ({ model }: { readonly model: Readonly<HeatmapModel> }) => ({

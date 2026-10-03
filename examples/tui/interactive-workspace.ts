@@ -41,7 +41,7 @@ import {
   querySearchPickerIndex,
   treeReducer
 } from '@ismail-elkorchi/terminal-ui/behavior';
-import type { CommandInputState, UnscrolledSearchPickerState } from '@ismail-elkorchi/terminal-ui/behavior';
+import type { CommandInputState, CompleteTableCollection, UnscrolledSearchPickerState } from '@ismail-elkorchi/terminal-ui/behavior';
 import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 import type {
   CommandInputTransition,
@@ -219,7 +219,7 @@ function updateWorkspace(
       return updateResult({
         ...state,
         table: dataGridReducer(state.table, message.transition, {
-          collection: createTableCollection(visibleTickets(state), (ticket) => ticket.id),
+          collection: visibleTicketCollection(state),
           columnIds: tableColumns.map((column) => column.id),
           pageSize: 12,
         })
@@ -406,12 +406,10 @@ function mainPane(state: WorkspaceState) {
 }
 
 function issuesPanel(state: WorkspaceState) {
-  const rows = visibleTickets(state);
   return surface(dataGrid({
     id: 'ticket-table',
     meta: { accessibleName: 'Issues' },
-    rows,
-    getRowId: (ticket) => ticket.id,
+    collection: visibleTicketCollection(state),
     columns: tableColumns,
     state: state.table,
     scrollbar: { visible: 'auto' },
@@ -489,7 +487,7 @@ function reduceCommandPicker(state: UnscrolledSearchPickerState, transition: Sea
   const next = searchPickerReducer(state, transition, { searchPickerIndex: workspaceSearchPickerIndex, queryResult: current });
   if (next.editor.input.text === state.editor.input.text) return next;
   const result = querySearchPickerIndex(workspaceSearchPickerIndex, { text: next.editor.input.text, mode: next.mode, caseSensitive: next.caseSensitive });
-  const id = result.entries.find(entry => !entry.disabled)?.id;
+  const id = result.window(0, result.count).find(entry => !entry.disabled)?.id;
   return searchPickerReducer(next, { kind: 'setActive', ...(id === undefined ? {} : { id }) }, { searchPickerIndex: workspaceSearchPickerIndex, queryResult: result });
 }
 
@@ -532,8 +530,24 @@ function queueFromSelection(selection: string | undefined): Ticket['queue'] | un
   return undefined;
 }
 
+const ticketRowsByQueue = new Map<Ticket['queue'] | undefined, readonly Ticket[]>();
+const ticketCollectionsByQueue = new Map<Ticket['queue'] | undefined, CompleteTableCollection<Ticket>>();
+
 function ticketsForQueue(queue: Ticket['queue'] | undefined): readonly Ticket[] {
-  return queue === undefined ? tickets : tickets.filter((ticket) => ticket.queue === queue);
+  const cached = ticketRowsByQueue.get(queue);
+  if (cached !== undefined) return cached;
+  const rows = queue === undefined ? tickets : tickets.filter((ticket) => ticket.queue === queue);
+  ticketRowsByQueue.set(queue, rows);
+  return rows;
+}
+
+function visibleTicketCollection(state: WorkspaceState) {
+  const queue = queueFromSelection(selectedTreeId(state.tree));
+  const cached = ticketCollectionsByQueue.get(queue);
+  if (cached !== undefined) return cached;
+  const collection = createTableCollection(ticketsForQueue(queue), (ticket) => ticket.id);
+  ticketCollectionsByQueue.set(queue, collection);
+  return collection;
 }
 
 function visibleTickets(state: WorkspaceState): readonly Ticket[] {

@@ -6,7 +6,7 @@ import {
   passwordInput, progressBar, runTui, statusBar, text, textInput,
 } from '@ismail-elkorchi/terminal-ui';
 import type { ListboxControlTransition, TextInputTransition, TuiUpdateResult } from '@ismail-elkorchi/terminal-ui';
-import { listboxReducer, textInputReducer } from '@ismail-elkorchi/terminal-ui/behavior';
+import { createListboxCollection, createListboxView, listboxReducer, textInputReducer } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { UnscrolledListboxState } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { TextEditBuffer } from '@ismail-elkorchi/terminal-ui/text';
 
@@ -27,7 +27,8 @@ export type AccessibleTaskMessage =
   | { readonly kind: 'progress'; readonly value: number };
 
 const priorities = ['Normal', 'Urgent', 'Low'] as const;
-const toOption = (value: string) => ({ id: value, label: value });
+const priorityCollection = createListboxCollection(priorities, (value) => ({ id: value, label: value }));
+const priorityView = createListboxView(priorityCollection);
 
 /** A local-only task rehearsal; no credential or task is sent anywhere. */
 export function createAccessibleTaskApp() {
@@ -68,7 +69,7 @@ function update(state: AccessibleTaskState, message: AccessibleTaskMessage): Tui
     case 'password':
       return { state: { ...state, password: textInputReducer(state.password, message.transition) } };
     case 'priority':
-      return { state: { ...state, priority: listboxReducer(state.priority, message.transition, { items: priorities, toOption }) } };
+      return { state: { ...state, priority: listboxReducer(state.priority, message.transition, { collection: priorityCollection, view: priorityView }) } };
     case 'submit':
       return state.title.text.trim() === ''
         ? { state: { ...state, error: 'Enter a task title' }, focus: { kind: 'element', elementId: 'task-title' } }
@@ -122,7 +123,7 @@ function taskView(state: AccessibleTaskState) {
         onTransition: (transition): AccessibleTaskMessage => ({ kind: 'password', transition }),
       }) }),
       listbox({
-        id: 'task-priority', items: priorities, toOption, state: state.priority,
+        id: 'task-priority', collection: priorityCollection, view: priorityView, state: state.priority,
         meta: { accessibleName: 'Priority' },
         onTransition: (transition): AccessibleTaskMessage => ({ kind: 'priority', transition }),
       }),

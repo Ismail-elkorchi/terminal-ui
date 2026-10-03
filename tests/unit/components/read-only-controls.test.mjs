@@ -1,3 +1,4 @@
+import { createSuggestionFixture } from '../../support/collection-fixtures.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -12,7 +13,7 @@ import {
 import { createMemoryTerminalHost } from '../../../dist/host/index.js';
 import { row } from '../../../dist/layout/index.js';
 import { layoutElement, renderElementFrame } from '../../../dist/renderer/index.js';
-import { createCommandSuggestions } from '../../../dist/behavior/index.js';
+
 import { createTextDocument, textCaretAt } from '../../../dist/text/index.js';
 import { createTuiRuntime, defineTui } from '../../../dist/tui/index.js';
 
@@ -67,7 +68,7 @@ test('editable components share one read-only mutation policy', async () => {
       name: 'commandInput',
       element: (onTransition) => commandInput({ meta: { accessibleName: "Command input" },
         id: 'control',
-        view: { input: { text: 'abc', cursor: 1 }, open: false, suggestions: createCommandSuggestions([]) },
+        view: { input: { text: 'abc', cursor: 1 }, open: false, ...createSuggestionFixture([]) },
         readOnly: true,
         onTransition: onTransition
       }),
@@ -86,7 +87,7 @@ test('read-only command input cannot accept a completion', async () => {
     view: {
       input: { text: 'a', cursor: 1 },
       open: true,
-      suggestions: createCommandSuggestions([{ id: 'alpha', completion: { range: { startOffset: 0, endOffsetExclusive: 1 }, text: 'alpha' }, label: 'alpha' }])
+      ...createSuggestionFixture([{ id: 'alpha', completion: { range: { startOffset: 0, endOffsetExclusive: 1 }, text: 'alpha' }, label: 'alpha' }])
     },
     readOnly: true,
     onTransition: onTransition

@@ -34,6 +34,7 @@ import type {
   RenderNodeRenderInput,
 } from './render-tree/types.ts';
 import { scopedFrameSource } from './scoped-render-target.ts';
+import { sameNodePhase } from './retained-dependencies.ts';
 
 const retainedMeasurements = new WeakMap<RenderNode, {
   readonly theme: TerminalTheme;
@@ -130,6 +131,16 @@ export function createRenderMeasurementContext(
   instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
 ): RenderMeasurementContext {
   const cache = new WeakMap<RenderNode, Map<string, Measurement>>();
+  const admitted = new WeakMap<RenderNode, boolean>();
+  const canRetain = (node: RenderNode): boolean => {
+    const known = admitted.get(node);
+    if (known !== undefined) return known;
+    const allowed = sameNodePhase(node, node, 'measurement')
+      && !(node.kind === 'viewport' && node.props.measured === true)
+      && (node.children ?? []).every(canRetain);
+    admitted.set(node, allowed);
+    return allowed;
+  };
   const context: RenderMeasurementContext = {
     theme,
     widthProfile,
@@ -141,13 +152,14 @@ export function createRenderMeasurementContext(
       const cached = byConstraint.get(key);
       if (cached !== undefined) return cached;
       budget?.measureNode(depth);
-      let retained = retainedMeasurements.get(renderNode);
-      if (retained?.theme !== theme) {
+      const reusable = canRetain(renderNode);
+      let retained = reusable ? retainedMeasurements.get(renderNode) : undefined;
+      if (reusable && retained?.theme !== theme) {
         retained = { theme, constraints: new Map() };
         retainedMeasurements.set(renderNode, retained);
       }
       const retainedKey = `${textWidthProfileKey(widthProfile)}:${key}`;
-      const previous = retained.constraints.get(retainedKey);
+      const previous = retained?.constraints.get(retainedKey);
       if (previous !== undefined) {
         byConstraint.set(key, previous);
         return previous;
@@ -160,11 +172,11 @@ export function createRenderMeasurementContext(
         height: bounds.height
       }, context, depth);
       byConstraint.set(key, measurement);
-      if (retained.constraints.size >= 4) {
+      if (retained !== undefined && retained.constraints.size >= 4) {
         const oldest = retained.constraints.keys().next().value;
         if (oldest !== undefined) retained.constraints.delete(oldest);
       }
-      retained.constraints.set(retainedKey, measurement);
+      retained?.constraints.set(retainedKey, measurement);
       return measurement;
     }
   };

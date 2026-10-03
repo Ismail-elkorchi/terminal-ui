@@ -72,7 +72,7 @@ const instantiateNumberInput = defineComponent<Omit<NumberInputOptions<Component
   }),
   createModel: createNumberInputModel,
   measure: measureNumberInput,
-  retainPaint: true as const,
+  reuse: { paint: (model: object) => [model] as const },
   render: paintNumberInput,
   keys: ({ readOnly }) => ({
     triggers: textEditingTriggers(readOnly),

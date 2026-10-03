@@ -14,6 +14,7 @@ import type { TuiEffect, TuiEffectConcurrency, TuiEffectPolicy } from './types.t
 
 interface TestManagerOptions<TMessage> {
   readonly host?: MemoryTerminalHost;
+  readonly fatal?: (cause: unknown) => void;
   readonly context?: TuiEffectManagerOptions<TMessage>['context'];
   readonly policy?: TuiEffectPolicy;
   readonly reportDiagnostic?: (item: TerminalDiagnostic) => void;
@@ -25,6 +26,7 @@ function manager<TMessage = never>(
 ) {
   const host = options.host ?? createMemoryTerminalHost();
   const effects = createTuiEffectManager({
+    ...(options.fatal === undefined ? {} : { fatal: options.fatal }),
     clock: host.clock,
     context: options.context ?? (async () => ({
       host,
@@ -212,9 +214,9 @@ void test('effect execution policy bounds active and queued work with observable
   effects.start([hanging('save', 'enqueue')]);
   effects.start([hanging('save', 'enqueue')]);
   effects.start([hanging('parallel', 'parallel')]);
-  await waitUntil(() => effects.metrics().rejected === 2);
+  await waitUntil(() => effects.metrics().rejected === 2 && effects.metrics().owned === 2);
 
-  assert.deepEqual(effects.metrics(), { active: 1, queued: 1, rejected: 2 });
+  assert.deepEqual(effects.metrics(), { active: 1, queued: 1, rejected: 2, owned: 2 });
   assert.deepEqual(
     diagnostics.map((item) => item.data?.['reason']).sort(),
     ['active_limit', 'queue_limit']
@@ -224,43 +226,19 @@ void test('effect execution policy bounds active and queued work with observable
   await effects.dispose();
 });
 
-void test('effect failures are enclosed across context run recovery and dispatch phases', async () => {
-  const diagnostics: TerminalDiagnostic[] = [];
-  const host = createMemoryTerminalHost();
-  const effects = createTuiEffectManager({
-    clock: host.clock,
-    context: async () => ({
-      host,
-      terminalSize: host.getTerminalSize(),
-      capabilities: await host.getCapabilities(),
-      diagnostics: [],
-      clock: host.clock
-    }),
-    dispatch: async () => { throw new Error('dispatch failed'); },
-    copySelectedText: async () => { throw new Error('Unexpected clipboard operation.'); },
-    reportDiagnostic: (item) => diagnostics.push(item)
+void test('broken effect recovery and settlement report terminal faults', async () => {
+  const failures: unknown[] = [];
+  const { effects } = manager<string>(async () => { throw new Error('dispatch failed'); }, {
+    fatal: (cause) => { failures.push(cause); },
   });
   effects.start([
-    {
-      id: 'run-failure',
-      concurrency: 'parallel',
-      run: async () => { throw new Error('run failed'); },
-      onError: () => { throw new Error('mapper failed'); }
-    },
-    {
-      id: 'dispatch-failure',
-      concurrency: 'parallel',
-      run: async () => ({ kind: 'message', message: 'done' })
-    }
+    { id: 'run-failure', concurrency: 'parallel', run: async () => { throw new Error('run failed'); },
+      onError: () => { throw new Error('mapper failed'); } },
+    { id: 'dispatch-failure', concurrency: 'parallel', run: async () => ({ kind: 'message', message: 'done' }) },
   ]);
-
-  await waitUntil(() => diagnostics.length === 2);
-  await effects.dispose();
-
-  assert.deepEqual(
-    diagnostics.map((item) => item.data?.['phase']).sort(),
-    ['dispatch', 'onError']
-  );
+  await waitUntil(() => failures.length === 2);
+  await assert.rejects(effects.dispose(), /TUI effect execution cleanup failed/u);
+  assert.ok(failures.every((failure) => failure instanceof Error));
 });
 
 void test('context acquisition failures are diagnosed and may recover through one atomic dispatch', async () => {
@@ -348,7 +326,7 @@ void test('replace rejects a successor when prior work ignores abort beyond the 
 
   host.clock.advance(10);
   await waitUntil(() => effects.metrics().rejected === 1);
-  assert.deepEqual(effects.metrics(), { active: 1, queued: 0, rejected: 1 });
+  assert.deepEqual(effects.metrics(), { active: 1, queued: 0, rejected: 1, owned: 1 });
   assert.equal(diagnostics[0]?.data?.['reason'], 'replacement_timeout');
 
   priorGate.release();
@@ -380,7 +358,7 @@ void test('policy rejection recovers atomically with the original diagnostic and
     await waitUntil(() => diagnostics.length === 1);
     assert.deepEqual(outputs, [{ messages: ['rejected', 'TUI_EFFECT_REJECTED', 'active_limit'], redacted: true }]);
     assert.equal(diagnostics[0]?.code, 'TUI_EFFECT_REJECTED');
-    assert.deepEqual(effects.metrics(), { active: 1, queued: 0, rejected: 1 });
+    assert.deepEqual(effects.metrics(), { active: 1, queued: 0, rejected: 1, owned: 1 });
   } finally { activeGate.release(); await effects.dispose(); }
 });
 
@@ -437,16 +415,15 @@ void test('disposal waits for a cancelled rejection dispatch to finish', async (
   } finally { dispatchGate.release(); await effects.dispose(); }
 });
 
-void test('policy rejection encloses mapper, dispatch and diagnostic failures', async () => {
+void test('policy rejection bounds mapper, dispatch and diagnostic failures', async () => {
   const activeGate = gate();
-  const diagnostics: TerminalDiagnostic[] = [];
+  const failures: unknown[] = [];
   const { effects } = manager<string>(async () => { throw new Error('dispatch failed'); }, {
     policy: { maxActive: 1, maxActivePerId: 1, maxQueued: 1, maxQueuedPerId: 1, replacementGracePeriodMs: 10 },
-    reportDiagnostic: item => { diagnostics.push(item); if (item.target === 'diagnostic') throw new Error('diagnostic failed'); },
+    fatal: (cause) => { failures.push(cause); },
+    reportDiagnostic: () => { throw new Error('diagnostic failed'); },
   });
-  const rejected = (id: string): TuiEffect<string> => ({
-    id, concurrency: 'parallel', run: async () => { assert.fail('rejected work must not run'); },
-  });
+  const rejected = (id: string): TuiEffect<string> => ({ id, concurrency: 'parallel', run: async () => { assert.fail('rejected work must not run'); } });
   effects.start([
     { id: 'busy', concurrency: 'parallel', run: async () => { await activeGate.promise; return { kind: 'none' }; } },
     { ...rejected('mapper'), onError: () => { throw new Error('mapper failed'); } },
@@ -454,11 +431,9 @@ void test('policy rejection encloses mapper, dispatch and diagnostic failures', 
     rejected('diagnostic'),
   ]);
   try {
-    await waitUntil(() => diagnostics.length === 3);
+    await waitUntil(() => failures.length === 3);
     activeGate.release();
     await assert.rejects(effects.dispose(), /TUI effect execution cleanup failed/u);
-    assert.deepEqual(diagnostics.map(item => item.data?.['phase']).filter(Boolean).sort(), ['error_dispatch', 'onError']);
-    assert.equal(diagnostics.find(item => item.target === 'diagnostic')?.code, 'TUI_EFFECT_REJECTED');
   } finally { activeGate.release(); await effects.dispose(); }
 });
 
@@ -477,7 +452,7 @@ void test('completed policy recoveries release admission without occupying run o
         onError: () => ({ kind: 'message' as const, message: index }),
       })));
       await waitUntil(() => leases.length === (batch + 1) * 8 && leases.every(lease => !lease.authorized()));
-      assert.deepEqual(effects.metrics(), { active: 1, queued: 0, rejected: (batch + 1) * 8 });
+      assert.deepEqual(effects.metrics(), { active: 1, queued: 0, rejected: (batch + 1) * 8, owned: 1 });
     }
   } finally { activeGate.release(); await effects.dispose(); }
 });
@@ -511,13 +486,13 @@ void test('nested lifetime cancellation removes queued and replacement work with
   }, (message) => message.message);
   const parent = createTuiChild({
     init(context) { return leaf.init({ id: 'same-leaf', generation: 1 }, context); },
-    update(state, message: number) { void message; return { state, cancel: [leaf.remove(state)] }; },
+    update(state, message: number) { void message; return { ...leaf.remove(state), state }; },
     view: () => text({ content: 'parent' }),
   }, (message) => message);
   const left = parent.init({ id: 'left', generation: 1 }, ctx);
   const right = parent.init({ id: 'right', generation: 1 }, ctx);
-  const leftWork = decodeTuiInitialResult(left).effects ?? [];
-  const rightWork = decodeTuiInitialResult(right).effects ?? [];
+  const leftWork = decodeTuiInitialResult<unknown, unknown>(left).contributions.flatMap((entry) => entry.effects ?? []);
+  const rightWork = decodeTuiInitialResult<unknown, unknown>(right).contributions.flatMap((entry) => entry.effects ?? []);
   effects.start([...leftWork, ...rightWork]);
   await waitUntil(() => signals.length === 2);
   effects.start(leftWork);
@@ -532,10 +507,10 @@ void test('nested lifetime cancellation removes queued and replacement work with
     init(context) { return replaceLeaf.init({ id: 'same-leaf', generation: 1 }, context); },
     update: (state, message: number) => { void message; return { state }; }, view: () => text({ content: '' }),
   }, (message) => message);
-  effects.start(decodeTuiInitialResult(replaceParent.init({ id: 'left', generation: 1 }, ctx)).effects ?? []);
+  effects.start(decodeTuiInitialResult<unknown, unknown>(replaceParent.init({ id: 'left', generation: 1 }, ctx)).contributions.flatMap((entry) => entry.effects ?? []));
   assert.equal(effects.metrics().queued, 1);
   const removed = parent.update(left.state, { id: 'left', generation: 1, message: 0 }, ctx);
-  effects.cancelRequests(decodeTuiUpdateResult(removed).cancel ?? []);
+  effects.cancelRequests(decodeTuiUpdateResult(removed).contributions.flatMap((entry) => entry.cancel ?? []));
   assert.equal(effects.metrics().queued, 0);
   assert.equal(signals[0]?.aborted, true);
   assert.equal(signals[1]?.aborted, false);
@@ -560,10 +535,10 @@ void test('completed unique child effects release manager bookkeeping without gr
     for (let index = 0; index < 20; index += 1) {
       const result = child.update(state, { id: 'owner', generation: 1, message: batch * 20 + index }, ctx);
       assert.equal(result.state, state);
-      effects.start(decodeTuiUpdateResult(result).effects ?? []);
+      effects.start(decodeTuiUpdateResult<unknown, unknown>(result).contributions.flatMap((entry) => entry.effects ?? []));
     }
     await waitUntil(() => effects.metrics().active === 0);
-    assert.deepEqual(effects.metrics(), { active: 0, queued: 0, rejected: 0 });
+    assert.deepEqual(effects.metrics(), { active: 0, queued: 0, rejected: 0, owned: 0 });
   }
   assert.deepEqual(Object.keys(state).sort(), ['generation', 'id', 'state']);
   await effects.dispose();

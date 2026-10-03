@@ -1,3 +1,6 @@
+import { createListboxFixture, createOptionsFixture } from '../../../support/collection-fixtures.mjs';
+import { createTableCollection } from '@ismail-elkorchi/terminal-ui/behavior';
+import { inferTableColumns } from '@ismail-elkorchi/terminal-ui/components';
 import {
   combobox,
   listView,
@@ -32,8 +35,7 @@ export type Assert<TValue extends true> = TValue;
 const scroll = createScrollState();
 const controlledListbox = listbox({
   id: 'listbox',
-  items: ['one'],
-  toOption: (value) => ({ id: value, label: value }),
+  ...createListboxFixture(['one'], (value) => ({ id: value, label: value })),
   state: { activeId: 'one', selection: { mode: 'none' }, scroll },
   scrollbar: { visible: 'auto' },
   onTransition: (transition) => ({ kind: 'listbox' as const, transition }),
@@ -84,7 +86,7 @@ const controlledListView = listView({
 const controlledCombobox = combobox({
   id: 'combobox',
   label: 'Choice',
-  options: [{ id: 'one', label: 'One', value: 1 }],
+  ...createOptionsFixture([{ id: 'one', label: 'One', value: 1 }]),
   state: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } }, scroll },
   scrollbar: { visible: 'auto' },
   onTransition: (transition) => ({ kind: 'combobox' as const, transition }),
@@ -102,7 +104,7 @@ export type _ListView = Assert<Equal<MessageOf<typeof controlledListView>, { rea
 export type _Combobox = Assert<Equal<MessageOf<typeof controlledCombobox>, { readonly kind: 'combobox'; readonly transition: ComboboxTransition }>>;
 
 // @ts-expect-error listbox scrollbar requires controlled scroll state
-listbox({ id: 'inert-listbox', items: [], toOption: () => ({ id: '', label: '' }), state: { selection: { mode: 'none' } }, scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
+listbox({ id: 'inert-listbox', ...createListboxFixture([], () => ({ id: '', label: '' })),  state: { selection: { mode: 'none' } }, scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
 // @ts-expect-error tree scrollbar requires controlled scroll state
 tree({ view: null, id: 'inert-tree', source: createTreeSource([]), state: { selection: { mode: 'none' }, expandedIds: [] }, scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
 // @ts-expect-error text-area scrollbar requires scroll state
@@ -119,6 +121,6 @@ listView({ id: 'inert-list-view', window: measuredWindow(createMeasuredCollectio
 // @ts-expect-error listView has no horizontal scrolling contract
 listView({ id: 'horizontal-list-view', window: measuredWindow(createMeasuredCollection([]), { viewportRows: 0 }), renderItem: () => ({ content: text({ content: '' }) }), state: { selection: { mode: 'none' }, scroll: createScrollState() }, scrollbar: { axis: 'horizontal' }, onTransition: (transition) => transition });
 // @ts-expect-error passive table scrollbar requires controlled scroll state and routing
-table({ id: 'inert-table', rows: [], getRowId: () => '', scrollbar: { visible: 'auto' } });
+table({columns: inferTableColumns([]),  id: 'inert-table', collection: createTableCollection([], () => ''),  scrollbar: { visible: 'auto' } });
 // @ts-expect-error combobox scrollbar requires view scroll state
-combobox({ id: 'inert-combobox', label: 'Choice', options: [], state: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } } }, scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
+combobox({ id: 'inert-combobox', label: 'Choice', ...createOptionsFixture([]), state: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } } }, scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });

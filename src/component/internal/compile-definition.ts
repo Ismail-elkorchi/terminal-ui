@@ -45,7 +45,10 @@ export function compileDefinition<
   TSlots,
   TVisualStates
 > {
-  const ownedDefinition = Object.freeze({ ...definition }) as typeof definition;
+  const ownedDefinition = Object.freeze({
+    ...definition,
+    ...(definition.reuse === undefined ? {} : { reuse: Object.freeze({ ...definition.reuse }) }),
+  }) as typeof definition;
   return Object.freeze({
     definition: ownedDefinition,
     contract: Object.freeze({

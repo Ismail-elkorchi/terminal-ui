@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createTuiChild, createTuiPreparedQuery, createTuiRuntime, defineTui } from '../../dist/tui/index.js';
+import { combineTuiResults, createTuiChild, createTuiPreparedQuery, createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { text } from '../../dist/components/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { flushAsync, waitUntil } from '../support/async.ts';
@@ -137,7 +137,7 @@ test('a child replacement rejection queued behind removal never reaches the pare
     update(state, message, context) {
       if (message.kind === 'remount') {
         const mounted = child.init({ id: 'panel', generation: state.child.generation + 1 }, context);
-        return { ...mounted, state: { child: mounted.state }, cancel: [child.remove(state.child)] };
+        return combineTuiResults({ child: mounted.state }, child.remove(state.child), mounted);
       }
       if (message.message.message.kind !== 'request') completions.push(message.message);
       const next = child.update(state.child, message.message, context);
@@ -191,7 +191,7 @@ for (const finish of ['settle', 'dispose']) {
       return write(...args);
     };
     const failures = Array.from({ length: 64 }, (_, index) => index);
-    const runtime = createTuiRuntime({ host, effectPolicy: policy, app: defineTui({
+    const runtime = createTuiRuntime({ host, effectPolicy: { ...policy, maxOwned: failures.length + 1 }, app: defineTui({
       init: () => ({ state: [], effects: [
         { id: 'busy', concurrency: 'parallel', run: async () => { await blocked.promise; return { kind: 'none' }; } },
         ...failures.map(index => ({
@@ -206,7 +206,7 @@ for (const finish of ['settle', 'dispose']) {
     try {
       await runtime.start();
       await writing.promise;
-      assert.deepEqual(runtime.metrics().effects, { active: 1, queued: 0, rejected: failures.length });
+      assert.deepEqual(runtime.metrics().effects, { active: 1, queued: 0, rejected: failures.length, owned: failures.length + 1 });
       assert.equal(admitted, 1, 'terminal output backpressures ordinary message admission');
       const disposal = finish === 'dispose' ? runtime.dispose() : undefined;
       releaseWrite.resolve();
@@ -218,7 +218,7 @@ for (const finish of ['settle', 'dispose']) {
       blocked.resolve();
       await (disposal ?? runtime.dispose());
       assert.equal(admitted, finish === 'settle' ? failures.length : 1);
-      assert.deepEqual(runtime.metrics().effects, { active: 0, queued: 0, rejected: failures.length });
+      assert.deepEqual(runtime.metrics().effects, { active: 0, queued: 0, rejected: failures.length, owned: 0 });
     } finally {
       releaseWrite.resolve(); blocked.resolve(); host.write = write;
       await runtime.dispose();

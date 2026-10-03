@@ -189,17 +189,14 @@ works inside columns and split panes; do not guess a terminal or content width.
 Use the existing prepared-query/effect lifecycle:
 
 ```ts
-import { createTuiPreparedQuery } from '@ismail-elkorchi/terminal-ui/tui';
+import { createTuiCooperativeWorkContext, createTuiPreparedQuery } from '@ismail-elkorchi/terminal-ui/tui';
 import { createTextAreaState, type TextAreaTransition } from '@ismail-elkorchi/terminal-ui/behavior';
 import { textArea, prepareTextAreaLayout, type TextAreaLayoutRequest } from '@ismail-elkorchi/terminal-ui/components/forms';
 
 const preparation = createTuiPreparedQuery({
   id: 'editor-layout',
   prepare: (request: TextAreaLayoutRequest, context) =>
-    prepareTextAreaLayout(request, {
-      signal: context.signal,
-      yield: async () => { await context.clock.sleep(0, context.signal); },
-    }),
+    prepareTextAreaLayout(request, createTuiCooperativeWorkContext(context)),
   toMessage: result => ({ kind: 'layoutPrepared' as const, result }),
 });
 

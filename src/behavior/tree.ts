@@ -12,7 +12,7 @@ import type {
 } from '../interaction/collection-interaction.ts';
 import type { ScrollRequest, ScrollState } from '../interaction/scroll.ts';
 
-interface TreeNodeBase<
+export interface TreeNodeBase<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
 > extends LabeledItem {
   readonly icon?: string;
@@ -29,6 +29,18 @@ export type TreeNode<
       readonly children: readonly TreeNode<TMetadata>[];
     }
   | TreeNodeBase<TMetadata> & { readonly kind: 'lazy' };
+
+/** Flat descriptor used by bounded source ingestion. Metadata must be immutable. */
+export type TreeNodeDescriptor<TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>> =
+  TreeNodeBase<TMetadata> & { readonly kind: 'leaf' | 'branch' | 'lazy' };
+export interface TreeSourceEntry<TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>> {
+  readonly node: TreeNodeDescriptor<TMetadata>;
+  readonly parentId?: string;
+}
+export type TreeSourceChange<TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>> =
+  | { readonly kind: 'append'; readonly entry: TreeSourceEntry<TMetadata> }
+  | { readonly kind: 'replace'; readonly node: TreeNodeDescriptor<TMetadata> }
+  | { readonly kind: 'remove'; readonly id: string };
 
 declare const treeSourceBrand: unique symbol;
 
@@ -65,7 +77,7 @@ export type TreeState = UnscrolledTreeState | ScrollableTreeState;
 export interface TreeVisibleRow<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
 > {
-  readonly node: TreeNode<TMetadata>;
+  readonly node: TreeNodeDescriptor<TMetadata>;
   readonly depth: number;
   readonly path: readonly string[];
   readonly expanded: boolean;
@@ -94,7 +106,7 @@ export interface TreeView<
 > {
   readonly kind: 'tree-view';
   readonly source: TreeSource<TMetadata>;
-  readonly collection: CompleteTreeCollection<TMetadata>;
+  readonly collection: import("../foundation/order-reader.ts").CollectionOrderReader<TreeCollectionRow<TMetadata>>;
   readonly interactionIndex: CollectionInteractionIndex;
 }
 

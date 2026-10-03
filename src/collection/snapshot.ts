@@ -76,7 +76,7 @@ export function createCompleteCollection<TItem extends CollectionItem>(
 /** Cooperative counterpart used by prepared collection projections. */
 export function* createCompleteCollectionWork<TItem extends CollectionItem>(
   items: readonly TItem[],
-): Generator<void, CompleteCollectionSnapshot<TItem>, unknown> {
+): Generator<number, CompleteCollectionSnapshot<TItem>, unknown> {
   const owned: TItem[] = [];
   const ids: string[] = [];
   const byId = new Map<string, CollectionItem>();
@@ -96,7 +96,7 @@ export function* createCompleteCollectionWork<TItem extends CollectionItem>(
     owned.push(value);
     ids.push(value.id);
     byId.set(value.id, value);
-    if ((offset + 1) % 256 === 0) yield;
+    if ((offset + 1) % 256 === 0) yield 256;
   }
   const snapshot = registerCollectionSnapshot(Object.freeze<CompleteCollectionSnapshot<TItem>>({
     [collectionSnapshotBrand]: true,

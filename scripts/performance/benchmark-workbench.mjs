@@ -95,11 +95,21 @@ async function selectAll() {
 const initialBegin = performance.now();
 await runtime.start();
 const initialFrameMs = performance.now() - initialBegin;
+const tableReadiness = (async () => {
+  const deadline = performance.now() + 60_000;
+  while (runtime.state().tablePreparation.pending) {
+    assert.ok(performance.now() < deadline, 'Initial table source did not settle');
+    await delay(1);
+  }
+  assert.equal(runtime.state().tablePreparation.error, null);
+  return performance.now() - initialBegin;
+})();
 const firstOpenBegin = performance.now();
 await runtime.dispatch({ kind: 'openSearchPicker' });
 const firstOpenFeedbackMs = performance.now() - firstOpenBegin;
 await settled();
 const firstOpenReadyMs = performance.now() - firstOpenBegin;
+const initialTableReadyMs = await tableReadiness;
 if (allocationRun) {
   allocationProfiles.setup = await finishAllocationSample('setup');
   await delay(0);
@@ -250,7 +260,11 @@ const report = {
   characterStreamToFinalResultMs: summary(typingFinal),
   characterEventLoopDelayMs: summary(typingEventLoopDelay),
   escapeToCommittedFeedbackMs: summary(cancellation),
-  setup: { moduleImportMs, initialFrameMs, firstOpenFeedbackMs, firstOpenReadyMs },
+  setup: { moduleImportMs, initialFrameMs, initialTableReadyMs, firstOpenFeedbackMs, firstOpenReadyMs,
+    moduleToInitialFrameMs: initialBegin - moduleBegin + initialFrameMs,
+    moduleToInitialTableReadyMs: initialBegin - moduleBegin + initialTableReadyMs,
+    moduleToFirstOpenReadyMs: firstOpenBegin - moduleBegin + firstOpenReadyMs,
+    clockBoundary: 'moduleTo* starts immediately before the dynamic application-module import and includes host/runtime creation; process launch and earlier static framework/harness imports are excluded. Table preparation and first picker opening overlap.' },
   inputToFirstCommittedFeedbackMs: summary(feedback),
   inputToFinalResultFrameMs: summary(final),
   scheduledSupersedingInputToFinalFrameMs: summary(superseding),

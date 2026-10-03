@@ -3,6 +3,8 @@ import {
   defineComponent,
   span,
   type ComponentMessage,
+  type ComponentReuse,
+  type ComponentReuseDependencies,
   type ComponentSlotLayout,
   type SemanticComposedComponentDefinition,
   type SemanticLeafComponentDefinition,
@@ -423,3 +425,43 @@ const obsoletePreparation: SemanticLeafComponentDefinition<StagedBadgeOptions> =
   accessibility: ({ id, model }) => ({ id, role: 'status', label: model.label }),
 };
 void obsoletePreparation;
+
+const badgeReuse: ComponentReuse<StagedBadgeOptions> = {
+  measurement: model => [model.label], layout: () => [],
+  paint: model => [model.label], accessibility: model => [model.label],
+};
+void badgeReuse;
+const immutableDependencies: ComponentReuseDependencies = ['stable', Object.freeze({ resource: true })];
+// @ts-expect-error dependency tuples are immutable
+immutableDependencies[0] = 'changed';
+const invalidReuse: ComponentReuse<StagedBadgeOptions> = {
+  // @ts-expect-error selectors cannot return an equality function or a boolean
+  paint: () => true,
+};
+void invalidReuse;
+const asyncReuse: ComponentReuse<StagedBadgeOptions> = {
+  // @ts-expect-error dependency selection remains synchronous
+  measurement: async model => [model.label] as const,
+};
+void asyncReuse;
+const retiredPaintFlag: SemanticLeafComponentDefinition<StagedBadgeOptions> = {
+  name: 'terminal-ui-tests/components/retired-paint', identity: 'required', structure: 'leaf',
+  semantics: 'semantic', accessibleRole: 'text',
+  // @ts-expect-error retainPaint has been replaced by per-phase reuse
+  retainPaint: true,
+  measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),
+  render() { return undefined; }, accessibility: ({ id }) => ({ id, role: 'text' }),
+};
+void retiredPaintFlag;
+const compositeReuse: SemanticComposedComponentDefinition<StagedBadgeOptions> = {
+  name: 'terminal-ui-tests/components/composite-reuse', identity: 'required', structure: 'composed',
+  semantics: 'semantic', accessibleRole: 'group',
+  reuse: {
+    measurement: model => [model.label],
+    // @ts-expect-error composite paint is not an independent reusable patch
+    paint: model => [model.label],
+  },
+  compose: ({ model }) => text({ content: model.label }),
+  accessibility: ({ id }) => ({ id, role: 'group' }),
+};
+void compositeReuse;

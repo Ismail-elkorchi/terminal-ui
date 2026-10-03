@@ -1,3 +1,5 @@
+import { createTableCollection } from '../../../dist/behavior/index.js';
+import { inferTableColumns } from '../../../dist/components/index.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -2168,10 +2170,10 @@ test('component models are data objects rather than callable hooks', () => {
 });
 
 test('built-in factories reject malformed nested options where they are consumed', () => {
-  assert.throws(() => dataGrid({ meta: { accessibleName: "Data grid" },
+  assert.throws(() => dataGrid({
+    columns: inferTableColumns([]), meta: { accessibleName: "Data grid" },
     id: 'dataGrid',
-    rows: [],
-    getRowId: () => 'row',
+    collection: createTableCollection([], () => 'row'),
     state: null,
     onTransition: (transition) => transition
   }), /dataGrid state/u);

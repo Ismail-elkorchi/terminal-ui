@@ -48,6 +48,8 @@ export type {
   ListboxActivateEvent,
   ListboxCollection,
   ListboxCollectionItem,
+  ListboxCollectionChange,
+  ListboxView,
   ListboxControlTransition,
   ListboxOption,
   ListboxOptionMapper,
@@ -123,6 +125,7 @@ export type {
   ScrollableDataGridState,
   TableCollection,
   TableCollectionRow,
+  TableCollectionChange,
   TableSortDirection,
   TableSortState,
   TableState,
@@ -147,6 +150,10 @@ export type {
   TreeDisclosureTransition,
   TreeLoadStatus,
   TreeNode,
+  TreeSourceEntry,
+  TreeSourceChange,
+  TreeNodeDescriptor,
+  TreeNodeBase,
   TreeSource,
   TreeState,
   TreeTransition,
@@ -505,3 +512,5 @@ export type {
   TreeStylePart,
 } from './style-parts.ts';
 export type { ValidationLevel } from './validation.ts';
+
+export { inferTableColumns } from "./data-table/column.ts";

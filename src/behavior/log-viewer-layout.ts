@@ -10,7 +10,7 @@ import {
 } from './log-history.ts';
 import type { TextWidthProfile } from '../text/types.ts';
 import { textWidthProfileKey } from '../text/width-profile.ts';
-import { measuredGraphemes } from '../text/graphemes.ts';
+import { measuredGraphemeEvents } from '../text/graphemes.ts';
 
 export interface LogViewerLayout {
   readonly width: number;
@@ -64,7 +64,7 @@ export function* logViewerLayoutWork(
   widthProfile: TextWidthProfile,
   foldedIds: ReadonlySet<string>,
   foldedKey: string,
-): Generator<void, LogViewerLayout> {
+): Generator<number, LogViewerLayout> {
   const geometryKey = `wrap:${String(Math.max(0, width))}:${
     textWidthProfileKey(widthProfile)
   }`;
@@ -87,7 +87,7 @@ export function* logViewerLayoutWork(
     startRow += layout.totalRows;
     // Cache hits still assemble an arbitrarily large history. Keep the same
     // cancellation opportunity after each bounded (at most 256-record) segment.
-    yield;
+    yield segment.records.length;
   }
   const result = Object.freeze({ width, segments: Object.freeze(segments), totalRows: startRow });
   retain(cache, key, result, maxLayoutsPerSegment);
@@ -167,7 +167,7 @@ function* segmentLayoutWork(
   width: number,
   widthProfile: TextWidthProfile,
   foldedIds: ReadonlySet<string>,
-): Generator<void, CachedSegmentLayout> {
+): Generator<number, CachedSegmentLayout> {
   const cache = cacheFor(layoutCache, segment);
   const cached = touch(cache, key);
   if (cached !== undefined) return cached;
@@ -184,8 +184,9 @@ function* segmentLayoutWork(
     const count = boundaries.length / 2;
     rowCounts.push(count);
     totalRows += count;
-    if (rowCounts.length % 32 === 0) yield;
+    if (rowCounts.length % 32 === 0) yield 32;
   }
+  if (rowCounts.length % 32 > 0) yield rowCounts.length % 32;
   const result = Object.freeze({
     rowStarts: Object.freeze(rowStarts),
     rowCounts: Object.freeze(rowCounts),
@@ -262,12 +263,13 @@ function segmentFoldKey(segment: LogHistorySegment, foldedIds: ReadonlySet<strin
   return JSON.stringify(segment.records.filter(record => foldedIds.has(record.entry.id)).map(record => record.entry.id));
 }
 
-function* wrappedSourceRows(text: string, width: number, widthProfile: TextWidthProfile): Generator<void, Uint32Array> {
+function* wrappedSourceRows(text: string, width: number, widthProfile: TextWidthProfile): Generator<number, Uint32Array> {
   const boundaries: number[] = [];
   let start = 0;
   let cells = 0;
   let work = 0;
-  for (const part of measuredGraphemes(text, { widthProfile })) {
+  for (const part of measuredGraphemeEvents(text, { widthProfile })) {
+    if (typeof part === 'number') { yield part; continue; }
     if (part.text === '\n') {
       boundaries.push(start, part.startOffset);
       start = part.endOffsetExclusive;
@@ -281,14 +283,16 @@ function* wrappedSourceRows(text: string, width: number, widthProfile: TextWidth
       cells += part.cells;
     }
     work += part.endOffsetExclusive - part.startOffset;
-    if (work >= 2048) { work = 0; yield; }
+    if (work >= 2048) { yield work; work = 0; }
   }
+  if (work > 0) yield work;
   boundaries.push(start, text.length);
   const result = new Uint32Array(boundaries.length);
   for (let i = 0; i < boundaries.length; i += 1) {
     result[i] = boundaries[i] ?? 0;
-    if ((i + 1) % 2048 === 0) yield;
+    if ((i + 1) % 2048 === 0) yield 2048;
   }
+  if (boundaries.length % 2048 > 0) yield boundaries.length % 2048;
   return result;
 }
 

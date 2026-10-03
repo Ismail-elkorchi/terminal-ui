@@ -1,15 +1,16 @@
-import { sameModelDependencies, type ModelPhase } from '../../visual/model-dependencies.ts';
+import { sameReuseDependencies, type ReusePhase } from '../../visual/reuse-dependencies.ts';
+import { sameStyleDependencies } from '../../visual/style-dependencies.ts';
 import type { RenderNode } from './render-tree/types.ts';
 
 /** Compare only the fixed renderer input, never callback closures or user object graphs. */
-export function sameNodePhase(a: RenderNode, b: RenderNode, phase: Exclude<ModelPhase, 'paint'>): boolean {
+export function sameNodePhase(a: RenderNode, b: RenderNode, phase: Exclude<ReusePhase, 'paint'>): boolean {
   if (a.kind !== b.kind || a.id !== b.id || a.definition !== b.definition
     || !sameRecord(a.state, b.state)) return false;
   if (a.kind === 'component' && b.kind === 'component') {
-    if (!sameModelDependencies(a.props.model, b.props.model, phase)
+    if (!sameReuseDependencies(a.props.reuse[phase], b.props.reuse[phase])
       || a.props.accessibleName !== b.props.accessibleName
       || a.props.accessibleRole !== b.props.accessibleRole
-      || (a.children?.length ?? 0) !== 0 || (b.children?.length ?? 0) !== 0) return false;
+      || !sameSlots(a.props.slots, b.props.slots)) return false;
   } else if (!sameStructuralProps(a.props, b.props)) return false;
   if (phase === 'measurement') return true;
   // Structural metadata is currently caller-owned; identity is not proof that
@@ -52,7 +53,7 @@ function sameRecord(a: unknown, b: unknown): boolean {
 }
 
 function sameNodeMetadata(a: RenderNode, b: RenderNode): boolean {
-  return sameModelDependencies(a.styles, b.styles, 'paint') && a.accessibility === b.accessibility
+  return sameStyleDependencies(a.styles, b.styles) && a.accessibility === b.accessibility
     && sameRecord(a.layer, b.layer) && sameRecord(a.focus, b.focus)
     && sameRecord(a.focusNavigation, b.focusNavigation)
     && a.transparentFocusIdentity === b.transparentFocusIdentity
@@ -72,4 +73,22 @@ function sameDenseDescriptors(a: unknown, b: unknown): boolean {
 
 function hasExternalMetadata(node: RenderNode): boolean {
   return node.layer !== undefined || node.focus !== undefined || node.accessibility !== undefined || node.styles !== undefined;
+}
+
+/** Slot grouping/path identity is part of every parent phase, not just child count. */
+function sameSlots(
+  a: import('./render-tree/props/index.ts').ComponentRenderProps['slots'],
+  b: import('./render-tree/props/index.ts').ComponentRenderProps['slots'],
+): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((slot, index) => {
+    const other = b[index];
+    return slot.name === other?.name && slot.start === other.start && slot.count === other.count
+      && slot.accessiblePaths.length === other.accessiblePaths.length
+      && slot.accessiblePaths.every((path, pathIndex) => {
+        const otherPath = other.accessiblePaths[pathIndex];
+        return path.length === otherPath?.length
+          && path.every((part, partIndex) => part === otherPath[partIndex]);
+      });
+  });
 }

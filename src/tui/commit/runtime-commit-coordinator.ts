@@ -145,6 +145,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
       context: TuiContext,
       stateVersion: number,
       focus = pendingInitialFocus,
+      validate?: (render: RenderCommitCandidate<TMessage>) => void,
     ) {
       const theme = resolveTuiTheme(options.theme, state);
       const resolution = resolveCandidate(
@@ -157,6 +158,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
         stateVersion,
         candidateCommitId()
       );
+      validate?.(resolution.render);
       const diff = await write(undefined, resolution.render, theme, context);
       return { render: resolution.render, diff, diagnostics: resolution.diagnostics, resolution, terminalSize: options.initialTerminalSize, context, initial: true };
     },
@@ -167,6 +169,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
       requestedFocusPath: FocusPath | undefined,
       stateVersion: number,
       focus: TuiRuntimeOptions<TState, TMessage>['initialFocus'],
+      validate?: (render: RenderCommitCandidate<TMessage>) => void,
     ) {
       const theme = resolveTuiTheme(options.theme, state);
       const previousFrame = frameDiffBase(theme);
@@ -180,6 +183,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
         stateVersion,
         candidateCommitId()
       );
+      validate?.(resolution.render);
       const diff = await write(previousFrame, resolution.render, theme, context);
       return { render: resolution.render, diff, diagnostics: resolution.diagnostics, resolution, terminalSize, context, initial: false };
     },
