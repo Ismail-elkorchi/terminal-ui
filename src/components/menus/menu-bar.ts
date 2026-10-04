@@ -27,7 +27,7 @@ import {
 import { oneCellGlyph } from '../../text/cell-geometry.ts';
 import { measureTextCells } from '../../text/measure.ts';
 import type { RenderSpan } from '../../visual/render-content.ts';
-import { clipRenderSpans } from '../../visual/render-content.ts';
+import { clipRenderSpans, layoutRenderSpans } from '../../visual/render-content.ts';
 import type { MenuStylePart } from '../style-parts.ts';
 import type {
   MenuBarComponentAction,
@@ -99,7 +99,7 @@ const instantiateMenuBar = defineComponent<MenuBarOwnOptions, MenuBarComponentAc
   measure(input) {
     const width = input.model.items.reduce(
       (total, item, index) =>
-        total + measureTextCells(item.label, { widthProfile: input.widthProfile }).cells + 2 +
+        total + measureTextCells(item.label, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }).cells + 2 +
         (index === 0 ? 0 : 2),
       0,
     );
@@ -254,33 +254,26 @@ function paintMenuBar(input: ComponentRenderInput<MenuBarModel, MenuStylePart>):
       ...(pointer === undefined ? [] : [pointer]),
     ];
     const marker = active
-      ? oneCellGlyph(input.theme.tokens.symbols.pointer, '>', { widthProfile: input.widthProfile })
+      ? oneCellGlyph(input.theme.tokens.symbols.pointer, '>', { widthProfile: input.widthProfile, textPresentation: input.textPresentation })
       : item.disabled
       ? '-'
       : ' ';
+    const headingStyle = active ? { fg: { kind: 'theme', token: 'menu.selected' },
+      bg: { kind: 'theme', token: 'selection.background' }, bold: true } as const : undefined;
     return [
-      ...(index === 0 ? [] : [menuSpan(input, '  ', 'separator', 'heading.separator')]),
-      menuSpan(
-        input,
-        `${marker} ${item.label}`,
-        'label',
-        `heading.${item.id}`,
-        item.id,
-        active
-          ? {
-            fg: { kind: 'theme', token: 'menu.selected' },
-            bg: { kind: 'theme', token: 'selection.background' },
-            bold: true,
-          }
-          : undefined,
+      ...(index === 0 ? [] : [{ ...menuSpan(input, '  ', 'separator', 'heading.separator'), textOrder: 'visual' as const }]),
+      { ...menuSpan(input, `${marker} `, 'label', `heading.${item.id}`, item.id, headingStyle, states), textOrder: 'visual' as const },
+      ...layoutRenderSpans([menuSpan(
+        input, item.label, 'label', `heading.${item.id}`, item.id,
+        headingStyle,
         states,
-      ),
+      )], { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
     ];
   });
   input.target.write(
     0,
     0,
-    clipRenderSpans(spans, input.bounds.width, { widthProfile: input.widthProfile }),
+    clipRenderSpans(spans, input.bounds.width, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
   );
 }
 
@@ -291,7 +284,7 @@ function menuBarHitTargets(
   let column = 0;
   return input.model.items.flatMap((item, index) => {
     if (index > 0) column += 2;
-    const width = measureTextCells(` ${item.label} `, { widthProfile: input.widthProfile }).cells;
+    const width = measureTextCells(` ${item.label} `, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }).cells;
     const start = column;
     column += width;
     return item.disabled ? [] : [{

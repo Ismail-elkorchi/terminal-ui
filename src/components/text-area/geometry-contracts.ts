@@ -26,5 +26,6 @@ export interface TextAreaGeometry {
   readonly lineCount: number;
   readonly prefixWidth: number;
   readonly layout: TextAreaDocumentLayout;
+  readonly errorIndex?: import('../../text/types.ts').TerminalTextIndex;
   readonly scrollbar: ReturnType<typeof layoutComponentScrollbar>;
 }

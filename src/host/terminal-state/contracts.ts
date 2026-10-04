@@ -45,6 +45,7 @@ export type KeyboardFrameState = 'none' | 'push_uncertain' | 'owned' | 'pop_unce
 export interface TerminalStateAuthorityOptions {
   readonly rawInputKnowledge: TerminalStateKnowledge;
   readonly initialState?: TerminalInitialState;
+  readonly observeCellPresentation?: (context: TerminalOperationContext, recovery: boolean) => Promise<import('../terminal-mode-query.ts').TerminalModeReportState | undefined>;
   readonly verifyKeyboardProfile?: (
     flags: number,
     context: TerminalOperationContext

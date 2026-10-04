@@ -1,3 +1,5 @@
+import { defineTextPresentation } from '../../text/presentation.ts';
+import type { TextPresentation } from '../../text/presentation.ts';
 import type { GraphicsBudgetLimits } from '../../graphics/budget.ts';
 import { resolveTuiRuntimePolicy } from './runtime-policy.ts';
 import { normalizeEffectPolicy } from './effects.ts';
@@ -30,6 +32,7 @@ export interface NormalizedTuiRunOptions<TState> {
   readonly initialFocus?: InitialFocusSelector;
   readonly theme?: TuiTheme<TState>;
   readonly sessionPolicy: SessionProtocolPolicy;
+  readonly textPresentation?: TextPresentation | undefined;
   readonly lifecycle: NormalizedTuiLifecyclePolicy;
   readonly input: Readonly<Required<TuiRunInputPolicy>>;
   readonly graphics: TerminalGraphicsMode;
@@ -59,6 +62,14 @@ export function resolveTuiRunOptions<TState>(
     throw new TypeError('Accessible TUI output requires graphics: none.');
   }
   const sessionPolicy = resolveTuiSessionPolicy(supplied['sessionPolicy']);
+  const textPresentation = supplied['textPresentation'] === undefined ? undefined
+    : defineTextPresentation(supplied['textPresentation']);
+  if (textPresentation !== undefined && sessionPolicy.cellPresentation !== 'required') {
+    throw new TypeError('A session textPresentation provider requires cellPresentation: required; visual ordering cannot fall back to an implicit terminal.');
+  }
+  if (sessionPolicy.cellPresentation !== 'disabled' && (textPresentation === undefined || outputMode !== 'visual')) {
+    throw new TypeError('Explicit cell presentation requires visual output and a session textPresentation provider.');
+  }
   return Object.freeze({
     runtimePolicy: resolveTuiRuntimePolicy(optionalObjectValue(supplied['runtimePolicy'], 'TUI runtime policy')),
     effectPolicy: normalizeEffectPolicy(supplied['effectPolicy'] === undefined ? undefined : objectValue(supplied['effectPolicy'], 'TUI effect policy') as unknown as TuiEffectPolicy),
@@ -66,6 +77,7 @@ export function resolveTuiRunOptions<TState>(
     ...(initialFocus === undefined ? {} : { initialFocus }),
     ...(theme === undefined ? {} : { theme }),
     outputMode,
+    textPresentation,
     sessionPolicy: outputMode === 'visual' ? sessionPolicy : Object.freeze({
       ...sessionPolicy,
       alternateScreen: 'disabled',
@@ -171,6 +183,7 @@ function resolveTuiSessionPolicy(value: unknown): SessionProtocolPolicy {
     focusReporting: protocolRequirement(policy['focusReporting'], 'focusReporting'),
     metaSendsEscape: protocolRequirement(policy['metaSendsEscape'], 'metaSendsEscape'),
     unicodeGraphemeMode: protocolRequirement(policy['unicodeGraphemeMode'], 'unicodeGraphemeMode'),
+    cellPresentation: protocolRequirement(policy['cellPresentation'], 'cellPresentation'),
     keyboard: Object.freeze({
       profile: keyboardProfile,
       requirement: protocolRequirement(keyboard['requirement'], 'keyboard.requirement')

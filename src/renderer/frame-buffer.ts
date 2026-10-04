@@ -1,3 +1,5 @@
+import { defineTextPresentation } from '../text/presentation.ts';
+import type { TextPresentation } from '../text/presentation.ts';
 import { createAccessibleSnapshot } from '../accessibility/snapshot.ts';
 import type { AccessibleSnapshot } from '../accessibility/types.ts';
 import { intersectRects, sameRect } from '../geometry/rect.ts';
@@ -20,6 +22,7 @@ import type {
   TerminalStyle,
 } from '../visual/render-content.ts';
 import {
+  layoutRenderSpans,
   decodeTerminalLink,
   sameTerminalLink,
   sameTerminalStyle,
@@ -48,6 +51,7 @@ export function frameSnapshotWork(frame: Frame): { readonly rows: number; readon
 
 export interface FrameBufferOptions {
   readonly widthProfile?: TextWidthProfile;
+  readonly textPresentation?: TextPresentation | undefined;
   readonly instrumentation?: Pick<RenderInstrumentation, 'recordWork'>;
 }
 
@@ -89,6 +93,8 @@ export function createFrameBuffer(width: number, height: number, options: FrameB
     defineTextWidthProfile(options.widthProfile ?? defaultTextWidthProfile),
     false,
     options.instrumentation,
+    undefined,
+    options.textPresentation,
   );
 }
 
@@ -103,6 +109,8 @@ export function createCompositingFrameBuffer(
     defineTextWidthProfile(options.widthProfile ?? defaultTextWidthProfile),
     true,
     options.instrumentation,
+    undefined,
+    options.textPresentation,
   );
 }
 
@@ -112,7 +120,7 @@ export function createRegionFrameBuffer(
 ): FrameBuffer {
   return new CellFrameBuffer(width, height,
     defineTextWidthProfile(options.widthProfile ?? defaultTextWidthProfile), true,
-    options.instrumentation, bounds);
+    options.instrumentation, bounds, options.textPresentation);
 }
 
 type StoredRow = ReadonlyMap<number, FrameCell>;
@@ -242,6 +250,7 @@ export function transferFrameBufferSpans(
     return;
   }
   buffer.write(row, column, spans.map((current) => ({
+    textOrder: 'visual' as const,
     text: current.graphemes.map((grapheme) => grapheme.text).join(''),
     ...(current.style === undefined ? {} : { style: current.style }),
     ...(current.link === undefined ? {} : { link: current.link }),
@@ -292,6 +301,7 @@ const mergeableCells = Symbol('terminal-ui.mergeable-frame-cells');
 const captureDamage = Symbol('terminal-ui.capture-frame-buffer-damage');
 
 class CellFrameBuffer implements FrameBuffer {
+  readonly textPresentation: TextPresentation | undefined;
   readonly coordinateSpace = 'frame' as const;
   readonly width: number;
   readonly height: number;
@@ -319,11 +329,13 @@ class CellFrameBuffer implements FrameBuffer {
     inheritBackground: boolean,
     instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
     storageBounds?: Rect,
+    textPresentation?: TextPresentation,
   ) {
     assertFrameDimensions(width, height);
     this.width = width;
     this.height = height;
     this.widthProfile = widthProfile;
+    this.textPresentation = textPresentation === undefined ? undefined : defineTextPresentation(textPresentation);
     this.instrumentation = instrumentation;
     this.inheritBackground = inheritBackground;
     this.storageBounds = storageBounds === undefined ? undefined : Object.freeze({ ...storageBounds });
@@ -344,7 +356,7 @@ class CellFrameBuffer implements FrameBuffer {
   write(row: number, column: number, spans: readonly RenderSpan[]): void {
     if (!this.containsRow(row)) return;
     let nextColumn = Math.floor(column);
-    for (const currentSpan of spans) {
+    for (const currentSpan of layoutRenderSpans(spans, { widthProfile: this.widthProfile, textPresentation: this.textPresentation })) {
       if (nextColumn > this.width + 1) break;
       const graphemes = terminalCellGraphemes(currentSpan.text, { widthProfile: this.widthProfile }, this.onSegmentation);
       const style = currentSpan.style === undefined
@@ -383,6 +395,7 @@ class CellFrameBuffer implements FrameBuffer {
   writeCell(cell: FrameCell): void {
     if (cell.continuation === true) return;
     this.write(cell.row, cell.column, [{
+      textOrder: 'visual',
       text: cell.text,
       ...(cell.style === undefined ? {} : { style: cell.style }),
       ...(cell.link === undefined ? {} : { link: cell.link }),

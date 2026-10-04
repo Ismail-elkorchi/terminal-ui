@@ -1,3 +1,5 @@
+import { textPresentationForLayout } from './layout-text-context.ts';
+import type { TextPresentation } from '../../text/presentation.ts';
 import type { AccessibleNode } from '../../accessibility/types.ts';
 import { isAccessibleRole } from '../../accessibility/types.ts';
 import { intersectRects } from '../../geometry/rect.ts';
@@ -38,6 +40,7 @@ import { sameNodePhase } from './retained-dependencies.ts';
 
 const retainedMeasurements = new WeakMap<RenderNode, {
   readonly theme: TerminalTheme;
+  readonly textPresentation?: TextPresentation | undefined;
   readonly constraints: Map<string, Measurement>;
 }>();
 
@@ -95,6 +98,7 @@ export function layoutChildBounds(
     theme: measurements.theme,
     childCount: children.length,
     measureChild,
+    textPresentation: measurements.textPresentation,
     widthProfile: measurements.widthProfile
   });
   return { bounds: childBounds, viewport: childViewport };
@@ -125,6 +129,7 @@ export function placeRenderNode(
 export interface RenderMeasurementContext {
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
+  readonly textPresentation?: TextPresentation | undefined;
   measure(renderNode: RenderNode, bounds: Rect, depth?: number): Measurement;
 }
 
@@ -133,6 +138,7 @@ export function createRenderMeasurementContext(
   widthProfile: TextWidthProfile,
   budget?: RenderBudget,
   instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
+  textPresentation?: TextPresentation,
 ): RenderMeasurementContext {
   const cache = new WeakMap<RenderNode, Map<string, Measurement>>();
   const admitted = new WeakMap<RenderNode, boolean>();
@@ -147,6 +153,7 @@ export function createRenderMeasurementContext(
   };
   const context: RenderMeasurementContext = {
     theme,
+    textPresentation,
     widthProfile,
     measure(renderNode, bounds, depth = 0) {
       instrumentation?.recordWork?.({ kind: 'measurement_calls', count: 1 });
@@ -158,8 +165,8 @@ export function createRenderMeasurementContext(
       budget?.measureNode(depth);
       const reusable = canRetain(renderNode);
       let retained = reusable ? retainedMeasurements.get(renderNode) : undefined;
-      if (reusable && retained?.theme !== theme) {
-        retained = { theme, constraints: new Map() };
+      if (reusable && (retained?.theme !== theme || retained.textPresentation !== textPresentation)) {
+        retained = { theme, textPresentation, constraints: new Map() };
         retainedMeasurements.set(renderNode, retained);
       }
       const retainedKey = `${textWidthProfileKey(widthProfile)}:${key}`;
@@ -201,6 +208,7 @@ function measureRenderNode(
     theme: context.theme,
     childCount: children.length,
     measureChild: childMeasurer(children, bounds, context, depth),
+    textPresentation: context.textPresentation,
     widthProfile: context.widthProfile
   });
   if (renderNode.kind === 'component') {
@@ -254,6 +262,7 @@ export function accessibilityForRenderNode(
   const accessible = renderer.accessibility({
     renderNode: renderNode,
     layoutNode: node,
+    textPresentation: textPresentationForLayout(node),
     id,
     focused,
     focus,
@@ -284,7 +293,8 @@ export function focusTargetsForRenderNode(
   bounds: Rect,
   viewport: Rect,
   theme: TerminalTheme,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  textPresentation?: TextPresentation,
 ): readonly FocusTarget[] {
   if (renderNodeInteractionUnavailable(renderNode)) return [];
   const produced = rendererForRenderNode(renderNode).focusTargets?.({
@@ -292,6 +302,7 @@ export function focusTargetsForRenderNode(
     bounds,
     viewport,
     theme,
+    textPresentation,
     widthProfile
   }) ?? [];
   const factoryName = renderNodeFactoryName(renderNode);
@@ -358,6 +369,7 @@ export function hitTargetsForRenderNode<TMessage>(
   const targets = rendererForRenderNode(renderNode).hitTargets?.({
     renderNode: renderNode,
     layoutNode: target.layoutNode,
+    textPresentation: textPresentationForLayout(target.layoutNode),
     bounds: target.bounds,
     theme,
     widthProfile

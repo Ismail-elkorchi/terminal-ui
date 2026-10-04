@@ -1,3 +1,5 @@
+import { retainLayoutTextPresentation } from './layout-text-context.ts';
+import type { TextPresentation } from '../../text/presentation.ts';
 import type { LayerUnderlay } from '../../element/metadata.ts';
 import { intersectRects, sameRect } from '../../geometry/rect.ts';
 import type { Rect, TerminalSize } from '../../geometry/types.ts';
@@ -41,6 +43,7 @@ interface RetainedLayout {
   readonly rootViewport: Rect;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
+  readonly textPresentation?: TextPresentation | undefined;
   readonly parentZIndex: number;
   readonly parentIdentity: string;
   readonly ordinal: number;
@@ -62,13 +65,14 @@ export function layoutRenderTree<TMessage>(
   budget: RenderBudget = createRenderBudget(),
   instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
   previous?: LayoutNode,
+  textPresentation?: TextPresentation,
 ): LaidOutRenderNode<TMessage> {
   const theme = themeForLayout(themeInput);
   const bounds = 'columns' in terminalSizeOrBounds
     ? { row: 1, column: 1, width: terminalSizeOrBounds.columns, height: terminalSizeOrBounds.rows }
     : terminalSizeOrBounds;
   const viewportBounds = clampRect(bounds);
-  const measurements = createRenderMeasurementContext(theme, widthProfile, budget, instrumentation);
+  const measurements = createRenderMeasurementContext(theme, widthProfile, budget, instrumentation, textPresentation);
   const uniqueNodes = instrumentation?.recordWork === undefined ? undefined : new WeakSet<RenderNode>();
   const reusable = new WeakMap<RenderNode, boolean>();
   if (previous !== undefined) prepareRetention(renderNode, previous, reusable);
@@ -97,6 +101,7 @@ function layoutNode<TMessage>(
 ): LaidOutRenderNode<TMessage> {
   const descriptor: RetainedLayout = {
     node: renderNode, allocation, viewport, rootViewport, theme, widthProfile, parentZIndex,
+    textPresentation: measurements.textPresentation,
     parentIdentity: encodedIdentityPath(parentIdentity), ordinal, ancestorInert, portalOwnerVisible,
   };
   const retained = retainLayout(previous, descriptor, reusable, budget, depth);
@@ -147,7 +152,7 @@ function layoutNode<TMessage>(
   );
   const focusTargets = (inert
     ? []
-    : focusTargetsForRenderNode(renderNode, placedBounds, viewport, theme, widthProfile))
+    : focusTargetsForRenderNode(renderNode, placedBounds, viewport, theme, widthProfile, measurements.textPresentation))
     .map((target): LayoutFocusRegion => {
       const clippedBounds = intersectRects(target.bounds, viewport) ?? emptyRect(target.bounds);
       return markLogicalFocusBounds({
@@ -358,6 +363,7 @@ function accountRetainedLayout(node: LayoutNode, budget: RenderBudget, depth: nu
 
 function sameLayoutDescriptor(a: RetainedLayout | undefined, b: RetainedLayout): boolean {
   return a?.theme === b.theme
+    && a.textPresentation === b.textPresentation
     && a.widthProfile.emoji === b.widthProfile.emoji && a.widthProfile.ambiguous === b.widthProfile.ambiguous
     && a.parentZIndex === b.parentZIndex && a.parentIdentity === b.parentIdentity
     && a.ordinal === b.ordinal && a.ancestorInert === b.ancestorInert
@@ -368,6 +374,7 @@ function sameLayoutDescriptor(a: RetainedLayout | undefined, b: RetainedLayout):
 
 function rememberLayout(layout: LayoutNode, descriptor: RetainedLayout, previous?: LayoutNode): void {
   retainedLayouts.set(layout, descriptor);
+  retainLayoutTextPresentation(layout, descriptor.textPresentation);
   if (previous !== undefined) layoutPredecessors.set(layout, new WeakRef(previous));
 }
 

@@ -2,7 +2,7 @@ import { defineComponent } from '../../component/definition.ts';
 import type { Element } from '../../element/types.ts';
 import { assertOptionalEnum } from '../../foundation/validation.ts';
 import { oneCellGlyph } from '../../text/cell-geometry.ts';
-import { clipTextCells } from '../../text/clip.ts';
+import { clipRenderSpans, measureRenderSpans } from '../../visual/render-content.ts';
 import { measureTextCells } from '../../text/measure.ts';
 import { sanitizeTerminalText } from '../../text/sanitize.ts';
 import type { TerminalTheme } from '../../theme/theme.ts';
@@ -90,7 +90,7 @@ function measureDivider({ model, widthProfile }: {
       };
 }
 
-function renderDivider({ model, bounds, target, theme, style, frameSource, widthProfile }:
+function renderDivider({ model, bounds, target, theme, style, frameSource, widthProfile, textPresentation }:
   import('../../component/index.ts').ComponentRenderInput<DividerModel, DividerStylePart>
 ): undefined {
     if (bounds.width <= 0 || bounds.height <= 0) return;
@@ -111,10 +111,13 @@ function renderDivider({ model, bounds, target, theme, style, frameSource, width
       return;
     }
     const glyph = oneCellGlyph(glyphs.horizontal, '-', { widthProfile });
-    const label = model.label.length === 0
-      ? ''
-      : clipTextCells(` ${model.label} `, bounds.width, { widthProfile }).text;
-    const labelWidth = measureTextCells(label, { widthProfile }).cells;
+    const labelStyle = style({ part: 'label', ...(lineStyle === undefined ? {} : { base: lineStyle }) });
+    const label = model.label.length === 0 ? [] : clipRenderSpans([{
+      text: ` ${model.label} `,
+      ...(labelStyle === undefined ? {} : { style: labelStyle }),
+      source: frameSource({ cellRole: 'text', partName: 'label', partType: 'text' }),
+    }], bounds.width, { widthProfile, textPresentation });
+    const labelWidth = measureRenderSpans(label, { widthProfile });
     const remaining = Math.max(0, bounds.width - labelWidth);
     const before = model.labelAlign === 'end'
       ? remaining
@@ -122,15 +125,12 @@ function renderDivider({ model, bounds, target, theme, style, frameSource, width
       ? Math.floor(remaining / 2)
       : 0;
     const after = remaining - before;
-    const labelStyle = style({
-      part: 'label',
-      ...(lineStyle === undefined ? {} : { base: lineStyle }),
-    });
     target.write(
       0,
       0,
       [
         {
+          textOrder: 'visual' as const,
           text: glyph.repeat(before),
           ...(lineStyle === undefined ? {} : { style: lineStyle }),
           source: frameSource({
@@ -139,12 +139,9 @@ function renderDivider({ model, bounds, target, theme, style, frameSource, width
             partType: 'separator',
           }),
         },
+        ...label,
         {
-          text: label,
-          ...(labelStyle === undefined ? {} : { style: labelStyle }),
-          source: frameSource({ cellRole: 'text', partName: 'label', partType: 'text' }),
-        },
-        {
+          textOrder: 'visual' as const,
           text: glyph.repeat(after),
           ...(lineStyle === undefined ? {} : { style: lineStyle }),
           source: frameSource({

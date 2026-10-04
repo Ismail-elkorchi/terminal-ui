@@ -306,7 +306,7 @@ interface NotificationLayout {
 }
 
 function cards(
-  input: Pick<ComponentInput<NotificationModel>, 'model' | 'widthProfile'>,
+  input: Pick<ComponentInput<NotificationModel>, 'model' | 'widthProfile' | 'textPresentation'>,
 ): readonly Card[] {
   return input.model.items.map((item) => {
     const lines = [
@@ -318,7 +318,7 @@ function cards(
     ];
     const contentWidth = lines.reduce(
       (maximum, line) =>
-        Math.max(maximum, measureTextCells(line.text, { widthProfile: input.widthProfile }).cells),
+        Math.max(maximum, measureTextCells(line.text, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }).cells),
       0,
     );
     return {
@@ -567,7 +567,7 @@ function paintCard(
           ),
         ],
         contentWidth,
-        { ellipsis: '…', mode: 'middle', widthProfile: input.widthProfile },
+        { ellipsis: '…', mode: 'middle', widthProfile: input.widthProfile, textPresentation: input.textPresentation },
       ),
     );
   }
@@ -603,7 +603,7 @@ function paintCard(
     input.target.write(bounds.row, bounds.column + bounds.width - 2, [
       partSpan(
         input,
-        oneCellGlyph('×', 'x', { widthProfile: input.widthProfile }),
+        oneCellGlyph('×', 'x', { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
         'dismiss',
         'dismiss',
         card.item.id,
@@ -627,16 +627,16 @@ function paintBorder(
     fg: { kind: 'theme', token: borderToken(tone) },
   });
   const glyph = (unicode: string, ascii: string) =>
-    oneCellGlyph(unicode, ascii, { widthProfile: input.widthProfile });
+    oneCellGlyph(unicode, ascii, { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
   const title = `${
     card.item.id === input.model.selectedId ? `${input.theme.tokens.symbols.pointer} ` : ''
   }${tone}`;
   const inner = Math.max(0, bounds.width - 2);
   const titleSpans = clipRenderSpans([span(` ${title} `)], inner, {
-    widthProfile: input.widthProfile,
+    widthProfile: input.widthProfile, textPresentation: input.textPresentation,
     ellipsis: '…',
   });
-  const titleWidth = measureRenderSpans(titleSpans, { widthProfile: input.widthProfile });
+  const titleWidth = measureRenderSpans(titleSpans, { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
   if (bounds.row >= placed.visibleBounds.row) {
     input.target.write(bounds.row, bounds.column, [
       partSpan(
@@ -650,7 +650,8 @@ function paintBorder(
         'decoration',
       ),
       ...titleSpans.map((current) =>
-        partSpan(input, current.text, 'border', 'border.title', card.item.id, border, state)
+        ({ ...partSpan(input, current.text, 'border', 'border.title', card.item.id, border, state),
+          ...(current.textOrder === undefined ? {} : { textOrder: current.textOrder }) })
       ),
       partSpan(
         input,
@@ -757,7 +758,7 @@ function progressSpans(
       partSpan(
         input,
         fillTextCells(input.theme.tokens.symbols.progressFilled, filled, {
-          widthProfile: input.widthProfile,
+          widthProfile: input.widthProfile, textPresentation: input.textPresentation,
         }),
         'progress',
         'progress.filled',
@@ -772,7 +773,7 @@ function progressSpans(
       partSpan(
         input,
         fillTextCells(input.theme.tokens.symbols.progressEmpty, barWidth - filled, {
-          widthProfile: input.widthProfile,
+          widthProfile: input.widthProfile, textPresentation: input.textPresentation,
         }),
         'progress',
         'progress.empty',
@@ -794,7 +795,7 @@ function progressSpans(
       ),
     ],
     width,
-    { widthProfile: input.widthProfile },
+    { widthProfile: input.widthProfile, textPresentation: input.textPresentation },
   );
 }
 
@@ -957,6 +958,7 @@ function partSpan(
   cellRole: import('../../visual/frame-source.ts').FrameCellRole = 'text',
 ): RenderSpan {
   return span(text, {
+    ...(cellRole === 'decoration' || cellRole === 'separator' || part === 'dismiss' ? { textOrder: 'visual' as const } : {}),
     ...(value === undefined ? {} : { style: value }),
     source: input.frameSource({
       cellRole,

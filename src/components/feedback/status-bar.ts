@@ -203,15 +203,15 @@ function placedStatusBarSections(
   maxCells: number,
 ): readonly RenderSpan[] {
   if (maxCells <= 0) return [];
-  const options = { ellipsis: '…', widthProfile: input.widthProfile } as const;
+  const options = { ellipsis: '…', widthProfile: input.widthProfile, textPresentation: input.textPresentation } as const;
   const trailing = clipRenderSpans(trailingInput, maxCells, { ...options, mode: 'middle' });
-  const trailingWidth = measureRenderSpans(trailing, { widthProfile: input.widthProfile });
+  const trailingWidth = measureRenderSpans(trailing, { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
   const leadingBudget = Math.max(0, maxCells - trailingWidth - (trailingWidth > 0 ? 2 : 0));
   const leading = clipRenderSpans(leadingInput, leadingBudget, options);
-  const leadingWidth = measureRenderSpans(leading, { widthProfile: input.widthProfile });
+  const leadingWidth = measureRenderSpans(leading, { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
   const trailingStart = maxCells - trailingWidth;
   const center = clipRenderSpans(centerInput, maxCells, { ...options, mode: 'middle' });
-  const centerWidth = measureRenderSpans(center, { widthProfile: input.widthProfile });
+  const centerWidth = measureRenderSpans(center, { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
   const desiredCenterStart = Math.floor((maxCells - centerWidth) / 2);
   const centerFits = centerWidth > 0 &&
     desiredCenterStart >= leadingWidth + (leadingWidth > 0 ? 1 : 0) &&
@@ -227,7 +227,7 @@ function placedStatusBarSections(
     if (placement.start > column) output.push(...fillSpans(input, placement.start - column));
     output.push(...placement.spans);
     column = placement.start +
-      measureRenderSpans(placement.spans, { widthProfile: input.widthProfile });
+      measureRenderSpans(placement.spans, { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
   }
   if (column < maxCells) output.push(...fillSpans(input, maxCells - column));
   return output;

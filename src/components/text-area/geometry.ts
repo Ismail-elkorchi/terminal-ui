@@ -17,6 +17,10 @@ import {
   textDocumentLength,
   textDocumentLineCount,
 } from '../../text/document.ts';
+import { sourceBoundaries } from '../../text/source-boundaries.ts';
+import { sourceGeometry } from '../../text/source-geometry.ts';
+import { ownedTerminalTextIndex } from '../../text/terminal-text-index.ts';
+import { sanitizeTerminalCellTextWork } from '../../text/sanitize.ts';
 import { measureTextCells } from '../../text/measure.ts';
 import type { TextCaret, TextWidthProfile } from '../../text/types.ts';
 import { textWidthProfileKey } from '../../text/width-profile.ts';
@@ -35,7 +39,7 @@ export function* measureTextAreaWork(input: ComponentMeasureInput<TextAreaModel>
   const count = textDocumentLineCount(document);
   const prefix = textAreaPrefixWidth(input.model, input.theme, input.widthProfile, count);
   const width = Math.max(0, input.constraints.width - prefix);
-  const layout = yield* layoutTextAreaDocumentWork(document, width, input.model.wrap, input.widthProfile);
+  const layout = yield* layoutTextAreaDocumentWork(document, width, input.model.wrap, input.widthProfile, input.textPresentation);
   return {
     minWidth: prefix,
     minHeight: 1,
@@ -56,7 +60,8 @@ export function textAreaGeometry(input: ComponentInput<TextAreaModel>): TextArea
   const cached = geometryCache.get(input.model);
   if (cached?.input.bounds.width === input.bounds.width
     && cached.input.bounds.height === input.bounds.height && cached.input.theme === input.theme
-    && cached.input.widthProfile === input.widthProfile) return cached.geometry;
+    && cached.input.widthProfile === input.widthProfile
+    && cached.input.textPresentation === input.textPresentation) return cached.geometry;
   const prepared = input.model.preparedLayout === undefined ? undefined : preparedTextAreaGeometry(input);
   if (input.model.preparedLayout !== undefined && prepared === undefined) {
     throw new TypeError('textArea layout is pending.');
@@ -78,6 +83,7 @@ export function* textAreaGeometryWork(input: ComponentInput<TextAreaModel>): Gen
     frameWidth,
     input.model.wrap,
     input.widthProfile,
+    input.textPresentation,
   );
   const measurement: Measurement = {
     minWidth: prefixWidth, minHeight: 1, preferredWidth: layout.intrinsicColumns + prefixWidth,
@@ -91,10 +97,24 @@ export function* textAreaGeometryWork(input: ComponentInput<TextAreaModel>): Gen
       frameWidth,
       input.model.wrap,
       input.widthProfile,
+      input.textPresentation,
     );
     scrollbar = textAreaScrollbar(input, layout, prefixWidth);
   }
-  return completeTextAreaGeometry(input, { ...display, lineCount, prefixWidth, layout, measurement }, scrollbar);
+  const errorIndex = yield* textAreaErrorIndexWork(input);
+  return completeTextAreaGeometry(input, { ...display, lineCount, prefixWidth, layout, measurement,
+    ...(errorIndex === undefined ? {} : { errorIndex }) }, scrollbar);
+}
+
+function* textAreaErrorIndexWork(input: ComponentInput<TextAreaModel>): Generator<number, import('../../text/types.ts').TerminalTextIndex | undefined> {
+  if (input.model.error === '') return undefined;
+  const clean = (yield* sanitizeTerminalCellTextWork(input.model.error, { widthProfile: input.widthProfile })).text;
+  const source = sourceBoundaries(clean);
+  yield* sourceGeometry(source, { widthProfile: input.widthProfile }).prepareOffsetWork(clean.length);
+  const index = ownedTerminalTextIndex(source, { widthProfile: input.widthProfile,
+    ...(input.textPresentation === undefined ? {} : { textPresentation: input.textPresentation }) });
+  if (input.textPresentation !== undefined) yield* index.prepareVisualWork();
+  return index;
 }
 
 function completeTextAreaGeometry(
@@ -248,7 +268,7 @@ export function textAreaCommittedLayout(input: ComponentLayoutCommitInput<TextAr
   const previous = input.previous;
   if (previous !== undefined && previous.model.observeLayout && !textAreaLayoutPending(previous) && previous.model.document === input.model.document
     && previous.model.decorations === input.model.decorations && previous.theme === input.theme
-    && previous.widthProfile === input.widthProfile && sameRect(previous.allocatedBounds, input.allocatedBounds)) {
+    && previous.widthProfile === input.widthProfile && previous.textPresentation === input.textPresentation && sameRect(previous.allocatedBounds, input.allocatedBounds)) {
     const before = textAreaGeometry(previous);
     if (before.layout === geometry.layout && sameRect(before.scrollbar.contentBounds, geometry.scrollbar.contentBounds)
       && before.scrollbar.scroll.offsetRow === geometry.scrollbar.scroll.offsetRow

@@ -130,6 +130,9 @@ export type TerminalWriteReceipt =
   | { readonly status: 'failed_before_write'; readonly diagnostic: TerminalDiagnostic }
   | { readonly status: 'indeterminate'; readonly diagnostic: TerminalDiagnostic };
 
+/** ECMA-48 mode 8 ordering only; this makes no claim about font shaping. */
+export type TerminalCellPresentation = 'unknown' | 'implicit' | 'explicit';
+
 export interface TerminalSession {
   readonly id: string;
   readonly host: TerminalHost;
@@ -143,6 +146,8 @@ export interface TerminalSession {
   enableMouseReporting(mode?: MouseReportingMode, context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
   enableFocusReporting(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
   enableMetaSendsEscape(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
+  /** Opt in only when every producer supplies visual cell order and matching source geometry. */
+  enableCellPresentation(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
   enableUnicodeGraphemeMode(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
   enableKeyboardProfile(
     profile: TerminalKeyboardProfile,
@@ -183,6 +188,7 @@ export interface TerminalStateSnapshot {
   readonly focusReporting: boolean;
   readonly metaSendsEscape: boolean;
   readonly unicodeGraphemeMode: boolean;
+  readonly cellPresentation: TerminalCellPresentation;
   readonly keyboardProfile: TerminalKeyboardProfile;
   readonly cursorVisible: boolean;
   readonly provenance: TerminalStateProvenanceSnapshot;
@@ -203,6 +209,7 @@ export interface TerminalStateProvenanceSnapshot {
   readonly focusReporting: TerminalStateKnowledge;
   readonly metaSendsEscape: TerminalStateKnowledge;
   readonly unicodeGraphemeMode: TerminalStateKnowledge;
+  readonly cellPresentation: TerminalStateKnowledge;
   readonly keyboardProfile: TerminalStateKnowledge;
   readonly cursorVisible: TerminalStateKnowledge;
 }
@@ -217,6 +224,7 @@ export type TerminalStateChange =
   | { readonly kind: 'focusReporting'; readonly state: boolean }
   | { readonly kind: 'metaSendsEscape'; readonly state: boolean }
   | { readonly kind: 'unicodeGraphemeMode'; readonly state: boolean }
+  | { readonly kind: 'cellPresentation'; readonly state: TerminalCellPresentation }
   | { readonly kind: 'keyboardProfile'; readonly state: TerminalKeyboardProfile }
   | { readonly kind: 'cursorVisible'; readonly state: boolean };
 

@@ -354,7 +354,7 @@ function measureTree(input: ComponentMeasureInput<TreeModel>) {
       preferredWidth,
       4 + row.depth * 2 +
         measureTextCells(`${row.icon === undefined ? '' : `${row.icon} `}${row.label}`, {
-          widthProfile: input.widthProfile,
+          widthProfile: input.widthProfile, textPresentation: input.textPresentation,
         }).cells,
     );
   }
@@ -446,8 +446,8 @@ function treeRowRenderPlan(
   const styles = treeRowStyles(input, row, interaction);
   const source = treeRowFrameSource(input, row, interaction.state);
   const spans = treeRowSpans(input, row, interaction, styles, source);
-  const clipped = [...clipRenderSpans(spans, width, { ellipsis: '…', widthProfile: input.widthProfile })];
-  const used = measureRenderSpans(clipped, { widthProfile: input.widthProfile });
+  const clipped = [...clipRenderSpans(spans, width, { ellipsis: '…', widthProfile: input.widthProfile, textPresentation: input.textPresentation })];
+  const used = measureRenderSpans(clipped, { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
   if (used < width) {
     clipped.push(span(' '.repeat(width - used), {
       ...(styles.label === undefined ? {} : { style: styles.label }),
@@ -576,29 +576,35 @@ function treeRowSpans(
     : input.theme.tokens.symbols.treeCollapsed;
   return [
     span(marker, {
+      textOrder: 'visual',
       ...(styles.marker === undefined ? {} : { style: styles.marker }),
       source: source(`node.${row.id}.marker`, 'selection-marker', 'decoration'),
     }),
     span(' ', {
+      textOrder: 'visual',
       ...(styles.marker === undefined ? {} : { style: styles.marker }),
       source: source(`node.${row.id}.marker.gap`, 'selection-marker', 'decoration'),
     }),
     ...(row.depth === 0 ? [] : [
       span('  '.repeat(row.depth), {
+        textOrder: 'visual',
         ...(styles.indent === undefined ? {} : { style: styles.indent }),
         source: source(`node.${row.id}.indent`, 'indent', 'decoration'),
       }),
     ]),
     span(disclosure, {
+      textOrder: 'visual',
       ...(styles.disclosure === undefined ? {} : { style: styles.disclosure }),
       source: source(`node.${row.id}.disclosure`, 'disclosure', 'decoration', interaction.disclosureState),
     }),
     span(' ', {
+      textOrder: 'visual',
       ...(styles.disclosure === undefined ? {} : { style: styles.disclosure }),
       source: source(`node.${row.id}.disclosure.gap`, 'gap', 'decoration', interaction.disclosureState),
     }),
     ...(row.icon === undefined || row.icon === '' ? [] : [
       span(`${row.icon} `, {
+        textOrder: 'visual',
         ...(styles.icon === undefined ? {} : { style: styles.icon }),
         source: source(`node.${row.id}.icon`, 'icon', 'decoration'),
       }),

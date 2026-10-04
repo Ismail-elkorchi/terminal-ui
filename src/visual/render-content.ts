@@ -1,3 +1,4 @@
+import { createTerminalTextIndex, sliceTerminalTextIndex } from '../text/terminal-text-index.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
 import { fillTextCells } from '../text/cell-geometry.ts';
 import { clipTextCells } from '../text/clip.ts';
@@ -73,6 +74,8 @@ function canonicalTerminalLink(source: object, link: TerminalLink): TerminalLink
 }
 
 export interface RenderSpan {
+  /** Visual-cell spans have already passed through the canonical text layout. */
+  readonly textOrder?: 'visual';
   readonly text: string;
   readonly style?: TerminalStyle;
   readonly link?: TerminalLink;
@@ -125,6 +128,46 @@ export function blockFromText(text: string, options: Omit<RenderSpan, 'text'> = 
   return block(text.split('\n').map((part) => line([span(part, options)])));
 }
 
+/** Layout complete logical runs before cell clipping. Explicit visual spans delimit
+ * independent runs, such as a control's chrome around its mapped text window. */
+export function layoutRenderSpans(
+  spans: readonly RenderSpan[],
+  options: TextMeasurementOptions = {},
+): readonly RenderSpan[] {
+  if (options.textPresentation === undefined) return spans;
+  const output: RenderSpan[] = [];
+  let logical: RenderSpan[] = [];
+  const flush = (): void => {
+    if (logical.length === 0) return;
+    const parts: { span: RenderSpan; start: number; end: number }[] = [];
+    let text = '';
+    for (const current of logical) {
+      const clean = sanitizeTerminalCellText(current.text, options).text;
+      parts.push({ span: current, start: text.length, end: text.length + clean.length });
+      text += clean;
+    }
+    const index = createTerminalTextIndex(text, options);
+    for (const grapheme of index.visualGraphemes) {
+      let low = 0;
+      let high = parts.length;
+      while (low < high) {
+        const middle = Math.floor((low + high) / 2);
+        if ((parts[middle]?.end ?? 0) <= grapheme.startOffset) low = middle + 1;
+        else high = middle;
+      }
+      const original = parts[low]?.span;
+      output.push({ ...original, text: grapheme.text, textOrder: 'visual' });
+    }
+    logical = [];
+  };
+  for (const current of spans) {
+    if (current.textOrder === 'visual') { flush(); output.push(current); }
+    else logical.push(current);
+  }
+  flush();
+  return compactRenderSpans(output);
+}
+
 export function clipRenderSpans(
   spans: readonly RenderSpan[],
   maxCells: number,
@@ -132,6 +175,7 @@ export function clipRenderSpans(
 ): readonly RenderSpan[] {
   if (maxCells < 0) throw new RangeError('maxCells must be non-negative.');
   if (maxCells === 0 || spans.length === 0) return [];
+  spans = layoutRenderSpans(spans, options);
   const segments = [];
   let totalCells = 0;
   collect: for (const currentSpan of spans) {
@@ -146,7 +190,7 @@ export function clipRenderSpans(
     return compactSpans(segments.map((segment) => ({ text: segment.text, options: segment.options })));
   }
   const ellipsis = options.ellipsis ?? '';
-  const fittedEllipsis = ellipsis.length === 0 ? '' : clipTextCells(ellipsis, maxCells, options).text;
+  const fittedEllipsis = ellipsis.length === 0 ? '' : clipTextCells(ellipsis, maxCells, { ...options, textPresentation: undefined }).text;
   const ellipsisCells = measureTextWidth(fittedEllipsis, options);
   const budget = Math.max(0, maxCells - ellipsisCells);
   if (options.mode === 'middle') {
@@ -226,50 +270,89 @@ export function wrapRenderSpans(
   options: TextWrapOptions = {}
 ): readonly RenderLine[] {
   if (width <= 0) throw new RangeError('width must be positive.');
-  const lines: RenderLine[] = [];
-  let current: { readonly text: string; readonly options: Omit<RenderSpan, 'text'>; readonly cells: number }[] = [];
-  let usedCells = 0;
-
-  const pushLine = (): void => {
-    lines.push(line(compactSpans(current.map((segment) => ({
-      text: segment.text,
-      options: segment.options
-    })))));
-    current = [];
-    usedCells = 0;
-  };
-
-  for (const currentSpan of spans) {
-    const spanMetadata = spanOptions(currentSpan);
-    for (const segment of renderGraphemes(currentSpan.text, options)) {
-      if (segment.text === '\n') {
-        pushLine();
-        continue;
-      }
-      if (usedCells > 0 && usedCells + segment.cells > width) {
-        if (options.preserveWords === true && /^\s+$/u.test(segment.text)) {
-          pushLine();
-          continue;
-        }
-        if (options.preserveWords === true) {
-          const split = styledWordSplit(current);
-          if (split !== undefined) {
-            const remainder = split.rest;
-            current = split.line;
-            pushLine();
-            current = [...remainder, { text: segment.text, options: spanMetadata, cells: segment.cells }];
-            usedCells = current.reduce((total, item) => total + item.cells, 0);
-            continue;
-          }
-        }
-        pushLine();
-      }
-      current.push({ text: segment.text, options: spanMetadata, cells: segment.cells });
-      usedCells += segment.cells;
+  const paragraphs: RenderSpan[][] = [[]];
+  for (const current of spans) {
+    const parts = sanitizeTerminalText(current.text, options).text.split('\n');
+    for (const [index, text] of parts.entries()) {
+      if (index > 0) paragraphs.push([]);
+      paragraphs.at(-1)?.push({ ...current, text });
     }
   }
-
-  pushLine();
+  const lines: RenderLine[] = [];
+  for (const paragraph of paragraphs) {
+    const text = paragraph.map(current => current.text).join('');
+    const ranges: { span: RenderSpan; start: number; end: number }[] = [];
+    const groups: { start: number; end: number; visual: boolean }[] = [];
+    let sourceEnd = 0;
+    for (const part of paragraph) {
+      ranges.push({ span: part, start: sourceEnd, end: sourceEnd + part.text.length });
+      const previous = groups.at(-1);
+      const visual = part.textOrder === 'visual';
+      if (previous?.visual === visual) previous.end += part.text.length;
+      else groups.push({ start: sourceEnd, end: sourceEnd + part.text.length, visual });
+      sourceEnd += part.text.length;
+    }
+    const indexedGroups = groups.map(group => ({ ...group,
+      index: createTerminalTextIndex(text.slice(group.start, group.end), options.widthProfile === undefined ? {} : { widthProfile: options.widthProfile }),
+    }));
+    let usedCells = 0;
+    let current: import('../text/types.ts').GraphemeSegment[] = [];
+    const pushLine = (): void => {
+      const start = current[0]?.startOffset ?? 0;
+      const end = current.at(-1)?.endOffsetExclusive ?? start;
+      const styled: RenderSpan[] = [];
+      let first = 0;
+      let limit = indexedGroups.length;
+      while (first < limit) {
+        const middle = Math.floor((first + limit) / 2);
+        if ((indexedGroups[middle]?.end ?? 0) <= start) first = middle + 1;
+        else limit = middle;
+      }
+      for (let groupIndex = first; groupIndex < indexedGroups.length; groupIndex += 1) {
+        const group = indexedGroups[groupIndex];
+        if (group === undefined || group.start >= end) break;
+        const from = Math.max(start, group.start);
+        const to = Math.min(end, group.end);
+        if (from >= to) continue;
+        const row = sliceTerminalTextIndex(group.index, from - group.start, to - group.start, { ...options,
+          textPresentation: group.visual ? undefined : options.textPresentation,
+          paragraph: { text: text.slice(group.start, group.end), startOffset: from - group.start } });
+        for (const grapheme of row.visualGraphemes) {
+          const offset = from + grapheme.startOffset;
+          let low = 0;
+          let high = ranges.length;
+          while (low < high) {
+            const middle = Math.floor((low + high) / 2);
+            if ((ranges[middle]?.end ?? 0) <= offset) low = middle + 1;
+            else high = middle;
+          }
+          styled.push({ ...ranges[low]?.span, text: grapheme.text,
+            ...(options.textPresentation === undefined && !group.visual ? {} : { textOrder: 'visual' }) });
+        }
+      }
+      lines.push(line(compactRenderSpans(styled)));
+      current = [];
+      usedCells = 0;
+    };
+    for (const group of indexedGroups) for (const local of group.index.graphemes) {
+      const segment = { ...local, startOffset: group.start + local.startOffset, endOffsetExclusive: group.start + local.endOffsetExclusive };
+      if (usedCells > 0 && usedCells + segment.cells > width) {
+        if (options.preserveWords === true && /^\s+$/u.test(segment.text)) { pushLine(); continue; }
+        const split = options.preserveWords === true ? styledWordSplit(current) : undefined;
+        if (split !== undefined) {
+          current = split.line;
+          pushLine();
+          current = [...split.rest, segment];
+          usedCells = current.reduce((total, item) => total + item.cells, 0);
+          continue;
+        }
+        pushLine();
+      }
+      current.push(segment);
+      usedCells += segment.cells;
+    }
+    pushLine();
+  }
   return Object.freeze(lines);
 }
 
@@ -340,6 +423,7 @@ function flag(value: boolean | undefined): boolean {
 
 function spanOptions(span: RenderSpan): Omit<RenderSpan, 'text'> {
   return {
+    ...(span.textOrder === undefined ? {} : { textOrder: span.textOrder }),
     ...(span.style === undefined ? {} : { style: span.style }),
     ...(span.link === undefined ? {} : { link: span.link }),
     ...(span.source === undefined ? {} : { source: span.source })
@@ -418,6 +502,7 @@ function compactSpans(
     const previous = result.at(-1);
     if (
       previous !== undefined
+      && previous.textOrder === current.options.textOrder
       && sameTerminalStyle(previous.style, current.options.style)
       && sameTerminalLink(previous.link, current.options.link)
       && sameFrameCellSource(previous.source, current.options.source)

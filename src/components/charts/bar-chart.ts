@@ -172,7 +172,7 @@ function measureBarChart(input: ComponentMeasureInput<BarChartModel>) {
     0,
     ...input.model.items.map((item) =>
       measureTextCells(`${item.label}  ${String(item.value)}`, {
-        widthProfile: input.widthProfile,
+        widthProfile: input.widthProfile, textPresentation: input.textPresentation,
       }).cells + 4
     ),
   );
@@ -199,7 +199,7 @@ function paintBarChart(input: ComponentRenderInput<BarChartModel, ChartStylePart
       : input.theme.tokens.symbols.unselected;
     const value = String(item.value);
     const fixedCells = measureTextCells(`${prefix} ${item.label}  ${value}`, {
-      widthProfile: input.widthProfile,
+      widthProfile: input.widthProfile, textPresentation: input.textPresentation,
     }).cells;
     const available = Math.max(0, input.bounds.width - fixedCells);
     const fill = Math.max(
@@ -236,7 +236,7 @@ function paintBarChart(input: ComponentRenderInput<BarChartModel, ChartStylePart
       chartSpan(
         input,
         fillTextCells(input.theme.tokens.symbols.progressFilled, fill, {
-          widthProfile: input.widthProfile,
+          widthProfile: input.widthProfile, textPresentation: input.textPresentation,
         }),
         'series',
         `bar.${item.id}.fill`,

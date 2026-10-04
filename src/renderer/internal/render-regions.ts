@@ -1,3 +1,4 @@
+import type { TextPresentation } from '../../text/presentation.ts';
 import type { LayerUnderlay } from '../../element/metadata.ts';
 import { intersectRects } from '../../geometry/rect.ts';
 import type { Rect, TerminalSize } from '../../geometry/types.ts';
@@ -105,6 +106,7 @@ export function createDraftRenderRegion(
     readonly underlay: LayerUnderlay;
     readonly backdropBounds?: Rect;
     readonly widthProfile: TextWidthProfile;
+    readonly textPresentation?: TextPresentation | undefined;
     readonly instrumentation?: Pick<RenderInstrumentation, 'recordWork'>;
     readonly previous?: FrameSnapshotMetadata;
   }
@@ -118,16 +120,17 @@ export function createDraftRenderRegion(
     bounds: regionBounds,
     underlay,
     ...(backdropBounds === undefined ? {} : { backdropBounds }),
-    buffer: regionBuffer(terminalSize, regionBounds, widthProfile, instrumentation, input.previous)
+    buffer: regionBuffer(terminalSize, regionBounds, widthProfile, instrumentation, input.previous, input.textPresentation)
   };
 }
 
 function regionBuffer(
   terminalSize: TerminalSize, bounds: Rect, widthProfile: TextWidthProfile,
   instrumentation?: Pick<RenderInstrumentation, 'recordWork'>, previous?: FrameSnapshotMetadata,
+  textPresentation?: TextPresentation,
 ): FrameBuffer {
   const buffer = createRegionFrameBuffer(terminalSize.columns, terminalSize.rows, bounds, {
-    widthProfile, ...(instrumentation === undefined ? {} : { instrumentation }),
+    widthProfile, textPresentation, ...(instrumentation === undefined ? {} : { instrumentation }),
   });
   if (previous !== undefined) seedFrameBufferRows(buffer, previous.rowIndexes);
   return buffer;

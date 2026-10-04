@@ -17,7 +17,6 @@ import { ignoreMessage } from '../../interaction/message.ts';
 import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
 import type { HitTarget, Measurement } from '../../renderer/contracts.ts';
 import { measureTextCells } from '../../text/measure.ts';
-import { createTerminalTextIndex } from '../../text/terminal-text-index.ts';
 import type { TextWidthProfile } from '../../text/types.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
 import { clipRenderSpans, measureRenderSpans, span } from '../../visual/render-content.ts';
@@ -36,11 +35,11 @@ import { inspectTextSelection, inspectTextValue, inspectValidation } from '../sh
 import type { SingleLineTextWindow } from '../shared/single-line-text-window.ts';
 import { layoutSingleLineTextWindow } from '../shared/single-line-text-window.ts';
 import { textEntryMarkerSpan as numberInputMarkerSpan } from '../shared/text-entry-marker.ts';
-import { textEditingTriggers } from '../shared/text-key-bindings.ts';
+import { textEditingTriggers, textEditingVisualInput } from '../shared/text-key-bindings.ts';
 import { textPointerTarget } from '../shared/text-pointer-target.ts';
 import type { NumberInputStylePart } from '../style-parts.ts';
 import type { NumberInputOptions } from './options.ts';
-import { decodeTextSelection, selectionRanges } from './text-input.ts';
+import { decodeTextSelection } from './text-input.ts';
 
 interface NumberModel {
   readonly state: NumberInputView;
@@ -75,8 +74,8 @@ const instantiateNumberInput = defineComponent<Omit<NumberInputOptions<Component
   measure: measureNumberInput,
   reuse: { paint: (model: object) => [model] as const },
   render: paintNumberInput,
-  keys: ({ readOnly }) => ({
-    triggers: textEditingTriggers(readOnly),
+  keys: ({ readOnly, model, widthProfile, textPresentation }) => ({
+    triggers: textEditingTriggers(readOnly, textEditingVisualInput({ text: model.state.value, cursor: model.state.cursor, ...(model.state.affinity === undefined ? {} : { affinity: model.state.affinity }), ...(model.state.selection === undefined ? {} : { selection: model.state.selection }) }, { widthProfile, textPresentation }, undefined, model)),
     ...(readOnly ? {} : {
       arrowUp: () => ({ kind: 'step' as const, direction: 'increment' as const }),
       arrowDown: () => ({ kind: 'step' as const, direction: 'decrement' as const }),
@@ -89,7 +88,7 @@ const instantiateNumberInput = defineComponent<Omit<NumberInputOptions<Component
     readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
   focusTargets: (input) => {
     const bounds = numberInputGeometry(input.bounds, input.disabled || input.readOnly)?.input ?? input.bounds;
-    const visual = numberInputVisual(input.model, bounds.width, input.widthProfile);
+    const visual = numberInputVisual(input.model, bounds.width, input.widthProfile, input.textPresentation);
     const cursorStyle = input.style({
       part: 'cursor',
       states: ['focused'],
@@ -203,6 +202,7 @@ function createNumberInputModel(
   const common = {
     value: text,
     cursor,
+    ...(raw.affinity === undefined ? {} : { affinity: raw.affinity }),
     ...(selection === undefined ? {} : { selection }),
     ...(committedValue === undefined ? {} : { committedValue }),
     ...(min === undefined ? {} : { min }),
@@ -236,7 +236,7 @@ function measureNumberInput(input: ComponentMeasureInput<NumberModel>): Measurem
     minWidth: 2,
     minHeight: 1,
     preferredWidth: 2 +
-      measureTextCells(shown, { widthProfile: input.widthProfile }).cells +
+      measureTextCells(shown, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }).cells +
       (input.disabled || input.readOnly ? 0 : numberStepperWidth),
     preferredHeight: 1 + (input.model.error === '' ? 0 : 1),
   };
@@ -246,7 +246,7 @@ function paintNumberInput(input: ComponentRenderInput<NumberModel, NumberInputSt
   if (input.bounds.width === 0 || input.bounds.height === 0) return;
   const plan = numberInputRenderPlan(input);
   input.target.write(0, 0, plan.value);
-  const used = measureRenderSpans(plan.value, { widthProfile: input.widthProfile });
+  const used = measureRenderSpans(plan.value, { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
   paintControlPadding(input, 0, used, plan.valueWidth - used, plan.padding);
   if (plan.stepper !== undefined) input.target.write(0, plan.valueWidth, plan.stepper);
   if (plan.error !== undefined) input.target.write(1, 0, plan.error);
@@ -273,10 +273,10 @@ function numberInputRenderPlan(
   const inputBounds = geometry?.input ?? input.bounds;
   const usesPlaceholder = input.model.state.value === '' && input.model.placeholder !== '';
   const shown = usesPlaceholder ? input.model.placeholder : input.model.state.value;
-  const visual = numberInputVisual(input.model, inputBounds.width, input.widthProfile);
+  const visual = numberInputVisual(input.model, inputBounds.width, input.widthProfile, input.textPresentation);
   const styles = numberInputRenderStyles(input, usesPlaceholder);
   const content = numberInputContentSpans(input, shown, usesPlaceholder, visual, styles);
-  const value = clipRenderSpans(content, inputBounds.width, { widthProfile: input.widthProfile });
+  const value = clipRenderSpans(content, inputBounds.width, { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
   const stepper = geometry === undefined ? undefined : numberInputStepperSpans(input);
   const error = numberInputErrorSpans(input);
   return {
@@ -358,20 +358,15 @@ function numberInputContentSpans(
       }),
     }));
   }
-  for (const range of selectionRanges(visual, selection)) {
-    const start = Math.max(visual.startOffset, range.start);
-    const end = Math.min(visual.endOffsetExclusive, range.end);
-    const text = shown.slice(start, end);
-    if (text === '') continue;
-    const style = range.selected ? styles.selection : styles.value;
-    spans.push(span(text, {
+  for (const grapheme of visual.graphemes) {
+    const selected = selection !== undefined && grapheme.startOffset < selection.endOffsetExclusive
+      && grapheme.endOffsetExclusive > selection.startOffset;
+    const style = selected ? styles.selection : styles.value;
+    spans.push(span(grapheme.text, {
+      textOrder: 'visual',
       ...(style === undefined ? {} : { style }),
-      source: input.frameSource({
-        cellRole: 'text',
-        partName: range.selected ? 'selection' : 'value',
-        partType: range.selected ? 'selection' : 'value',
-        description: range.selected ? 'selection' : 'value',
-      }),
+      source: input.frameSource({ cellRole: 'text', partName: selected ? 'selection' : 'value',
+        partType: selected ? 'selection' : 'value', description: selected ? 'selection' : 'value' }),
     }));
   }
   return spans;
@@ -433,7 +428,7 @@ function numberInputErrorSpans(
       }),
     })],
     input.bounds.width,
-    { widthProfile: input.widthProfile },
+    { widthProfile: input.widthProfile, textPresentation: input.textPresentation },
   );
 }
 
@@ -442,10 +437,8 @@ function numberInputHitTargets(
 ): readonly HitTarget<NumberInputComponentAction>[] {
   const geometry = numberInputGeometry(input.bounds, input.disabled || input.readOnly);
   const inputBounds = geometry?.input ?? input.bounds;
-  const index = createTerminalTextIndex(input.model.state.value, {
-    widthProfile: input.widthProfile,
-  });
-  const visual = numberInputVisual(input.model, inputBounds.width, input.widthProfile);
+  const visual = numberInputVisual(input.model, inputBounds.width, input.widthProfile, input.textPresentation);
+  const index = visual.index;
   const focusTarget = textPointerTarget<NumberInputComponentAction>({
     id: `${input.id ?? 'number-input'}:input`,
     bounds: inputBounds,
@@ -461,7 +454,8 @@ function numberInputHitTargets(
         0,
         localColumn - 3 - Number(visual.clippedBefore),
       );
-      return index.graphemeIndexToCodeUnitOffset(index.visualColumnToGraphemeIndex(column));
+      const position = visual.index.visualColumnToPosition(column);
+      return position;
     },
     wordSelectionAt: (offset) => index.wordSelectionAt(offset),
     onPointer: (transition) => ({ kind: 'pointer', transition }),
@@ -493,12 +487,16 @@ function numberInputVisual(
   model: NumberModel,
   width: number,
   widthProfile: TextWidthProfile,
+  textPresentation?: import('../../text/presentation.ts').TextPresentation,
 ): SingleLineTextWindow {
   return layoutSingleLineTextWindow(
     model.state.value,
     model.state.cursor,
     Math.max(0, width - 2),
     widthProfile,
+    textPresentation,
+    model.state.affinity,
+    model,
   );
 }
 

@@ -9,12 +9,12 @@ For signatures and public members, use the [API reference](./reference.md).
 | Import path | Declarations |
 | --- | ---: |
 | `@ismail-elkorchi/terminal-ui` | 603 |
-| `@ismail-elkorchi/terminal-ui/host` | 84 |
+| `@ismail-elkorchi/terminal-ui/host` | 85 |
 | `@ismail-elkorchi/terminal-ui/input` | 79 |
 | `@ismail-elkorchi/terminal-ui/interaction` | 95 |
 | `@ismail-elkorchi/terminal-ui/collection` | 42 |
 | `@ismail-elkorchi/terminal-ui/protocol` | 37 |
-| `@ismail-elkorchi/terminal-ui/text` | 134 |
+| `@ismail-elkorchi/terminal-ui/text` | 141 |
 | `@ismail-elkorchi/terminal-ui/theme` | 34 |
 | `@ismail-elkorchi/terminal-ui/theme/packs` | 8 |
 | `@ismail-elkorchi/terminal-ui/prompts` | 61 |

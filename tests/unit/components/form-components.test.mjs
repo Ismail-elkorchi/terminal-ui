@@ -336,7 +336,7 @@ test('autocomplete combobox keeps long input rendering cursor and pointer geomet
   assert.match(renderFramePlain(frame), /^Q: ‹efgh/u);
   assert.deepEqual(message?.transition, {
     kind: 'pointer',
-    transition: { kind: 'placeCaret', offset: 4 },
+    transition: { kind: 'placeCaret', offset: 4, affinity: 'downstream' },
   });
 });
 

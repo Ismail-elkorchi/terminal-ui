@@ -88,7 +88,8 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
     beginObservationRefresh: () => terminalState.beginObservationRefresh(),
     observeModes: (reports) => terminalState.observeModes(reports),
     observeKeyboardProfile: (profile) => terminalState.observeKeyboardProfile(profile),
-    write: (chunk, signal) => output.write(chunk, { signal })
+    write: (chunk, signal) => output.write(chunk, { signal }),
+    writeRecovery: (chunk, signal) => output.writeRecovery(chunk, { signal })
   });
 
   const host: PtyTerminalHost = {
@@ -121,6 +122,7 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
   };
   terminalState.bind(host, {
     rawInputKnowledge: options.stdin?.isRawModeEnabled === undefined ? 'library_known' : 'observed',
+    observeCellPresentation: (context, recovery) => detector.observeCellPresentation(context.signal, recovery),
     verifyKeyboardProfile: (flags, context) => detector.verifyKeyboardProfile(flags, context.signal),
     ...(options.initialState === undefined ? {} : { initialState: options.initialState })
   });
@@ -151,6 +153,7 @@ function ptyCapabilityResolverInput(
       rows: terminalSize.rows,
       supportsRawInput: options.stdin?.setRawMode !== undefined,
       supportsResizeEvents: options.subscribeSignals !== undefined,
+      ...(options.initialState?.cellPresentation === 'explicit' ? { cellPresentation: 'explicit' as const } : {}),
       supportsTerminalProtocols: stdout.isTty(),
     },
     environment: { variables: options.env ?? {} },

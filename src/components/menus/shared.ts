@@ -57,6 +57,7 @@ export function menuSpan<TModel extends object>(
     ...(states.length === 0 ? {} : { states }),
   });
   return span(text, {
+    ...(part === 'marker' || part === 'separator' || part === 'control' ? { textOrder: 'visual' as const } : {}),
     ...(value === undefined ? {} : { style: value }),
     source: input.frameSource({
       cellRole: part === 'marker' || part === 'separator' || part === 'control'

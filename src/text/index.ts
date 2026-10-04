@@ -145,3 +145,6 @@ export { wrapTextCells } from './wrap.ts';
 export { prepareTextBuffer, prepareTextDocument, prepareTextDocumentLine } from './preparation.ts';
 export type { PreparedTextBuffer, PreparedTextDocumentLine, PreparedTextRequest, TextPreparationRequest } from './preparation.ts';
 export type { CooperativeWorkContext } from '../foundation/cooperative-work.ts';
+
+export type { TextPresentation, TextVisualOrderProvider, TextVisualOrderRequest, TextVisualCluster, VisualGraphemeSegment, TextParagraphContext } from './presentation.ts';
+export { defineTextPresentation } from './presentation.ts';

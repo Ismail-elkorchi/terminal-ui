@@ -26,6 +26,7 @@ export interface TextWidthProfile {
 }
 
 export interface TextMeasurementOptions {
+  readonly textPresentation?: TextPresentation | undefined;
   readonly widthProfile?: TextWidthProfile;
 }
 
@@ -33,7 +34,9 @@ export interface TextBoundaryOptions {
   readonly locale?: string;
 }
 
-export interface TextIndexOptions extends TextMeasurementOptions, TextBoundaryOptions {}
+export interface TextIndexOptions extends TextMeasurementOptions, TextBoundaryOptions {
+  readonly paragraph?: TextParagraphContext;
+}
 
 export interface TextClipOptions extends TextMeasurementOptions {
   readonly ellipsis?: string;
@@ -87,6 +90,13 @@ export interface TerminalTextIndex {
   readonly cells: number;
   readonly codeUnits: number;
   readonly bytes: number;
+  readonly visualGraphemes: readonly VisualGraphemeSegment[];
+  prepareVisualWork(): Generator<number, void>;
+  visualGraphemesInColumns(start: number, end: number): readonly VisualGraphemeSegment[];
+  positionToVisualColumn(position: TextPosition): number;
+  visualColumnToPosition(column: number): TextPosition;
+  moveVisualPosition(position: TextPosition, delta: -1 | 1): TextPosition;
+  moveVisualWordPosition(position: TextPosition, delta: -1 | 1): TextPosition;
   graphemeIndexToCodeUnitOffset(index: number): number;
   codeUnitOffsetToGraphemeIndex(offset: number): number;
   graphemeIndexToVisualColumn(index: number): number;
@@ -103,6 +113,7 @@ export interface TerminalTextIndex {
 export interface TextEditBuffer {
   readonly text: string;
   readonly cursor: number;
+  readonly affinity?: TextAffinity;
   readonly selection?: TextSelection;
 }
 
@@ -147,4 +158,40 @@ export interface RemovedControlSequence {
   readonly sequence: string;
   readonly codeUnitOffset: number;
   readonly kind: 'escape' | 'control';
+}
+
+/** A paragraph-aware Unicode bidi implementation supplied once by the session. */
+export interface TextPresentation {
+  readonly map: TextVisualOrderProvider;
+}
+
+export interface TextVisualOrderRequest {
+  /** Complete logical paragraph, including context outside the requested wrapped line. */
+  readonly text: string;
+  readonly startOffset: number;
+  readonly endOffsetExclusive: number;
+  readonly widthProfile: TextWidthProfile;
+  readonly graphemes: readonly GraphemeSegment[];
+}
+
+export interface TextVisualCluster {
+  readonly startOffset: number;
+  readonly endOffsetExclusive: number;
+  /** One printable grapheme. Mirroring may change its glyph, never its cell width. */
+  readonly text: string;
+  readonly direction: 'ltr' | 'rtl';
+}
+
+export type TextVisualOrderProvider = (request: TextVisualOrderRequest) => readonly TextVisualCluster[];
+
+export interface VisualGraphemeSegment extends GraphemeSegment {
+  readonly direction: 'ltr' | 'rtl';
+  readonly column: number;
+  readonly endColumnExclusive: number;
+}
+
+export interface TextParagraphContext {
+  readonly text: string;
+  /** Start of this index's logical text in the complete paragraph. */
+  readonly startOffset: number;
 }

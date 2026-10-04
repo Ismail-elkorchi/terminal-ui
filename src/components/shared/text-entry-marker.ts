@@ -16,6 +16,7 @@ export function textEntryMarkerSpan<TModel extends { readonly error: string }, T
     ? input.theme.tokens.symbols.borderSingle.vertical
     : ' ';
   return span(`${marker} `, {
+    textOrder: 'visual',
     ...(style === undefined ? {} : { style }),
     source: input.frameSource({
       cellRole: 'decoration',

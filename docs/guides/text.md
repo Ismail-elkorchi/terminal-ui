@@ -172,16 +172,84 @@ not physical terminal-input latency or portable performance guarantees.
 
 ## Bidirectional Text
 
-`terminal-ui` exposes `unicode.bidi: "stable-fallback"` in terminal
-capabilities. The fallback policy is logical-order rendering: the package does
-not reorder bidirectional text internally. Mixed-direction strings are
-sanitized, segmented, measured, clipped, wrapped, rendered, and recorded in the
-same logical order supplied by the caller.
+Bidirectional ordering is an explicit producer/session contract. The host's
+`cellPresentation` capability concerns standard ECMA-48 mode 8 only. It makes no
+claim about a terminal's font, joining, diacritic placement, shaping, or general
+Arabic support. No terminal-name heuristic establishes this capability.
 
-This keeps layouts, frames, snapshots, render diffs, and transcripts
-deterministic across runtimes. If a terminal applies its own bidirectional
-display behavior, that behavior belongs to the terminal emulator; the
-machine-readable `terminal-ui` artifacts remain logical-order data.
+By default the library preserves logical order and does not change mode 8. A
+visual-cell application supplies one `TextPresentation` provider, created with
+`defineTextPresentation({ map })`, through `runTui(app, { textPresentation,
+sessionPolicy: { ...defaultSessionProtocolPolicy, cellPresentation: 'required' }
+})`. The provider must implement its Unicode bidi policy; the library does not
+ship another bidi or shaping engine. Run configuration rejects an absent provider
+or an optional presentation setup: a visual producer cannot silently fall back to
+an implicitly reordering terminal.
+
+The provider must be deterministic for its request, and a changed ordering policy
+must have a new provider identity. The provider receives the complete logical paragraph and the requested line's
+UTF-16 range. It returns a visual-order permutation of grapheme source ranges,
+with a printable glyph and LTR/RTL direction per cluster. The shared text index
+validates the grapheme bijection, source boundaries and unchanged cell widths,
+and owns the visual/source map used for painting, pointer hits, caret movement and
+selection. Application text, search offsets, accessibility values, paste and
+submitted values stay logical. Provider identity participates in retained layout,
+measurement and painting caches.
+
+Logical styled spans are mapped together before clipping, preserving their
+style, hyperlink and source metadata. A producer that already owns visual cell
+layout marks spans `textOrder: 'visual'`; these spans delimit independent runs and
+are not reordered again. `writeCell()` already means an explicitly positioned
+visual cell. Never reorder serialized ANSI: it has lost the source/cluster and
+style ownership needed by this contract. Frame and diff artifacts contain the
+same final visual cells and require no second reordering pass during replay.
+
+Host discovery sends bounded, namespace-specific DECRQM requests. A missing or
+unrecognized standard-mode-8 reply leaves state `unknown`; a mode write is never
+attempted against an unknown baseline. `session.enableCellPresentation()` requires
+raw input, a known initial state and a response observer when a transition is needed. It writes standard-mode
+8 reset only when needed, then requires readback before reporting `observed`
+explicit presentation. Permanently implicit terminals reject the operation;
+permanently explicit terminals require no mutation.
+
+A visual-cell host independently qualified without mode-8 support can supply
+`createNodeTerminalHost({ initialState: { cellPresentation: 'explicit' } })` (and
+the equivalent other host options). This asserts only cell ordering. It must be
+backed by actual qualification of the terminal/version, font/configuration and
+transport; the library does not infer it. The capability records that caller
+fact separately from an unrecognized mode reply. The no-transition operation
+returns `assurance: 'assumed'`, with `explicit` provenance, not an invented
+terminal observation. It emits no mode change or restoration reset. A recognized
+implicit-mode reply overrides a contradictory supplied fact and requires the
+normal verified transition. A contradicted caller qualification is not resurrected
+by a later inconclusive refresh.
+
+Session snapshots expose
+`cellPresentation: 'unknown' | 'implicit' | 'explicit'` and provenance, and the
+capability's probe facts retain the original standard-mode report.
+
+A mode report describes the global mode; it does not rewrite attributes retained
+on existing terminal paragraphs. On verified explicit acquisition, the full-screen
+TUI establishes a fresh surface with the existing ED2 clear operation before its
+first frame, and again after suspension reacquisition. It does this only after
+successful setup. The low-level mode API never clears content, and incremental
+or clipped clears never become full-terminal clears. VTE 0.80.1 retains bidi flags
+per paragraph; this distinction is visible in its [mode-change handler](https://github.com/GNOME/vte/blob/0.80.1/src/vteseq.cc#L374-L395)
+and [paragraph-update logic](https://github.com/GNOME/vte/blob/0.80.1/src/vte.cc#L3355-L3425).
+
+The same session authority restores the known initial state on normal exit,
+startup failure, cancellation, suspension and disposal. Interrupted writes remain
+indeterminate and are recoverable; restoration uses recovery output and verifies
+its readback. Unknown initial mode states are never guessed or reset.
+
+Qualification has two separate layers: deterministic tests establish source maps,
+metadata preservation, clipping and full-frame/diff equivalence; a real terminal
+must establish actual glyph ordering, joining and mark placement with its installed
+font. The mode-8 session boundary has been observed on Xfce/VTE 8001, with
+implicit → explicit → implicit replies and raw-input restoration. This is not a
+claim about every VTE version, font, terminal, multiplexer or transport. Native
+control/selection and lifecycle qualification remains required for each supported
+host configuration.
 
 `sanitizeTerminalControlText()` removes unsafe control sequences while retaining
 tabs and source-removal metadata. Use it when a source-mapped layout owns tab

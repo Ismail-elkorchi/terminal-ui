@@ -262,7 +262,7 @@ function heatmapCellSpans(
   if (!active && !selected) {
     return [chartSpan(
       input,
-      fillTextCells(glyph, input.model.cellWidth, { widthProfile: input.widthProfile }),
+      fillTextCells(glyph, input.model.cellWidth, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
       'series',
       `${id}.value`,
       'cell',
@@ -274,7 +274,7 @@ function heatmapCellSpans(
   if (input.model.cellWidth === 1) {
     return [chartSpan(
       input,
-      oneCellGlyph('◆', '*', { widthProfile: input.widthProfile }),
+      oneCellGlyph('◆', '*', { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
       'series',
       `${id}.selected`,
       'selected',
@@ -288,7 +288,7 @@ function heatmapCellSpans(
       chartSpan(input, '›', 'series', `${id}.selected.marker`, 'marker', style, undefined, states),
       chartSpan(
         input,
-        fillTextCells(glyph, 1, { widthProfile: input.widthProfile }),
+        fillTextCells(glyph, 1, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
         'series',
         `${id}.value`,
         'cell',
@@ -303,7 +303,7 @@ function heatmapCellSpans(
     chartSpan(
       input,
       fillTextCells(glyph, Math.max(1, input.model.cellWidth - 2), {
-        widthProfile: input.widthProfile,
+        widthProfile: input.widthProfile, textPresentation: input.textPresentation,
       }),
       'series',
       `${id}.value`,

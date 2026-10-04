@@ -1,3 +1,4 @@
+import type { TextPresentation } from '../text/presentation.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
 import type { Rect } from '../geometry/types.ts';
 import { oneCellGlyph } from '../text/cell-geometry.ts';
@@ -51,11 +52,11 @@ export function drawBorder(
   const terminalStyle = style.style;
 
   if (bounds.height === 1) {
-    writeBorderLine(buffer, bounds.row, bounds.column, horizontalLine(bounds.width, glyphs, 'top', buffer.widthProfile, style.title, style.titleAlign, terminalStyle));
+    writeBorderLine(buffer, bounds.row, bounds.column, horizontalLine(bounds.width, glyphs, 'top', buffer.widthProfile, style.title, style.titleAlign, terminalStyle, buffer.textPresentation));
     return;
   }
 
-  writeBorderLine(buffer, bounds.row, bounds.column, horizontalLine(bounds.width, glyphs, 'top', buffer.widthProfile, style.title, style.titleAlign, terminalStyle));
+  writeBorderLine(buffer, bounds.row, bounds.column, horizontalLine(bounds.width, glyphs, 'top', buffer.widthProfile, style.title, style.titleAlign, terminalStyle, buffer.textPresentation));
   for (let row = bounds.row + 1; row < bounds.row + bounds.height - 1; row += 1) {
     writeBorderText(buffer, row, bounds.column, glyphs.vertical, terminalStyle);
     if (bounds.width > 1) {
@@ -66,7 +67,7 @@ export function drawBorder(
     buffer,
     bounds.row + bounds.height - 1,
     bounds.column,
-    horizontalLine(bounds.width, glyphs, 'bottom', buffer.widthProfile, undefined, undefined, terminalStyle)
+    horizontalLine(bounds.width, glyphs, 'bottom', buffer.widthProfile, undefined, undefined, terminalStyle, buffer.textPresentation)
   );
 }
 
@@ -77,7 +78,8 @@ function horizontalLine(
   widthProfile: TextWidthProfile,
   title?: BorderTitle,
   titleAlign: BorderStyle['titleAlign'] = 'start',
-  style?: TerminalStyle
+  style?: TerminalStyle,
+  textPresentation?: TextPresentation,
 ): readonly RenderSpan[] {
   if (width <= 1) return [borderSpan(position === 'top' ? glyphs.topLeft : glyphs.bottomLeft, style, 'border.corner')];
   const left = position === 'top' ? glyphs.topLeft : glyphs.bottomLeft;
@@ -93,11 +95,11 @@ function horizontalLine(
   if (isBorderTitleSlots(title)) {
     return [
       borderSpan(left, style, 'border.corner'),
-      ...titleSlotSpans(title, innerWidth, glyphs.horizontal, style, widthProfile),
+      ...titleSlotSpans(title, innerWidth, glyphs.horizontal, style, widthProfile, textPresentation),
       borderSpan(right, style, 'border.corner')
     ];
   }
-  const clippedTitle = clipRenderSpans(titleSpans(title, style), innerWidth, { widthProfile });
+  const clippedTitle = clipRenderSpans(titleSpans(title, style), innerWidth, { widthProfile, textPresentation });
   const remaining = Math.max(0, innerWidth - measureRenderSpans(clippedTitle, { widthProfile }));
   const before = titleAlign === 'end' ? remaining : titleAlign === 'center' ? Math.floor(remaining / 2) : 0;
   const after = remaining - before;
@@ -209,7 +211,8 @@ function titleSlotSpans(
   innerWidth: number,
   horizontal: string,
   style: TerminalStyle | undefined,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  textPresentation?: TextPresentation,
 ): readonly RenderSpan[] {
   const start = titleContentSpans(slots.start, style);
   const center = titleContentSpans(slots.center, style);
@@ -217,15 +220,15 @@ function titleSlotSpans(
   const pieces: RenderSpan[] = [];
   let cursor = 0;
 
-  cursor = appendTitleSlot(pieces, cursor, 0, innerWidth, start, horizontal, style, widthProfile);
+  cursor = appendTitleSlot(pieces, cursor, 0, innerWidth, start, horizontal, style, widthProfile, textPresentation);
 
   const centerWidth = measureRenderSpans(center, { widthProfile });
   const centerColumn = Math.max(cursor, Math.floor((innerWidth - centerWidth) / 2));
-  cursor = appendTitleSlot(pieces, cursor, centerColumn, innerWidth, center, horizontal, style, widthProfile);
+  cursor = appendTitleSlot(pieces, cursor, centerColumn, innerWidth, center, horizontal, style, widthProfile, textPresentation);
 
   const endWidth = measureRenderSpans(end, { widthProfile });
   const endColumn = Math.max(cursor, innerWidth - endWidth);
-  cursor = appendTitleSlot(pieces, cursor, endColumn, innerWidth, end, horizontal, style, widthProfile);
+  cursor = appendTitleSlot(pieces, cursor, endColumn, innerWidth, end, horizontal, style, widthProfile, textPresentation);
 
   if (cursor < innerWidth) pieces.push(borderSpan(horizontal.repeat(innerWidth - cursor), style, 'border.edge'));
   return pieces;
@@ -239,7 +242,8 @@ function appendTitleSlot(
   spans: readonly RenderSpan[],
   horizontal: string,
   style: TerminalStyle | undefined,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  textPresentation?: TextPresentation,
 ): number {
   if (cursor >= innerWidth) return cursor;
   const start = Math.max(cursor, Math.min(innerWidth, column));
@@ -247,7 +251,7 @@ function appendTitleSlot(
     output.push(borderSpan(horizontal.repeat(start - cursor), style, 'border.edge'));
   }
   const budget = Math.max(0, innerWidth - start);
-  const clipped = clipRenderSpans(spans, budget, { widthProfile });
+  const clipped = clipRenderSpans(spans, budget, { widthProfile, textPresentation });
   output.push(...clipped);
   return start + measureRenderSpans(clipped, { widthProfile });
 }

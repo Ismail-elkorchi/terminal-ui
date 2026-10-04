@@ -74,6 +74,7 @@ export function renderCurrentFrame<TState, TMessage>(
     theme,
     ...(previous === undefined ? {} : { previous }),
     widthProfile: context.capabilities.unicode.widthProfile,
+    textPresentation: context.textPresentation,
     ...(graphicsBudget === undefined ? {} : { graphicsBudget }),
     ...(pointerVisuals === undefined ? {} : { pointerVisuals }),
     ...(instrumentation === undefined ? {} : { instrumentation }),

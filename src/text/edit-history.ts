@@ -92,6 +92,7 @@ function ownTextEditBuffer(buffer: TextEditBuffer): TextEditBuffer {
   return Object.freeze({
     text: buffer.text,
     cursor: buffer.cursor,
+    ...(buffer.affinity === undefined ? {} : { affinity: buffer.affinity }),
     ...(buffer.selection === undefined ? {} : {
       selection: Object.freeze({ ...buffer.selection })
     })
@@ -105,5 +106,6 @@ function textEditBufferBytes(buffer: TextEditBuffer): number {
 function sameBuffer(left: TextEditBuffer, right: TextEditBuffer): boolean {
   return left.text === right.text
     && left.cursor === right.cursor
+    && left.affinity === right.affinity
     && sameTextSelection(left.selection, right.selection);
 }

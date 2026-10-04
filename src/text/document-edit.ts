@@ -185,10 +185,8 @@ function* replaceOffsetsWork(
 ): Generator<number, TextDocumentEditResult> {
   const change = yield* textDocumentEditWork(state.document, { startOffset, endOffsetExclusive }, insertion);
   const offset = change.replaced.startOffset + change.insertedLength;
-  let nextCaret = yield* normalizeTextCaretWork(change.document, caretAt(offset, 'downstream'));
-  if (nextCaret.position.offset !== offset) {
-    nextCaret = caretAt(yield* rightOffsetWork(change.document, nextCaret, undefined, false), 'downstream');
-  }
+  const affinity = change.insertedLength > 0 ? 'upstream' : state.caret.position.affinity;
+  const nextCaret = yield* textDocumentEditCaretWork(change.document, offset, affinity);
   if (change.document === state.document && sameTextCaret(nextCaret, state.caret) && state.selection === undefined) {
     return state;
   }
@@ -201,6 +199,14 @@ function* replaceOffsetsWork(
       newEndOffsetExclusive: offset
     }
   };
+}
+
+/** Attach edit destinations to a complete resulting source grapheme. The
+ * inserted seam may join both neighboring clusters (for example through ZWJ). */
+export function* textDocumentEditCaretWork(document: TextDocument, offset: number, affinity: TextPosition['affinity']): Generator<number, TextCaret> {
+  const normalized = yield* normalizeTextCaretWork(document, caretAt(offset, affinity));
+  return normalized.position.offset === offset ? normalized
+    : caretAt(yield* rightOffsetWork(document, normalized, undefined, false), affinity);
 }
 
 function* moveWork(

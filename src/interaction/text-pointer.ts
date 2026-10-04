@@ -6,10 +6,10 @@ export type PointerSelectionTransition<TCoordinate> =
   | { readonly kind: 'extendSelection'; readonly anchor: TCoordinate; readonly position: TCoordinate }
   | { readonly kind: 'endSelection'; readonly anchor: TCoordinate; readonly position: TCoordinate };
 
-export type TextPointerTransition =
+export type TextPointerTransition = { readonly affinity?: import('../text/types.ts').TextAffinity; readonly anchorAffinity?: import('../text/types.ts').TextAffinity } & (
   | { readonly kind: 'placeCaret'; readonly offset: number }
   | { readonly kind: 'extendSelection'; readonly anchor: number; readonly offset: number }
-  | { readonly kind: 'endSelection'; readonly anchor: number; readonly offset: number };
+  | { readonly kind: 'endSelection'; readonly anchor: number; readonly offset: number });
 
 export interface TextContextMenuEvent {
   readonly kind: 'contextMenu';

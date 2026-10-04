@@ -2,6 +2,8 @@ import { executeSynchronousRenderCallback } from '../../foundation/synchronous-r
 import type { Rect } from '../../geometry/types.ts';
 import { measureTextCells } from '../../text/measure.ts';
 import type { TextWidthProfile } from '../../text/types.ts';
+import { layoutRenderSpans } from '../../visual/render-content.ts';
+import type { TextPresentation } from '../../text/presentation.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
 import type {
   Canvas2D,
@@ -75,6 +77,8 @@ class FrameBufferCanvas2D implements Canvas2D {
   }
 
   private close(): void { this.active = false; }
+
+  get textPresentation(): TextPresentation | undefined { return this.#buffer.textPresentation; }
 
   get widthProfile(): TextWidthProfile {
     return this.#buffer.widthProfile;
@@ -200,7 +204,7 @@ class FrameBufferCanvas2D implements Canvas2D {
     const point = this.transformedPoint(x, y);
     if (point.y < 0 || point.y >= this.bounds.height) return;
     let column = point.x;
-    for (const span of spans) {
+    for (const span of layoutRenderSpans(spans, { widthProfile: this.widthProfile, textPresentation: this.textPresentation })) {
       const measured = measureTextCells(span.text, { widthProfile: this.widthProfile });
       let runStart: number | undefined;
       let run = '';

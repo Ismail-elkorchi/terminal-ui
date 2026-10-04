@@ -36,7 +36,8 @@ export function controlSpan<TModel extends object, TPart extends string>(
   stateOrStates?: Exclude<import('../../element/metadata.ts').ElementVisualState, 'default'> |
     readonly Exclude<import('../../element/metadata.ts').ElementVisualState, 'default'>[],
 ): RenderSpan {
-  if (!decorated || !('style' in input)) return span(text);
+  const order = cellRole === 'text' || cellRole === 'content' ? {} : { textOrder: 'visual' as const };
+  if (!decorated || !('style' in input)) return span(text, order);
   const states = stateOrStates === undefined
     ? []
     : typeof stateOrStates === 'string' ? [stateOrStates] : stateOrStates;
@@ -47,6 +48,7 @@ export function controlSpan<TModel extends object, TPart extends string>(
     ...(states.length === 0 ? {} : { states }),
   });
   return span(text, {
+    ...order,
     ...(style === undefined ? {} : { style }),
     source: input.frameSource({
       partName: part,
@@ -86,7 +88,7 @@ export function measureLines<TModel extends object>(
           current.reduce(
             (total, currentSpan) =>
               total +
-              measureTextCells(currentSpan.text, { widthProfile: input.widthProfile }).cells,
+              measureTextCells(currentSpan.text, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }).cells,
             0,
           ),
         ),
@@ -104,7 +106,7 @@ export function paintLines<TModel extends object, TPart extends string>(
     input.target.write(
       row,
       0,
-      clipRenderSpans(current, input.bounds.width, { widthProfile: input.widthProfile }),
+      clipRenderSpans(current, input.bounds.width, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
     );
   });
 }

@@ -37,7 +37,7 @@ import { inspectTextSelection, inspectTextValue, inspectValidation } from '../sh
 import type { SingleLineTextWindow } from '../shared/single-line-text-window.ts';
 import { layoutSingleLineTextWindow } from '../shared/single-line-text-window.ts';
 import { textEntryMarkerSpan } from '../shared/text-entry-marker.ts';
-import { textEditingHandlers } from '../shared/text-key-bindings.ts';
+import { textEditingHandlers, textEditingVisualInput } from '../shared/text-key-bindings.ts';
 import { textPointerTarget } from '../shared/text-pointer-target.ts';
 import type { TextEntryStylePart } from '../style-parts.ts';
 import type { PasswordInputOptions, TextInputOptions } from './options.ts';
@@ -173,14 +173,14 @@ function textEntryDefinition<
       return {
         minWidth: 2,
         minHeight: 1,
-        preferredWidth: 2 + measureTextCells(shown, { widthProfile: input.widthProfile }).cells,
+        preferredWidth: 2 + measureTextCells(shown, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }).cells,
         preferredHeight: 1 + (input.model.error === '' ? 0 : 1),
       };
     },
     reuse: { paint: (model: object) => [model] as const },
   render: paintTextEntry,
-    keys: ({ model, readOnly }) => controlKeyBindings<TextInputKeyAction, TextEntryComponentAction>(model.keymap, {
-      ...textEditingHandlers(readOnly),
+    keys: ({ model, readOnly, widthProfile, textPresentation }) => controlKeyBindings<TextInputKeyAction, TextEntryComponentAction>(model.keymap, {
+      ...textEditingHandlers(readOnly, textEntryEditingVisual(model, widthProfile, textPresentation)),
       ...(readOnly ? {} : { submit: () => ({ kind: 'submit', value: model.state.text }) }),
     }),
     onInput: ({ text, readOnly }) =>
@@ -188,7 +188,7 @@ function textEntryDefinition<
     onPaste: ({ text, readOnly }) =>
       readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
     focusTargets: (input) => {
-      const visual = textEntryVisual(input.model, input.bounds.width, input.widthProfile);
+      const visual = textEntryVisual(input.model, input.bounds.width, input.widthProfile, input.textPresentation);
       const cursorStyle = input.style({
         part: 'cursor',
         states: ['focused'],
@@ -218,8 +218,8 @@ function textEntryDefinition<
     hitTargets(input) {
       const bounds = { ...input.bounds, height: Math.min(1, input.bounds.height) };
       if (bounds.width === 0 || bounds.height === 0) return [];
-      const visual = textEntryVisual(input.model, bounds.width, input.widthProfile);
-      const offsetAt = (event: RoutedPointerEvent): number =>
+      const visual = textEntryVisual(input.model, bounds.width, input.widthProfile, input.textPresentation);
+      const offsetAt = (event: RoutedPointerEvent) =>
         sourceOffsetAtColumn(
           input.model,
           visual.offsetCells + Math.max(
@@ -229,6 +229,7 @@ function textEntryDefinition<
               - Number(visual.clippedBefore),
           ),
           input.widthProfile,
+          visual,
         );
       return [textPointerTarget<TextEntryComponentAction>({
         id: `${input.id ?? name}:text`,
@@ -248,10 +249,11 @@ function textEntryDefinition<
                 - Number(visual.clippedBefore),
             ),
             input.widthProfile,
+            visual,
           );
         },
         wordSelectionAt: (offset) => createTerminalTextIndex(input.model.state.text, {
-          widthProfile: input.widthProfile,
+          widthProfile: input.widthProfile, textPresentation: input.textPresentation,
         }).wordSelectionAt(offset),
         onPointer: (transition) => ({ kind: 'pointer', transition }),
         onContextMenu: (event) => ({ kind: 'contextMenu', event }),
@@ -363,7 +365,7 @@ function decodeTextInputState(
   const cursor = nonNegativeInteger(value.cursor, `${owner} cursor`);
   if (cursor > raw.length) throw new RangeError(`${owner} cursor exceeds value length.`);
   const selection = decodeTextSelection(value.selection, raw, owner);
-  return { text: raw, cursor: normalizeTextCursor(raw, cursor), ...(selection === undefined ? {} : { selection }) };
+  return { text: raw, cursor: normalizeTextCursor(raw, cursor), ...(value.affinity === undefined ? {} : { affinity: value.affinity }), ...(selection === undefined ? {} : { selection }) };
 }
 
 export function decodeTextSelection(
@@ -414,7 +416,7 @@ function textEntryRenderPlan(
   input = { ...input, model: profiledTextEntryModel(input.model, input.widthProfile) };
   const usesPlaceholder = input.model.displayedValue === '' && input.model.placeholder !== '';
   const shown = usesPlaceholder ? input.model.placeholder : input.model.displayedValue;
-  const visual = textEntryVisual(input.model, input.bounds.width, input.widthProfile);
+  const visual = textEntryVisual(input.model, input.bounds.width, input.widthProfile, input.textPresentation);
   const styles = textEntryRenderStyles(input, usesPlaceholder);
   const spans = [
     textEntryMarkerSpan(input, styles.border),
@@ -422,9 +424,9 @@ function textEntryRenderPlan(
   ];
   const occupied = 2 + Number(!usesPlaceholder && visual.clippedBefore) + measureTextCells(
     usesPlaceholder ? shown : visual.visibleText,
-    { widthProfile: input.widthProfile },
+    { widthProfile: input.widthProfile, textPresentation: input.textPresentation },
   ).cells;
-  const value = clipRenderSpans(spans, input.bounds.width, { widthProfile: input.widthProfile });
+  const value = clipRenderSpans(spans, input.bounds.width, { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
   const error = textEntryErrorSpans(input);
   return { value, occupied, padding: textEntryPadding(input, styles.value),
     ...(error === undefined ? {} : { error }) };
@@ -497,65 +499,29 @@ function textEntryContentSpans(
       }),
     }));
   }
-  spans.push(...textEntryValueSpans(input, shown, visual, styles));
+  spans.push(...textEntryValueSpans(input, visual, styles));
   return spans;
 }
 
 function textEntryValueSpans(
   input: ComponentRenderInput<TextEntryModel, TextEntryStylePart>,
-  shown: string,
   visual: SingleLineTextWindow,
   styles: TextEntryRenderStyles,
 ): readonly RenderSpan[] {
   const selection = input.model.displayedSelection;
-  const records = selectionRanges(visual, selection);
   const spans: RenderSpan[] = [];
-  for (const record of records) {
-    const start = Math.max(visual.startOffset, record.start);
-    const end = Math.min(visual.endOffsetExclusive, record.end);
-    const current = shown.slice(start, end);
-    if (current === '') continue;
-    const style = record.selected ? styles.selection : styles.value;
-    spans.push(span(current, {
+  for (const grapheme of visual.graphemes) {
+    const selected = selection !== undefined && grapheme.startOffset < selection.endOffsetExclusive
+      && grapheme.endOffsetExclusive > selection.startOffset;
+    const style = selected ? styles.selection : styles.value;
+    spans.push(span(grapheme.text, {
+      textOrder: 'visual',
       ...(style === undefined ? {} : { style }),
-      source: input.frameSource({
-        cellRole: 'text',
-        partName: record.selected ? 'selection' : 'value',
-        partType: record.selected ? 'selection' : 'value',
-        description: record.selected ? 'selection' : 'value',
-      }),
+      source: input.frameSource({ cellRole: 'text', partName: selected ? 'selection' : 'value',
+        partType: selected ? 'selection' : 'value', description: selected ? 'selection' : 'value' }),
     }));
   }
   return spans;
-}
-
-interface TextEntrySelectionRange {
-  readonly start: number;
-  readonly end: number;
-  readonly selected: boolean;
-}
-
-export function selectionRanges(
-  visual: SingleLineTextWindow,
-  selection: TextSelection | undefined,
-): readonly TextEntrySelectionRange[] {
-  return [
-    {
-      start: visual.startOffset,
-      end: selection?.startOffset ?? visual.endOffsetExclusive,
-      selected: false,
-    },
-    ...(selection === undefined ? [] : [{
-      start: selection.startOffset,
-      end: selection.endOffsetExclusive,
-      selected: true,
-    }]),
-    {
-      start: selection?.endOffsetExclusive ?? visual.endOffsetExclusive,
-      end: visual.endOffsetExclusive,
-      selected: false,
-    },
-  ];
 }
 
 function textEntryPadding(
@@ -596,6 +562,7 @@ function textEntryVisual(
   model: TextEntryModel,
   width: number,
   widthProfile: TextWidthProfile,
+  textPresentation?: import('../../text/presentation.ts').TextPresentation,
 ): SingleLineTextWindow {
   model = profiledTextEntryModel(model, widthProfile);
   return layoutSingleLineTextWindow(
@@ -603,25 +570,30 @@ function textEntryVisual(
     model.displayedCursor,
     Math.max(0, width - 2),
     widthProfile,
+    textPresentation,
+    model.state.affinity,
+    model,
   );
+}
+
+function textEntryEditingVisual(model: TextEntryModel, widthProfile: TextWidthProfile, textPresentation: import('../../text/presentation.ts').TextPresentation | undefined) {
+  model = profiledTextEntryModel(model, widthProfile);
+  return textEditingVisualInput({ text: model.displayedValue, cursor: model.displayedCursor,
+    ...(model.state.affinity === undefined ? {} : { affinity: model.state.affinity }),
+    ...(model.displayedSelection === undefined ? {} : { selection: model.displayedSelection }),
+  }, { widthProfile, textPresentation }, model.sourceOffsetForDisplay, model);
 }
 
 function sourceOffsetAtColumn(
   model: TextEntryModel,
   column: number,
-  widthProfile: import('../../text/index.ts').TextWidthProfile,
-): number {
+  widthProfile: TextWidthProfile,
+  visual: SingleLineTextWindow,
+): import('../../text/types.ts').TextPosition {
   model = profiledTextEntryModel(model, widthProfile);
-  const displayed = segmentGraphemes(model.displayedValue);
-  let cells = 0;
-  let index = 0;
-  for (const grapheme of displayed) {
-    const width = measureTextCells(grapheme.text, { widthProfile }).cells;
-    if (cells + width > column) break;
-    cells += width;
-    index += 1;
-  }
-  return model.sourceOffsetForDisplay(displayed[index]?.startOffset ?? model.displayedValue.length);
+  const position = visual.index.visualColumnToPosition(column);
+  const offset = model.sourceOffsetForDisplay(position.offset);
+  return { offset, affinity: position.affinity };
 }
 
 const profiledTextEntryModels = new WeakMap<TextEntryModel, Map<string, TextEntryModel>>();

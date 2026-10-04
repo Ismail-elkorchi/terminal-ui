@@ -73,7 +73,7 @@ const instantiatePagination: SemanticLeafComponentFactory<
     return {
       minWidth: 0,
       minHeight: 0,
-      preferredWidth: measureRenderSpans(visual.spans, { widthProfile: input.widthProfile }),
+      preferredWidth: measureRenderSpans(visual.spans, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
       preferredHeight: 1,
     };
   },
@@ -184,7 +184,8 @@ function paginationVisual(
     part: PaginationStylePart,
     state?: PaginationInteractionState,
   ): void => {
-    spans.push(decorate(text, partName, part, state));
+    spans.push({ ...decorate(text, partName, part, state),
+      ...(partName === 'label' ? {} : { textOrder: 'visual' as const }) });
     offset += measureRenderSpans([span(text)], { widthProfile });
   };
   const appendControl = (

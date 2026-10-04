@@ -19,6 +19,7 @@ interface PaintDependencies {
   readonly accessibleName: string | undefined;
   readonly styles: unknown;
   readonly theme: unknown;
+  readonly textPresentation: unknown;
   readonly bounds: Rect;
   readonly viewport: Rect;
   readonly disabled: boolean;
@@ -35,6 +36,7 @@ interface PaintDependencies {
 
 function sameDependencies(a: PaintDependencies, b: PaintDependencies): boolean {
   return a.definition === b.definition && a.id === b.id && sameReuseDependencies(a.model, b.model)
+    && a.textPresentation === b.textPresentation
     && a.accessibleName === b.accessibleName && sameStyleDependencies(a.styles, b.styles) && a.theme === b.theme
     && sameRect(a.bounds, b.bounds) && sameRect(a.viewport, b.viewport)
     && a.disabled === b.disabled && a.busy === b.busy && a.readOnly === b.readOnly && a.inert === b.inert
@@ -69,6 +71,7 @@ export function createPaintRetention(previous?: readonly RenderRegion[]) {
       const dependencies: PaintDependencies = {
         definition: node.definition, id: node.id, model: node.props.reuse.paint,
         accessibleName: node.props.accessibleName, styles: node.styles, theme: input.theme,
+        textPresentation: input.textPresentation,
         bounds: input.layoutNode.bounds, viewport: input.layoutNode.viewport,
         disabled: node.state?.disabled === true, busy: node.state?.busy === true,
         readOnly: node.state?.readOnly === true, inert: node.state?.inert === true,

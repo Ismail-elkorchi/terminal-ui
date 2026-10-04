@@ -367,7 +367,7 @@ function measureMenu(input: ComponentMeasureInput<MenuModel>): Measurement {
   const width = Math.max(
     1,
     ...rows.map((item) =>
-      measureTextCells(menuRowText(item, input.theme), { widthProfile: input.widthProfile }).cells
+      measureTextCells(menuRowText(item, input.theme), { widthProfile: input.widthProfile, textPresentation: input.textPresentation }).cells
     ),
   );
   return {
@@ -428,7 +428,7 @@ function paintMenu(input: ComponentRenderInput<MenuModel, MenuStylePart>): undef
       ? { fg: { kind: 'theme', token: 'status.error' } }
       : {};
     const spans = menuRowSpans(input, item, states, base);
-    const used = measureRenderSpans(spans, { widthProfile: input.widthProfile });
+    const used = measureRenderSpans(spans, { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
     input.target.write(
       plan.contentBounds.row + index,
       plan.contentBounds.column,
@@ -448,7 +448,7 @@ function paintMenu(input: ComponentRenderInput<MenuModel, MenuStylePart>): undef
           ]),
         ],
         plan.contentBounds.width,
-        { widthProfile: input.widthProfile },
+        { widthProfile: input.widthProfile, textPresentation: input.textPresentation },
       ),
     );
   });
@@ -503,7 +503,7 @@ function menuRowSpans(
     menuSpan(input, indent, 'separator', `item.${item.id}.indent`, item.id, base, states),
     menuSpan(
       input,
-      `${oneCellGlyph(marker, marker === ' ' ? ' ' : '>', { widthProfile: input.widthProfile })} `,
+      `${oneCellGlyph(marker, marker === ' ' ? ' ' : '>', { widthProfile: input.widthProfile, textPresentation: input.textPresentation })} `,
       'marker',
       `item.${item.id}.marker`,
       item.id,

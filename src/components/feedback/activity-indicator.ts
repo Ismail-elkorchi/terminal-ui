@@ -75,7 +75,7 @@ export const activityIndicator: ActivityIndicatorFactory = defineComponent<Activ
     return {
       minWidth: 0,
       minHeight: 0,
-      preferredWidth: measureRenderSpans(spans, { widthProfile: input.widthProfile }),
+      preferredWidth: measureRenderSpans(spans, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
       preferredHeight: 1,
     };
   },

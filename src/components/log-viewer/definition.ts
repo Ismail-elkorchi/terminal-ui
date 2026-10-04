@@ -44,18 +44,18 @@ import { ignoreMessage } from '../../interaction/message.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type { HitTarget } from '../../renderer/contracts.ts';
-import { measureTextCells } from '../../text/measure.ts';
-import { measuredGraphemes } from '../../text/graphemes.ts';
 import type { CollectionQuery, CompiledCollectionQuery } from '../../text/query.ts';
 import { ownCollectionQueryRequest } from '../../text/query.ts';
 import { compileCollectionQuery } from '../../text/query.ts';
 import { sanitizeTerminalText } from '../../text/sanitize.ts';
 import { createTerminalTextIndex } from '../../text/terminal-text-index.ts';
-import type { TextWidthProfile } from '../../text/types.ts';
+import { measuredGraphemes } from '../../text/graphemes.ts';
+import { textPresentationKey } from '../../text/presentation.ts';
+import type { VisualGraphemeSegment } from '../../text/types.ts';
 import { textWidthProfileKey } from '../../text/width-profile.ts';
 import type { FrameCellSource } from '../../visual/frame-source.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
-import { span } from '../../visual/render-content.ts';
+import { compactRenderSpans, span } from '../../visual/render-content.ts';
 import type { LogViewerStylePart } from '../style-parts.ts';
 import { assertLogViewerView, preparedLogLayout, preparedLogFieldMatches, logViewerMatchById, matchingLogViewerView, type LogViewerView, type LogViewerViewInput } from '../../behavior/log-viewer-view.ts';
 import { createLogViewerRecordView } from '../../behavior/log-viewer-record.ts';
@@ -100,8 +100,8 @@ interface LogViewerTextSegment extends RenderSpan {
 interface LogViewerBodyPosition {
   readonly column: number;
   readonly cells: number;
-  readonly text: string;
-  readonly offset: number;
+  readonly before: number;
+  readonly after: number;
   readonly entryId: string;
 }
 
@@ -298,7 +298,7 @@ function measureLogViewer(input: ComponentMeasureInput<LogViewerModel>) {
     for (const record of segment.records) {
       preferredWidth = Math.max(
         preferredWidth,
-        visibleSourceEnd(record.displayText, input.constraints.width, input.widthProfile).cells,
+        visibleTextCells(record.displayText, input.constraints.width, input.widthProfile),
       );
       sampled += 1;
       if (sampled >= 64) break;
@@ -311,6 +311,18 @@ function measureLogViewer(input: ComponentMeasureInput<LogViewerModel>) {
     preferredWidth,
     preferredHeight: Math.max(1, Math.min(64, input.model.history.entryCount)),
   };
+}
+
+function visibleTextCells(text: string, width: number, widthProfile: ComponentInput<LogViewerModel>['widthProfile']): number {
+  let cells = 0;
+  if (width <= 0) return cells;
+  for (const part of measuredGraphemes(text, { widthProfile })) {
+    if (part.text === '\n') continue;
+    if (cells + part.cells > width) break;
+    cells += part.cells;
+    if (cells >= width) break;
+  }
+  return cells;
 }
 
 function renderLogViewer(input: ComponentRenderInput<LogViewerModel, LogViewerStylePart>): undefined {
@@ -355,7 +367,7 @@ function logViewerWindow(
 ): LogViewerWindow {
   const key = `${String(input.bounds.width)}:${String(input.bounds.height)}:${
     textWidthProfileKey(input.widthProfile)
-  }:${styled ? 'styled' : 'plain'}`;
+  }:${textPresentationKey(input.textPresentation)}:${styled ? 'styled' : 'plain'}`;
   const cached = logViewerWindows.get(input.model)?.get(key);
   if (cached !== undefined) return cached;
   const accepted = matchingLogViewerView(preparationInput(input), input.model.view);
@@ -486,44 +498,95 @@ function recordRows(
   sourceRows?: readonly LogViewerSourceRow[],
   firstRow = 0,
 ): readonly LogViewerVisibleRow[] {
-  const ranges = sourceRows ?? [{ start: 0, end: visibleSourceEnd(record.displayText, width, input.widthProfile).end }];
+  const ranges = sourceRows ?? [{ start: 0, end: record.displayText.length }];
   return Object.freeze(ranges.map((range, index) => {
-    const spans = sliceSourceSpans(fullLineSpans(input, record, query, activeMatch, selection, styled, range), range);
-    const positions = bodyPositionsForLine(spans, record.bodyText, record.source.entry.id,
-      Math.max(0, range.start - (record.fieldOffsets.get('body')?.get(undefined) ?? 0)), input.widthProfile);
+    const visual = recordVisualLine(input, record,
+      visible => fullLineSpans(input, record, query, activeMatch, selection, styled, visible), range, width);
+    const { spans, positions } = visual;
     return Object.freeze({
       id: `${input.id ?? 'log-viewer'}:entry:${String(record.source.entryIndex)}:line:${String(firstRow + index)}`,
       text: sourceRows === undefined ? record.displayText : record.displayText.slice(range.start, range.end),
       spans,
       matched: spans.some(current => current.source?.partType === 'match'),
       activeMatch: spans.some(current => current.source?.interactionState === 'active'),
-      ...(positions.positions.length === 0 ? {} : { bodyPositions: positions.positions }),
+      ...(positions.length === 0 ? {} : { bodyPositions: positions }),
     });
   }));
 }
 
-function visibleSourceEnd(text: string, width: number, widthProfile: TextWidthProfile): { readonly end: number; readonly cells: number } {
-  let cells = 0; let end = 0;
-  if (width <= 0) return { end, cells };
-  for (const part of measuredGraphemes(text, { widthProfile })) {
-    if (part.text === '\n') { end = part.endOffsetExclusive; continue; }
-    if (cells + part.cells > width) break;
-    cells += part.cells; end = part.endOffsetExclusive;
-    if (cells >= width) break;
+/** Derive paint and inverse pointer geometry from the same paragraph-aware map.
+ * The record and its search/selection offsets remain in logical source order. */
+function recordVisualLine(
+  input: ComponentInput<LogViewerModel>,
+  record: ReturnType<typeof createLogViewerRecordView>,
+  sourceSpans: (visible: LogViewerSourceRow) => readonly LogViewerTextSegment[],
+  range: LogViewerSourceRow,
+  width: number,
+): { readonly spans: readonly RenderSpan[]; readonly positions: readonly LogViewerBodyPosition[] } {
+  const visible: { readonly sourceStart: number; readonly sourceEnd: number; readonly column: number; readonly grapheme: VisualGraphemeSegment }[] = [];
+  const text = record.displayText;
+  let start = range.start;
+  let column = 0;
+  let sourceStart = range.end;
+  let sourceEnd = range.start;
+  while (start < range.end && column < width) {
+    const paragraphStart = start === 0 ? 0 : text.lastIndexOf('\n', start - 1) + 1;
+    const newline = text.indexOf('\n', start);
+    const paragraphEnd = newline < 0 ? text.length : newline;
+    const end = Math.min(range.end, paragraphEnd);
+    const index = createTerminalTextIndex(text.slice(start, end), {
+      widthProfile: input.widthProfile,
+      textPresentation: input.textPresentation,
+      ...(input.textPresentation === undefined ? {} : {
+        paragraph: { text: text.slice(paragraphStart, paragraphEnd), startOffset: start - paragraphStart },
+      }),
+    });
+    const graphemes = index.visualGraphemesInColumns(0, width - column);
+    for (const grapheme of graphemes) {
+      const first = start + grapheme.startOffset;
+      const last = start + grapheme.endOffsetExclusive;
+      visible.push({ sourceStart: first, sourceEnd: last, column: column + grapheme.column, grapheme });
+      sourceStart = Math.min(sourceStart, first);
+      sourceEnd = Math.max(sourceEnd, last);
+    }
+    // Presented paragraphs resolve in full; the default logical path only
+    // consumes the bounded visible prefix.
+    const last = graphemes.at(-1);
+    const cells = input.textPresentation === undefined
+      ? last === undefined ? end === start ? 0 : width - column
+        : last.endOffsetExclusive === end - start ? last.endColumnExclusive : width - column
+      : index.cells;
+    column += Math.min(cells, width - column);
+    start = end + 1;
   }
-  return { end, cells };
-}
-
-function sliceSourceSpans(spans: readonly LogViewerTextSegment[], range: LogViewerSourceRow): readonly LogViewerTextSegment[] {
-  const visible: LogViewerTextSegment[] = [];
+  const parts: { readonly span: LogViewerTextSegment; readonly end: number }[] = [];
   let offset = 0;
-  for (const current of spans) {
-    const end = offset + current.text.length;
-    if (offset >= range.end) break;
-    if (end > range.start) visible.push({ ...current, text: current.text.slice(Math.max(0, range.start - offset), Math.min(current.text.length, range.end - offset)) });
-    offset = end;
+  for (const current of sourceSpans({ start: sourceStart, end: sourceEnd })) {
+    offset += current.text.length;
+    parts.push({ span: current, end: offset });
   }
-  return Object.freeze(visible);
+  const rendered: RenderSpan[] = [];
+  const positions: LogViewerBodyPosition[] = [];
+  const bodyStart = record.fieldOffsets.get('body')?.get(undefined) ?? 0;
+  for (const current of visible) {
+    let lower = 0;
+    let upper = parts.length;
+    while (lower < upper) {
+      const middle = Math.floor((lower + upper) / 2);
+      if ((parts[middle]?.end ?? 0) <= current.sourceStart) lower = middle + 1;
+      else upper = middle;
+    }
+    const owner = parts[lower]?.span;
+    const { grapheme } = current;
+    rendered.push({ ...owner, text: grapheme.text, textOrder: 'visual' });
+    if (owner?.body === true) {
+      const before = (grapheme.direction === 'rtl' ? current.sourceEnd : current.sourceStart) - bodyStart;
+      const after = (grapheme.direction === 'rtl' ? current.sourceStart : current.sourceEnd) - bodyStart;
+      positions.push({ column: current.column, cells: grapheme.cells,
+        before, after, entryId: record.source.entry.id });
+    }
+  }
+  return { spans: compactRenderSpans(rendered), positions: Object.freeze(positions) };
 }
 
 function fullLineSpans(
@@ -1086,21 +1149,11 @@ function pointerAnchor(
   const containing = positions.find((position) =>
     column >= position.column && column < position.column + position.cells
   );
-  if (containing !== undefined) {
-    const index = createTerminalTextIndex(containing.text);
-    return {
-      entryId: containing.entryId,
-      offset: containing.offset + index.graphemeIndexToCodeUnitOffset(
-        index.visualColumnToGraphemeIndex(column - containing.column),
-      ),
-    };
-  }
+  if (containing !== undefined) return { entryId: containing.entryId, offset: containing.before };
   const previous = positions.findLast((position) => column >= position.column + position.cells);
-  if (previous !== undefined) {
-    return { entryId: previous.entryId, offset: previous.offset + previous.text.length };
-  }
+  if (previous !== undefined) return { entryId: previous.entryId, offset: previous.after };
   const first = positions[0];
-  return first === undefined ? undefined : { entryId: first.entryId, offset: first.offset };
+  return first === undefined ? undefined : { entryId: first.entryId, offset: first.before };
 }
 
 function nearestBodyPositions(
@@ -1114,34 +1167,6 @@ function nearestBodyPositions(
     if (after !== undefined && after.length > 0) return after;
   }
   return undefined;
-}
-
-function bodyPositionsForLine(
-  spans: readonly RenderSpan[],
-  bodyText: string,
-  entryId: string,
-  initialCursor: number,
-  widthProfile: TextWidthProfile,
-): { readonly positions: readonly LogViewerBodyPosition[] } {
-  const positions: LogViewerBodyPosition[] = [];
-  let column = 0;
-  let cursor = initialCursor;
-  for (const current of spans) {
-    const cells = measureTextCells(current.text, { widthProfile }).cells;
-    if (
-      (current.source?.partName === 'body' ||
-        current.source?.partName?.startsWith('body.') === true) &&
-      current.text.length > 0
-    ) {
-      const start = bodyText.indexOf(current.text, cursor);
-      if (start >= 0) {
-        positions.push({ column, cells, text: current.text, offset: start, entryId });
-        cursor = start + current.text.length;
-      }
-    }
-    column += cells;
-  }
-  return { positions: Object.freeze(positions) };
 }
 
 function selectionForRecord(

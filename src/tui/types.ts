@@ -1,3 +1,4 @@
+import type { TextPresentation } from '../text/presentation.ts';
 import type { TuiContribution, TuiScopedSource } from './contribution-types.ts';
 import type { AccessibleSnapshot } from '../accessibility/types.ts';
 import type { DiagnosticOccurrence, TerminalDiagnostic } from '../diagnostics.ts';
@@ -108,6 +109,7 @@ export interface TuiUpdateResult<TState, TMessage> extends TuiUpdateContribution
 }
 
 export interface TuiContext {
+  readonly textPresentation?: TextPresentation | undefined;
   readonly terminalSize: TerminalSize;
   readonly capabilities: TerminalCapabilityProfile;
   readonly diagnostics: readonly DiagnosticOccurrence[];
@@ -270,6 +272,7 @@ export interface TuiRuntimePolicy {
 }
 
 export interface TuiRuntimeOptions<TState, TMessage> {
+  readonly textPresentation?: TextPresentation | undefined;
   readonly runtimePolicy?: Partial<TuiRuntimePolicy>;
   /** Select one terminal output owner; accessible appends semantic changes to scrollback. */
   readonly outputMode?: 'visual' | 'accessible';
@@ -291,6 +294,7 @@ export interface TuiRuntimeOptions<TState, TMessage> {
 }
 
 export interface TuiRunOptions<TState = unknown> {
+  readonly textPresentation?: TextPresentation | undefined;
   readonly runtimePolicy?: Partial<TuiRuntimePolicy>;
   readonly effectPolicy?: TuiEffectPolicy;
   /** Accessible output keeps the main screen and requires no graphics. */

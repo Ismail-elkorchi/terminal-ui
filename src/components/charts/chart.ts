@@ -239,7 +239,7 @@ function measureChart(input: ComponentMeasureInput<ChartModel>) {
         `${seriesGlyph(series, input.widthProfile)} ${series.label}`
       ).join('  '),
       {
-        widthProfile: input.widthProfile,
+        widthProfile: input.widthProfile, textPresentation: input.textPresentation,
       },
     ).cells
     : 0;
@@ -279,7 +279,7 @@ function paintChart(input: ComponentRenderInput<ChartModel, ChartStylePart>): un
       row,
       chartSpan(
         input,
-        oneCellGlyph('─', '-', { widthProfile: input.widthProfile }),
+        oneCellGlyph('─', '-', { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
         'baseline',
         'baseline.zero',
         'baseline',
@@ -326,7 +326,7 @@ function paintChartPointMarker(
     yForValue(projected.value, { min: input.model.minimum, max: input.model.maximum }, plotHeight),
     chartSpan(
       input,
-      oneCellGlyph(selected ? '◆' : '◇', '*', { widthProfile: input.widthProfile }),
+      oneCellGlyph(selected ? '◆' : '◇', '*', { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
       'series',
       `${selected ? 'selection' : 'active'}.${target.series.id}.${target.point.id}`,
       selected ? 'selected' : 'active',

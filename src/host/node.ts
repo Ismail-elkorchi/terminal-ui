@@ -114,6 +114,7 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
       rows: getTerminalSize().rows,
       supportsRawInput: typeof inputStream.setRawMode === 'function',
       supportsResizeEvents: typeof outputStream.on === 'function' && typeof outputStream.off === 'function',
+      ...(options.initialState?.cellPresentation === 'explicit' ? { cellPresentation: 'explicit' as const } : {}),
       supportsTerminalProtocols: stdout.isTty(),
       ...(colorDepth === undefined ? {} : { colorDepth })
     },
@@ -133,7 +134,8 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
     beginObservationRefresh: () => terminalState.beginObservationRefresh(),
     observeModes: (reports) => terminalState.observeModes(reports),
     observeKeyboardProfile: (profile) => terminalState.observeKeyboardProfile(profile),
-    write: (chunk, signal) => output.write(chunk, { signal })
+    write: (chunk, signal) => output.write(chunk, { signal }),
+    writeRecovery: (chunk, signal) => output.writeRecovery(chunk, { signal })
   });
   const host: TerminalHost = {
     id: options.id ?? 'node',
@@ -163,6 +165,7 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
   };
   terminalState.bind(host, {
     rawInputKnowledge: typeof inputStream.isRaw === 'boolean' ? 'observed' : 'library_known',
+    observeCellPresentation: (context, recovery) => detector.observeCellPresentation(context.signal, recovery),
     verifyKeyboardProfile: (flags, context) => detector.verifyKeyboardProfile(flags, context.signal),
     ...(options.initialState === undefined ? {} : { initialState: options.initialState })
   });

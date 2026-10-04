@@ -11,9 +11,9 @@ import { toRenderNode } from './internal/render-tree/element.ts';
 export function measureElement(
   element: Element<unknown>,
   constraints: TerminalSize,
-  options: Pick<RenderElementOptions, 'theme' | 'widthProfile' | 'limits'> = {},
+  options: Pick<RenderElementOptions, 'theme' | 'widthProfile' | 'textPresentation' | 'limits'> = {},
 ): Measurement {
   const environment = createRenderEnvironment({ terminalSize: constraints, ...options });
-  return createRenderMeasurementContext(environment.theme, environment.widthProfile, createRenderBudget(options.limits))
+  return createRenderMeasurementContext(environment.theme, environment.widthProfile, createRenderBudget(options.limits), undefined, environment.textPresentation)
     .measure(toRenderNode(element), { row: 1, column: 1, width: constraints.columns, height: constraints.rows });
 }

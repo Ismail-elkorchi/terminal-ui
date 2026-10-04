@@ -18,6 +18,8 @@ import type {
 import { inferControlCapability, protocolFloor } from './protocol-evidence.ts';
 
 export interface TerminalHostFacts {
+  /** Independently qualified explicit ordering, supplied by the caller; not terminal detection. */
+  readonly cellPresentation?: 'explicit';
   readonly runtime: RuntimeTarget;
   readonly inputIsTty: boolean;
   readonly outputIsTty: boolean;
@@ -163,6 +165,15 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
       input,
       true
     )),
+    cellPresentation: resolveCapability(input, 'cellPresentation', {
+      support: input.host.cellPresentation === 'explicit' ? 'supported' : 'unknown',
+      availability: interactiveAvailability,
+      unavailable: 'Host cannot establish explicit cell presentation.',
+      unknown: 'Explicit cell presentation has neither an observed mode nor a caller-supplied qualification.',
+      requiresSessionOperation: true,
+      facts: [hostFact('supportsTerminalProtocols', input.host.supportsTerminalProtocols),
+        ...(input.host.cellPresentation === undefined ? [] : [{ kind: 'override' as const, name: 'initialState.cellPresentation', value: input.host.cellPresentation }])]
+    }),
     unicodeGraphemeMode: resolveCapability(input, 'unicodeGraphemeMode', {
       support: 'unknown',
       availability: outputAvailability,
@@ -400,8 +411,7 @@ function colorCapability(depth: TerminalColorCapability['depth']): TerminalColor
 function resolveUnicode(input: TerminalCapabilityResolverInput): TerminalUnicodeCapability {
   return {
     graphemeClusters: true,
-    widthProfile: defineTextWidthProfile(input.widthProfile),
-    bidi: 'stable-fallback'
+    widthProfile: defineTextWidthProfile(input.widthProfile)
   };
 }
 

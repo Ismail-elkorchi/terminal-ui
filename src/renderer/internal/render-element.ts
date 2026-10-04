@@ -87,6 +87,7 @@ import {
 import { layoutRenderTree } from './render-tree-layout.ts';
 import { toRenderNode } from './render-tree/element.ts';
 import { renderNodeFactoryName } from './render-tree/node.ts';
+import { textPresentationForLayout } from './layout-text-context.ts';
 import type { RenderNode, RenderNodeRenderInput } from './render-tree/types.ts';
 import { createPaintRetention } from './retained-paint.ts';
 import {
@@ -129,12 +130,13 @@ export function renderElementInternal<TMessage>(
   const budget = createRenderBudget(options.limits, graphicsBudget);
   const environment = createRenderEnvironment({
     terminalSize,
+    textPresentation: options.textPresentation,
     ...(options.theme === undefined ? {} : { theme: options.theme }),
     ...(options.widthProfile === undefined ? {} : { widthProfile: options.widthProfile })
   });
   const { theme, widthProfile } = environment;
   const resolved = measureRenderStage(options.instrumentation, 'layout', () =>
-    layoutRenderTree(renderNode, terminalSize, theme, widthProfile, budget, options.instrumentation, options.previous?.layout)
+    layoutRenderTree(renderNode, terminalSize, theme, widthProfile, budget, options.instrumentation, options.previous?.layout, environment.textPresentation)
   );
   const paintOptions = options.focusPathForLayout === undefined
     ? options
@@ -557,6 +559,7 @@ function renderRenderNodeToRegion<TMessage>(
   let cellOccupied: (row: number, column: number) => boolean = () => false;
   const input = {
     renderNode, layoutNode: node, buffer: target, theme, widthProfile,
+    textPresentation: textPresentationForLayout(node),
     focus: renderFocusRelation(focusPath, path),
     ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
     ...(pointerState === undefined ? {} : { pointerState }),
@@ -757,6 +760,7 @@ function createRegionComposer<TMessage>(
           height: 0
         },
         underlay: node.layer.underlay,
+        textPresentation: textPresentationForLayout(node),
         ...(priorRegion !== undefined && sameRect(priorRegion.bounds, bounds) ? { previous: priorRegion.metadata } : {}),
         ...(backdropBounds === undefined ? {} : { backdropBounds }),
         widthProfile,

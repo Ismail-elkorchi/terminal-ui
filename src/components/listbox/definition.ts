@@ -333,13 +333,13 @@ function renderListboxRow(
   });
   const spans = listboxRowSpans(input, entry, selected, states, state, itemStyle, markerStyle);
   const clipped = clipRenderLine(line(spans), plan.scrollbar.contentBounds.width, {
-    widthProfile: input.widthProfile,
+    widthProfile: input.widthProfile, textPresentation: input.textPresentation,
   });
   input.target.writeLine(
     plan.scrollbar.contentBounds.row + row,
     plan.scrollbar.contentBounds.column,
     padRenderLine(clipped, plan.scrollbar.contentBounds.width, {
-      widthProfile: input.widthProfile,
+      widthProfile: input.widthProfile, textPresentation: input.textPresentation,
       fill: listboxPaddingSpan(input, entry, state, itemStyle),
     }),
   );
@@ -356,6 +356,7 @@ function listboxRowSpans(
 ): readonly RenderSpan[] {
   return [
     {
+      textOrder: 'visual',
       text: selected && !terminalStyleHasBackground(markerStyle, input.theme)
         ? input.theme.tokens.symbols.selected
         : input.theme.tokens.symbols.unselected,
@@ -371,6 +372,7 @@ function listboxRowSpans(
       }),
     },
     {
+      textOrder: 'visual',
       text: ' ',
       ...(markerStyle === undefined ? {} : { style: markerStyle }),
       source: input.frameSource({

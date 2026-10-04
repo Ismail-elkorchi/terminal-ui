@@ -299,7 +299,7 @@ export const meter: SemanticLeafComponentFactory<
         0,
         ...lines.map((current) =>
           measureRenderSpans(current, {
-            widthProfile: input.widthProfile,
+            widthProfile: input.widthProfile, textPresentation: input.textPresentation,
           })
         ),
       ),
@@ -327,6 +327,7 @@ interface MeterVisualInput {
   readonly model: MeterModel;
   readonly theme: import('../../theme/index.ts').TerminalTheme;
   readonly widthProfile: import('../../text/index.ts').TextWidthProfile;
+  readonly textPresentation?: import('../../text/types.ts').TextPresentation | undefined;
   readonly style?: ComponentRenderInput<MeterModel, MeterStylePart>['style'];
   readonly frameSource?: ComponentRenderInput<MeterModel, MeterStylePart>['frameSource'];
 }
@@ -366,7 +367,7 @@ function meterLinearSpans(
     meterPartSpan(
       input,
       fillTextCells(input.theme.tokens.symbols.progressFilled, filled, {
-        widthProfile: input.widthProfile,
+        widthProfile: input.widthProfile, textPresentation: input.textPresentation,
       }),
       'fill',
       'metric.bar.filled',
@@ -377,7 +378,7 @@ function meterLinearSpans(
     meterPartSpan(
       input,
       fillTextCells(input.theme.tokens.symbols.progressEmpty, input.model.width - filled, {
-        widthProfile: input.widthProfile,
+        widthProfile: input.widthProfile, textPresentation: input.textPresentation,
       }),
       'track',
       'metric.bar.empty',
@@ -418,7 +419,7 @@ function meterDialLines(
   const filled = Math.round(ratio * input.model.width);
   const statusStyle = meterStatusStyle(input.model.status);
   const marker = '▲';
-  const markerWidth = measureTextCells(marker, { widthProfile: input.widthProfile }).cells;
+  const markerWidth = measureTextCells(marker, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }).cells;
   const markerColumn = Math.max(
     0,
     Math.min(
@@ -431,14 +432,14 @@ function meterDialLines(
     [
       meterPartSpan(
         input,
-        oneCellGlyph('╭', '+', { widthProfile: input.widthProfile }),
+        oneCellGlyph('╭', '+', { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
         'track',
         'dial.open',
         decorated,
       ),
       meterPartSpan(
         input,
-        fillTextCells('─', filled, { widthProfile: input.widthProfile }),
+        fillTextCells('─', filled, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
         'fill',
         'dial.filled',
         decorated,
@@ -446,14 +447,14 @@ function meterDialLines(
       ),
       meterPartSpan(
         input,
-        fillTextCells('─', input.model.width - filled, { widthProfile: input.widthProfile }),
+        fillTextCells('─', input.model.width - filled, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
         'track',
         'dial.empty',
         decorated,
       ),
       meterPartSpan(
         input,
-        oneCellGlyph('╮', '+', { widthProfile: input.widthProfile }),
+        oneCellGlyph('╮', '+', { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
         'track',
         'dial.close',
         decorated,
@@ -462,7 +463,7 @@ function meterDialLines(
     [
       meterPartSpan(
         input,
-        oneCellGlyph('│', '|', { widthProfile: input.widthProfile }),
+        oneCellGlyph('│', '|', { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
         'track',
         'dial.side.left',
         decorated,
@@ -481,7 +482,7 @@ function meterDialLines(
       ),
       meterPartSpan(
         input,
-        oneCellGlyph('│', '|', { widthProfile: input.widthProfile }),
+        oneCellGlyph('│', '|', { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
         'track',
         'dial.side.right',
         decorated,
@@ -500,21 +501,21 @@ function meterDialLines(
     [
       meterPartSpan(
         input,
-        oneCellGlyph('╰', '+', { widthProfile: input.widthProfile }),
+        oneCellGlyph('╰', '+', { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
         'track',
         'dial.bottom.open',
         decorated,
       ),
       meterPartSpan(
         input,
-        fillTextCells('─', input.model.width, { widthProfile: input.widthProfile }),
+        fillTextCells('─', input.model.width, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
         'track',
         'dial.bottom.edge',
         decorated,
       ),
       meterPartSpan(
         input,
-        oneCellGlyph('╯', '+', { widthProfile: input.widthProfile }),
+        oneCellGlyph('╯', '+', { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
         'track',
         'dial.bottom.close',
         decorated,

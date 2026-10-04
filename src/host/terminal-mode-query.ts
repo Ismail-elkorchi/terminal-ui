@@ -4,7 +4,7 @@ import type {
 } from './terminal-response.ts';
 import { csiBody } from './terminal-response.ts';
 
-export const queriedPrivateModes = Object.freeze([
+const privateModeNumbers = [
   25,
   1000,
   1002,
@@ -16,18 +16,25 @@ export const queriedPrivateModes = Object.freeze([
   2004,
   2026,
   2027
-] as const);
+] as const;
 
-export type QueriedPrivateMode = typeof queriedPrivateModes[number];
+export type TerminalModeKey = `private:${typeof privateModeNumbers[number]}` | 'standard:8';
+export const queriedModes: readonly TerminalModeKey[] = Object.freeze([
+  ...privateModeNumbers.map((mode): TerminalModeKey => `private:${String(mode)}` as TerminalModeKey),
+  'standard:8',
+]);
 export type TerminalModeReportState = 'unrecognized' | 'set' | 'reset' | 'permanently_set' | 'permanently_reset';
-export type TerminalModeReports = Readonly<Partial<Record<QueriedPrivateMode, TerminalModeReportState>>>;
+export type TerminalModeReports = Readonly<Partial<Record<TerminalModeKey, TerminalModeReportState>>>;
 
-export function terminalModeQueryRequest(): string {
-  return `${queriedPrivateModes.map((mode) => `\u001B[?${String(mode)}$p`).join('')}\u001B[c`;
+export function terminalModeQueryRequest(modes: readonly TerminalModeKey[] = queriedModes): string {
+  return `${modes.map((mode) => {
+    const [namespace, number] = mode.split(':');
+    return `\u001B[${namespace === 'private' ? '?' : ''}${number ?? ''}$p`;
+  }).join('')}\u001B[c`;
 }
 
-export function createTerminalModeResponseProtocol(): TerminalResponseProtocol<TerminalModeReports> {
-  const reports: Partial<Record<QueriedPrivateMode, TerminalModeReportState>> = {};
+export function createTerminalModeResponseProtocol(modes: readonly TerminalModeKey[] = queriedModes): TerminalResponseProtocol<TerminalModeReports> {
+  const reports: Partial<Record<TerminalModeKey, TerminalModeReportState>> = {};
   return {
     classify(control): TerminalResponseClassification<TerminalModeReports> | undefined {
       const body = csiBody(control);
@@ -36,7 +43,7 @@ export function createTerminalModeResponseProtocol(): TerminalResponseProtocol<T
         return { kind: 'matched', value: Object.freeze({ ...reports }) };
       }
       const report = parseModeReport(body);
-      if (report === undefined) return undefined;
+      if (report === undefined || !modes.includes(report.mode)) return undefined;
       reports[report.mode] = report.state;
       return { kind: 'consume' };
     }
@@ -56,11 +63,14 @@ export function modeIsMutable(state: TerminalModeReportState | undefined): boole
 
 function parseModeReport(
   body: Uint8Array
-): { readonly mode: QueriedPrivateMode; readonly state: TerminalModeReportState } | undefined {
-  if (body[0] !== questionMark || body.at(-1) !== lowercaseY || body.at(-2) !== dollar) return undefined;
-  const separator = body.indexOf(semicolon, 1);
-  if (separator < 2 || separator !== body.length - 4) return undefined;
-  const mode = decimal(body.subarray(1, separator));
+): { readonly mode: TerminalModeKey; readonly state: TerminalModeReportState } | undefined {
+  if (body.at(-1) !== lowercaseY || body.at(-2) !== dollar) return undefined;
+  const privateMode = body[0] === questionMark;
+  const start = privateMode ? 1 : 0;
+  const separator = body.indexOf(semicolon, start);
+  if (separator <= start || separator !== body.length - 4) return undefined;
+  const number = decimal(body.subarray(start, separator));
+  const mode = `${privateMode ? 'private' : 'standard'}:${String(number)}`;
   const state = modeReportState(body[separator + 1]);
   return isQueriedMode(mode) && state !== undefined ? { mode, state } : undefined;
 }
@@ -91,8 +101,8 @@ function decimal(bytes: Uint8Array): number | undefined {
   return value;
 }
 
-function isQueriedMode(value: number | undefined): value is QueriedPrivateMode {
-  return value !== undefined && (queriedPrivateModes as readonly number[]).includes(value);
+function isQueriedMode(value: string): value is TerminalModeKey {
+  return (queriedModes as readonly string[]).includes(value);
 }
 
 function isDigit(value: number): boolean {

@@ -1,3 +1,4 @@
+import type { TextPresentation } from '../text/presentation.ts';
 import type { AccessibleNode } from '../accessibility/types.ts';
 import type { ComponentSemanticInspection } from '../element/inspection-contracts.ts';
 import type {
@@ -111,6 +112,7 @@ interface ComponentBaseInput<TModel extends object>
   extends ComponentBehaviorInput<TModel> {
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
+  readonly textPresentation?: TextPresentation | undefined;
   /** Runtime-owned transient pointer state; present during painting only. */
   readonly pointerState?: PointerInteractionState;
 }

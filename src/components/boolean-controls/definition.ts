@@ -251,6 +251,7 @@ interface ControlVisualInput<TModel extends object, TPart extends string> {
   readonly disabled: boolean;
   readonly theme: import('../../theme/index.ts').TerminalTheme;
   readonly widthProfile: TextWidthProfile;
+  readonly textPresentation?: import('../../text/types.ts').TextPresentation | undefined;
   readonly focus?: import('../../renderer/index.ts').RenderFocusRelation;
   readonly pointerState?: PointerInteractionState;
   readonly style?: (
@@ -300,10 +301,10 @@ function toggleLines(
 ): readonly (readonly RenderSpan[])[] {
   const states = controlVisualStates(input, `${input.id ?? 'switchControl'}:control`);
   const thumb = oneCellGlyph(input.theme.tokens.symbols.radioChecked, '*', {
-    widthProfile: input.widthProfile,
+    widthProfile: input.widthProfile, textPresentation: input.textPresentation,
   });
   const track = oneCellGlyph(input.theme.tokens.symbols.scrollbarHorizontalThumb, '-', {
-    widthProfile: input.widthProfile,
+    widthProfile: input.widthProfile, textPresentation: input.textPresentation,
   });
   const trackStyle: TerminalStyle = input.model.checked
     ? {
@@ -369,8 +370,9 @@ function controlVisualSpan<TModel extends object, TPart extends string>(
   decorated: boolean,
   base?: TerminalStyle,
 ): RenderSpan {
+  const order = part === 'marker' || part === 'track' ? { textOrder: 'visual' as const } : {};
   if (!decorated || input.style === undefined || input.frameSource === undefined) {
-    return { text: textValue };
+    return { text: textValue, ...order };
   }
   const style = input.style({
     part,
@@ -379,6 +381,7 @@ function controlVisualSpan<TModel extends object, TPart extends string>(
   });
   const state = states.at(-1);
   return {
+    ...order,
     text: textValue,
     ...(style === undefined ? {} : { style }),
     source: input.frameSource({
@@ -421,10 +424,10 @@ function writeControlLines<TModel extends object, TPart extends string>(
 ): void {
   lines.slice(0, input.bounds.height).forEach((current, row) => {
     const clipped = clipRenderSpans(current, input.bounds.width, {
-      widthProfile: input.widthProfile,
+      widthProfile: input.widthProfile, textPresentation: input.textPresentation,
     });
     input.target.write(row, 0, clipped);
-    const used = measureRenderSpans(clipped, { widthProfile: input.widthProfile });
+    const used = measureRenderSpans(clipped, { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
     const fill = clipped.at(-1);
     if (used < input.bounds.width && fill !== undefined) {
       paintControlPadding(input, row, used, input.bounds.width - used, {

@@ -75,18 +75,16 @@ function defineActionButtonComponent(name: `${string}/${string}`): ActionButtonC
   visualStates: ['focused', 'hovered', 'pressed', 'disabled', 'busy'],
   createModel(value) {
     const label = value.label ?? '';
-    const accessibleName = value.accessibleName ?? label;
+    const suppliedAccessibleName: unknown = value.accessibleName;
+    const accessibleName = suppliedAccessibleName === undefined ? label : suppliedAccessibleName;
     const leading = value.leading;
     const trailing = value.trailing;
     const tone = value.tone;
     const density = value.density;
     const pressed = value.pressed;
     if (typeof label !== 'string') throw new TypeError('button label must be a string.');
-    if (typeof accessibleName !== 'string' || sanitizeTerminalText(accessibleName).text.trim() === '') {
-      throw new TypeError('button accessibleName must be a non-empty string.');
-    }
-    if (label === '' && leading === undefined && trailing === undefined) {
-      throw new TypeError('an icon-only button requires leading or trailing content.');
+    if (typeof accessibleName !== 'string' || (value.accessibleName === undefined && sanitizeTerminalText(accessibleName).text.trim() === '')) {
+      throw new TypeError('button requires a visible label or an explicit accessibleName string.');
     }
     if (tone !== undefined && !isButtonTone(tone)) throw new TypeError('button tone is invalid.');
     assertOptionalEnum(density, ['compact', 'regular'], 'button density');
@@ -220,7 +218,7 @@ function buttonSpans(input: ButtonVisualInput, focused: boolean): readonly Rende
       ? input.theme.tokens.symbols.pointer
       : ' ',
     ' ',
-    { widthProfile: input.widthProfile },
+    { widthProfile: input.widthProfile, textPresentation: input.textPresentation },
   );
   const spans: RenderSpan[] = [componentSpan(
     input,

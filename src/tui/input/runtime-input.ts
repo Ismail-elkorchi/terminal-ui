@@ -1,3 +1,4 @@
+import { textPresentationForLayout } from '../../renderer/internal/layout-text-context.ts';
 import { matchesInputTrigger } from '../../input/triggers.ts';
 import type { InputEvent } from '../../input/types.ts';
 import type { FocusPath } from '../../interaction/focus.ts';
@@ -203,6 +204,7 @@ export function resolvedRenderNodeKeyMap<TMessage>(
     ? renderNode.definition.renderer.keyMap({
         renderNode,
         layoutNode,
+        textPresentation: textPresentationForLayout(layoutNode),
         theme,
         widthProfile,
         focus: renderFocusRelation(focusPath, renderNodePath),

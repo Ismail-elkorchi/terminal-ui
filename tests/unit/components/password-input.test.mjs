@@ -37,7 +37,7 @@ test('passwordInput maps masked pointer offsets back to source grapheme boundari
   const message = target.message(pointerEvent(5));
   assert.deepEqual(message, {
     kind: 'pointer',
-    transition: { kind: 'placeCaret', offset: 3 }
+    transition: { kind: 'placeCaret', offset: 3, affinity: 'downstream' }
   });
 });
 

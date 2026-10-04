@@ -30,7 +30,7 @@ void test('textInputReducer applies edits and grapheme-aware pointer selections'
     cursor: 4,
     selection: { startOffset: 1, endOffsetExclusive: 4 }
   });
-  assert.deepEqual(replaced, { text: 'aXc', cursor: 2 });
+  assert.deepEqual(replaced, { text: 'aXc', cursor: 2, affinity: 'upstream' });
 });
 
 void test('textAreaReducer preserves exact boundaries in long ASCII lines and complex graphemes', () => {

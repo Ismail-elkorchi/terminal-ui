@@ -212,8 +212,8 @@ function updateHistory(
 function pointerBuffer(buffer: TextEditBuffer, transition: TextPointerTransition): TextEditBuffer {
   const offset = normalizeTextCursor(buffer.text, transition.offset);
   if (transition.kind === 'placeCaret') {
-    if (offset === buffer.cursor && buffer.selection === undefined) return buffer;
-    return Object.freeze({ text: buffer.text, cursor: offset });
+    if (offset === buffer.cursor && transition.affinity === buffer.affinity && buffer.selection === undefined) return buffer;
+    return Object.freeze({ text: buffer.text, cursor: offset, ...(transition.affinity === undefined ? {} : { affinity: transition.affinity }) });
   }
   const anchor = normalizeTextCursor(buffer.text, transition.anchor);
   const startOffset = Math.min(anchor, offset);
@@ -221,6 +221,7 @@ function pointerBuffer(buffer: TextEditBuffer, transition: TextPointerTransition
   return Object.freeze({
     text: buffer.text,
     cursor: offset,
+    ...(transition.affinity === undefined ? {} : { affinity: transition.affinity }),
     ...(startOffset === endOffsetExclusive
       ? {}
       : { selection: Object.freeze({ startOffset, endOffsetExclusive }) }),

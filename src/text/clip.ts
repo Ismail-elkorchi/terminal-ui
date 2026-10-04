@@ -8,6 +8,7 @@ export function clipTextCells(
   maxCells: number,
   options: TextClipOptions = {}
 ): TextClipResult {
+  if (options.textPresentation !== undefined) throw new TypeError('Visual-cell presentation requires clipRenderSpans so source and cell order are retained.');
   if (maxCells < 0) throw new RangeError('maxCells must be non-negative.');
   const ellipsis = options.ellipsis ?? '';
   const ellipsisCells = measureTextCells(ellipsis, options).cells;

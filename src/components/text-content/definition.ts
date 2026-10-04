@@ -21,7 +21,7 @@ import {
   normalizeInlineContent,
 } from '../../visual/inline-content.ts';
 import type { RenderLine, RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
-import { line, measureRenderSpans, span, wrapRenderSpans } from '../../visual/render-content.ts';
+import { clipRenderSpans, line, measureRenderSpans, span, wrapRenderSpans } from '../../visual/render-content.ts';
 import { withoutTransitionCallback } from '../shared/form-control-helpers.ts';
 import type { RichTextStylePart, TextStylePart } from '../style-parts.ts';
 import type {
@@ -215,7 +215,7 @@ const instantiateRichText = defineComponent<Pick<RichTextOptions, 'segments' | '
     const spans = richTextMeasureSpans(input.model, input.theme);
     if (input.model.wrap !== undefined && input.constraints.width > 0) {
       const lines = wrapRenderSpans(spans, input.constraints.width, {
-        widthProfile: input.widthProfile,
+        widthProfile: input.widthProfile, textPresentation: input.textPresentation,
         preserveWords: input.model.wrap.preserveWords,
       });
       return {
@@ -227,7 +227,7 @@ const instantiateRichText = defineComponent<Pick<RichTextOptions, 'segments' | '
             0,
             ...lines.map((current) =>
               measureRenderSpans(current.spans, {
-                widthProfile: input.widthProfile,
+                widthProfile: input.widthProfile, textPresentation: input.textPresentation,
               })
             ),
           ),
@@ -240,7 +240,7 @@ const instantiateRichText = defineComponent<Pick<RichTextOptions, 'segments' | '
       minWidth: 0,
       minHeight: 0,
       preferredWidth: Math.max(0, ...lines.map((current) =>
-        measureRenderSpans(current.spans, { widthProfile: input.widthProfile })
+        measureRenderSpans(current.spans, { widthProfile: input.widthProfile, textPresentation: input.textPresentation })
       )),
       preferredHeight: lines.length,
     };
@@ -248,7 +248,7 @@ const instantiateRichText = defineComponent<Pick<RichTextOptions, 'segments' | '
   render(input) {
     if (input.bounds.width === 0 || input.bounds.height === 0) return;
     const spans = richTextSpans(input);
-    const lines = richTextLines(input.model, spans, input.bounds.width, input.widthProfile);
+    const lines = richTextLines(input.model, spans, input.bounds.width, input.widthProfile, input.textPresentation);
     input.target.writeBlock(0, 0, { lines: lines.slice(0, input.bounds.height) });
   },
   keys: ({ model, focusedTargetId }) => {
@@ -378,6 +378,7 @@ function richTextLinkGeometry(
     richTextSpans(input),
     input.bounds.width,
     input.widthProfile,
+    input.textPresentation,
   );
   const fragmentsByLink = new Map<number, Rect[]>();
   for (let row = 0; row < Math.min(lines.length, input.bounds.height); row += 1) {
@@ -385,7 +386,7 @@ function richTextLinkGeometry(
     if (currentLine === undefined) continue;
     let column = 0;
     for (const currentSpan of currentLine.spans) {
-      const width = measureRenderSpans([currentSpan], { widthProfile: input.widthProfile });
+      const width = measureRenderSpans([currentSpan], { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
       const segmentIndex = currentSpan.source?.itemIndex;
       const linkIndex = segmentIndex === undefined
         ? undefined
@@ -430,13 +431,15 @@ function richTextLines(
   spans: readonly RenderSpan[],
   width: number,
   widthProfile: TextWidthProfile,
+  textPresentation?: import('../../text/types.ts').TextPresentation,
 ): readonly RenderLine[] {
   return model.wrap === undefined
-    ? splitRichTextLines(spans)
+    ? splitRichTextLines(spans).map(current => line(clipRenderSpans(current.spans, width, { widthProfile, textPresentation })))
     : wrapRenderSpans(spans, width, {
         widthProfile,
+        textPresentation,
         preserveWords: model.wrap.preserveWords,
-      });
+      }).map(current => line(clipRenderSpans(current.spans, width, { widthProfile, textPresentation })));
 }
 
 function splitRichTextLines(spans: readonly RenderSpan[]): readonly RenderLine[] {
@@ -459,6 +462,7 @@ function splitRichTextLines(spans: readonly RenderSpan[]): readonly RenderLine[]
 
 function richTextSpanOptions(value: RenderSpan): Omit<RenderSpan, 'text'> {
   return {
+    ...(value.textOrder === undefined ? {} : { textOrder: value.textOrder }),
     ...(value.style === undefined ? {} : { style: value.style }),
     ...(value.link === undefined ? {} : { link: value.link }),
     ...(value.source === undefined ? {} : { source: value.source }),
@@ -674,7 +678,7 @@ const instantiateDisclosure = defineComponent<{ readonly label: string; readonly
       minWidth: 0,
       minHeight: 0,
       preferredWidth: Math.max(
-        measureRenderSpans(header, { widthProfile: input.widthProfile }),
+        measureRenderSpans(header, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
         content?.preferredWidth ?? 0,
       ),
       preferredHeight: 1 + (content?.preferredHeight ?? 0),

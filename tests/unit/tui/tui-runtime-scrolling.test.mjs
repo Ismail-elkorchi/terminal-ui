@@ -119,6 +119,10 @@ test('TUI press routing keeps scroll-only content targets from swallowing text p
 
   await runtime.start();
   const contentTarget = targetById(runtime, 'scrolling-text-pointer:scroll:content');
+  const clickedColumn = contentTarget.bounds.column + 4;
+  const clickedCell = runtime.frame().cells.find(cell => cell.row === contentTarget.bounds.row && cell.column === clickedColumn);
+  assert.equal(clickedCell.text, 'alpha'[4], 'content coordinates already exclude the gutter');
+  assert.equal(clickedCell.source.partName, 'value');
   const press = await runtime.handleInput({
     kind: 'mouse',
     sequence: '',
@@ -126,7 +130,7 @@ test('TUI press routing keeps scroll-only content targets from swallowing text p
     action: 'press',
     button: 'left',
     row: contentTarget.bounds.row,
-    column: contentTarget.bounds.column + 4,
+    column: clickedColumn,
     rawCode: 0,
     modifiers: { shift: false, alt: false, ctrl: false }
   });
@@ -136,7 +140,7 @@ test('TUI press routing keeps scroll-only content targets from swallowing text p
   assert.equal(runtime.state().events[0].kind, 'text');
   assert.deepEqual(runtime.state().events[0].action, {
     kind: 'pointer',
-    transition: { kind: 'placeCaret', offset: 2 }
+    transition: { kind: 'placeCaret', offset: 4, affinity: 'downstream' }
   });
 });
 

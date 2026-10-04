@@ -23,7 +23,7 @@ import { textPointerTarget } from '../shared/text-pointer-target.ts';
 import { measureTextArea, projectedCaret, textAreaGeometry, textAreaCommittedLayout, textAreaLayoutPending } from './geometry.ts';
 import type { TextAreaComponentAction } from './interaction.ts';
 import {
-  pointerOffset,
+  pointerPosition,
   textAreaDragScrollRequest,
   textAreaVisualHandlers,
   textAreaPendingVisualHandlers,
@@ -82,7 +82,7 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
   render: paintTextArea,
   keys: (input) => controlKeyBindings<TextAreaKeyAction, TextAreaComponentAction>(input.model.keymap, {
     ...textEditingHandlers(input.readOnly),
-    ...(textAreaLayoutPending(input) ? textAreaPendingVisualHandlers() : textAreaVisualHandlers(input)),
+    ...(textAreaLayoutPending(input) ? textAreaPendingVisualHandlers(input) : textAreaVisualHandlers(input)),
     ...(input.readOnly ? {} : {
       undo: () => ({ kind: 'undo' }),
       redo: () => ({ kind: 'redo' }),
@@ -102,9 +102,11 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
       displayCaret.position.affinity,
     );
     const row = caret.rowIndex - geometry.scrollbar.scroll.offsetRow;
-    const column = geometry.prefixWidth +
-      caret.columnCells -
-      geometry.scrollbar.scroll.offsetColumn;
+    const line = geometry.layout.lineAtRow(caret.rowIndex);
+    const horizontalOrigin = line === undefined ? 0 : line.index.positionToVisualColumn(
+      line.index.visualColumnToPosition(geometry.scrollbar.scroll.offsetColumn),
+    );
+    const column = geometry.prefixWidth + caret.columnCells - horizontalOrigin;
     const cursorStyle = input.style({
       part: 'cursor',
       states: ['focused'],
@@ -151,7 +153,7 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
         ...(selectionRange === undefined ? {} : { selection: selectionRange }),
         focusTargetId: 'self',
         offsetAt(event, origin) {
-          return pointerOffset(
+          return pointerPosition(
             input,
             origin === 'press'
               ? event.pressLocalRow ?? event.localRow ?? event.row

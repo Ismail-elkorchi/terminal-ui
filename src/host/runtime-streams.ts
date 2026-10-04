@@ -70,6 +70,7 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
       rows: initialTerminalSize.rows,
       supportsRawInput: options.stdin?.setRawMode !== undefined,
       supportsResizeEvents: options.subscribeSignals !== undefined,
+      ...(options.initialState?.cellPresentation === 'explicit' ? { cellPresentation: 'explicit' as const } : {}),
       supportsTerminalProtocols: stdout.isTty()
     },
     environment: { variables: options.env ?? {} },
@@ -88,7 +89,8 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
     beginObservationRefresh: () => terminalState.beginObservationRefresh(),
     observeModes: (reports) => terminalState.observeModes(reports),
     observeKeyboardProfile: (profile) => terminalState.observeKeyboardProfile(profile),
-    write: (chunk, signal) => output.write(chunk, { signal })
+    write: (chunk, signal) => output.write(chunk, { signal }),
+    writeRecovery: (chunk, signal) => output.writeRecovery(chunk, { signal })
   });
   const host: TerminalHost = {
     id: options.id,
@@ -118,6 +120,7 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
   };
   terminalState.bind(host, {
     rawInputKnowledge: options.stdin?.isRawModeEnabled === undefined ? 'library_known' : 'observed',
+    observeCellPresentation: (context, recovery) => detector.observeCellPresentation(context.signal, recovery),
     verifyKeyboardProfile: (flags, context) => detector.verifyKeyboardProfile(flags, context.signal),
     ...(options.initialState === undefined ? {} : { initialState: options.initialState })
   });

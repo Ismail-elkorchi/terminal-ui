@@ -50,6 +50,7 @@ export function initialTerminalState(
     focusReporting: explicit.focusReporting ?? false,
     metaSendsEscape: explicit.metaSendsEscape ?? false,
     unicodeGraphemeMode: explicit.unicodeGraphemeMode ?? false,
+    cellPresentation: explicit.cellPresentation ?? 'unknown',
     keyboardProfile: explicit.keyboardProfile ?? LEGACY_KEYBOARD_PROFILE,
     cursorVisible: explicit.cursorVisible ?? true
   } satisfies Omit<TerminalStateSnapshot, 'provenance'>;
@@ -61,6 +62,7 @@ export function initialTerminalState(
     focusReporting: initialKnowledge(explicit, 'focusReporting'),
     metaSendsEscape: initialKnowledge(explicit, 'metaSendsEscape'),
     unicodeGraphemeMode: initialKnowledge(explicit, 'unicodeGraphemeMode'),
+    cellPresentation: initialKnowledge(explicit, 'cellPresentation'),
     keyboardProfile: initialKnowledge(explicit, 'keyboardProfile'),
     cursorVisible: initialKnowledge(explicit, 'cursorVisible')
   };
@@ -89,6 +91,10 @@ function decodeInitialTerminalState(initial: unknown): TerminalInitialState {
     supplied['unicodeGraphemeMode'],
     'unicodeGraphemeMode',
   );
+  const cellPresentation = supplied['cellPresentation'];
+  if (cellPresentation !== undefined && cellPresentation !== 'unknown' && cellPresentation !== 'implicit' && cellPresentation !== 'explicit') {
+    throw new TypeError('Terminal initial state cellPresentation must be unknown, implicit or explicit.');
+  }
   const cursorVisible = optionalInitialBoolean(supplied['cursorVisible'], 'cursorVisible');
   const mouseReporting = supplied['mouseReporting'];
   const keyboardProfile = supplied['keyboardProfile'];
@@ -101,6 +107,7 @@ function decodeInitialTerminalState(initial: unknown): TerminalInitialState {
     ...(unicodeGraphemeMode === undefined
       ? {}
       : { unicodeGraphemeMode }),
+    ...(cellPresentation === undefined ? {} : { cellPresentation }),
     ...(cursorVisible === undefined ? {} : { cursorVisible }),
     ...(mouseReporting === undefined
       ? {}

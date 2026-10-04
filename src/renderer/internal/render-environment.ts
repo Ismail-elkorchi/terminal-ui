@@ -1,3 +1,5 @@
+import { defineTextPresentation } from '../../text/presentation.ts';
+import type { TextPresentation } from '../../text/presentation.ts';
 import type { TerminalSize } from '../../geometry/types.ts';
 import type { TextWidthProfile } from '../../text/types.ts';
 import { defineTextWidthProfile } from '../../text/width-profile.ts';
@@ -10,12 +12,14 @@ export interface RenderEnvironment {
   readonly terminalSize: TerminalSize;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
+  readonly textPresentation?: TextPresentation | undefined;
 }
 
 export interface RenderEnvironmentInput {
   readonly terminalSize: TerminalSize;
   readonly theme?: TerminalTheme | TerminalThemeDefinition;
   readonly widthProfile?: TextWidthProfile;
+  readonly textPresentation?: TextPresentation | undefined;
 }
 
 export function createRenderEnvironment(input: RenderEnvironmentInput): RenderEnvironment {
@@ -30,6 +34,7 @@ export function createRenderEnvironment(input: RenderEnvironmentInput): RenderEn
   return Object.freeze({
     terminalSize,
     theme,
+    textPresentation: input.textPresentation === undefined ? undefined : defineTextPresentation(input.textPresentation),
     widthProfile: defineTextWidthProfile(input.widthProfile)
   });
 }

@@ -598,7 +598,6 @@ function capabilities(depth, hyperlinks = false, synchronizedOutput = false) {
     unicode: {
       graphemeClusters: true,
       widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
-      bidi: 'stable-fallback'
     },
     rawInput: support(true),
     resize: support(true),

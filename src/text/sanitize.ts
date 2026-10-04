@@ -53,6 +53,13 @@ export function* sanitizeTerminalTextWork(text: string, options: SanitizeTermina
   return 'text' in result ? result : yield* result;
 }
 
+/** Cooperative sanitization for prepared single-row terminal geometry. */
+export function* sanitizeTerminalCellTextWork(text: string, options: SanitizeTerminalTextOptions = {}): Generator<number, SanitizedTerminalText> {
+  const adopted = { ...options, ...(options.widthProfile === undefined ? {} : { widthProfile: { ...options.widthProfile } }) };
+  const result = sanitization(text, adopted, 'cell');
+  return 'text' in result ? result : yield* result;
+}
+
 /** Cooperative source-preserving control stripping for projected editors. */
 export function* sanitizeTerminalControlTextWork(text: string): Generator<number, SanitizedTerminalText> {
   const result = sanitization(text, {}, 'control');

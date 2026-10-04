@@ -1,3 +1,4 @@
+import type { TextPresentation } from '../../../text/presentation.ts';
 import type {
   ElementAccessibility,
   ElementFocus,
@@ -95,6 +96,7 @@ export interface RenderNodeMeasureInput<
   readonly childCount: number;
   readonly measureChild: (index: number, constraints?: Rect) => Measurement;
   readonly widthProfile: TextWidthProfile;
+  readonly textPresentation?: TextPresentation | undefined;
 }
 
 export interface RenderNodeLayoutInput<
@@ -110,6 +112,7 @@ export interface RenderNodeLayoutInput<
   readonly childCount: number;
   readonly measureChild: (index: number, constraints?: Rect) => Measurement;
   readonly widthProfile: TextWidthProfile;
+  readonly textPresentation?: TextPresentation | undefined;
 }
 
 export interface RenderNodePlaceInput<
@@ -124,6 +127,7 @@ export interface RenderNodePlaceInput<
   readonly childCount: number;
   readonly measureChild: (index: number, constraints?: Rect) => Measurement;
   readonly widthProfile: TextWidthProfile;
+  readonly textPresentation?: TextPresentation | undefined;
 }
 
 export interface RenderNodeRenderInput<
@@ -135,6 +139,7 @@ export interface RenderNodeRenderInput<
   readonly buffer: RenderTarget;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
+  readonly textPresentation?: TextPresentation | undefined;
   readonly focus: RenderFocusRelation;
   readonly focusedTargetId?: string;
   readonly pointerState?: PointerInteractionState;
@@ -158,6 +163,7 @@ export interface RenderNodeAccessibilityInput<
   readonly accessibleNodes: ReadonlyMap<RenderNode, AccessibleNode>;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
+  readonly textPresentation?: TextPresentation | undefined;
 }
 
 export interface RenderNodeFocusInput<
@@ -169,6 +175,7 @@ export interface RenderNodeFocusInput<
   readonly viewport: Rect;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
+  readonly textPresentation?: TextPresentation | undefined;
 }
 
 export interface RenderNodeHitInput<
@@ -180,6 +187,7 @@ export interface RenderNodeHitInput<
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
+  readonly textPresentation?: TextPresentation | undefined;
 }
 
 export interface RenderNodeKeyInput<
@@ -190,6 +198,7 @@ export interface RenderNodeKeyInput<
   readonly layoutNode: LayoutNode;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
+  readonly textPresentation?: TextPresentation | undefined;
   readonly focus: RenderFocusRelation;
   readonly focusedTargetId?: string;
 }
@@ -199,12 +208,14 @@ export interface RenderNodeLayoutCommitInput<TMessage, TKind extends RenderNodeK
   readonly layoutNode: LayoutNode;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
+  readonly textPresentation?: TextPresentation | undefined;
   readonly commitId: string;
   readonly previous?: {
     readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
     readonly layoutNode: LayoutNode;
     readonly theme: TerminalTheme;
     readonly widthProfile: TextWidthProfile;
+  readonly textPresentation?: TextPresentation | undefined;
   };
 }
 

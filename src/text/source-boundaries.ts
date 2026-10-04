@@ -9,7 +9,7 @@ const cacheLimit = 33_554_432;
 const cache = new Map<string, SourceBoundaryIndex>();
 let cacheBytes = 0;
 const cacheWeights = new WeakMap<SourceBoundaryIndex, number>();
-const bufferIndexes = new WeakMap<TextEditBuffer, SourceBoundaryIndex>();
+const sourceOwners = new WeakMap<object, SourceBoundaryIndex>();
 
 export interface BoundarySource {
   readonly length: number;
@@ -54,6 +54,26 @@ export class SourceBoundaryIndex {
     // Derived numeric prefixes fork immediately, so skipped render revisions or
     // collection of the old document cannot discard reusable preparation.
     for (const [key, data] of previous?.revisionData ?? []) this.revisionData.set(key, data.forRevision(this));
+  }
+
+  /** A row borrows already prepared grapheme boundaries; never resegment a
+   * wrapped substring whose Unicode context belongs to the complete line. */
+  slice(start: number, end: number): SourceBoundaryIndex {
+    if (start === 0 && end === this.source.length) return this;
+    const first = this.indexAtOffset(start);
+    const last = this.indexAtOffset(end);
+    if (this.offsetAtIndex(first) !== start || this.offsetAtIndex(last) !== end) {
+      throw new RangeError('Source boundary slices must align to grapheme boundaries.');
+    }
+    const sliced = new SourceBoundaryIndex(this.source.slice(start, end));
+    sliced.pages.length = 0;
+    sliced.count = last - first + 1;
+    for (let index = 0; index < sliced.count; index += 1) {
+      const page = Math.floor(index / pageLength);
+      (sliced.pages[page] ??= []).push(this.offset(first + index) - start);
+    }
+    sliced.iteratorStart = end - start;
+    return sliced;
   }
 
   derivedData(key: string): SourceRevisionData | undefined { return this.revisionData.get(key); }
@@ -230,17 +250,21 @@ export function reserveSourcePreparation(source: SourceBoundaryIndex, bytes: num
 function boundaryWeight(text: string): number { return 128 + text.length * 18; }
 
 export function bufferSourceBoundaries(buffer: TextEditBuffer): SourceBoundaryIndex {
-  const index = bufferIndexes.get(buffer);
-  // Public buffers may be mutable JavaScript objects. Never reuse an index for
-  // text the caller replaced outside the editing functions.
-  if (index?.source === buffer.text) return index;
-  const next = sourceBoundaries(buffer.text);
-  bufferIndexes.set(buffer, next);
+  return sourceBoundariesForOwner(buffer, buffer.text);
+}
+
+/** Retain canonical boundaries with a revision owner when global text caches evict. */
+export function sourceBoundariesForOwner(owner: object, text: string): SourceBoundaryIndex {
+  const index = sourceOwners.get(owner);
+  // JavaScript callers may mutate buffers/models; never reuse changed source.
+  if (index?.source === text) return index;
+  const next = sourceBoundaries(text);
+  sourceOwners.set(owner, next);
   return next;
 }
 
 export function retainBufferBoundaries(buffer: TextEditBuffer, source: SourceBoundaryIndex): TextEditBuffer {
-  bufferIndexes.set(buffer, source);
+  sourceOwners.set(buffer, source);
   return buffer;
 }
 

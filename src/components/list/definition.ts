@@ -110,7 +110,7 @@ const instantiateList = defineComponent<{ readonly items: readonly SemanticListI
       if (item === undefined || rect.row >= input.bounds.height) continue;
       const marker = input.model.ordered
         ? `${String(index + 1)}.`
-        : oneCellGlyph('•', '*', { widthProfile: input.widthProfile });
+        : oneCellGlyph('•', '*', { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
       const markerStyle = input.style({ part: 'marker' });
       const itemStyle = input.style({ part: 'item' });
       for (let row = Math.max(0, rect.row); row < Math.min(input.bounds.height, rect.row + rect.height); row += 1) {
@@ -125,7 +125,7 @@ const instantiateList = defineComponent<{ readonly items: readonly SemanticListI
         }]);
       }
       input.target.write(rect.row, 0, [{
-        text: `${marker}${' '.repeat(Math.max(1, markerWidth - measureTextCells(marker, { widthProfile: input.widthProfile }).cells))}`,
+        text: `${marker}${' '.repeat(Math.max(1, markerWidth - measureTextCells(marker, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }).cells))}`,
         ...(markerStyle === undefined ? {} : { style: markerStyle }),
         source: input.frameSource({
           partName: 'marker',
@@ -323,9 +323,9 @@ const instantiateListView = defineComponent<ListViewModel, ListViewComponentActi
         }]);
       }
       const marker = active
-        ? oneCellGlyph('›', '>', { widthProfile: input.widthProfile })
+        ? oneCellGlyph('›', '>', { widthProfile: input.widthProfile, textPresentation: input.textPresentation })
         : selected
-          ? oneCellGlyph('●', '*', { widthProfile: input.widthProfile })
+          ? oneCellGlyph('●', '*', { widthProfile: input.widthProfile, textPresentation: input.textPresentation })
           : ' ';
       input.target.write(Math.max(0, rect.row), 0, [{
         text: `${marker} `,

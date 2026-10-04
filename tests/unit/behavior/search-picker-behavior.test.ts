@@ -44,7 +44,7 @@ void test('search picker owns query and active position but acceptance stays an 
   });
 
   assert.deepEqual(searchPickerView(queried), {
-    input: { text: 'file', cursor: 4 },
+    input: { text: 'file', cursor: 4, affinity: 'upstream' as const },
     query: { mode: 'contains' },
     activeId: 'open',
   });
@@ -88,7 +88,7 @@ void test('disabled matches never become active', () => {
 
 void test('activeSearchPickerEntry returns stable-id activation rather than array position', () => {
   const view = {
-    input: { text: 'file', cursor: 4 },
+    input: { text: 'file', cursor: 4, affinity: 'upstream' as const },
     query: { mode: 'contains' } as const,
     activeId: 'close',
   };

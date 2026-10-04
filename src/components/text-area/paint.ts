@@ -4,7 +4,8 @@ import { intersectRects } from '../../geometry/rect.ts';
 import type { Rect } from '../../geometry/types.ts';
 import { textDocumentLineIndexAtOffset, textDocumentSelectionRange } from '../../text/document.ts';
 import { measureTextCells } from '../../text/measure.ts';
-import type { TextSelection } from '../../text/types.ts';
+import type { VisualGraphemeSegment } from '../../text/presentation.ts';
+import type { TerminalTextIndex, TextSelection } from '../../text/types.ts';
 import { terminalStyleHasBackground } from '../../theme/theme.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
 import { span } from '../../visual/render-content.ts';
@@ -90,7 +91,7 @@ export function paintTextArea(input: ComponentRenderInput<TextAreaModel, TextAre
     paintTextAreaPrefix(input, geometry, line, visibleRow, isActive);
     if (visibleContent !== undefined) {
       const window = visibleTextWindow(
-        line,
+        line.index,
         geometry.scrollbar.scroll.offsetColumn,
         content.width,
         visibleContent.column - content.column,
@@ -108,7 +109,7 @@ export function paintTextArea(input: ComponentRenderInput<TextAreaModel, TextAre
     style: (part, state, base) => input.style({ part, base, ...(state === undefined ? {} : { states: [state] }) }),
     frameSource: (sourceInput) => input.frameSource(sourceInput),
   });
-  paintTextAreaError(input);
+  paintTextAreaError(input, geometry);
 }
 
 function paintTextAreaPlane(
@@ -137,14 +138,21 @@ function paintTextAreaPlane(
 
 function paintTextAreaError(
   input: ComponentRenderInput<TextAreaModel, TextAreaStylePart>,
+  geometry: TextAreaGeometry,
 ): void {
-  const row = textAreaEditorHeight(input.model, input.bounds.height);
-  if (input.model.error === '' || row >= input.bounds.height) return;
+  const localRow = textAreaEditorHeight(input.model, input.bounds.height);
+  const index = geometry.errorIndex;
+  if (index === undefined || localRow >= input.bounds.height) return;
+  const row = input.bounds.row + localRow;
+  const visible = intersectRects({ row, column: input.bounds.column, width: input.bounds.width, height: 1 }, input.viewport);
+  if (visible === undefined) return;
+  const window = visibleTextWindow(index, 0, input.bounds.width, visible.column - input.bounds.column, visible.width);
   const style = input.style({
     part: 'error',
     base: { fg: { kind: 'theme', token: 'status.error' }, bold: true },
   });
-  input.target.write(row, input.bounds.column, [span(input.model.error, {
+  input.target.write(row, input.bounds.column + window.columnOffset, [span(window.graphemes.map(grapheme => grapheme.text).join(''), {
+    textOrder: 'visual',
     ...(style === undefined ? {} : { style }),
     source: input.frameSource({
       cellRole: 'text',
@@ -287,32 +295,28 @@ const textAreaActiveLineStyle = Object.freeze<TerminalStyle>({
 });
 
 interface VisibleTextWindow {
-  readonly text: string;
-  readonly startOffset: number;
-  readonly endOffset: number;
+  readonly graphemes: readonly VisualGraphemeSegment[];
   readonly columnOffset: number;
 }
 
 function visibleTextWindow(
-  line: TextAreaLayoutLine,
+  index: TerminalTextIndex,
   offsetColumn: number,
   width: number,
   visibleOffset: number,
   visibleWidth: number,
 ): VisibleTextWindow {
-  const logicalStart = line.index.visualColumnToGraphemeIndex(Math.max(0, offsetColumn));
-  // The existing scroll window snaps to a grapheme. Clip in its painted cell
-  // coordinates so partial wide glyphs stay at the same columns for the target.
-  const logicalColumn = line.index.graphemeIndexToVisualColumn(logicalStart);
-  const startGrapheme = line.index.visualColumnToGraphemeIndex(logicalColumn + visibleOffset);
-  const endGrapheme = Math.min(
-    line.index.visualColumnToGraphemeIndex(Math.max(0, offsetColumn + width)),
-    line.index.visualColumnToGraphemeIndex(logicalColumn + visibleOffset + visibleWidth),
-  );
-  const startOffset = line.index.graphemeIndexToCodeUnitOffset(startGrapheme);
-  const endOffset = line.index.graphemeIndexToCodeUnitOffset(endGrapheme);
-  const columnOffset = line.index.graphemeIndexToVisualColumn(startGrapheme) - logicalColumn;
-  return { text: line.text.slice(startOffset, endOffset), startOffset, endOffset, columnOffset };
+  // Scroll positions snap to a complete glyph. Viewport clipping retains a
+  // partially visible leading glyph so the render target clears its clipped cells.
+  const scrollPosition = index.visualColumnToPosition(Math.max(0, offsetColumn));
+  const scrollColumn = index.positionToVisualColumn(scrollPosition);
+  const startPosition = index.visualColumnToPosition(scrollColumn + visibleOffset);
+  const startColumn = index.positionToVisualColumn(startPosition);
+  const endColumn = Math.min(offsetColumn + width, scrollColumn + visibleOffset + visibleWidth);
+  return {
+    graphemes: index.visualGraphemesInColumns(startColumn, endColumn),
+    columnOffset: startColumn - scrollColumn,
+  };
 }
 
 function textAreaValueSpans(
@@ -323,43 +327,24 @@ function textAreaValueSpans(
   selection: TextSelection | undefined,
   active: boolean,
 ): readonly RenderSpan[] {
-  if (window.text === '') return [];
-  const absoluteStart = line.start + window.startOffset;
-  const absoluteEnd = line.start + window.endOffset;
-  const cuts = new Set<number>([absoluteStart, absoluteEnd]);
-  if (selection !== undefined) {
-    cuts.add(Math.max(absoluteStart, Math.min(absoluteEnd, selection.startOffset)));
-    cuts.add(Math.max(absoluteStart, Math.min(absoluteEnd, selection.endOffsetExclusive)));
-  }
-  const decorations = projectedStyleRangesBetween(
-    geometry.projection.styleRanges,
-    absoluteStart,
-    absoluteEnd,
-  );
-  for (const decoration of decorations) {
-    cuts.add(Math.max(absoluteStart, decoration.startOffset));
-    cuts.add(Math.min(absoluteEnd, decoration.endOffsetExclusive));
-  }
-  const boundaries = [...cuts].toSorted((left, right) => left - right);
-  let decorationIndex = 0;
   const spans: RenderSpan[] = [];
-  for (const [index, start] of boundaries.entries()) {
-    const end = boundaries[index + 1];
-    if (end === undefined || end <= start) continue;
-    const text = window.text.slice(start - absoluteStart, end - absoluteStart);
-    while ((decorations[decorationIndex]?.endOffsetExclusive ?? Number.POSITIVE_INFINITY) <= start) {
-      decorationIndex += 1;
+  let pending: TextAreaValueSegment | undefined;
+  let text = '';
+  for (const grapheme of window.graphemes) {
+    const start = line.start + grapheme.startOffset;
+    const end = line.start + grapheme.endOffsetExclusive;
+    const segment = textAreaValueSegment(selection,
+      projectedStyleAt(geometry.projection.styleRanges, start), start, end,
+      geometry.usesPlaceholder, active);
+    if (pending !== undefined && (pending.part !== segment.part
+      || pending.decoration !== segment.decoration)) {
+      spans.push(textAreaValueSegmentSpan(input, text, pending, active));
+      text = '';
     }
-    const segment = textAreaValueSegment(
-      selection,
-      decorations[decorationIndex],
-      start,
-      end,
-      geometry.usesPlaceholder,
-      active,
-    );
-    spans.push(textAreaValueSegmentSpan(input, text, segment, active));
+    pending = segment;
+    text += grapheme.text;
   }
+  if (pending !== undefined) spans.push(textAreaValueSegmentSpan(input, text, pending, active));
   return spans;
 }
 
@@ -416,6 +401,7 @@ function textAreaValueSegmentSpan(
       : availability.length === 0 ? {} : { states: availability }),
   });
   return span(text, {
+    textOrder: 'visual',
     ...(style === undefined ? {} : { style }),
     source: input.frameSource({
       cellRole: 'text',
@@ -451,22 +437,17 @@ function textAreaValueSegmentBase(segment: TextAreaValueSegment, active: boolean
   };
 }
 
-function projectedStyleRangesBetween(
+function projectedStyleAt(
   ranges: readonly ProjectedTextStyleRange[],
-  startOffset: number,
-  endOffsetExclusive: number,
-): readonly ProjectedTextStyleRange[] {
+  offset: number,
+): ProjectedTextStyleRange | undefined {
   let low = 0;
   let high = ranges.length;
   while (low < high) {
     const middle = Math.floor((low + high) / 2);
-    if ((ranges[middle]?.endOffsetExclusive ?? Number.POSITIVE_INFINITY) <= startOffset) {
-      low = middle + 1;
-    } else {
-      high = middle;
-    }
+    if ((ranges[middle]?.endOffsetExclusive ?? Number.POSITIVE_INFINITY) <= offset) low = middle + 1;
+    else high = middle;
   }
-  let end = low;
-  while ((ranges[end]?.startOffset ?? Number.POSITIVE_INFINITY) < endOffsetExclusive) end += 1;
-  return ranges.slice(low, end);
+  const candidate = ranges[low];
+  return candidate !== undefined && candidate.startOffset <= offset ? candidate : undefined;
 }

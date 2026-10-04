@@ -19,7 +19,8 @@ export function prepareTextAreaLayout(
   const requested = readTextAreaLayoutRequest(request);
   const dependencies = requested.dependencies;
   const dimensions = Object.freeze({ width: request.width, height: request.height,
-    theme: request.theme, widthProfile: request.widthProfile });
+    theme: request.theme, widthProfile: request.widthProfile,
+    ...(request.textPresentation === undefined ? {} : { textPresentation: request.textPresentation }) });
   // The accepted request owns only source/geometry inputs. Preparation uses a
   // canonical caret and scroll; consumers rebase live editing state and origin.
   const adopted = {
@@ -46,6 +47,7 @@ export function prepareTextAreaLayout(
     const model = createTextAreaModel(adopted, { placeholder, error });
     assertTextAreaRequestDependencies(request, model);
     const common = { model, theme: dimensions.theme, widthProfile: dimensions.widthProfile,
+      ...(dimensions.textPresentation === undefined ? {} : { textPresentation: dimensions.textPresentation }),
       disabled: false, busy: false, readOnly: false, inert: false };
     const measurements = new Map(requested.measurements);
     for (const width of request.measurementWidths) {

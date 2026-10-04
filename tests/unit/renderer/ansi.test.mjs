@@ -113,7 +113,6 @@ function capabilities(depth, hyperlinks = false, textAttributes = true) {
     unicode: {
       graphemeClusters: true,
       widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
-      bidi: 'stable-fallback'
     },
     rawInput: support(true),
     resize: support(true),

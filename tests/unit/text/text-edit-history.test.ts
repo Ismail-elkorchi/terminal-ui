@@ -13,8 +13,8 @@ void test('text edit history undoes and redoes deterministic buffer states', () 
   const undone = applyTextEditWithHistory(deleted.buffer, deleted.history, { kind: 'undo' });
   const redone = applyTextEditWithHistory(undone.buffer, undone.history, { kind: 'redo' });
 
-  assert.deepEqual(inserted.buffer, { text: 'alpha beta', cursor: 10 });
-  assert.deepEqual(deleted.buffer, { text: 'alpha ', cursor: 6 });
+  assert.deepEqual(inserted.buffer, { text: 'alpha beta', cursor: 10, affinity: 'upstream' });
+  assert.deepEqual(deleted.buffer, { text: 'alpha ', cursor: 6, affinity: 'upstream' });
   assert.deepEqual(undone.buffer, inserted.buffer);
   assert.deepEqual(redone.buffer, deleted.buffer);
 });
@@ -26,7 +26,7 @@ void test('text edit history groups consecutive inserts into one undo step', () 
   const third = applyTextEditWithHistory(second.buffer, second.history, { kind: 'insert', text: 'c' });
   const undone = applyTextEditWithHistory(third.buffer, third.history, { kind: 'undo' });
 
-  assert.deepEqual(third.buffer, { text: 'abc', cursor: 3 });
+  assert.deepEqual(third.buffer, { text: 'abc', cursor: 3, affinity: 'upstream' });
   assert.equal(third.history.undo.length, 1);
   assert.deepEqual(undone.buffer, initial);
 });
@@ -54,7 +54,7 @@ void test('text edit history restores selection and respects grapheme-safe edits
   const moved = applyTextEditWithHistory(replaced.buffer, replaced.history, { kind: 'moveWordRight', extendSelection: true });
   const undoReplace = applyTextEditWithHistory(moved.buffer, moved.history, { kind: 'undo' });
 
-  assert.deepEqual(replaced.buffer, { text: 'aéb', cursor: 2 });
+  assert.deepEqual(replaced.buffer, { text: 'aéb', cursor: 2, affinity: 'upstream' });
   assert.deepEqual(undoReplace.buffer, initial);
 });
 
@@ -86,7 +86,7 @@ void test('range replacement is grapheme-safe and undo branching clears redo', (
     range: { startOffset: 2, endOffsetExclusive: 3 },
     text: 'X'
   });
-  assert.deepEqual(replaced.buffer, { text: 'aXb', cursor: 2 });
+  assert.deepEqual(replaced.buffer, { text: 'aXb', cursor: 2, affinity: 'upstream' });
   const undone = applyTextEditWithHistory(replaced.buffer, replaced.history, { kind: 'undo' });
   const branched = applyTextEditWithHistory(undone.buffer, undone.history, {
     kind: 'replaceRange',
@@ -94,5 +94,5 @@ void test('range replacement is grapheme-safe and undo branching clears redo', (
     text: 'Y'
   });
   assert.equal(branched.history.redo.length, 0);
-  assert.deepEqual(branched.buffer, { text: 'aYb', cursor: 2 });
+  assert.deepEqual(branched.buffer, { text: 'aYb', cursor: 2, affinity: 'upstream' });
 });

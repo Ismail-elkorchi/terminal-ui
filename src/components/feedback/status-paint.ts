@@ -9,7 +9,7 @@ type StatusVisualPart = StatusBarStylePart | HelpBarStylePart;
 
 export type StatusVisualInput<TModel extends object, TPart extends StatusVisualPart> = Pick<
   ComponentRenderInput<TModel, TPart>,
-  'id' | 'model' | 'theme' | 'widthProfile' | 'style' | 'frameSource'
+  'id' | 'model' | 'theme' | 'widthProfile' | 'textPresentation' | 'style' | 'frameSource'
 >;
 
 type StatusPaintInput<TPart extends StatusVisualPart> = Pick<
@@ -70,6 +70,7 @@ export function statusSpan<TPart extends StatusVisualPart>(
   };
   const style = input.style({ part, base: barBase });
   return span(textValue, {
+    ...(options.cellRole === 'decoration' || options.cellRole === 'separator' ? { textOrder: 'visual' as const } : {}),
     ...(style === undefined ? {} : { style }),
     source: input.frameSource({
       cellRole: options.cellRole ?? 'text',

@@ -31,11 +31,9 @@ import { ignoreMessage } from '../../interaction/message.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
-import { segmentGraphemes } from '../../text/graphemes.ts';
 import { measureTextCells } from '../../text/measure.ts';
 import type { CollectionQuery, QueryMatchRange } from '../../text/query.ts';
 import { ownCollectionQueryRequest } from '../../text/query.ts';
-import { createTerminalTextIndex } from '../../text/terminal-text-index.ts';
 import type { TerminalStyle } from '../../visual/render-content.ts';
 import { clipRenderSpans, span } from '../../visual/render-content.ts';
 import { allowsComponentAction } from '../shared/action-capability.ts';
@@ -44,7 +42,7 @@ import { clean, nonEmpty, positiveInteger } from '../shared/picker-validation.ts
 import { queryLabelSpans } from '../shared/query-label-spans.ts';
 import { layoutSingleLineTextWindow } from '../shared/single-line-text-window.ts';
 import { decodeTextSelection } from '../shared/text-input-validation.ts';
-import { textEditingHandlers } from '../shared/text-key-bindings.ts';
+import { textEditingHandlers, textEditingVisualInput } from '../shared/text-key-bindings.ts';
 import { textPointerTarget } from '../shared/text-pointer-target.ts';
 import type { SearchPickerStylePart } from '../style-parts.ts';
 import type {
@@ -219,10 +217,10 @@ const instantiateSearchPicker = defineComponent<SearchPickerComponentOptions, Se
       minHeight: 1,
       preferredWidth: Math.max(
         16,
-        measureTextCells(input.model.title, { widthProfile: input.widthProfile }).cells,
-        measureTextCells(input.model.input.text, { widthProfile: input.widthProfile }).cells + 2,
+        measureTextCells(input.model.title, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }).cells,
+        measureTextCells(input.model.input.text, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }).cells + 2,
         ...input.model.rows.map((row) =>
-          measureTextCells(row.label, { widthProfile: input.widthProfile }).cells + 2
+          measureTextCells(row.label, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }).cells + 2
         ),
       ),
       preferredHeight: Math.max(
@@ -285,14 +283,14 @@ const instantiateSearchPicker = defineComponent<SearchPickerComponentOptions, Se
       }],
     };
   },
-  keys: ({ model, readOnly, busy }) => {
+  keys: ({ model, readOnly, busy, widthProfile, textPresentation }) => {
     const availability = { busy, readOnly };
     if (!allowsComponentAction(availability, 'navigate')) return {};
     const canEdit = allowsComponentAction(availability, 'edit');
     const canActivate = allowsComponentAction(availability, 'activate');
     const activeId = model.activeId;
     return controlKeyBindings<SearchPickerKeyAction, SearchPickerComponentAction>(model.keymap, {
-      ...mapControlKeyHandlers(textEditingHandlers(!canEdit), searchPickerTransition),
+      ...mapControlKeyHandlers(textEditingHandlers(!canEdit, textEditingVisualInput(model.input, { widthProfile, textPresentation })), searchPickerTransition),
       ...(canEdit ? {
         undo: () => searchPickerTransition({ kind: 'undo' }),
         redo: () => searchPickerTransition({ kind: 'redo' }),
@@ -311,7 +309,7 @@ const instantiateSearchPicker = defineComponent<SearchPickerComponentOptions, Se
     ? searchPickerTransition({ kind: 'edit', operation: { kind: 'insert', text } })
     : ignoreMessage(),
   focusTargets(input) {
-    const visual = searchPickerInputVisual(input.model, input.bounds.width, input.widthProfile);
+    const visual = searchPickerInputVisual(input.model, input.bounds.width, input.widthProfile, input.textPresentation);
     return [{
       id: 'self',
       bounds: input.bounds,
@@ -324,8 +322,8 @@ const instantiateSearchPicker = defineComponent<SearchPickerComponentOptions, Se
   hitTargets(input) {
     if (input.busy) return [];
     const plan = searchPickerPlan(input);
-    const visual = searchPickerInputVisual(input.model, plan.contentBounds.width, input.widthProfile);
-    const index = createTerminalTextIndex(input.model.input.text, { widthProfile: input.widthProfile });
+    const visual = searchPickerInputVisual(input.model, plan.contentBounds.width, input.widthProfile, input.textPresentation);
+    const index = visual.index;
     const queryTarget = textPointerTarget<SearchPickerComponentAction>({
       id: `${input.id ?? 'search-picker'}:query`,
       bounds: {
@@ -344,7 +342,8 @@ const instantiateSearchPicker = defineComponent<SearchPickerComponentOptions, Se
           0,
           local - 3 - Number(visual.clippedBefore),
         );
-        return index.graphemeIndexToCodeUnitOffset(index.visualColumnToGraphemeIndex(column));
+        const position = visual.index.visualColumnToPosition(column);
+      return position;
       },
       wordSelectionAt: (offset) => index.wordSelectionAt(offset),
       onPointer: (transition) => searchPickerTransition({ kind: 'pointer', transition }),
@@ -475,6 +474,7 @@ function decodeSearchPickerView(
   const input = Object.freeze({
     text,
     cursor,
+    ...(value.input.affinity === undefined ? {} : { affinity: value.input.affinity }),
     ...(selection === undefined ? {} : { selection }),
   });
   const query = ownCollectionQueryRequest({ text, ...value.query });
@@ -541,7 +541,7 @@ function paintSearchPicker(
         }),
       ],
       plan.contentBounds.width,
-      { widthProfile: input.widthProfile },
+      { widthProfile: input.widthProfile, textPresentation: input.textPresentation },
     ),
   );
   const inputStyle = input.style({
@@ -552,7 +552,7 @@ function paintSearchPicker(
     part: 'placeholder',
     base: { fg: { kind: 'theme', token: 'command.prompt' } },
   });
-  const visual = searchPickerInputVisual(input.model, plan.contentBounds.width, input.widthProfile);
+  const visual = searchPickerInputVisual(input.model, plan.contentBounds.width, input.widthProfile, input.textPresentation);
   input.target.write(
     1,
     0,
@@ -569,7 +569,7 @@ function paintSearchPicker(
         ...searchPickerQuerySpans(input, visual, inputStyle),
       ],
       plan.contentBounds.width,
-      { widthProfile: input.widthProfile },
+      { widthProfile: input.widthProfile, textPresentation: input.textPresentation },
     ),
   );
   if (input.model.rows.length === 0) {
@@ -642,7 +642,7 @@ function paintSearchPicker(
       })]),
     ];
     const used = measureTextCells(spans.map((current) => current.text).join(''), {
-      widthProfile: input.widthProfile,
+      widthProfile: input.widthProfile, textPresentation: input.textPresentation,
     }).cells;
     if (used < plan.contentBounds.width) {
       spans.push(span(' '.repeat(plan.contentBounds.width - used), {
@@ -661,7 +661,7 @@ function paintSearchPicker(
     input.target.write(
       index + 2,
       0,
-      clipRenderSpans(spans, plan.contentBounds.width, { widthProfile: input.widthProfile }),
+      clipRenderSpans(spans, plan.contentBounds.width, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
     );
   });
   let trailingRow = visibleRows.length + 2;
@@ -707,8 +707,7 @@ function searchPickerQuerySpans(
       source: input.frameSource({ partName: 'query.window', cellRole: 'decoration', description: 'query.window' }),
     }));
   }
-  for (const grapheme of segmentGraphemes(input.model.input.text)) {
-    if (grapheme.startOffset < visual.startOffset || grapheme.startOffset >= visual.endOffsetExclusive) continue;
+  for (const grapheme of visual.graphemes) {
     const selected = input.model.input.selection !== undefined
       && grapheme.startOffset < input.model.input.selection.endOffsetExclusive
       && grapheme.endOffsetExclusive > input.model.input.selection.startOffset;
@@ -723,6 +722,7 @@ function searchPickerQuerySpans(
         })
       : inputStyle;
     output.push(span(grapheme.text, {
+      textOrder: 'visual',
       ...(style === undefined ? {} : { style }),
       source: input.frameSource({
         partName: selected ? 'query.selection' : 'query',
@@ -761,11 +761,15 @@ function searchPickerInputVisual(
   model: SearchPickerModel,
   width: number,
   widthProfile: import('../../text/index.ts').TextWidthProfile,
+  textPresentation?: import('../../text/presentation.ts').TextPresentation,
 ): import('../shared/single-line-text-window.ts').SingleLineTextWindow {
   return layoutSingleLineTextWindow(
     model.input.text,
     model.input.cursor,
     Math.max(0, width - 2),
     widthProfile,
+    textPresentation,
+    model.input.affinity,
+    model.input,
   );
 }

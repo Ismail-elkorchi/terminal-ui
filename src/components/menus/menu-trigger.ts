@@ -99,7 +99,7 @@ const instantiateMenuTrigger = defineComponent<MenuTriggerOwnOptions, MenuTrigge
       minHeight: 1,
       preferredWidth: measureTextCells(
         `${input.model.label}${input.model.label === '' ? '' : ': '}  ${value}  `,
-        { widthProfile: input.widthProfile },
+        { widthProfile: input.widthProfile, textPresentation: input.textPresentation },
       ).cells,
       preferredHeight: 1,
     };
@@ -292,7 +292,7 @@ function paintMenuTrigger(input: ComponentRenderInput<MenuTriggerModel, MenuStyl
   ];
   const selected = input.model.view.active === undefined
     ? ' '
-    : oneCellGlyph(input.theme.tokens.symbols.pointer, '>', { widthProfile: input.widthProfile });
+    : oneCellGlyph(input.theme.tokens.symbols.pointer, '>', { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
   const spans = [
     menuSpan(
       input,
@@ -343,7 +343,7 @@ function paintMenuTrigger(input: ComponentRenderInput<MenuTriggerModel, MenuStyl
   input.target.write(
     0,
     0,
-    clipRenderSpans(spans, input.bounds.width, { widthProfile: input.widthProfile }),
+    clipRenderSpans(spans, input.bounds.width, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
   );
 }
 

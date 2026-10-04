@@ -1,3 +1,4 @@
+import type { TextPresentation } from '../../text/types.ts';
 import { diagnostic } from '../../diagnostics.ts';
 import { TerminalUiError, errorFromUnknown } from '../../errors.ts';
 import type { TerminalGraphicsMode } from '../../graphics/types.ts';
@@ -10,7 +11,7 @@ import { setupTuiSession } from './lifecycle.ts';
 import type { TuiRuntimeRunner } from '../runtime.ts';
 import { failTuiRuntimeTerminalOwnership } from '../runtime.ts';
 import type { SessionProtocolPolicy } from './session-policy.ts';
-import { inputProfileForSession } from './session-policy.ts';
+import { assertSessionTextPresentation, inputProfileForSession } from './session-policy.ts';
 import { recordTuiRestore } from '../transcript.ts';
 import type { TuiRuntime } from '../types.ts';
 
@@ -19,6 +20,7 @@ interface TerminalSuspensionOptions<TState, TMessage> {
   readonly host: TerminalHost;
   readonly input: TuiInputSuspensionController;
   readonly policy: SessionProtocolPolicy;
+  readonly textPresentation?: TextPresentation | undefined;
   readonly graphics: TerminalGraphicsMode;
   readonly recoveryTimeoutMs: number;
   readonly maxPendingOperations?: number;
@@ -168,7 +170,7 @@ export function createTerminalSuspension<TState, TMessage>(
         await lifecycleRecovery('recovery', async (recoverySignal) => {
           await options.host.getCapabilities({
             activeProbes: options.host.runtime === 'memory'
-              ? []
+              ? options.policy.cellPresentation === 'disabled' ? [] : ['terminalModes']
               : [
                   'terminalModes',
                   'keyboardProtocol',
@@ -187,11 +189,13 @@ export function createTerminalSuspension<TState, TMessage>(
             recoverySignal.throwIfAborted();
             throw new Error('Terminal runtime ended before suspension recovery completed.');
           }
+          // The new lease owns the freshly observed external baseline, including on setup failure.
+          options.replaceSession(session);
+          assertSessionTextPresentation(session, options.textPresentation);
           const setup = await setupTuiSession(session, options.policy, { signal: recoverySignal });
           if (setup.status === 'failed') {
             throw new Error('Terminal session could not be reconfigured after suspension.');
           }
-          options.replaceSession(session);
           await runner.replaceTerminalProfile({
             capabilities: session.capabilities,
             ...inputProfileForSession(setup)

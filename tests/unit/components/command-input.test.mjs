@@ -54,7 +54,7 @@ test('commandInputReducer edits, navigates history, and accepts suggestions', ()
   });
 
   const typed = commandInputReducer(initial, { kind: 'edit', operation: { kind: 'insert', text: 't' } });
-  assert.deepEqual(typed.editor.input, { text: 't', cursor: 1 });
+  assert.deepEqual(typed.editor.input, { text: 't', cursor: 1, affinity: 'upstream' });
   assert.equal('submissionIndex' in typed, false);
 
   const previous = commandInputReducer(typed, { kind: 'historyPrevious' });
@@ -67,7 +67,7 @@ test('commandInputReducer edits, navigates history, and accepts suggestions', ()
 
   const forward = commandInputReducer(earlier, { kind: 'historyNext' });
   const restoredDraft = commandInputReducer(forward, { kind: 'historyNext' });
-  assert.deepEqual(restoredDraft.editor.input, { text: 't', cursor: 1 });
+  assert.deepEqual(restoredDraft.editor.input, { text: 't', cursor: 1, affinity: 'upstream' });
   assert.equal('submissionIndex' in restoredDraft, false);
 
   const refreshed = commandInputReducer(earlier, {
@@ -81,7 +81,7 @@ test('commandInputReducer edits, navigates history, and accepts suggestions', ()
   assert.equal(selected.editor.activeId, 'test-coverage');
 
   const accepted = commandInputReducer(selected, { kind: 'acceptSuggestion' });
-  assert.deepEqual(accepted.editor.input, { text: 'test --coverage', cursor: 15 });
+  assert.deepEqual(accepted.editor.input, { text: 'test --coverage', cursor: 15, affinity: 'upstream' });
   assert.equal('activeId' in accepted.editor, true);
 });
 
@@ -118,7 +118,7 @@ test('commandInputReducer skips disabled suggestions for selection and acceptanc
   assert.equal(commandInputReducer(initial, { kind: 'setActiveSuggestion', id: 'deploy' }), initial);
 
   const accepted = commandInputReducer(selected, { kind: 'acceptSuggestion' });
-  assert.deepEqual(accepted.editor.input, { text: 'status', cursor: 6 });
+  assert.deepEqual(accepted.editor.input, { text: 'status', cursor: 6, affinity: 'upstream' });
 
   const manuallyDisabled = commandInputReducer({
     ...initial,
@@ -328,7 +328,7 @@ test('commandInput fills tall bounds while preserving its one-row natural size',
   assert.deepEqual(target.bounds, { row: 1, column: 1, width: 20, height: 3 });
   assert.deepEqual(message?.action, {
     kind: 'pointer',
-    transition: { kind: 'placeCaret', offset: 4 }
+    transition: { kind: 'placeCaret', offset: 4, affinity: 'upstream' }
   });
 });
 
@@ -459,7 +459,7 @@ test('commandInput cursor-only keyboard and pointer transitions repaint the comm
     eventType: 'press',
     location: 'standard'
   });
-  assert.deepEqual(runtime.state().editor.input, { text: 'bcd', cursor: 0 });
+  assert.deepEqual(runtime.state().editor.input, { text: 'bcd', cursor: 0, affinity: 'downstream' });
 
   const frames = host.frames();
   const diffs = host.diffs();
@@ -576,7 +576,7 @@ test('commandInput maps pointer positions through the cursor-relative input wind
 
   assert.deepEqual(message?.action, {
     kind: 'pointer',
-    transition: { kind: 'placeCaret', offset: 3 }
+    transition: { kind: 'placeCaret', offset: 3, affinity: 'downstream' }
   });
 });
 
@@ -722,4 +722,13 @@ test('commandInput rejects invalid validation levels at its factory boundary', (
     view: { input: { text: '', cursor: 0 }, open: false, ...createSuggestionFixture([]) },
     validation: { message: 'Invalid', level: 'success' }
   }), /validation level must be one of info, warning, error/u);
+});
+
+test('command submission traversal restores draft selection and run-boundary affinity', () => {
+  const draft = { text: 'abcאבג', cursor: 3, affinity: 'upstream', selection: { startOffset: 0, endOffsetExclusive: 3 } };
+  const initial = createCommandInputState({ value: draft.text, submissions: ['status'], suggestions: createCommandSuggestions([]) });
+  const edited = { ...initial, editor: { ...initial.editor, input: draft } };
+  const previous = commandInputReducer(edited, { kind: 'historyPrevious' });
+  const restored = commandInputReducer(previous, { kind: 'historyNext' });
+  assert.deepEqual(restored.editor.input, draft);
 });

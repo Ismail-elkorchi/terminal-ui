@@ -60,10 +60,13 @@ export function normalizeSourceSelection(source: SourceBoundaryIndex, selection:
   return startOffset === endOffsetExclusive ? undefined : { startOffset, endOffsetExclusive };
 }
 
-export function replaceSourceRange(source: SourceBoundaryIndex, selection: TextSelection, replacement: string): TextEditBuffer {
+export function replaceSourceRange(source: SourceBoundaryIndex, selection: TextSelection, replacement: string, affinity?: import('./types.ts').TextAffinity): TextEditBuffer {
   const start = normalizeSourceCursor(source, Math.min(selection.startOffset, selection.endOffsetExclusive));
   const end = normalizeSourceCursor(source, Math.max(selection.startOffset, selection.endOffsetExclusive));
   const text = `${source.source.slice(0, start)}${replacement}${source.source.slice(end)}`;
   const boundaries = editSourceBoundaries(text, source, start);
-  return retainBufferBoundaries({ text, cursor: normalizeSourceEditCursor(boundaries, start + replacement.length) }, boundaries);
+  const nextAffinity = replacement.length > 0 ? 'upstream' : affinity;
+  return retainBufferBoundaries({ text, cursor: normalizeSourceEditCursor(boundaries, start + replacement.length),
+    ...(nextAffinity === undefined ? {} : { affinity: nextAffinity }),
+  }, boundaries);
 }

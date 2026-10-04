@@ -1,3 +1,4 @@
+import type { TextPresentation } from '../../text/presentation.ts';
 import type { TextWidthProfile } from '../../text/types.ts';
 import type { RenderSpan } from '../../visual/render-content.ts';
 import { clipRenderSpans } from '../../visual/render-content.ts';
@@ -10,12 +11,13 @@ export function tooltipLines(
   title: readonly RenderSpan[],
   body: readonly (readonly RenderSpan[])[],
   maxCells: number,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  textPresentation?: TextPresentation,
 ): readonly TooltipLine[] {
   const lines: TooltipLine[] = [];
-  if (title.length > 0) lines.push({ spans: clipRenderSpans(title, maxCells, { widthProfile }) });
+  if (title.length > 0) lines.push({ spans: clipRenderSpans(title, maxCells, { widthProfile, textPresentation }) });
   for (const current of body) {
-    lines.push({ spans: clipRenderSpans(current, maxCells, { widthProfile }) });
+    lines.push({ spans: clipRenderSpans(current, maxCells, { widthProfile, textPresentation }) });
   }
   return lines;
 }

@@ -6,7 +6,7 @@ import { terminalStyleHasBackground } from '../../theme/theme.ts';
 import { inlineSegmentText } from '../../visual/inline-content.ts';
 import { sameStyleDependencies } from '../../visual/style-dependencies.ts';
 import type { TerminalStyle } from '../../visual/render-content.ts';
-import { clipRenderSpans, measureRenderSpans, span } from '../../visual/render-content.ts';
+import { clipRenderSpans, compactRenderSpans, layoutRenderSpans, measureRenderSpans, span } from '../../visual/render-content.ts';
 import type { TableStylePart } from '../style-parts.ts';
 import type { TablePlan } from './layout.ts';
 import { tablePlan, tableSeparatorCells, tableSortMarker } from './layout.ts';
@@ -27,6 +27,7 @@ export function paintTable(input: ComponentRenderInput<TableModel, TableStylePar
         plan.horizontalOffset,
         plan.geometry.contentBounds.width,
         input.widthProfile,
+        input.textPresentation,
       ),
     );
   }
@@ -39,6 +40,7 @@ export function paintTable(input: ComponentRenderInput<TableModel, TableStylePar
         plan.horizontalOffset,
         plan.geometry.contentBounds.width,
         input.widthProfile,
+        input.textPresentation,
       ),
     );
   } else {
@@ -51,6 +53,7 @@ export function paintTable(input: ComponentRenderInput<TableModel, TableStylePar
           plan.horizontalOffset,
           plan.geometry.contentBounds.width,
           input.widthProfile,
+          input.textPresentation,
         ),
       );
     });
@@ -83,6 +86,7 @@ function tableHeaderSpans(
     ? []
     : [
     span(' '.repeat(plan.markerCells), {
+      textOrder: 'visual',
       ...(headerStyle === undefined ? {} : { style: headerStyle }),
       source: tableFrameSource(input, 'header.marker', 'header', 'decoration'),
     }),
@@ -124,6 +128,7 @@ function tableHeaderSpans(
       });
       labelSpans.push(
         span(sort, {
+          textOrder: 'visual',
           ...(sortStyle === undefined ? {} : { style: sortStyle }),
           source: tableFrameSource(
             input,
@@ -138,6 +143,7 @@ function tableHeaderSpans(
     if (input.model.semanticRole === 'grid' && column.resizable) {
       labelSpans.push(
         span(' ↔', {
+          textOrder: 'visual',
           ...(cellStyle === undefined ? {} : { style: cellStyle }),
           source: tableFrameSource(
             input,
@@ -155,6 +161,7 @@ function tableHeaderSpans(
         width,
         column.align,
         input.widthProfile,
+        input.textPresentation,
         cellStyle,
         tableFrameSource(
           input,
@@ -172,6 +179,7 @@ function tableHeaderSpans(
 interface TableRowPaintDependencies {
   readonly id: string | undefined;
   readonly theme: ComponentRenderInput<TableModel>['theme'];
+  readonly textPresentation: ComponentInput<TableModel>['textPresentation'];
   readonly emoji: string;
   readonly ambiguous: string;
   readonly columns: TableModel['columns'];
@@ -193,7 +201,7 @@ interface TableRowPaintDependencies {
 }
 
 function sameRowDependencies(a: TableRowPaintDependencies, b: TableRowPaintDependencies): boolean {
-  if (a.id !== b.id || a.theme !== b.theme || a.emoji !== b.emoji || a.ambiguous !== b.ambiguous
+  if (a.id !== b.id || a.theme !== b.theme || a.textPresentation !== b.textPresentation || a.emoji !== b.emoji || a.ambiguous !== b.ambiguous
     || a.columns !== b.columns || a.semanticRole !== b.semanticRole || a.interactionKind !== b.interactionKind
     || a.density !== b.density || a.selected !== b.selected || a.active !== b.active
     || a.activeColumnId !== b.activeColumnId || a.pointer !== b.pointer || !sameStyleDependencies(a.styles, b.styles)
@@ -231,7 +239,7 @@ function tableRowSpans(
   const active = input.model.activeRowId === row.id;
   const prefix = `${input.id ?? 'table'}:row:${row.id}`;
   const dependencies: TableRowPaintDependencies = {
-    id: input.id, theme: input.theme, emoji: input.widthProfile.emoji, ambiguous: input.widthProfile.ambiguous,
+    id: input.id, theme: input.theme, textPresentation: input.textPresentation, emoji: input.widthProfile.emoji, ambiguous: input.widthProfile.ambiguous,
     columns: input.model.columns, semanticRole: input.model.semanticRole,
     interactionKind: input.model.interactionKind, density: input.model.density, widths: plan.widths,
     selected: tableRowIsSelected(input.model, row.id), active,
@@ -279,6 +287,7 @@ function buildTableRowSpans(
   const result: import('../../visual/render-content.ts').RenderSpan[] = input.model.semanticRole === 'table'
     ? []
     : [span(marker, {
+      textOrder: 'visual',
       ...(markerStyle === undefined ? {} : { style: markerStyle }),
       source: tableFrameSource(
         input,
@@ -291,6 +300,7 @@ function buildTableRowSpans(
       ),
     }),
     span(' ', {
+      textOrder: 'visual',
       ...(markerStyle === undefined ? {} : { style: markerStyle }),
       source: tableFrameSource(
         input,
@@ -387,6 +397,7 @@ function tableCellSpans(
     width,
     column.align,
     input.widthProfile,
+    input.textPresentation,
     paddingStyle,
     tableFrameSource(
       input,
@@ -416,10 +427,11 @@ function tableSizedSpans(
   width: number,
   alignment: TableColumnModel['align'],
   widthProfile: ComponentInput<TableModel>['widthProfile'],
+  textPresentation: ComponentInput<TableModel>['textPresentation'],
   paddingStyle: TerminalStyle | undefined,
   paddingSource: import('../../visual/frame-source.ts').FrameCellSource,
 ): readonly import('../../visual/render-content.ts').RenderSpan[] {
-  const clipped = clipRenderSpans(spans, width, { ellipsis: '…', widthProfile });
+  const clipped = clipRenderSpans(spans, width, { ellipsis: '…', widthProfile, textPresentation });
   const remaining = Math.max(0, width - measureRenderSpans(clipped, { widthProfile }));
   const before = alignment === 'end'
     ? remaining
@@ -430,6 +442,7 @@ function tableSizedSpans(
   return [
     ...(before === 0 ? [] : [
       span(' '.repeat(before), {
+        textOrder: 'visual',
         ...(paddingStyle === undefined ? {} : { style: paddingStyle }),
         source: paddingSource,
       }),
@@ -437,6 +450,7 @@ function tableSizedSpans(
     ...clipped,
     ...(after === 0 ? [] : [
       span(' '.repeat(after), {
+        textOrder: 'visual',
         ...(paddingStyle === undefined ? {} : { style: paddingStyle }),
         source: paddingSource,
       }),
@@ -455,6 +469,7 @@ function tableEmptySpans(
   });
   return [
     span(' '.repeat(plan.markerCells), {
+      textOrder: 'visual',
       ...(markerStyle === undefined ? {} : { style: markerStyle }),
       source: tableFrameSource(input, 'empty.marker', 'marker', 'decoration'),
     }),
@@ -470,6 +485,7 @@ function tableSeparatorSpan(
   style: TerminalStyle | undefined,
 ): import('../../visual/render-content.ts').RenderSpan {
   return span(' '.repeat(tableSeparatorCells(input.model)), {
+    textOrder: 'visual',
     ...(style === undefined ? {} : { style }),
     source: tableFrameSource(input, 'column.separator', 'separator', 'separator'),
   });
@@ -480,36 +496,24 @@ function scrollTableSpans(
   offsetCells: number,
   width: number,
   widthProfile: ComponentInput<TableModel>['widthProfile'],
+  textPresentation: ComponentInput<TableModel>['textPresentation'],
 ): readonly import('../../visual/render-content.ts').RenderSpan[] {
   const visible: import('../../visual/render-content.ts').RenderSpan[] = [];
-  let skipped = 0;
-  let written = 0;
-  for (const current of spans) {
-    let visibleText = '';
-    let exhausted = false;
+  let column = 0;
+  for (const current of layoutRenderSpans(spans, { widthProfile, textPresentation })) {
     for (const grapheme of measureTextCells(current.text, { widthProfile }).graphemes) {
-      if (skipped < offsetCells) {
-        skipped += grapheme.cells;
-        continue;
+      const end = column + grapheme.cells;
+      if (column >= offsetCells + width) return compactRenderSpans(visible);
+      if (end > offsetCells && column < offsetCells + width) {
+        const start = Math.max(column, offsetCells);
+        const clippedEnd = Math.min(end, offsetCells + width);
+        visible.push({ ...current, textOrder: 'visual', text: start === column && clippedEnd === end
+          ? grapheme.text : ' '.repeat(clippedEnd - start) });
       }
-      if (written + grapheme.cells > width) {
-        exhausted = true;
-        break;
-      }
-      visibleText += grapheme.text;
-      written += grapheme.cells;
+      column = end;
     }
-    if (visibleText.length > 0) {
-      visible.push({
-        text: visibleText,
-        ...(current.style === undefined ? {} : { style: current.style }),
-        ...(current.link === undefined ? {} : { link: current.link }),
-        ...(current.source === undefined ? {} : { source: current.source }),
-      });
-    }
-    if (exhausted) break;
   }
-  return visible;
+  return compactRenderSpans(visible);
 }
 
 function tableFrameSource(

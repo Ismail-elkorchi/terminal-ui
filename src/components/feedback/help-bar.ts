@@ -55,7 +55,7 @@ export const helpBar: SemanticLeafComponentFactory<
         Math.max(
           0,
           input.bounds.width - measureRenderSpans(spans, {
-            widthProfile: input.widthProfile,
+            widthProfile: input.widthProfile, textPresentation: input.textPresentation,
           }),
         ),
       ),
@@ -185,9 +185,9 @@ function fitHelpBarSpans(
 ): readonly RenderSpan[] {
   if (maxCells <= 0) return [];
   const spans = helpBarSpans(input);
-  if (measureRenderSpans(spans, { widthProfile: input.widthProfile }) <= maxCells) return spans;
+  if (measureRenderSpans(spans, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }) <= maxCells) return spans;
   const marker = statusSpan(input, '…', 'marker', 'overflow', { cellRole: 'decoration' });
-  const markerWidth = measureRenderSpans([marker], { widthProfile: input.widthProfile });
+  const markerWidth = measureRenderSpans([marker], { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
   const fitted: RenderSpan[] = [];
   for (const group of input.model.groups) {
     const groupPrefix = [
@@ -199,7 +199,7 @@ function fitHelpBarSpans(
     ];
     if (
       measureRenderSpans([...fitted, ...groupPrefix, marker], {
-        widthProfile: input.widthProfile,
+        widthProfile: input.widthProfile, textPresentation: input.textPresentation,
       }) <= maxCells
     ) {
       fitted.push(...groupPrefix);
@@ -237,12 +237,12 @@ function fitHelpBarSpans(
       ];
       if (
         measureRenderSpans([...fitted, ...bindingSpans, marker], {
-          widthProfile: input.widthProfile,
+          widthProfile: input.widthProfile, textPresentation: input.textPresentation,
         }) > maxCells
       ) {
         const separator = fitted.length === 0 ? [] : [statusGap(input, 'overflow.separator')];
         return measureRenderSpans([...fitted, ...separator, marker], {
-            widthProfile: input.widthProfile,
+            widthProfile: input.widthProfile, textPresentation: input.textPresentation,
           }) <= maxCells
           ? [...fitted, ...separator, marker]
           : fitted.length === 0 && markerWidth <= maxCells

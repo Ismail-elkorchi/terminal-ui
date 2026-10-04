@@ -15,6 +15,7 @@ import {
   renderFocusRelation,
 } from './focus.ts';
 import { accessibilityForRenderNode, renderNodeClipsChildren } from './render-node-behavior.ts';
+import { textPresentationForLayout } from './layout-text-context.ts';
 import { previousLayoutNode } from './render-tree-layout.ts';
 import { sameNodePhase } from './retained-dependencies.ts';
 import { renderNodeFactoryName } from './render-tree/node.ts';
@@ -465,6 +466,7 @@ function sameAccessibilityDependencies(
   b: Omit<RetainedAccessibility, 'result'>,
 ): boolean {
   return sameNodePhase(b.node, a.node, 'accessibility')
+    && textPresentationForLayout(a.layout) === textPresentationForLayout(b.layout)
     && a.theme === b.theme && a.widthProfile.emoji === b.widthProfile.emoji
     && a.widthProfile.ambiguous === b.widthProfile.ambiguous
     && a.focus === b.focus && a.focusedTargetId === b.focusedTargetId

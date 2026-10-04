@@ -132,6 +132,7 @@ export class TerminalStateAuthority {
   readonly #host: TerminalHost;
   readonly #rawInputKnowledge: TerminalStateKnowledge;
   readonly #verifyKeyboardProfile: TerminalStateAuthorityOptions['verifyKeyboardProfile'];
+  readonly #observeCellPresentation: TerminalStateAuthorityOptions['observeCellPresentation'];
   readonly #leases: TerminalSessionLease[] = [];
   readonly #uncertain = new Set<TerminalStateKey>();
   readonly #initial: TerminalStateSnapshot;
@@ -140,12 +141,14 @@ export class TerminalStateAuthority {
   #modeReports: TerminalModeReports = Object.freeze({});
   #current: TerminalStateSnapshot;
   #generation = 0;
+  #cellPresentationQualificationInvalidated = false;
   #tail: Promise<void> | undefined;
 
   constructor(host: TerminalHost, options: TerminalStateAuthorityOptions) {
     this.#host = host;
     this.#rawInputKnowledge = options.rawInputKnowledge;
     this.#verifyKeyboardProfile = options.verifyKeyboardProfile;
+    this.#observeCellPresentation = options.observeCellPresentation;
     this.#initial = initialTerminalState(host, options);
     this.#current = this.#initial;
     const initialScreen = terminalScreen(this.#initial.alternateScreen);
@@ -195,12 +198,15 @@ export class TerminalStateAuthority {
       }
       this.resetObservedModes();
       this.#modeReports = Object.freeze({ ...reports });
-      this.observeBooleanMode('cursorVisible', reports[25]);
-      this.observeBooleanMode('focusReporting', reports[1004]);
-      this.observeBooleanMode('metaSendsEscape', reports[1036]);
-      this.observeBooleanMode('alternateScreen', reports[1049]);
-      this.observeBooleanMode('bracketedPaste', reports[2004]);
-      this.observeBooleanMode('unicodeGraphemeMode', reports[2027]);
+      const implicit = modeIsSet(reports['standard:8']);
+      if (implicit === true && this.#initial.cellPresentation === 'explicit') this.#cellPresentationQualificationInvalidated = true;
+      if (implicit !== undefined) this.setKnown('cellPresentation', implicit ? 'implicit' : 'explicit', 'observed');
+      this.observeBooleanMode('cursorVisible', reports['private:25']);
+      this.observeBooleanMode('focusReporting', reports['private:1004']);
+      this.observeBooleanMode('metaSendsEscape', reports['private:1036']);
+      this.observeBooleanMode('alternateScreen', reports['private:1049']);
+      this.observeBooleanMode('bracketedPaste', reports['private:2004']);
+      this.observeBooleanMode('unicodeGraphemeMode', reports['private:2027']);
       this.observeMouseModes(reports);
       return Promise.resolve();
     });
@@ -248,7 +254,11 @@ export class TerminalStateAuthority {
       const change = { kind, state: nextState } as TerminalStateChange;
       const cancellation = cancelledOperationDiagnostic(lease, context);
       if (cancellation !== undefined) return terminalOperationRejected(cancellation);
-      if (equal(this.#current[kind], nextState) && !this.#uncertain.has(kind)) {
+      if (change.kind === 'cellPresentation') {
+        const presentation = this.cellPresentationPreflight(lease, change);
+        if (presentation !== undefined) return presentation;
+      }
+      if (kind !== 'cellPresentation' && equal(this.#current[kind], nextState) && !this.#uncertain.has(kind)) {
         return terminalOperationApplied(change, assuranceForKnowledge(this.#current.provenance[kind]));
       }
       const fixedMode = permanentModeTransitionDiagnostic(lease, change, this.#modeReports);
@@ -279,10 +289,50 @@ export class TerminalStateAuthority {
           return terminalOperationRejected(rawInputObservationMismatchDiagnostic(lease, observed));
         }
       }
+      if (change.kind === 'cellPresentation') {
+        return this.confirmCellPresentationChange(lease, change, context, generation);
+      }
       const knowledge = knowledgeAfterMutation(kind, this.#rawInputKnowledge);
       this.setKnown(kind, nextState, knowledge);
       return terminalOperationApplied(change, knowledge === 'observed' ? 'observed' : 'sent');
     });
+  }
+
+  private cellPresentationPreflight(
+    lease: TerminalSessionLease,
+    change: Extract<TerminalStateChange, { readonly kind: 'cellPresentation' }>,
+  ): TerminalOperationOutcome | undefined {
+    const knowledge = this.#current.provenance.cellPresentation;
+    if (this.#current.cellPresentation === change.state && !this.#uncertain.has('cellPresentation')
+      && (knowledge === 'observed' || knowledge === 'explicit')) {
+      return terminalOperationApplied(change, assuranceForKnowledge(knowledge));
+    }
+    if (lease.initialState.cellPresentation === 'unknown' || this.#observeCellPresentation === undefined
+      || !this.#current.rawInput) {
+      return terminalOperationRejected(diagnostic('HOST_CAPABILITY_UNAVAILABLE',
+        'Changing cell presentation requires a known initial mode 8 state, a response observer and active raw input.',
+        { severity: 'warning', target: lease.id, data: { operation: 'cellPresentation' } }));
+    }
+    return undefined;
+  }
+
+  private async confirmCellPresentationChange(
+    lease: TerminalSessionLease,
+    change: Extract<TerminalStateChange, { readonly kind: 'cellPresentation' }>,
+    context: TerminalOperationContext,
+    generation: number,
+  ): Promise<TerminalOperationOutcome> {
+    const observed = await this.observeCellPresentation(context);
+    if (!this.isCurrentGeneration(generation)) return terminalOperationIndeterminate(change, supersededOperationDiagnostic(lease, change));
+    if (observed === undefined) {
+      this.markIndeterminate('cellPresentation');
+      return terminalOperationIndeterminate(change, indeterminateOperationDiagnostic(lease, change,
+        new Error('Terminal did not verify standard mode 8 after the write.')));
+    }
+    this.setKnown('cellPresentation', observed, 'observed');
+    if (observed !== change.state) return terminalOperationRejected(diagnostic('HOST_PROTOCOL_UNSUPPORTED',
+      'Terminal did not establish explicit cell presentation.', { severity: 'warning', target: lease.id }));
+    return terminalOperationApplied(change, 'observed');
   }
 
   async setKeyboardProfile(
@@ -530,6 +580,7 @@ export class TerminalStateAuthority {
   }
 
   private shouldRestoreOperation(lease: TerminalSessionLease, operation: TerminalStateChange): boolean {
+    if (operation.kind === 'cellPresentation' && operation.state === 'unknown') return false;
     if (operation.kind === 'keyboardProfile') {
       return lease.keyboardFrameState(this.activeScreen()) !== 'none';
     }
@@ -549,9 +600,29 @@ export class TerminalStateAuthority {
       const restoredKeyboard = operation.kind === 'keyboardProfile'
         ? await lease.restoreKeyboardFrame(this.activeScreen(), this.recoveryProtocol(context))
         : undefined;
+      if (operation.kind === 'cellPresentation' && !this.#current.rawInput) {
+        this.#uncertain.add('rawInput');
+        await this.#host.stdin.setRawMode?.(true);
+        if (!this.isCurrentGeneration(generation)) return { continue: false, diagnostic: supersededRestoreDiagnostic(lease, 'rawInput') };
+        const raw = this.#host.stdin.isRawModeEnabled?.();
+        if (raw === false) {
+          this.setKnown('rawInput', false, this.#rawInputKnowledge);
+          throw new Error('Raw input could not be reestablished for presentation restoration.');
+        }
+        this.setKnown('rawInput', true, knowledgeAfterMutation('rawInput', this.#rawInputKnowledge));
+      }
       if (operation.kind !== 'keyboardProfile') await this.applyRestoreOperation(operation, context);
       if (!this.isCurrentGeneration(generation)) {
         return { continue: false, diagnostic: supersededRestoreDiagnostic(lease, operation.kind) };
+      }
+      if (operation.kind === 'cellPresentation') {
+        const observed = await this.observeCellPresentation(context, true);
+        if (!this.isCurrentGeneration(generation)) return { continue: false, diagnostic: supersededRestoreDiagnostic(lease, operation.kind) };
+        if (observed !== operation.state) throw new Error('Terminal did not verify the restored standard mode 8 state.');
+        this.setKnown('cellPresentation', observed, 'observed');
+        const cancellation = restoreWasCancelled(context) ? restoreCancellationDiagnostic(lease, context.signal, operation.kind) : undefined;
+        return { continue: cancellation === undefined, completion: Object.freeze({ ...operation, assurance: 'observed' }),
+          ...(cancellation === undefined ? {} : { diagnostic: cancellation }) };
       }
       const observationIssue = this.restoreObservationIssue(lease, operation);
       if (observationIssue !== undefined) return { continue: true, diagnostic: observationIssue };
@@ -643,6 +714,9 @@ export class TerminalStateAuthority {
       case 'metaSendsEscape':
         await (operation.state ? protocol.enableMetaSendsEscape() : protocol.disableMetaSendsEscape());
         break;
+      case 'cellPresentation':
+        if (operation.state !== 'unknown') await protocol.setCellPresentation(operation.state);
+        break;
       case 'unicodeGraphemeMode':
         await (operation.state ? protocol.enableUnicodeGraphemeMode() : protocol.disableUnicodeGraphemeMode());
         break;
@@ -682,6 +756,16 @@ export class TerminalStateAuthority {
     if (kind === 'alternateScreen') this.syncActiveKeyboardState();
   }
 
+  private async observeCellPresentation(context: TerminalOperationContext, recovery = false): Promise<'implicit' | 'explicit' | undefined> {
+    try {
+      const observed = modeIsSet(await this.#observeCellPresentation?.(context, recovery));
+      return observed === undefined ? undefined : observed ? 'implicit' : 'explicit';
+    } catch {
+      // Missing, aborted and malformed reports never establish a presentation state.
+      return undefined;
+    }
+  }
+
   private observeBooleanMode(
     kind: Extract<TerminalStateKey, 'alternateScreen' | 'bracketedPaste' | 'cursorVisible' | 'focusReporting' | 'metaSendsEscape' | 'unicodeGraphemeMode'>,
     report: TerminalModeReportState | undefined
@@ -694,10 +778,10 @@ export class TerminalStateAuthority {
 
   private observeMouseModes(reports: TerminalModeReports): void {
     if (this.#current.provenance.mouseReporting === 'explicit') return;
-    const all = modeIsSet(reports[1003]);
-    const drag = modeIsSet(reports[1002]);
-    const click = modeIsSet(reports[1000]);
-    const encoding = modeIsSet(reports[1006]);
+    const all = modeIsSet(reports['private:1003']);
+    const drag = modeIsSet(reports['private:1002']);
+    const click = modeIsSet(reports['private:1000']);
+    const encoding = modeIsSet(reports['private:1006']);
     const tracking = all === true
       ? 'all'
       : drag === true
@@ -722,9 +806,14 @@ export class TerminalStateAuthority {
       'focusReporting',
       'metaSendsEscape',
       'unicodeGraphemeMode',
+      'cellPresentation',
       'cursorVisible'
     ] as const;
     for (const kind of modeKinds) {
+      if (kind === 'cellPresentation' && this.#cellPresentationQualificationInvalidated) {
+        this.setKnown('cellPresentation', 'unknown', 'assumed');
+        continue;
+      }
       if (this.#current.provenance[kind] === 'explicit') continue;
       this.setKnown(kind, this.#initial[kind], this.#initial.provenance[kind]);
     }
@@ -904,6 +993,11 @@ export class TerminalSessionLease implements TerminalSession {
   enableFocusReporting(context: TerminalOperationContext = {}): Promise<TerminalOperationOutcome> {
     return this.mutate('focusReporting', true, (operationContext) =>
       this.protocol(operationContext).enableFocusReporting(), context);
+  }
+
+  enableCellPresentation(context: TerminalOperationContext = {}): Promise<TerminalOperationOutcome> {
+    return this.mutate('cellPresentation', 'explicit', (operationContext) =>
+      this.protocol(operationContext).setCellPresentation('explicit'), context);
   }
 
   enableUnicodeGraphemeMode(context: TerminalOperationContext = {}): Promise<TerminalOperationOutcome> {

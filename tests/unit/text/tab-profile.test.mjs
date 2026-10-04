@@ -161,7 +161,7 @@ test('single-line edit reducers preserve tabs until profile-aware display after 
       { text: '·z', cursor: 2, selection: { startOffset: 1, endOffsetExclusive: 2 } },
       { kind: 'edit', operation }
     );
-    assert.deepEqual(state, { text: '·\tX Y', cursor: 5 });
+    assert.deepEqual(state, { text: '·\tX Y', cursor: 5, affinity: 'upstream' });
     for (const ambiguous of ['narrow', 'wide']) {
       const widthProfile = { emoji: 'wide', ambiguous };
       const options = { widthProfile };
@@ -176,7 +176,7 @@ test('single-line edit reducers preserve tabs until profile-aware display after 
   }
   assert.deepEqual(
     textInputReducer({ text: '', cursor: 0 }, { kind: 'edit', operation: { kind: 'insert', text: '·\tX' } }),
-    { text: '·\tX', cursor: 3 }
+    { text: '·\tX', cursor: 3, affinity: 'upstream' }
   );
 });
 
@@ -199,7 +199,7 @@ test('actual pasted tabs retain source offsets in text and password inputs', asy
     await runtime.start();
     try {
       await runtime.handleInput({ kind: 'paste', text: '\tX', bracketed: true });
-      assert.deepEqual(runtime.state(), { text: '·\tX', cursor: 3 });
+      assert.deepEqual(runtime.state(), { text: '·\tX', cursor: 3, affinity: 'upstream' });
       if (component === textInput) {
         assert.equal(runtime.frame().accessibility.root.value, '·  X');
         assert.equal(runtime.frame().accessibility.root.textPosition.caretOffset, 4);

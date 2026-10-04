@@ -12,10 +12,9 @@ import { isNonArrayObject } from '../../foundation/validation.ts';
 import type { CollectionInteractionState } from '../../interaction/collection-interaction.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
 import type { HitTarget } from '../../renderer/contracts.ts';
-import { padTextCells } from '../../text/cell-geometry.ts';
-import { clipTextCells } from '../../text/clip.ts';
 import { measureTextCells } from '../../text/measure.ts';
 import type { RenderSpan } from '../../visual/render-content.ts';
+import { clipRenderSpans, line, padRenderLine } from '../../visual/render-content.ts';
 import { decodeChoiceState, isChoiceSelected } from '../shared/choice-control-helpers.ts';
 import {
   assertTransitionCallback,
@@ -196,18 +195,14 @@ function calendarLines(
       controlSpan(input, ' ', 'option', 'month.next.gap', decorated, undefined, 'separator'),
       controlSpan(input, ' › ', 'option', 'month.next', decorated, undefined, 'decoration'),
     ];
-  const weekdays = input.model.weekdays.flatMap((day, index) => [controlSpan(
-    input,
-    ` ${
-      padTextCells(clipTextCells(day, 2, { widthProfile: input.widthProfile }).text, 2, {
-        widthProfile: input.widthProfile,
-      })
-    } `,
-    'weekday',
-    `weekday.${String(index)}`,
-    decorated,
-    { fg: { kind: 'theme', token: 'text.disabled' }, dim: true },
-  )]);
+  const weekdays = input.model.weekdays.flatMap((day, index) => {
+    const label = controlSpan(input, day, 'weekday', `weekday.${String(index)}`, decorated,
+      { fg: { kind: 'theme', token: 'text.disabled' }, dim: true });
+    const gap = { ...label, text: ' ', textOrder: 'visual' as const };
+    return [gap, ...padRenderLine(line(clipRenderSpans([label], 2, { widthProfile: input.widthProfile, textPresentation: input.textPresentation })), 2, {
+      widthProfile: input.widthProfile, fill: gap,
+    }).spans, gap];
+  });
   const rows = Array.from(
     { length: Math.ceil(days.length / 7) },
     (_unused, row) =>
@@ -238,11 +233,11 @@ function calendarDaySpans(
       ...(selected ? ['selected' as const] : []),
       ...(day.id === input.model.interaction.activeId ? ['focused' as const] : []),
     ];
-  const label = padTextCells(
-    clipTextCells(day.label, 2, { widthProfile: input.widthProfile }).text,
-    2,
-    { align: 'end', widthProfile: input.widthProfile },
-  );
+  const label = controlSpan(input, day.label, 'option', `day.${day.id}.label`, decorated, undefined, 'text', states);
+  const labelSpans = padRenderLine(line(clipRenderSpans([label], 2, {
+    widthProfile: input.widthProfile, textPresentation: input.textPresentation,
+  })), 2, { align: 'end', widthProfile: input.widthProfile,
+    fill: { ...label, text: ' ', textOrder: 'visual' } }).spans;
   const open = selected ? '[' : day.today === true ? '*' : ' ';
   const close = selected ? ']' : ' ';
   return [
@@ -256,7 +251,7 @@ function calendarDaySpans(
       'decoration',
       states,
     ),
-    controlSpan(input, label, 'option', `day.${day.id}.label`, decorated, undefined, 'text', states),
+    ...labelSpans,
     controlSpan(
       input,
       close,
@@ -282,7 +277,7 @@ function calendarHitTargets(
   let visible = 0;
   const monthRow = input.model.label === '' ? 0 : 1;
   const monthLabelWidth =
-    measureTextCells(input.model.monthLabel, { widthProfile: input.widthProfile }).cells;
+    measureTextCells(input.model.monthLabel, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }).cells;
   const previousWidth = Math.min(3, input.bounds.width);
   const nextColumn = Math.min(Math.max(0, input.bounds.width - 3), 4 + monthLabelWidth);
   const nextWidth = Math.min(3, Math.max(0, input.bounds.width - nextColumn));

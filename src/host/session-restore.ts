@@ -13,6 +13,7 @@ export function createTerminalRestorePlan(snapshot: TerminalStateSnapshot): Term
       { kind: 'focusReporting', state: snapshot.focusReporting },
       { kind: 'metaSendsEscape', state: snapshot.metaSendsEscape },
       { kind: 'unicodeGraphemeMode', state: snapshot.unicodeGraphemeMode },
+      { kind: 'cellPresentation', state: snapshot.cellPresentation },
       { kind: 'mouseReporting', state: snapshot.mouseReporting },
       { kind: 'keyboardProfile', state: snapshot.keyboardProfile },
       { kind: 'bracketedPaste', state: snapshot.bracketedPaste },

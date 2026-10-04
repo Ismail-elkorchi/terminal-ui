@@ -206,14 +206,14 @@ test('text editing sanitizes inserted text before deriving cursor offsets', () =
 
   assert.deepEqual(
     editTextBuffer({ text: 'ab', cursor: 1 }, { kind: 'insert', text: `${escape}X\u001B[0m` }),
-    { text: 'aXb', cursor: 2 }
+    { text: 'aXb', cursor: 2, affinity: 'upstream' }
   );
   assert.deepEqual(
     editTextBuffer(
       { text: 'abcd', cursor: 3, selection: { startOffset: 1, endOffsetExclusive: 3 } },
       { kind: 'replaceSelection', text: `Y\u0007Z` }
     ),
-    { text: 'aYZd', cursor: 3 }
+    { text: 'aYZd', cursor: 3, affinity: 'upstream' }
   );
 });
 
@@ -286,7 +286,7 @@ test('terminal text index retains word segmentation for repeated lookups', () =>
 test('text editing replaces selections and uses spec-shaped home/end operations', () => {
   assert.deepEqual(
     editTextBuffer({ text: 'hello world', cursor: 11, selection: { startOffset: 6, endOffsetExclusive: 11 } }, { kind: 'insert', text: 'terminal' }),
-    { text: 'hello terminal', cursor: 14 }
+    { text: 'hello terminal', cursor: 14, affinity: 'upstream' }
   );
   assert.deepEqual(
     editTextBuffer({ text: 'abc🙂def', cursor: 0, selection: { startOffset: 3, endOffsetExclusive: 'abc🙂'.length } }, { kind: 'deleteForward' }),
@@ -294,7 +294,7 @@ test('text editing replaces selections and uses spec-shaped home/end operations'
   );
   assert.deepEqual(
     editTextBuffer({ text: 'abc', cursor: 2 }, { kind: 'replaceSelection', text: 'Z' }),
-    { text: 'abZc', cursor: 3 }
+    { text: 'abZc', cursor: 3, affinity: 'upstream' }
   );
   assert.deepEqual(
     editTextBuffer({ text: 'abc', cursor: 2, selection: { startOffset: 0, endOffsetExclusive: 2 } }, { kind: 'moveHome' }),

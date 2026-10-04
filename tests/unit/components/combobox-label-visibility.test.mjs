@@ -170,7 +170,7 @@ test('hidden autocomplete labels align wide-text caret and pointer positions wit
   assert.equal(frame.accessibility.root.label, 'Long language label');
   assert.equal(frame.accessibility.root.required, true);
   assert.deepEqual(pointerDown(target, 3).transition, {
-    kind: 'pointer', transition: { kind: 'placeCaret', offset: 1 },
+    kind: 'pointer', transition: { kind: 'placeCaret', offset: 1, affinity: 'downstream' },
   });
 });
 
@@ -196,7 +196,7 @@ test('hidden autocomplete labels align clipped text windows and empty-input plac
   assert.match(renderFramePlain(frame), /^‹efgh /u);
   assert.equal(frame.cursor.column, 6);
   assert.deepEqual(pointerDown(target, 2).transition, {
-    kind: 'pointer', transition: { kind: 'placeCaret', offset: 4 },
+    kind: 'pointer', transition: { kind: 'placeCaret', offset: 4, affinity: 'downstream' },
   });
   const empty = combobox({
     ...options,

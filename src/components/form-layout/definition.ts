@@ -43,7 +43,7 @@ export const form: FormFactory = defineComponent<FormOwnOptions>()({
   createModel: createFormModel,
   measure(input) {
     const titleWidth =
-      measureTextCells(input.model.title, { widthProfile: input.widthProfile }).cells;
+      measureTextCells(input.model.title, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }).cells;
     const count = input.slots.count('content');
     const measurements = Array.from(
       { length: count },
@@ -168,7 +168,7 @@ const instantiateField = defineComponent<{ readonly label: string; readonly desc
   measure(input) {
     const header = fieldHeader(input.model);
     const width = Math.max(
-      ...header.map((entry) => measureTextCells(entry, { widthProfile: input.widthProfile }).cells),
+      ...header.map((entry) => measureTextCells(entry, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }).cells),
       input.slots.measure('control').preferredWidth,
       0,
     );
@@ -223,7 +223,7 @@ const instantiateField = defineComponent<{ readonly label: string; readonly desc
             }),
           ],
           content.width,
-          { widthProfile: input.widthProfile },
+          { widthProfile: input.widthProfile, textPresentation: input.textPresentation },
         ),
       );
     });
@@ -329,7 +329,7 @@ export const label: SemanticLeafComponentFactory<
           source: input.frameSource({ partName: 'label.text', cellRole: 'text' }),
         })],
         input.bounds.width,
-        { widthProfile: input.widthProfile },
+        { widthProfile: input.widthProfile, textPresentation: input.textPresentation },
       ),
     );
   },

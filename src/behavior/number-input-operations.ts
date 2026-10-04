@@ -135,6 +135,7 @@ export function numberInputView(state: NumberInputState): NumberInputView {
   return {
     value: state.input.text,
     cursor: state.input.cursor,
+    ...(state.input.affinity === undefined ? {} : { affinity: state.input.affinity }),
     ...(state.input.selection === undefined ? {} : { selection: state.input.selection }),
     ...(state.committed === undefined ? {} : { committedValue: state.committed }),
     ...(state.configuration.min === undefined ? {} : { min: state.configuration.min }),

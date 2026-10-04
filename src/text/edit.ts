@@ -65,37 +65,39 @@ function editBuffer(
       return replaceSourceRange(
         source,
         selectedRange(selection, cursor),
-        sanitizeInsertion(operation.text)
+        sanitizeInsertion(operation.text),
+        buffer.affinity,
       );
     }
     case 'replaceRange':
       return replaceSourceRange(
         source,
         operation.range,
-        sanitizeInsertion(operation.text)
+        sanitizeInsertion(operation.text),
+        buffer.affinity,
       );
     case 'deleteBackward':
-      if (selection !== undefined) return replaceSourceRange(source, selection, '');
+      if (selection !== undefined) return replaceSourceRange(source, selection, '', buffer.affinity);
       if (cursor === 0) return { ...buffer, cursor };
       {
         const previous = previousSourceBoundary(source, cursor);
-        return replaceSourceRange(source, { startOffset: previous, endOffsetExclusive: cursor }, '');
+        return replaceSourceRange(source, { startOffset: previous, endOffsetExclusive: cursor }, '', buffer.affinity);
       }
     case 'deleteForward': {
-      if (selection !== undefined) return replaceSourceRange(source, selection, '');
+      if (selection !== undefined) return replaceSourceRange(source, selection, '', buffer.affinity);
       if (cursor >= buffer.text.length) return { ...buffer, cursor };
       const next = nextSourceBoundary(source, cursor);
-      return replaceSourceRange(source, { startOffset: cursor, endOffsetExclusive: next }, '');
+      return replaceSourceRange(source, { startOffset: cursor, endOffsetExclusive: next }, '', buffer.affinity);
     }
     case 'deleteWordBackward':
-      if (selection !== undefined) return replaceSourceRange(source, selection, '');
+      if (selection !== undefined) return replaceSourceRange(source, selection, '', buffer.affinity);
       {
         const startOffset = requiredWordIndex(words).previous(cursor);
-        return replaceSourceRange(source, { startOffset, endOffsetExclusive: cursor }, '');
+        return replaceSourceRange(source, { startOffset, endOffsetExclusive: cursor }, '', buffer.affinity);
       }
     case 'deleteWordForward':
-      if (selection !== undefined) return replaceSourceRange(source, selection, '');
-      return replaceSourceRange(source, { startOffset: cursor, endOffsetExclusive: requiredWordIndex(words).next(cursor) }, '');
+      if (selection !== undefined) return replaceSourceRange(source, selection, '', buffer.affinity);
+      return replaceSourceRange(source, { startOffset: cursor, endOffsetExclusive: requiredWordIndex(words).next(cursor) }, '', buffer.affinity);
     case 'moveLeft':
       return moveTo(buffer.text, source, cursor, selection, leftTarget(source, cursor, selection, operation.extendSelection), operation.extendSelection);
     case 'moveRight':
@@ -129,7 +131,7 @@ function editBuffer(
     case 'moveDocumentEnd':
       return moveTo(buffer.text, source, cursor, selection, buffer.text.length, operation.extendSelection);
     case 'moveTo':
-      return moveTo(buffer.text, source, cursor, selection, operation.caret.position.offset, operation.extendSelection);
+      return moveTo(buffer.text, source, cursor, selection, operation.caret.position.offset, operation.extendSelection, operation.caret.position.affinity);
     case 'selectAll': {
       const normalized = normalizeSourceSelection(source, { startOffset: 0, endOffsetExclusive: buffer.text.length });
       return {
@@ -142,7 +144,8 @@ function editBuffer(
       return replaceSourceRange(
         source,
         selectedRange(selection, cursor),
-        sanitizeInsertion(operation.text)
+        sanitizeInsertion(operation.text),
+        buffer.affinity,
       );
   }
 }
@@ -157,15 +160,17 @@ function moveTo(
   cursor: number,
   selection: TextSelection | undefined,
   target: number,
-  extendSelection: boolean | undefined
+  extendSelection: boolean | undefined,
+  affinity?: import('./types.ts').TextAffinity,
 ): TextEditBuffer {
   const nextCursor = normalizeSourceCursor(source, target);
-  if (extendSelection !== true) return { text, cursor: nextCursor };
+  if (extendSelection !== true) return { text, cursor: nextCursor, ...(affinity === undefined ? {} : { affinity }) };
   const anchor = selectionAnchor(selection, cursor);
   const nextSelection = normalizeSourceSelection(source, { startOffset: anchor, endOffsetExclusive: nextCursor });
   return {
     text,
     cursor: nextCursor,
+    ...(affinity === undefined ? {} : { affinity }),
     ...(nextSelection === undefined ? {} : { selection: nextSelection })
   };
 }

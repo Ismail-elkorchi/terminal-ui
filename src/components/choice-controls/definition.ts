@@ -22,11 +22,10 @@ import { assertOptionalEnum } from '../../foundation/validation.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
 import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
 import type { FocusTarget, HitTarget } from '../../renderer/contracts.ts';
-import { oneCellGlyph, padTextCells } from '../../text/cell-geometry.ts';
-import { clipTextCells } from '../../text/clip.ts';
+import { oneCellGlyph } from '../../text/cell-geometry.ts';
 import { terminalTextWidth } from '../../text/terminal-width.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
-import { clipRenderSpans, measureRenderSpans, span } from '../../visual/render-content.ts';
+import { clipRenderSpans, line, measureRenderSpans, padRenderLine, span } from '../../visual/render-content.ts';
 import { decodeTerminalStyle } from '../../visual/terminal-style.ts';
 import { paintControlPadding } from '../shared/control-padding.ts';
 import {
@@ -335,10 +334,10 @@ function paintChoiceLines(
   const lines = choiceLines(input, kind, true);
   lines.slice(0, input.bounds.height).forEach((line, row) => {
     input.target.write(row, 0, clipRenderSpans(line.spans, input.bounds.width, {
-      widthProfile: input.widthProfile,
+      widthProfile: input.widthProfile, textPresentation: input.textPresentation,
     }));
     if (line.padding === undefined) return;
-    const used = measureRenderSpans(line.spans, { widthProfile: input.widthProfile });
+    const used = measureRenderSpans(line.spans, { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
     paintControlPadding(input, row, used, input.bounds.width - used, line.padding);
   });
 }
@@ -463,11 +462,13 @@ function choiceSpan(
     ? 'decoration'
     : 'text',
 ): RenderSpan {
-  if (!decorated || !('style' in input)) return span(text);
+  const order = cellRole === 'decoration' || cellRole === 'separator' ? { textOrder: 'visual' as const } : {};
+  if (!decorated || !('style' in input)) return span(text, order);
   const state = states.at(-1);
   const style = input.style({ part, ...(states.length === 0 ? {} : { states }) });
   const itemId = description.split('.')[1];
   return span(text, {
+    ...order,
     ...(style === undefined ? {} : { style }),
     source: input.frameSource({
       partName: part,
@@ -632,7 +633,7 @@ function swatchLines(
     controlSpan(input, ': ', 'summary', 'summary.separator', decorated, undefined, 'separator'),
     controlSpan(
       input,
-      oneCellGlyph(selected.swatch, '*', { widthProfile: input.widthProfile }),
+      oneCellGlyph(selected.swatch, '*', { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
       'swatch',
       'summary.swatch',
       decorated,
@@ -708,11 +709,11 @@ function swatchOptionSpans(
       ...(selected ? ['selected' as const] : []),
       ...(option.id === input.model.interaction.activeId ? ['active' as const] : []),
     ];
-  const label = padTextCells(
-    clipTextCells(option.label, 8, { ellipsis: '…', widthProfile: input.widthProfile }).text,
-    8,
-    { widthProfile: input.widthProfile },
-  );
+  const label = controlSpan(input, option.label, 'option', `option.${option.id}.label`,
+    decorated, option.swatchStyle, 'text', states);
+  const options = { widthProfile: input.widthProfile, textPresentation: input.textPresentation };
+  const labelSpans = padRenderLine(line(clipRenderSpans([label], 8, { ...options, ellipsis: '…' })), 8,
+    { ...options, fill: { ...label, text: ' ', textOrder: 'visual' } }).spans;
   return [
     controlSpan(
       input,
@@ -726,7 +727,7 @@ function swatchOptionSpans(
     ),
     controlSpan(
       input,
-      oneCellGlyph(option.swatch, '*', { widthProfile: input.widthProfile }),
+      oneCellGlyph(option.swatch, '*', { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
       'swatch',
       `option.${option.id}.swatch`,
       decorated,
@@ -744,16 +745,7 @@ function swatchOptionSpans(
       'separator',
       states,
     ),
-    controlSpan(
-      input,
-      label,
-      'option',
-      `option.${option.id}.label`,
-      decorated,
-      option.swatchStyle,
-      'text',
-      states,
-    ),
+    ...labelSpans,
     controlSpan(
       input,
       selected ? ']' : ' ',

@@ -30,6 +30,7 @@ export function wrapTextCells(
   width: number,
   options: TextWrapOptions = {}
 ): readonly TextLine[] {
+  if (options.textPresentation !== undefined) throw new TypeError('Visual-cell presentation requires wrapRenderSpans so source and cell order are retained.');
   if (width <= 0) throw new RangeError('width must be positive.');
   const lines: TextLine[] = [];
   for (const rawLine of sanitizeTerminalText(text, options).text.split('\n')) {

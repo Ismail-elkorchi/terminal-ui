@@ -20,6 +20,7 @@ export type NumberInputValidity = NumberInputAnalysis['validity'];
 interface NumberInputViewBase {
   readonly value: string;
   readonly cursor: number;
+  readonly affinity?: import('../text/types.ts').TextAffinity;
   readonly selection?: TextSelection;
   readonly committedValue?: number;
   readonly min?: number;

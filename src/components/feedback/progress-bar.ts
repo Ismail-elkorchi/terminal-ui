@@ -188,6 +188,7 @@ interface ProgressVisualInput {
   readonly model: ProgressBarModel;
   readonly theme: import('../../theme/index.ts').TerminalTheme;
   readonly widthProfile: import('../../text/index.ts').TextWidthProfile;
+  readonly textPresentation?: import('../../text/types.ts').TextPresentation | undefined;
   readonly style?: ComponentRenderInput<ProgressBarModel, ProgressBarStylePart>['style'];
   readonly frameSource?: ComponentRenderInput<ProgressBarModel, ProgressBarStylePart>['frameSource'];
 }
@@ -210,7 +211,7 @@ function progressSpansFor(
     const spans = progressSpans(input, parts, maxCells, decorated);
     if (
       maxCells === undefined ||
-      measureRenderSpans(spans, { widthProfile: input.widthProfile }) <= maxCells
+      measureRenderSpans(spans, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }) <= maxCells
     ) return spans;
   }
   return progressSpans(input, candidates.at(-1) ?? initial, maxCells, decorated);
@@ -257,7 +258,7 @@ function fittedProgressBarWidth(
     1,
     Math.min(
       input.model.barWidth,
-      maxCells - measureRenderSpans(withoutBar, { widthProfile: input.widthProfile }),
+      maxCells - measureRenderSpans(withoutBar, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
     ),
   );
 }
@@ -283,7 +284,7 @@ function progressTrackSpans(
       progressPartSpan(
         input,
         fillTextCells(input.theme.tokens.symbols.progressFilled, filledCells, {
-          widthProfile: input.widthProfile,
+          widthProfile: input.widthProfile, textPresentation: input.textPresentation,
         }),
         'fill',
         'filled',
@@ -298,7 +299,7 @@ function progressTrackSpans(
     progressPartSpan(
       input,
       fillTextCells(input.theme.tokens.symbols.progressEmpty, barWidth - filledCells, {
-        widthProfile: input.widthProfile,
+        widthProfile: input.widthProfile, textPresentation: input.textPresentation,
       }),
       'track',
       'track',
@@ -317,9 +318,9 @@ function indeterminateProgressSpans(
   const slotCells = Math.max(
     1,
     measureTextCells(input.theme.tokens.symbols.progressFilled, {
-      widthProfile: input.widthProfile,
+      widthProfile: input.widthProfile, textPresentation: input.textPresentation,
     }).cells,
-    measureTextCells(input.theme.tokens.symbols.progressEmpty, { widthProfile: input.widthProfile })
+    measureTextCells(input.theme.tokens.symbols.progressEmpty, { widthProfile: input.widthProfile, textPresentation: input.textPresentation })
       .cells,
   );
   const frame = indeterminateProgressFrame(
@@ -338,7 +339,7 @@ function indeterminateProgressSpans(
           ? input.theme.tokens.symbols.progressFilled
           : input.theme.tokens.symbols.progressEmpty,
         cells,
-        { widthProfile: input.widthProfile },
+        { widthProfile: input.widthProfile, textPresentation: input.textPresentation },
       ),
       cell.active ? 'fill' : 'track',
       cell.active ? 'active' : 'track',
@@ -358,7 +359,7 @@ function scaledProgressFillSpans(
   const glyphCells = Math.max(
     1,
     measureTextCells(input.theme.tokens.symbols.progressFilled, {
-      widthProfile: input.widthProfile,
+      widthProfile: input.widthProfile, textPresentation: input.textPresentation,
     }).cells,
   );
   const spans: RenderSpan[] = [];
@@ -368,7 +369,7 @@ function scaledProgressFillSpans(
     spans.push(progressPartSpan(
       input,
       fillTextCells(input.theme.tokens.symbols.progressFilled, cells, {
-        widthProfile: input.widthProfile,
+        widthProfile: input.widthProfile, textPresentation: input.textPresentation,
       }),
       'fill',
       `segment.${String(spans.length)}.filled`,

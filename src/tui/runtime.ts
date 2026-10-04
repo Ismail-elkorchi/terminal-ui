@@ -147,7 +147,7 @@ function createRuntime<TState, TMessage>(
     reportDiagnostic: (item) => { recordGraphicsDiagnostic(item); },
     pointerVisuals: () => pointerRouter.visuals(),
   }, lifecycle.signal);
-  const runtimeContext = createRuntimeContextFactory(options.host, capabilities);
+  const runtimeContext = createRuntimeContextFactory(options.host, capabilities, options.textPresentation);
   const changes = createRuntimeChangeChannel<TState>();
   const diagnostics = createRuntimeDiagnostics({
     owner: options.app.id,

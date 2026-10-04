@@ -281,8 +281,8 @@ function sliderLines(
     return controlSpan(
       input,
       handle
-        ? oneCellGlyph('●', 'o', { widthProfile: input.widthProfile })
-        : oneCellGlyph(index < position ? '━' : '─', '-', { widthProfile: input.widthProfile }),
+        ? oneCellGlyph('●', 'o', { widthProfile: input.widthProfile, textPresentation: input.textPresentation })
+        : oneCellGlyph(index < position ? '━' : '─', '-', { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
       handle ? 'handle' : 'track',
       description,
       decorated,
@@ -324,9 +324,9 @@ function rangeLines(
     return controlSpan(
       input,
       handle
-        ? oneCellGlyph('●', 'o', { widthProfile: input.widthProfile })
+        ? oneCellGlyph('●', 'o', { widthProfile: input.widthProfile, textPresentation: input.textPresentation })
         : oneCellGlyph(index > start && index < end ? '━' : '─', '-', {
-          widthProfile: input.widthProfile,
+          widthProfile: input.widthProfile, textPresentation: input.textPresentation,
         }),
       handle ? 'handle' : 'track',
       description,
@@ -362,7 +362,7 @@ function sliderPosition(model: Pick<SliderModel, 'min' | 'max' | 'width'>, value
 function sliderTrackBounds(input: ComponentInput<SliderModel | RangeModel>, width: number) {
   const labelWidth = input.model.label === ''
     ? 0
-    : measureTextCells(`${input.model.label}: `, { widthProfile: input.widthProfile }).cells;
+    : measureTextCells(`${input.model.label}: `, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }).cells;
   return {
     row: 0,
     column: labelWidth,

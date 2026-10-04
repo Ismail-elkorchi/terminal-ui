@@ -1,3 +1,4 @@
+import { textPresentationForLayout } from '../../renderer/internal/layout-text-context.ts';
 import { isIgnoredMessage } from '../../interaction/message.ts';
 import { collectRenderNodeLayoutTargets } from '../../renderer/internal/focus.ts';
 import { resolveRenderNodeMessage } from '../../renderer/internal/render-tree/node.ts';
@@ -19,12 +20,14 @@ export function layoutLifecycleMessages<TMessage>(
     const message = resolveRenderNodeMessage(node, node.definition.renderer.onLayout({
       renderNode: node,
       layoutNode: target.layoutNode,
+      textPresentation: textPresentationForLayout(target.layoutNode),
       theme: next.theme,
       widthProfile: next.widthProfile,
       commitId: next.commitId,
       ...(previous === undefined || old === undefined || oldNode?.kind !== 'component' || oldNode.definition.name !== node.definition.name ? {} : { previous: {
         renderNode: oldNode,
         layoutNode: old.layoutNode,
+        textPresentation: textPresentationForLayout(old.layoutNode),
         theme: previous.theme,
         widthProfile: previous.widthProfile,
       } }),

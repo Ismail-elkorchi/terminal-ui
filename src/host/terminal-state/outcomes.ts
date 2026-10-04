@@ -50,7 +50,7 @@ export function permanentModeTransitionDiagnostic(
     if (fixed === undefined || fixed === requested) continue;
     return diagnostic(
       'HOST_PROTOCOL_UNSUPPORTED',
-      `Terminal mode ${String(mode)} is permanent and cannot reach the requested ${change.kind} state.`,
+      `Terminal mode ${mode} is permanent and cannot reach the requested ${change.kind} state.`,
       {
         severity: 'warning',
         target: lease.id,
@@ -65,19 +65,20 @@ function requestedPrivateModes(
   change: TerminalStateChange
 ): readonly (readonly [keyof TerminalModeReports, boolean])[] {
   switch (change.kind) {
-    case 'alternateScreen': return [[1049, change.state]];
-    case 'bracketedPaste': return [[2004, change.state]];
-    case 'cursorVisible': return [[25, change.state]];
-    case 'focusReporting': return [[1004, change.state]];
-    case 'metaSendsEscape': return [[1036, change.state]];
-    case 'unicodeGraphemeMode': return [[2027, change.state]];
+    case 'alternateScreen': return [['private:1049', change.state]];
+    case 'bracketedPaste': return [['private:2004', change.state]];
+    case 'cursorVisible': return [['private:25', change.state]];
+    case 'focusReporting': return [['private:1004', change.state]];
+    case 'metaSendsEscape': return [['private:1036', change.state]];
+    case 'unicodeGraphemeMode': return [['private:2027', change.state]];
+    case 'cellPresentation': return change.state === 'unknown' ? [] : [['standard:8', change.state === 'implicit']];
     case 'mouseReporting': {
       const mouse = change.state;
       return [
-        [1000, mouse.tracking === 'click'],
-        [1002, mouse.tracking === 'drag'],
-        [1003, mouse.tracking === 'all'],
-        [1006, mouse.encoding === 'sgr']
+        ['private:1000', mouse.tracking === 'click'],
+        ['private:1002', mouse.tracking === 'drag'],
+        ['private:1003', mouse.tracking === 'all'],
+        ['private:1006', mouse.encoding === 'sgr']
       ];
     }
     case 'rawInput':
@@ -109,6 +110,7 @@ export function capabilityForState(kind: TerminalStateKey): TerminalCapabilityNa
     case 'focusReporting': return 'focusReporting';
     case 'metaSendsEscape': return 'metaSendsEscape';
     case 'unicodeGraphemeMode': return 'unicodeGraphemeMode';
+    case 'cellPresentation': return 'cellPresentation';
     case 'keyboardProfile': return 'keyboardProtocol';
     case 'cursorVisible': return 'cursorVisibility';
   }

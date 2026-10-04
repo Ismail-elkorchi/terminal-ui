@@ -152,12 +152,12 @@ function commandInputHistory(state: CommandInputState, direction: 1 | -1): Comma
     const draft = state.draft ?? { text: '', cursor: 0 };
     return withoutSubmissionTraversal({
       ...state,
-      editor: createEditablePopupInputState({
+      editor: { ...createEditablePopupInputState({
         value: draft.text,
         cursor: draft.cursor,
         open: state.editor.open,
         editHistoryPolicy: state.editor.editHistory.policy,
-      }, state.suggestionView.interactionIndex),
+      }, state.suggestionView.interactionIndex), input: draft },
     });
   }
   const value = state.submissions[next];
@@ -244,6 +244,7 @@ function ownBuffer(buffer: TextEditBuffer): TextEditBuffer {
   return Object.freeze({
     text: buffer.text,
     cursor: buffer.cursor,
+    ...(buffer.affinity === undefined ? {} : { affinity: buffer.affinity }),
     ...(buffer.selection === undefined ? {} : {
       selection: Object.freeze({ ...buffer.selection })
     })

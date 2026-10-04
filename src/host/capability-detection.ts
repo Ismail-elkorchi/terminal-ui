@@ -48,6 +48,7 @@ export interface TerminalCapabilityDetectorOptions {
   readonly beginObservationRefresh: () => Promise<void>;
   readonly observeModes: (reports: TerminalModeReports) => Promise<void>;
   readonly observeKeyboardProfile: (profile: TerminalKeyboardProfile) => Promise<void>;
+  readonly writeRecovery: (output: TerminalOutputChunk, signal: AbortSignal) => Promise<TerminalWriteReceipt>;
   readonly write: (output: TerminalOutputChunk, signal: AbortSignal) => Promise<TerminalWriteReceipt>;
 }
 
@@ -63,11 +64,14 @@ export class TerminalCapabilityDetector {
   #graphicsProbe: Promise<void> | undefined;
   #probeTail: Promise<void> | undefined;
   #modesObserved = false;
+  #cellPresentationMode: TerminalModeReportState | undefined;
+  #qualifiedCellPresentation: boolean;
   #graphicsObserved = false;
   #graphicsFacts: GraphicsProbeFacts | undefined;
 
   constructor(options: TerminalCapabilityDetectorOptions) {
     this.#options = options;
+    this.#qualifiedCellPresentation = options.resolverInput.host.cellPresentation === 'explicit';
     this.#configuredProbeFacts = { ...options.resolverInput.probes };
     this.#probeFacts = { ...this.#configuredProbeFacts };
     this.#graphicsFacts = options.resolverInput.graphics;
@@ -76,6 +80,28 @@ export class TerminalCapabilityDetector {
 
   current(): TerminalCapabilityProfile {
     return this.#profile;
+  }
+
+  async observeCellPresentation(signal?: AbortSignal, recovery = false): Promise<TerminalModeReportState | undefined> {
+    await this.#options.input.settleResponseQuarantine(signal);
+    signal?.throwIfAborted();
+    const timeout = probeController(DEFAULT_PROBE_TIMEOUT_MS, this.#options.clock, signal);
+    try {
+      const result = await this.#options.input.queryTerminal({
+        signal: timeout.signal,
+        clock: this.#options.clock,
+        protocol: createTerminalModeResponseProtocol(['standard:8']),
+        send: async () => {
+          const write = recovery ? this.#options.writeRecovery : this.#options.write;
+          requireCommittedTerminalWrite(await write(
+            { text: terminalModeQueryRequest(['standard:8']) }, timeout.signal
+          ));
+        }
+      });
+      return result.status === 'matched' ? result.value['standard:8'] : undefined;
+    } finally {
+      timeout.close();
+    }
   }
 
   async verifyKeyboardProfile(
@@ -177,6 +203,7 @@ export class TerminalCapabilityDetector {
 
   #resetObservedProbes(): void {
     this.#modesObserved = false;
+    this.#cellPresentationMode = undefined;
     this.#graphicsObserved = false;
     this.#graphicsFacts = this.#options.resolverInput.graphics;
     this.#probeFacts = { ...this.#configuredProbeFacts };
@@ -373,16 +400,23 @@ export class TerminalCapabilityDetector {
   }
 
   #recordModeProbe(reports: TerminalModeReports): void {
-    this.#probeFacts.cursorVisibility = modeSupport(reports[25]);
-    this.#probeFacts.focusReporting = modeSupport(reports[1004]);
-    this.#probeFacts.metaSendsEscape = modeSupport(reports[1036]);
-    this.#probeFacts.alternateScreen = modeSupport(reports[1049]);
-    this.#probeFacts.bracketedPaste = modeSupport(reports[2004]);
+    const cellPresentation = reports['standard:8'];
+    this.#cellPresentationMode = cellPresentation;
+    if (cellPresentation === 'set' || cellPresentation === 'permanently_set') this.#qualifiedCellPresentation = false;
+    const qualified = this.#qualifiedCellPresentation;
+    this.#probeFacts.cellPresentation = cellPresentation === 'permanently_reset'
+      || qualified && (cellPresentation === undefined || cellPresentation === 'unrecognized')
+      ? 'supported' : modeSupport(cellPresentation);
+    this.#probeFacts.cursorVisibility = modeSupport(reports['private:25']);
+    this.#probeFacts.focusReporting = modeSupport(reports['private:1004']);
+    this.#probeFacts.metaSendsEscape = modeSupport(reports['private:1036']);
+    this.#probeFacts.alternateScreen = modeSupport(reports['private:1049']);
+    this.#probeFacts.bracketedPaste = modeSupport(reports['private:2004']);
     this.#probeFacts.mouseReporting = mouseModeSupport(reports);
-    this.#probeFacts.unicodeGraphemeMode = modeSupport(reports[2027]);
-    this.#probeFacts.synchronizedOutput = reports[2026] === 'set'
+    this.#probeFacts.unicodeGraphemeMode = modeSupport(reports['private:2027']);
+    this.#probeFacts.synchronizedOutput = reports['private:2026'] === 'set'
       ? 'unknown'
-      : modeSupport(reports[2026]);
+      : modeSupport(reports['private:2026']);
     this.#profile = this.#resolve();
   }
 
@@ -392,11 +426,21 @@ export class TerminalCapabilityDetector {
   }
 
   #resolve(): TerminalCapabilityProfile {
-    return resolveTerminalCapabilities({
+    const host = { ...this.#options.resolverInput.host };
+    if (!this.#qualifiedCellPresentation) delete host.cellPresentation;
+    const profile = resolveTerminalCapabilities({
       ...this.#options.resolverInput,
       probes: this.#probeFacts,
+      host,
       ...(this.#graphicsFacts === undefined ? {} : { graphics: this.#graphicsFacts })
     });
+    if (this.#cellPresentationMode === undefined) return profile;
+    return { ...profile, cellPresentation: Object.freeze({
+      ...profile.cellPresentation,
+      facts: Object.freeze([...profile.cellPresentation.facts, Object.freeze({
+        kind: 'probe' as const, name: 'standard:8', value: this.#cellPresentationMode,
+      })]),
+    }) };
   }
 
   #runProbeExclusive(operation: () => Promise<void>): Promise<void> {
@@ -468,8 +512,8 @@ function terminalProbeError(cause: unknown): Error {
 }
 
 function mouseModeSupport(reports: TerminalModeReports): 'supported' | 'unsupported' | 'unknown' {
-  const encoding = modeSupport(reports[1006]);
-  const tracking = [reports[1000], reports[1002], reports[1003]].map(modeSupport);
+  const encoding = modeSupport(reports['private:1006']);
+  const tracking = [reports['private:1000'], reports['private:1002'], reports['private:1003']].map(modeSupport);
   if (encoding === 'unsupported' || tracking.every((support) => support === 'unsupported')) return 'unsupported';
   return encoding === 'supported' && tracking.some((support) => support === 'supported')
     ? 'supported'

@@ -30,7 +30,7 @@ import {
   normalizeInlineContent,
 } from '../../visual/inline-content.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
-import { clipRenderSpans, measureRenderSpans } from '../../visual/render-content.ts';
+import { clipRenderSpans, layoutRenderSpans, measureRenderSpans } from '../../visual/render-content.ts';
 import type { TabsStylePart } from '../style-parts.ts';
 import type { TabsOptions } from './options.ts';
 
@@ -147,7 +147,7 @@ const instantiateTabs = defineComponent<TabsOwnOptions, TabsComponentAction>()({
     if (content.width === 0 || content.height === 0) return;
     const layout = tabHeaderLayout(input, content.width);
     const spans: RenderSpan[] = [...layout.spans];
-    const used = measureRenderSpans(spans, { widthProfile: input.widthProfile });
+    const used = measureRenderSpans(spans, { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
     if (used < content.width) {
       spans.push(tabSpan(input, ' '.repeat(content.width - used), 'label', 'header.background', {
         bg: { kind: 'theme', token: 'surface.background' },
@@ -332,7 +332,7 @@ function tabHeaderEntries(input: TabsVisualInput): readonly TabHeaderEntry[] {
     const labelStyle = resolveTabStyle(input, 'label', base, states);
     const spans: RenderSpan[] = [tabSpan(
       input,
-      selected ? oneCellGlyph('▏', '|', { widthProfile: input.widthProfile }) : ' ',
+      selected ? oneCellGlyph('▏', '|', { widthProfile: input.widthProfile, textPresentation: input.textPresentation }) : ' ',
       'indicator',
       'indicator',
       resolveTabStyle(input, 'indicator', {
@@ -386,7 +386,7 @@ function tabHeaderEntries(input: TabsVisualInput): readonly TabHeaderEntry[] {
       closeOffset = measureSpans(spans, input);
       spans.push(tabSpan(
         input,
-        oneCellGlyph('×', 'x', { widthProfile: input.widthProfile }),
+        oneCellGlyph('×', 'x', { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
         'close',
         'close',
         resolveTabStyle(input, 'close', labelStyle, states),
@@ -401,10 +401,11 @@ function tabHeaderEntries(input: TabsVisualInput): readonly TabHeaderEntry[] {
       bounded = boundedTabSpans(input, tab, spans, input.model.maxTabWidth, labelStyle);
       if (wasConstrained && tab.closable) {
         closeOffset = measureRenderSpans(bounded.slice(0, -1), {
-          widthProfile: input.widthProfile,
+          widthProfile: input.widthProfile, textPresentation: input.textPresentation,
         });
       }
     }
+    bounded = layoutRenderSpans(bounded, { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
     const width = measureSpans(bounded, input);
     return {
       tab,
@@ -445,7 +446,7 @@ function tabHeaderLayout(
     return {
       spans: clipRenderSpans(selected.spans, width, {
         ellipsis: '…',
-        widthProfile: input.widthProfile,
+        widthProfile: input.widthProfile, textPresentation: input.textPresentation,
       }),
       visible: [{ entry: selected, offset: 0 }],
     };
@@ -489,7 +490,7 @@ function tabHeaderLayout(
     }));
   }
   return {
-    spans: clipRenderSpans(spans, width, { widthProfile: input.widthProfile }),
+    spans: clipRenderSpans(spans, width, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
     visible,
   };
 }
@@ -506,12 +507,12 @@ function boundedTabSpans(
   if (close === undefined) {
     return clipRenderSpans(natural, maxWidth, {
       ellipsis: '…',
-      widthProfile: input.widthProfile,
+      widthProfile: input.widthProfile, textPresentation: input.textPresentation,
     });
   }
   const closeGlyph = tabSpan(
     input,
-    oneCellGlyph('×', 'x', { widthProfile: input.widthProfile }),
+    oneCellGlyph('×', 'x', { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
     'close',
     'close',
     close.style,
@@ -529,7 +530,7 @@ function boundedTabSpans(
   );
   const clippedBody = clipRenderSpans(body, bodyBudget, {
     ellipsis: '…',
-    widthProfile: input.widthProfile,
+    widthProfile: input.widthProfile, textPresentation: input.textPresentation,
   });
   const result = [...prefix, ...clippedBody, closeGlyph];
   const used = measureSpans(result, input);
@@ -551,6 +552,8 @@ function tabSpan(
   interactionState?: 'disabled' | 'selected' | 'focused' | 'hovered' | 'pressed' | 'active',
 ): RenderSpan {
   return {
+    ...(part === 'indicator' || part === 'overflow' || part === 'close' || partName.startsWith('padding.') || partName.endsWith('.separator')
+      ? { textOrder: 'visual' as const } : {}),
     text,
     ...(style === undefined ? {} : { style }),
     ...('frameSource' in input
@@ -585,7 +588,7 @@ function resolveTabStyle(
 }
 
 function measureSpans(spans: readonly RenderSpan[], input: TabsVisualInput): number {
-  return measureRenderSpans(spans, { widthProfile: input.widthProfile });
+  return measureRenderSpans(spans, { widthProfile: input.widthProfile, textPresentation: input.textPresentation });
 }
 
 function tabsAccessibility(

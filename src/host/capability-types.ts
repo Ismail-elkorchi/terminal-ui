@@ -18,6 +18,7 @@ const terminalCapabilityNameValues = [
   'focusReporting',
   'cursorVisibility',
   'unicodeGraphemeMode',
+  'cellPresentation',
   'synchronizedOutput',
   'scrollRegion',
   'title',
@@ -57,7 +58,6 @@ export interface TerminalColorCapability {
 export interface TerminalUnicodeCapability {
   readonly graphemeClusters: true;
   readonly widthProfile: TextWidthProfile;
-  readonly bidi: 'full' | 'stable-fallback';
 }
 
 export interface TerminalKittyGraphicsCapability extends CapabilitySupport {

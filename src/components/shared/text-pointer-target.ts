@@ -7,13 +7,13 @@ import type {
   TextPointerTransition,
 } from '../../interaction/text-pointer.ts';
 import type { HitTarget } from '../../renderer/contracts.ts';
-import type { TextSelection } from '../../text/types.ts';
+import type { TextPosition, TextSelection } from '../../text/types.ts';
 
 export interface TextPointerTargetInput<TMessage> {
   readonly id: string;
   readonly bounds: Rect;
   readonly selection?: TextSelection;
-  readonly offsetAt: (event: RoutedPointerEvent, origin: 'current' | 'press') => number;
+  readonly offsetAt: (event: RoutedPointerEvent, origin: 'current' | 'press') => number | TextPosition;
   readonly wordSelectionAt?: (offset: number) => TextSelection;
   readonly onPointer: (
     transition: TextPointerTransition,
@@ -42,7 +42,9 @@ export function textPointerTarget<TMessage>(
       ? {}
       : { focus: { kind: 'target' as const, targetId: input.focusTargetId } }),
     message(event) {
-      const offset = input.offsetAt(event, 'current');
+      const position = input.offsetAt(event, 'current');
+      const offset = typeof position === 'number' ? position : position.offset;
+      const affinity = typeof position === 'number' ? {} : { affinity: position.affinity };
       if (event.kind === 'contextMenu') {
         return input.onContextMenu?.({
           kind: 'contextMenu',
@@ -55,7 +57,7 @@ export function textPointerTarget<TMessage>(
       }
       if (event.button !== 'left') return ignoreMessage();
       if (event.kind === 'pointerDown') {
-        return input.onPointer({ kind: 'placeCaret', offset }, event);
+        return input.onPointer({ kind: 'placeCaret', offset, ...affinity }, event);
       }
       if (event.kind === 'click') {
         if (event.clickCount !== 2 || input.wordSelectionAt === undefined) return ignoreMessage();
@@ -69,11 +71,14 @@ export function textPointerTarget<TMessage>(
       if (event.kind !== 'dragStart' && event.kind !== 'drag' && event.kind !== 'dragEnd') {
         return ignoreMessage();
       }
-      const anchor = input.offsetAt(event, 'press');
+      const pressed = input.offsetAt(event, 'press');
+      const anchor = typeof pressed === 'number' ? pressed : pressed.offset;
       return input.onPointer({
         kind: event.kind === 'dragEnd' ? 'endSelection' : 'extendSelection',
         anchor,
         offset,
+        ...affinity,
+        ...(typeof pressed === 'number' ? {} : { anchorAffinity: pressed.affinity }),
       }, event);
     },
   };

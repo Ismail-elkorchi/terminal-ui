@@ -1,6 +1,7 @@
 import type { ComponentInput, ComponentLayoutCommitInput, ComponentMeasureInput } from '../../component/contracts.ts';
 import type { Measurement } from '../../renderer/contracts.ts';
 import type { TextDocument } from '../../text/document.ts';
+import { textPresentationKey, type TextPresentation } from '../../text/presentation.ts';
 import type { RowOffsetMap, TextWidthProfile } from '../../text/types.ts';
 import { defineTextWidthProfile, textWidthProfileKey } from '../../text/width-profile.ts';
 import type { TerminalTheme } from '../../theme/theme.ts';
@@ -16,6 +17,7 @@ interface Dimensions {
   readonly height: number;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
+  readonly textPresentation?: TextPresentation;
 }
 export interface PreparedLayoutData {
   readonly dependencies: TextAreaLayoutDependencies;
@@ -69,8 +71,8 @@ export function assertPreparedTextAreaDocument(value: PreparedTextAreaLayout, do
 
 /** Only explicit pending mode may use a cheap estimate; a wrong-width measurement is never substituted. */
 export function measurePreparedTextArea(input: ComponentMeasureInput<PreparationModel>): Measurement {
-  traceFor(input.model, input.theme, input.widthProfile).widths.add(input.constraints.width);
-  const data = compatiblePrepared(input.model, input.theme, input.widthProfile);
+  traceFor(input.model, input.theme, input.widthProfile, input.textPresentation).widths.add(input.constraints.width);
+  const data = compatiblePrepared(input.model, input.theme, input.widthProfile, input.textPresentation);
   const exact = data?.measurements.get(input.constraints.width);
   if (exact !== undefined) return exact;
   if (!input.model.observeLayoutRequest) throw mismatch();
@@ -79,9 +81,9 @@ export function measurePreparedTextArea(input: ComponentMeasureInput<Preparation
 
 /** Missing admitted geometry keeps controlled preparation pending, without synchronous layout work. */
 export function preparedTextAreaGeometry(input: ComponentInput<PreparationModel>): PreparedLayoutData | undefined {
-  const data = compatiblePrepared(input.model, input.theme, input.widthProfile);
+  const data = compatiblePrepared(input.model, input.theme, input.widthProfile, input.textPresentation);
   const value = input.model.preparedLayout;
-  const widths = traceFor(input.model, input.theme, input.widthProfile).widths;
+  const widths = traceFor(input.model, input.theme, input.widthProfile, input.textPresentation).widths;
   if (data !== undefined && value?.width === input.bounds.width && value.height === input.bounds.height
     && [...widths].every((width) => data.measurements.has(width))) return data;
   if (!input.model.observeLayoutRequest) throw mismatch();
@@ -91,11 +93,13 @@ export function preparedTextAreaGeometry(input: ComponentInput<PreparationModel>
 /** Emit only after frame acceptance. A stable pending frame never resubmits the same work. */
 export function committedTextAreaLayoutRequest(input: ComponentLayoutCommitInput<PreparationModel>): TextAreaLayoutRequest | undefined {
   if (input.model.preparedLayout === undefined || !input.model.observeLayoutRequest || preparedTextAreaGeometry(input) !== undefined) return undefined;
-  const widths = [...traceFor(input.model, input.theme, input.widthProfile).widths].sort((a, b) => a - b);
+  const widths = [...traceFor(input.model, input.theme, input.widthProfile, input.textPresentation).widths].sort((a, b) => a - b);
   const request = Object.freeze({ document: input.model.document, layoutRevision: input.commitId,
     width: input.bounds.width, height: input.bounds.height, theme: input.theme,
-    widthProfile: defineTextWidthProfile(input.widthProfile), measurementWidths: Object.freeze(widths) }) as TextAreaLayoutRequest;
-  const compatible = compatiblePrepared(input.model, input.theme, input.widthProfile);
+    widthProfile: defineTextWidthProfile(input.widthProfile),
+    ...(input.textPresentation === undefined ? {} : { textPresentation: input.textPresentation }),
+    measurementWidths: Object.freeze(widths) }) as TextAreaLayoutRequest;
+  const compatible = compatiblePrepared(input.model, input.theme, input.widthProfile, input.textPresentation);
   // Retain only exact measurements requested by this accepted tree, plus its
   // actual allocation width. Copy values, never a previous request/capability.
   const needed = new Set([...widths, request.width]);
@@ -128,23 +132,23 @@ export function assertTextAreaRequestDependencies(request: TextAreaLayoutRequest
   }
 }
 
-function compatiblePrepared(model: PreparationModel, theme: TerminalTheme, profile: TextWidthProfile): PreparedLayoutData | undefined {
+function compatiblePrepared(model: PreparationModel, theme: TerminalTheme, profile: TextWidthProfile, textPresentation: TextPresentation | undefined): PreparedLayoutData | undefined {
   const value = model.preparedLayout;
   if (value === undefined || value === null) return undefined;
   assertPreparedTextAreaLayout(value);
   const data = preparedLayouts.get(value);
-  if (data !== undefined && value.theme === theme && textWidthProfileKey(value.widthProfile) === textWidthProfileKey(profile)
+  if (data !== undefined && value.theme === theme && value.textPresentation === textPresentation && textWidthProfileKey(value.widthProfile) === textWidthProfileKey(profile)
     && sameDependencies(data.dependencies, model)) return data;
   if (!model.observeLayoutRequest) throw mismatch();
   return undefined;
 }
 
-function traceFor(model: object, theme: TerminalTheme, profile: TextWidthProfile): MeasurementTrace {
+function traceFor(model: object, theme: TerminalTheme, profile: TextWidthProfile, textPresentation: TextPresentation | undefined): MeasurementTrace {
   const byTheme = measuredWidths.get(model) ?? new WeakMap<TerminalTheme, Map<string, MeasurementTrace>>();
   measuredWidths.set(model, byTheme);
   const byProfile = byTheme.get(theme) ?? new Map<string, MeasurementTrace>();
   byTheme.set(theme, byProfile);
-  const profileKey = textWidthProfileKey(profile);
+  const profileKey = `${textWidthProfileKey(profile)}:${textPresentationKey(textPresentation)}`;
   const existing = byProfile.get(profileKey);
   if (existing !== undefined) return existing;
   const trace = { widths: new Set<number>() };
@@ -155,7 +159,7 @@ function traceFor(model: object, theme: TerminalTheme, profile: TextWidthProfile
 function sameRequest(previous: TextAreaLayoutRequest, next: TextAreaLayoutRequest, data: RequestData): boolean {
   const before = requests.get(previous);
   return before !== undefined && previous.width === next.width && previous.height === next.height
-    && previous.theme === next.theme && textWidthProfileKey(previous.widthProfile) === textWidthProfileKey(next.widthProfile)
+    && previous.theme === next.theme && previous.textPresentation === next.textPresentation && textWidthProfileKey(previous.widthProfile) === textWidthProfileKey(next.widthProfile)
     && sameDependencies(before.dependencies, data.dependencies)
     && previous.measurementWidths.length === next.measurementWidths.length
     && previous.measurementWidths.every((width, index) => width === next.measurementWidths[index])

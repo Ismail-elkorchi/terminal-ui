@@ -1,3 +1,4 @@
+import type { TextPresentation } from '../../text/types.ts';
 import type { TerminalDiagnostic } from '../../diagnostics.ts';
 import { diagnostic } from '../../diagnostics.ts';
 import type {
@@ -26,6 +27,8 @@ export interface SessionProtocolPolicy {
   readonly focusReporting: ProtocolRequirement;
   readonly metaSendsEscape: ProtocolRequirement;
   readonly unicodeGraphemeMode: ProtocolRequirement;
+  /** Requires every text producer to use application-ordered cells and matching geometry. */
+  readonly cellPresentation: ProtocolRequirement;
   readonly keyboard: {
     readonly profile: TerminalKeyboardProfile;
     readonly requirement: ProtocolRequirement;
@@ -59,7 +62,7 @@ export type SessionProtocolOperation =
     };
 
 interface EnableSessionProtocolOperation {
-  readonly kind: 'alternateScreen' | 'rawInput' | 'bracketedPaste' | 'focusReporting' | 'metaSendsEscape' | 'unicodeGraphemeMode';
+  readonly kind: 'alternateScreen' | 'rawInput' | 'bracketedPaste' | 'focusReporting' | 'metaSendsEscape' | 'unicodeGraphemeMode' | 'cellPresentation';
   readonly requirement: ProtocolRequirement;
   readonly target: true;
 }
@@ -83,6 +86,7 @@ export const defaultSessionProtocolPolicy: SessionProtocolPolicy = Object.freeze
   focusReporting: 'optional',
   metaSendsEscape: 'optional',
   unicodeGraphemeMode: 'optional',
+  cellPresentation: 'disabled',
   keyboard: Object.freeze({
     profile: kittyKeyboardProfile(
       KITTY_KEYBOARD_FLAGS.disambiguateEscapeCodes | KITTY_KEYBOARD_FLAGS.reportEventTypes,
@@ -93,6 +97,16 @@ export const defaultSessionProtocolPolicy: SessionProtocolPolicy = Object.freeze
   mouseReporting: Object.freeze({ mode: 'drag', requirement: 'optional' })
 });
 
+/** Recheck each newly acquired terminal lease before any application output. */
+export function assertSessionTextPresentation(
+  session: Pick<TerminalSession, 'initialState'>,
+  textPresentation: TextPresentation | undefined,
+): void {
+  if (session.initialState.cellPresentation === 'explicit' && textPresentation === undefined) {
+    throw new Error('An explicit-cell terminal requires a textPresentation provider for every text producer.');
+  }
+}
+
 export function createSessionProtocolPlan(
   policy: SessionProtocolPolicy = defaultSessionProtocolPolicy
 ): readonly SessionProtocolOperation[] {
@@ -101,6 +115,7 @@ export function createSessionProtocolPlan(
     { kind: 'bracketedPaste', requirement: policy.bracketedPaste, target: true },
     { kind: 'rawInput', requirement: policy.rawInput, target: true },
     { kind: 'unicodeGraphemeMode', requirement: policy.unicodeGraphemeMode, target: true },
+    { kind: 'cellPresentation', requirement: policy.cellPresentation, target: true },
     { kind: 'metaSendsEscape', requirement: policy.metaSendsEscape, target: true },
     {
       kind: 'keyboardProfile',
@@ -198,6 +213,8 @@ async function applyOperation(
       return session.enableFocusReporting(context);
     case 'metaSendsEscape':
       return session.enableMetaSendsEscape(context);
+    case 'cellPresentation':
+      return session.enableCellPresentation(context);
     case 'unicodeGraphemeMode':
       return session.enableUnicodeGraphemeMode(context);
     case 'keyboardProfile':

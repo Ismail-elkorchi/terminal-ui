@@ -64,6 +64,7 @@ export interface PreparedTextAreaLayout {
   readonly height: number;
   readonly wrap: boolean;
   readonly widthProfile: TextWidthProfile;
+  readonly textPresentation?: import('../../text/presentation.ts').TextPresentation;
   readonly theme: TerminalTheme;
 }
 
@@ -79,5 +80,6 @@ export interface TextAreaLayoutRequest {
   readonly height: number;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
+  readonly textPresentation?: import('../../text/presentation.ts').TextPresentation;
   readonly measurementWidths: readonly number[];
 }

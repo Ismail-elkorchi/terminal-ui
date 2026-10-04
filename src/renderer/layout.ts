@@ -1,3 +1,5 @@
+import { defineTextPresentation } from '../text/presentation.ts';
+import type { TextPresentation } from '../text/presentation.ts';
 import type { Element } from '../element/types.ts';
 import type { Rect, TerminalSize } from '../geometry/types.ts';
 import type { TextWidthProfile } from '../text/types.ts';
@@ -17,6 +19,7 @@ export function layoutElement(
   themeInput?: TerminalTheme | TerminalThemeDefinition,
   widthProfile: TextWidthProfile = defaultTextWidthProfile,
   limits?: Partial<RenderBudgetLimits>,
+  textPresentation?: TextPresentation,
 ): LayoutNode {
   return layoutRenderTree(
     toRenderNode(element),
@@ -24,5 +27,8 @@ export function layoutElement(
     themeInput,
     widthProfile,
     createRenderBudget(limits),
+    undefined,
+    undefined,
+    textPresentation === undefined ? undefined : defineTextPresentation(textPresentation),
   ).layout;
 }

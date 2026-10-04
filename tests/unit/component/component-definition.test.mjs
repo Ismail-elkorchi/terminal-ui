@@ -483,6 +483,7 @@ test('component render targets are frozen write-only capabilities clipped to ele
       'coordinateSpace',
       'height',
       'placeGraphic',
+      'textPresentation',
       'width',
       'widthProfile',
       'write',

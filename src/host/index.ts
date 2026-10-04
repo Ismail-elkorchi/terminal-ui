@@ -56,6 +56,7 @@ export type {
   TerminalActiveCapabilityProbe,
   TerminalCapabilityDetectionOptions,
   TerminalClock,
+  TerminalCellPresentation,
   TerminalEnvironment,
   TerminalHost,
   TerminalInitialState,

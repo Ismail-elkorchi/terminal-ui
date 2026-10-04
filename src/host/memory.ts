@@ -285,6 +285,7 @@ export function createMemoryTerminalHost(options: unknown = {}): MemoryTerminalH
       rows: terminalSize.rows,
       supportsRawInput: true,
       supportsResizeEvents: true,
+      ...(config.initialState?.cellPresentation === 'explicit' ? { cellPresentation: 'explicit' as const } : {}),
       supportsTerminalProtocols: isTty
     },
     environment: { variables: config.env ?? {} },
@@ -318,7 +319,8 @@ export function createMemoryTerminalHost(options: unknown = {}): MemoryTerminalH
     beginObservationRefresh: () => terminalState.beginObservationRefresh(),
     observeModes: (reports) => terminalState.observeModes(reports),
     observeKeyboardProfile: (profile) => terminalState.observeKeyboardProfile(profile),
-    write: (chunk, signal) => output.write(chunk, { signal })
+    write: (chunk, signal) => output.write(chunk, { signal }),
+    writeRecovery: (chunk, signal) => output.writeRecovery(chunk, { signal })
   });
   const host = {
     id: config.id ?? 'memory',
@@ -373,6 +375,7 @@ export function createMemoryTerminalHost(options: unknown = {}): MemoryTerminalH
   } satisfies MemoryTerminalHost;
   terminalState.bind(host, {
     rawInputKnowledge: 'library_known',
+    observeCellPresentation: (context, recovery) => detector.observeCellPresentation(context.signal, recovery),
     ...(config.initialState === undefined ? {} : { initialState: config.initialState })
   });
   return host;

@@ -1,3 +1,4 @@
+import { clipRenderSpans } from '../../visual/render-content.ts';
 import type {
   CommandCompletion,
   CommandInputSubmitEvent,
@@ -34,9 +35,7 @@ import {
 import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
 import { portal, surface } from '../../layout/factories/surfaces.ts';
 import type { HitTarget } from '../../renderer/contracts.ts';
-import { clipTextCells } from '../../text/clip.ts';
 import { editTextBuffer } from '../../text/edit.ts';
-import { segmentGraphemes } from '../../text/graphemes.ts';
 import { measureTextCells } from '../../text/measure.ts';
 import type { CompiledCollectionQuery } from '../../text/query.ts';
 import {
@@ -44,7 +43,6 @@ import {
   indexQueryCandidate,
   matchCompiledCollectionQuery,
 } from '../../text/query.ts';
-import { createTerminalTextIndex } from '../../text/terminal-text-index.ts';
 import type { TextSelection } from '../../text/types.ts';
 import type { TerminalStyle } from '../../visual/render-content.ts';
 import { span } from '../../visual/render-content.ts';
@@ -56,7 +54,7 @@ import { clean, nonEmpty, positiveInteger } from '../shared/picker-validation.ts
 import { queryLabelSpans } from '../shared/query-label-spans.ts';
 import { layoutSingleLineTextWindow } from '../shared/single-line-text-window.ts';
 import { decodeTextSelection } from '../shared/text-input-validation.ts';
-import { textEditingTriggers } from '../shared/text-key-bindings.ts';
+import { textEditingTriggers, textEditingVisualInput } from '../shared/text-key-bindings.ts';
 import { textPointerTarget } from '../shared/text-pointer-target.ts';
 import type { CommandInputStylePart } from '../style-parts.ts';
 import type { CommandInputOptions } from './options.ts';
@@ -64,6 +62,7 @@ import type { CommandInputOptions } from './options.ts';
 interface CommandInputModel {
   readonly value: string;
   readonly cursor: number;
+  readonly affinity?: import('../../text/types.ts').TextAffinity;
   readonly selection?: TextSelection;
   readonly submissionIndex?: number;
   readonly suggestions: ListboxView<CommandCompletion>;
@@ -189,7 +188,7 @@ const instantiateCommandInput = defineComponent<CommandInputComponentOptions, Co
       minHeight: 1,
       preferredWidth:
         measureTextCells(`${input.model.prompt}${value}${input.model.completionPreview}`, {
-          widthProfile: input.widthProfile,
+          widthProfile: input.widthProfile, textPresentation: input.textPresentation,
         }).cells,
       preferredHeight: 1 + Number(input.model.validation !== undefined) + expandedRows +
         Number(input.model.display === 'expanded' && input.model.footer.length > 0),
@@ -256,7 +255,7 @@ const instantiateCommandInput = defineComponent<CommandInputComponentOptions, Co
       ...(children.length === 0 ? {} : { children }),
     };
   },
-  keys: ({ model, readOnly }) => {
+  keys: ({ model, readOnly, widthProfile, textPresentation }) => {
     const availability = { readOnly };
     const canEdit = allowsComponentAction(availability, 'edit');
     const canCommitSelection = allowsComponentAction(availability, 'commitSelection');
@@ -271,7 +270,7 @@ const instantiateCommandInput = defineComponent<CommandInputComponentOptions, Co
         ).text;
     return {
       triggers: [
-        ...textEditingTriggers(!canEdit).map((binding) => ({
+        ...textEditingTriggers(!canEdit, textEditingVisualInput({ text: model.value, cursor: model.cursor, ...(model.affinity === undefined ? {} : { affinity: model.affinity }), ...(model.selection === undefined ? {} : { selection: model.selection }) }, { widthProfile, textPresentation }, undefined, model)).map((binding) => ({
           trigger: binding.trigger,
           onKey: (event: Parameters<typeof binding.onKey>[0]) => {
             const action = binding.onKey(event);
@@ -313,7 +312,7 @@ const instantiateCommandInput = defineComponent<CommandInputComponentOptions, Co
     ? commandTransition({ kind: 'dismissSuggestions', reason: 'focusLoss' })
     : ignoreMessage(),
   focusTargets: (input) => {
-    const visual = commandInputVisual(input.model, input.bounds.width, input.widthProfile);
+    const visual = commandInputVisual(input.model, input.bounds.width, input.widthProfile, input.textPresentation);
     const cursorStyle = input.style({
       part: 'cursor',
       states: ['focused'],
@@ -406,7 +405,7 @@ function decodeCommandInputView(
   value: CommandInputView,
 ): Pick<
   CommandInputModel,
-  'value' | 'cursor' | 'selection' | 'submissionIndex' | 'suggestions' | 'activeSuggestionId'
+  'value' | 'cursor' | 'affinity' | 'selection' | 'submissionIndex' | 'suggestions' | 'activeSuggestionId'
 > {
   if (!isNonArrayObject(value.input)) throw new TypeError('commandInput input must be an object.');
   const text = clean(value.input.text, 'commandInput input text') ?? '';
@@ -439,6 +438,7 @@ function decodeCommandInputView(
   return {
     value: text,
     cursor,
+    ...(value.input.affinity === undefined ? {} : { affinity: value.input.affinity }),
     ...(selection === undefined ? {} : { selection }),
     ...(submissionIndex === undefined ? {} : { submissionIndex }),
     suggestions,
@@ -480,7 +480,7 @@ function paintCommandInput(
       }),
     })]);
   }
-  const visual = commandInputVisual(input.model, input.bounds.width, input.widthProfile);
+  const visual = commandInputVisual(input.model, input.bounds.width, input.widthProfile, input.textPresentation);
   const promptStyle = input.style({
     part: 'prompt',
     base: { fg: { kind: 'theme', token: 'command.prompt' } },
@@ -502,10 +502,8 @@ function paintCommandInput(
       base: { fg: { kind: 'theme', token: 'input.placeholder' } },
     });
     line.push(
-      span(
-        clipTextCells(input.model.placeholder, visual.contentWidth, {
-          widthProfile: input.widthProfile,
-        }).text,
+      ...clipRenderSpans([span(
+        input.model.placeholder,
         {
           ...(placeholderStyle === undefined ? {} : { style: placeholderStyle }),
           source: input.frameSource({
@@ -515,12 +513,12 @@ function paintCommandInput(
             cellRole: 'text',
           }),
         },
-      ),
+      )], visual.contentWidth, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
     );
   } else {
     line.push(...commandValueSpans(input, visual));
     const visibleCells =
-      measureTextCells(visual.window.visibleText, { widthProfile: input.widthProfile }).cells +
+      measureTextCells(visual.window.visibleText, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }).cells +
       Number(visual.window.clippedBefore);
     const completionWidth = Math.max(0, visual.contentWidth - visibleCells);
     if (
@@ -533,10 +531,8 @@ function paintCommandInput(
         base: { fg: { kind: 'theme', token: 'input.placeholder' } },
       });
       line.push(
-        span(
-          clipTextCells(input.model.completionPreview, completionWidth, {
-            widthProfile: input.widthProfile,
-          }).text,
+        ...clipRenderSpans([span(
+          input.model.completionPreview,
           {
             ...(completionStyle === undefined ? {} : { style: completionStyle }),
             source: input.frameSource({
@@ -546,7 +542,7 @@ function paintCommandInput(
               cellRole: 'text',
             }),
           },
-        ),
+        )], completionWidth, { widthProfile: input.widthProfile, textPresentation: input.textPresentation }),
       );
     }
   }
@@ -613,13 +609,14 @@ function commandInputVisual(
   model: CommandInputModel,
   width: number,
   widthProfile: import('../../text/index.ts').TextWidthProfile,
+  textPresentation?: import('../../text/presentation.ts').TextPresentation,
 ): CommandInputVisual {
   const promptCells = measureTextCells(model.prompt, { widthProfile }).cells;
   const contentWidth = Math.max(0, width - promptCells);
   return {
     promptCells,
     contentWidth,
-    window: layoutSingleLineTextWindow(model.value, model.cursor, contentWidth, widthProfile),
+    window: layoutSingleLineTextWindow(model.value, model.cursor, contentWidth, widthProfile, textPresentation, model.affinity, model),
   };
 }
 
@@ -640,11 +637,7 @@ function commandValueSpans(
     }));
   }
   const selection = input.model.selection;
-  for (const grapheme of segmentGraphemes(input.model.value)) {
-    if (
-      grapheme.startOffset < visual.window.startOffset
-      || grapheme.startOffset >= visual.window.endOffsetExclusive
-    ) continue;
+  for (const grapheme of visual.window.graphemes) {
     const selected = selection !== undefined &&
       grapheme.startOffset < selection.endOffsetExclusive &&
       grapheme.endOffsetExclusive > selection.startOffset;
@@ -666,6 +659,7 @@ function commandValueSpans(
         : {}),
     });
     spans.push(span(grapheme.text, {
+      textOrder: 'visual',
       ...(style === undefined ? {} : { style }),
       source: input.frameSource({
         partName: selected ? 'selection' : 'value',
@@ -762,7 +756,7 @@ function commandSuggestionSpans(
     })]),
   ];
   const used = measureTextCells(spans.map((current) => current.text).join(''), {
-    widthProfile: input.widthProfile,
+    widthProfile: input.widthProfile, textPresentation: input.textPresentation,
   }).cells;
   if (used < input.bounds.width) {
     spans.push(span(' '.repeat(input.bounds.width - used), {
@@ -783,10 +777,8 @@ function commandSuggestionSpans(
 function commandInputHitTargets(
   input: ComponentInput<CommandInputModel>,
 ): readonly HitTarget<CommandInputComponentAction>[] {
-  const visual = commandInputVisual(input.model, input.bounds.width, input.widthProfile);
-  const textIndex = createTerminalTextIndex(input.model.value, {
-    widthProfile: input.widthProfile,
-  });
+  const visual = commandInputVisual(input.model, input.bounds.width, input.widthProfile, input.textPresentation);
+  const textIndex = visual.window.index;
   const textTarget = textPointerTarget<CommandInputComponentAction>({
     id: `${input.id ?? 'command-input'}:text`,
     bounds: input.bounds,
@@ -800,9 +792,8 @@ function commandInputHitTargets(
         0,
         localColumn - 1 - visual.promptCells - Number(visual.window.clippedBefore),
       );
-      return textIndex.graphemeIndexToCodeUnitOffset(
-        textIndex.visualColumnToGraphemeIndex(column),
-      );
+      const position = visual.window.index.visualColumnToPosition(column);
+      return position;
     },
     wordSelectionAt: (offset) => textIndex.wordSelectionAt(offset),
     onPointer: (transition) => commandTransition({ kind: 'pointer', transition }),

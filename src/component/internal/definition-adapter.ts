@@ -1,3 +1,4 @@
+import type { TextPresentation } from '../../text/presentation.ts';
 import { mapComponentAction } from '../message.ts';
 import type { AccessibleNode } from '../../accessibility/types.ts';
 import type { ElementState } from '../../element/metadata.ts';
@@ -68,11 +69,11 @@ export function adaptDefinition<
       onLayout: (input) => executeComponentPhase(definition.name, input.renderNode.id, 'layout', () => {
         const previous = input.previous;
         const action = onLayout.call(undefined, {
-          ...componentInput<TModel>(input.renderNode, input.layoutNode.bounds, input.layoutNode.viewport, input.theme, input.widthProfile),
+          ...componentInput<TModel>(input.renderNode, input.layoutNode.bounds, input.layoutNode.viewport, input.theme, input.widthProfile, input.textPresentation),
           commitId: input.commitId,
           allocatedBounds: input.layoutNode.bounds,
           ...(previous === undefined ? {} : { previous: {
-            ...componentInput<TModel>(previous.renderNode, previous.layoutNode.bounds, previous.layoutNode.viewport, previous.theme, previous.widthProfile),
+            ...componentInput<TModel>(previous.renderNode, previous.layoutNode.bounds, previous.layoutNode.viewport, previous.theme, previous.widthProfile, previous.textPresentation),
             allocatedBounds: previous.layoutNode.bounds,
           } }),
         });
@@ -94,6 +95,7 @@ export function adaptDefinition<
                   input.layoutNode.viewport,
                   input.theme,
                   input.widthProfile,
+                  input.textPresentation,
                 ),
                 focus: input.focus,
                 ...(input.focusedTargetId === undefined
@@ -111,7 +113,7 @@ export function adaptDefinition<
       definition.structure === 'composed'
         ? input.measureChild(0)
         : definition.measure.call(undefined, {
-            ...componentBaseInput<TModel>(input.renderNode, input.theme, input.widthProfile),
+            ...componentBaseInput<TModel>(input.renderNode, input.theme, input.widthProfile, input.textPresentation),
             constraints: { width: input.bounds.width, height: input.bounds.height },
             childCount: input.childCount,
             measureChild: input.measureChild,
@@ -123,7 +125,7 @@ export function adaptDefinition<
         definition.structure === 'composed'
           ? [input.bounds]
           : decodeComponentLayout(definition.layout.call(undefined, {
-              ...componentInput<TModel>(input.renderNode, input.bounds, input.viewport, input.theme, input.widthProfile),
+              ...componentInput<TModel>(input.renderNode, input.bounds, input.viewport, input.theme, input.widthProfile, input.textPresentation),
               childCount: input.childCount,
               measureChild: input.measureChild,
               slots: componentSlotMeasurements(input.renderNode.props.slots, input.measureChild)
@@ -169,7 +171,8 @@ export function adaptDefinition<
               input.layoutNode.bounds,
               input.layoutNode.viewport,
               input.theme,
-              input.widthProfile
+              input.widthProfile,
+              input.textPresentation
             ),
             id: input.id,
             focused: input.focused,
@@ -196,7 +199,8 @@ export function adaptDefinition<
             input.bounds,
             input.viewport,
             input.theme,
-            input.widthProfile
+            input.widthProfile,
+              input.textPresentation
           )).map((target) => toAbsoluteFocusTarget(target, input.bounds))
         )
       }),
@@ -209,7 +213,8 @@ export function adaptDefinition<
               input.bounds,
               input.layoutNode.viewport,
               input.theme,
-              input.widthProfile
+              input.widthProfile,
+              input.textPresentation
             )) ?? [],
             input.bounds,
             input.renderNode.props.toActionMessage,
@@ -263,7 +268,8 @@ function componentBaseInput<TModel extends object>(
     readonly state?: ElementState;
   },
   theme: TerminalTheme,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  textPresentation?: TextPresentation,
 ): Omit<ComponentInput<TModel>, 'bounds' | 'viewport'> {
   return {
     ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
@@ -276,7 +282,8 @@ function componentBaseInput<TModel extends object>(
     readOnly: renderNode.state?.readOnly === true,
     inert: renderNode.state?.inert === true,
     theme,
-    widthProfile
+    widthProfile,
+    textPresentation
   };
 }
 
@@ -289,10 +296,11 @@ function componentInput<TModel extends object>(
   bounds: Rect,
   viewport: Rect,
   theme: TerminalTheme,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  textPresentation?: TextPresentation,
 ): ComponentInput<TModel> {
   return {
-    ...componentBaseInput<TModel>(renderNode, theme, widthProfile),
+    ...componentBaseInput<TModel>(renderNode, theme, widthProfile, textPresentation),
     bounds: localBounds(bounds),
     viewport: localViewport(bounds, viewport)
   };
@@ -317,7 +325,8 @@ function componentRenderInput<TModel extends object, TPart extends string>(
       input.layoutNode.bounds,
       input.layoutNode.viewport,
       input.theme,
-      input.widthProfile
+      input.widthProfile,
+              input.textPresentation
     ),
     target: buffer,
     focus: input.focus,
@@ -335,10 +344,11 @@ function componentInteractionInput<TModel extends object, TPart extends string>(
   bounds: Rect,
   viewport: Rect,
   theme: TerminalTheme,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  textPresentation?: TextPresentation,
 ): ComponentInteractionInput<TModel, TPart> {
   return {
-    ...componentInput<TModel>(renderNode, bounds, viewport, theme, widthProfile),
+    ...componentInput<TModel>(renderNode, bounds, viewport, theme, widthProfile, textPresentation),
     ...(renderNode.styles === undefined ? {} : { styles: renderNode.styles }),
     ...componentHelpers<TPart>(renderNode, contract)
   };

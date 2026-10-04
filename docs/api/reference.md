@@ -20,13 +20,13 @@ See [API stability](../guides/api-stability.md) for stability labels.
 - [`DenoTerminalHostOptions`](#host-denoterminalhostoptions), [`EnvironmentFacts`](#host-environmentfacts), [`GraphicsProbeFacts`](#host-graphicsprobefacts), [`HostFeatureAvailability`](#host-hostfeatureavailability), [`KittyGraphicsProbeFacts`](#host-kittygraphicsprobefacts), [`MemoryTerminalHost`](#host-memoryterminalhost), [`MemoryTerminalHostOptions`](#host-memoryterminalhostoptions), [`MouseReportingEncoding`](#host-mousereportingencoding)
 - [`MouseReportingMode`](#host-mousereportingmode), [`MouseReportingState`](#host-mousereportingstate), [`NodeProcessLike`](#host-nodeprocesslike), [`NodeReadableTerminalStream`](#host-nodereadableterminalstream), [`NodeTerminalHostOptions`](#host-nodeterminalhostoptions), [`NodeTerminalSignal`](#host-nodeterminalsignal), [`NodeWritableTerminalStream`](#host-nodewritableterminalstream), [`ProtocolProbeFacts`](#host-protocolprobefacts)
 - [`PtyTerminalHost`](#host-ptyterminalhost), [`PtyTerminalHostOptions`](#host-ptyterminalhostoptions), [`RuntimeInputSource`](#host-runtimeinputsource), [`RuntimeTarget`](#host-runtimetarget), [`RuntimeTerminalInputOptions`](#host-runtimeterminalinputoptions), [`RuntimeTerminalOutputOptions`](#host-runtimeterminaloutputoptions), [`TerminalActiveCapabilityProbe`](#host-terminalactivecapabilityprobe), [`TerminalCapabilityConfiguration`](#host-terminalcapabilityconfiguration)
-- [`TerminalCapabilityDetectionOptions`](#host-terminalcapabilitydetectionoptions), [`TerminalCapabilityName`](#host-terminalcapabilityname), [`TerminalCapabilityProfile`](#host-terminalcapabilityprofile), [`TerminalCapabilityResolverInput`](#host-terminalcapabilityresolverinput), [`TerminalClock`](#host-terminalclock), [`TerminalColorCapability`](#host-terminalcolorcapability), [`TerminalEnvironment`](#host-terminalenvironment), [`TerminalFeatureSupport`](#host-terminalfeaturesupport)
-- [`TerminalGraphicsCapability`](#host-terminalgraphicscapability), [`TerminalHost`](#host-terminalhost), [`TerminalHostFacts`](#host-terminalhostfacts), [`TerminalInitialState`](#host-terminalinitialstate), [`TerminalInput`](#host-terminalinput), [`TerminalInputChunk`](#host-terminalinputchunk), [`TerminalInputReadOptions`](#host-terminalinputreadoptions), [`TerminalKittyGraphicsCapability`](#host-terminalkittygraphicscapability)
-- [`TerminalOperationAssurance`](#host-terminaloperationassurance), [`TerminalOperationContext`](#host-terminaloperationcontext), [`TerminalOperationOutcome`](#host-terminaloperationoutcome), [`TerminalOutput`](#host-terminaloutput), [`TerminalOutputChunk`](#host-terminaloutputchunk), [`TerminalRestoreCompletion`](#host-terminalrestorecompletion), [`TerminalRestoreOptions`](#host-terminalrestoreoptions), [`TerminalRestoreReason`](#host-terminalrestorereason)
-- [`TerminalRestoreResult`](#host-terminalrestoreresult), [`TerminalSession`](#host-terminalsession), [`TerminalSessionOptions`](#host-terminalsessionoptions), [`TerminalSignal`](#host-terminalsignal), [`TerminalSignalSource`](#host-terminalsignalsource), [`TerminalSize`](#host-terminalsize), [`TerminalSleepOutcome`](#host-terminalsleepoutcome), [`TerminalStateChange`](#host-terminalstatechange)
-- [`TerminalStateKnowledge`](#host-terminalstateknowledge), [`TerminalStateProvenanceSnapshot`](#host-terminalstateprovenancesnapshot), [`TerminalStateSnapshot`](#host-terminalstatesnapshot), [`TerminalUnicodeCapability`](#host-terminalunicodecapability), [`TerminalWriteReceipt`](#host-terminalwritereceipt), [`Unsubscribe`](#host-unsubscribe), [`capabilityIsSupported`](#host-capabilityissupported), [`committedTerminalWrite`](#host-committedterminalwrite)
-- [`createBunTerminalHost`](#host-createbunterminalhost), [`createDenoTerminalHost`](#host-createdenoterminalhost), [`createMemoryTerminalHost`](#host-creatememoryterminalhost), [`createNodeTerminalHost`](#host-createnodeterminalhost), [`createPtyTerminalHost`](#host-createptyterminalhost), [`createTerminalHost`](#host-createterminalhost), [`detectTerminalCapabilities`](#host-detectterminalcapabilities), [`failedTerminalWrite`](#host-failedterminalwrite)
-- [`indeterminateTerminalWrite`](#host-indeterminateterminalwrite), [`resolveTerminalCapabilities`](#host-resolveterminalcapabilities), [`restoreTerminalState`](#host-restoreterminalstate), [`terminalCapabilityNames`](#host-terminalcapabilitynames)
+- [`TerminalCapabilityDetectionOptions`](#host-terminalcapabilitydetectionoptions), [`TerminalCapabilityName`](#host-terminalcapabilityname), [`TerminalCapabilityProfile`](#host-terminalcapabilityprofile), [`TerminalCapabilityResolverInput`](#host-terminalcapabilityresolverinput), [`TerminalCellPresentation`](#host-terminalcellpresentation), [`TerminalClock`](#host-terminalclock), [`TerminalColorCapability`](#host-terminalcolorcapability), [`TerminalEnvironment`](#host-terminalenvironment)
+- [`TerminalFeatureSupport`](#host-terminalfeaturesupport), [`TerminalGraphicsCapability`](#host-terminalgraphicscapability), [`TerminalHost`](#host-terminalhost), [`TerminalHostFacts`](#host-terminalhostfacts), [`TerminalInitialState`](#host-terminalinitialstate), [`TerminalInput`](#host-terminalinput), [`TerminalInputChunk`](#host-terminalinputchunk), [`TerminalInputReadOptions`](#host-terminalinputreadoptions)
+- [`TerminalKittyGraphicsCapability`](#host-terminalkittygraphicscapability), [`TerminalOperationAssurance`](#host-terminaloperationassurance), [`TerminalOperationContext`](#host-terminaloperationcontext), [`TerminalOperationOutcome`](#host-terminaloperationoutcome), [`TerminalOutput`](#host-terminaloutput), [`TerminalOutputChunk`](#host-terminaloutputchunk), [`TerminalRestoreCompletion`](#host-terminalrestorecompletion), [`TerminalRestoreOptions`](#host-terminalrestoreoptions)
+- [`TerminalRestoreReason`](#host-terminalrestorereason), [`TerminalRestoreResult`](#host-terminalrestoreresult), [`TerminalSession`](#host-terminalsession), [`TerminalSessionOptions`](#host-terminalsessionoptions), [`TerminalSignal`](#host-terminalsignal), [`TerminalSignalSource`](#host-terminalsignalsource), [`TerminalSize`](#host-terminalsize), [`TerminalSleepOutcome`](#host-terminalsleepoutcome)
+- [`TerminalStateChange`](#host-terminalstatechange), [`TerminalStateKnowledge`](#host-terminalstateknowledge), [`TerminalStateProvenanceSnapshot`](#host-terminalstateprovenancesnapshot), [`TerminalStateSnapshot`](#host-terminalstatesnapshot), [`TerminalUnicodeCapability`](#host-terminalunicodecapability), [`TerminalWriteReceipt`](#host-terminalwritereceipt), [`Unsubscribe`](#host-unsubscribe), [`capabilityIsSupported`](#host-capabilityissupported)
+- [`committedTerminalWrite`](#host-committedterminalwrite), [`createBunTerminalHost`](#host-createbunterminalhost), [`createDenoTerminalHost`](#host-createdenoterminalhost), [`createMemoryTerminalHost`](#host-creatememoryterminalhost), [`createNodeTerminalHost`](#host-createnodeterminalhost), [`createPtyTerminalHost`](#host-createptyterminalhost), [`createTerminalHost`](#host-createterminalhost), [`detectTerminalCapabilities`](#host-detectterminalcapabilities)
+- [`failedTerminalWrite`](#host-failedterminalwrite), [`indeterminateTerminalWrite`](#host-indeterminateterminalwrite), [`resolveTerminalCapabilities`](#host-resolveterminalcapabilities), [`restoreTerminalState`](#host-restoreterminalstate), [`terminalCapabilityNames`](#host-terminalcapabilitynames)
 
 ### @ismail-elkorchi/terminal-ui/input
 
@@ -75,17 +75,18 @@ See [API stability](../guides/api-stability.md) for stability labels.
 - [`SanitizedTerminalText`](#text-sanitizedterminaltext), [`TerminalTextIndex`](#text-terminaltextindex), [`TextAffinity`](#text-textaffinity), [`TextBoundaryOptions`](#text-textboundaryoptions), [`TextCaret`](#text-textcaret), [`TextCellAlignment`](#text-textcellalignment), [`TextCellMetrics`](#text-textcellmetrics), [`TextChangeSet`](#text-textchangeset)
 - [`TextClipOptions`](#text-textclipoptions), [`TextClipResult`](#text-textclipresult), [`TextDocument`](#text-textdocument), [`TextDocumentChange`](#text-textdocumentchange), [`TextDocumentEditResult`](#text-textdocumenteditresult), [`TextDocumentEditState`](#text-textdocumenteditstate), [`TextDocumentLine`](#text-textdocumentline), [`TextDocumentMutation`](#text-textdocumentmutation)
 - [`TextDocumentSelection`](#text-textdocumentselection), [`TextEditBuffer`](#text-texteditbuffer), [`TextEditHistory`](#text-textedithistory), [`TextEditHistoryGroup`](#text-textedithistorygroup), [`TextEditHistoryOperation`](#text-textedithistoryoperation), [`TextEditHistoryResult`](#text-textedithistoryresult), [`TextEditOperation`](#text-texteditoperation), [`TextHighlightMatch`](#text-texthighlightmatch)
-- [`TextHighlightOptions`](#text-texthighlightoptions), [`TextIndexOptions`](#text-textindexoptions), [`TextLine`](#text-textline), [`TextMeasurementOptions`](#text-textmeasurementoptions), [`TextPosition`](#text-textposition), [`TextPreparationRequest`](#text-textpreparationrequest), [`TextSelection`](#text-textselection), [`TextWidthProfile`](#text-textwidthprofile)
-- [`TextWrapOptions`](#text-textwrapoptions), [`applyTextChangeSet`](#text-applytextchangeset), [`applyTextEditWithHistory`](#text-applytexteditwithhistory), [`assertTextDocument`](#text-asserttextdocument), [`breakTextEditHistoryGroup`](#text-breaktextedithistorygroup), [`clampTextOffset`](#text-clamptextoffset), [`clipTextCells`](#text-cliptextcells), [`createRowOffsetMap`](#text-createrowoffsetmap)
-- [`createTerminalTextIndex`](#text-createterminaltextindex), [`createTextChangeSet`](#text-createtextchangeset), [`createTextDocument`](#text-createtextdocument), [`defaultEditHistoryPolicy`](#text-defaultedithistorypolicy), [`defaultTextWidthProfile`](#text-defaulttextwidthprofile), [`defineTextWidthProfile`](#text-definetextwidthprofile), [`editTextBuffer`](#text-edittextbuffer), [`editTextDocument`](#text-edittextdocument)
-- [`emptyTextChangeSet`](#text-emptytextchangeset), [`emptyTextEditHistory`](#text-emptytextedithistory), [`extractTextBufferSelection`](#text-extracttextbufferselection), [`extractTextDocumentSelection`](#text-extracttextdocumentselection), [`extractTextSelection`](#text-extracttextselection), [`fillTextCells`](#text-filltextcells), [`findTextHighlightMatches`](#text-findtexthighlightmatches), [`indexQueryCandidate`](#text-indexquerycandidate)
-- [`invertTextChangeSet`](#text-inverttextchangeset), [`isTextDocument`](#text-istextdocument), [`lineEndOffset`](#text-lineendoffset), [`lineOffsetByDelta`](#text-lineoffsetbydelta), [`lineSelectionAt`](#text-lineselectionat), [`lineStartOffset`](#text-linestartoffset), [`matchCompiledCollectionQuery`](#text-matchcompiledcollectionquery), [`measureTerminalCellText`](#text-measureterminalcelltext)
-- [`measureTextCells`](#text-measuretextcells), [`measuredGraphemes`](#text-measuredgraphemes), [`nextGraphemeBoundary`](#text-nextgraphemeboundary), [`nextWordBoundary`](#text-nextwordboundary), [`normalizeTextCaret`](#text-normalizetextcaret), [`normalizeTextCursor`](#text-normalizetextcursor), [`normalizeTextDocumentOffset`](#text-normalizetextdocumentoffset), [`normalizeTextDocumentRange`](#text-normalizetextdocumentrange)
-- [`normalizeTextDocumentSelection`](#text-normalizetextdocumentselection), [`normalizeTextPosition`](#text-normalizetextposition), [`normalizeTextSelection`](#text-normalizetextselection), [`oneCellGlyph`](#text-onecellglyph), [`padTextCells`](#text-padtextcells), [`prepareTextBuffer`](#text-preparetextbuffer), [`prepareTextDocument`](#text-preparetextdocument), [`prepareTextDocumentLine`](#text-preparetextdocumentline)
-- [`previousGraphemeBoundary`](#text-previousgraphemeboundary), [`previousWordBoundary`](#text-previouswordboundary), [`queryIndexedCandidates`](#text-queryindexedcandidates), [`replaceTextRange`](#text-replacetextrange), [`sanitizeTerminalCellText`](#text-sanitizeterminalcelltext), [`sanitizeTerminalControlText`](#text-sanitizeterminalcontroltext), [`sanitizeTerminalSingleLineText`](#text-sanitizeterminalsinglelinetext), [`sanitizeTerminalText`](#text-sanitizeterminaltext)
-- [`segmentGraphemes`](#text-segmentgraphemes), [`selectedText`](#text-selectedtext), [`terminalTextWidth`](#text-terminaltextwidth), [`textCaretAt`](#text-textcaretat), [`textDocumentBytes`](#text-textdocumentbytes), [`textDocumentEdit`](#text-textdocumentedit), [`textDocumentLength`](#text-textdocumentlength), [`textDocumentLineAt`](#text-textdocumentlineat)
-- [`textDocumentLineCount`](#text-textdocumentlinecount), [`textDocumentLineIndexAtOffset`](#text-textdocumentlineindexatoffset), [`textDocumentLines`](#text-textdocumentlines), [`textDocumentSelectionBetween`](#text-textdocumentselectionbetween), [`textDocumentSelectionRange`](#text-textdocumentselectionrange), [`textDocumentSlice`](#text-textdocumentslice), [`textDocumentText`](#text-textdocumenttext), [`textPositionAt`](#text-textpositionat)
-- [`textWidthProfileKey`](#text-textwidthprofilekey), [`wordSelectionAt`](#text-wordselectionat), [`wrapTextCells`](#text-wraptextcells)
+- [`TextHighlightOptions`](#text-texthighlightoptions), [`TextIndexOptions`](#text-textindexoptions), [`TextLine`](#text-textline), [`TextMeasurementOptions`](#text-textmeasurementoptions), [`TextParagraphContext`](#text-textparagraphcontext), [`TextPosition`](#text-textposition), [`TextPreparationRequest`](#text-textpreparationrequest), [`TextPresentation`](#text-textpresentation)
+- [`TextSelection`](#text-textselection), [`TextVisualCluster`](#text-textvisualcluster), [`TextVisualOrderProvider`](#text-textvisualorderprovider), [`TextVisualOrderRequest`](#text-textvisualorderrequest), [`TextWidthProfile`](#text-textwidthprofile), [`TextWrapOptions`](#text-textwrapoptions), [`VisualGraphemeSegment`](#text-visualgraphemesegment), [`applyTextChangeSet`](#text-applytextchangeset)
+- [`applyTextEditWithHistory`](#text-applytexteditwithhistory), [`assertTextDocument`](#text-asserttextdocument), [`breakTextEditHistoryGroup`](#text-breaktextedithistorygroup), [`clampTextOffset`](#text-clamptextoffset), [`clipTextCells`](#text-cliptextcells), [`createRowOffsetMap`](#text-createrowoffsetmap), [`createTerminalTextIndex`](#text-createterminaltextindex), [`createTextChangeSet`](#text-createtextchangeset)
+- [`createTextDocument`](#text-createtextdocument), [`defaultEditHistoryPolicy`](#text-defaultedithistorypolicy), [`defaultTextWidthProfile`](#text-defaulttextwidthprofile), [`defineTextPresentation`](#text-definetextpresentation), [`defineTextWidthProfile`](#text-definetextwidthprofile), [`editTextBuffer`](#text-edittextbuffer), [`editTextDocument`](#text-edittextdocument), [`emptyTextChangeSet`](#text-emptytextchangeset)
+- [`emptyTextEditHistory`](#text-emptytextedithistory), [`extractTextBufferSelection`](#text-extracttextbufferselection), [`extractTextDocumentSelection`](#text-extracttextdocumentselection), [`extractTextSelection`](#text-extracttextselection), [`fillTextCells`](#text-filltextcells), [`findTextHighlightMatches`](#text-findtexthighlightmatches), [`indexQueryCandidate`](#text-indexquerycandidate), [`invertTextChangeSet`](#text-inverttextchangeset)
+- [`isTextDocument`](#text-istextdocument), [`lineEndOffset`](#text-lineendoffset), [`lineOffsetByDelta`](#text-lineoffsetbydelta), [`lineSelectionAt`](#text-lineselectionat), [`lineStartOffset`](#text-linestartoffset), [`matchCompiledCollectionQuery`](#text-matchcompiledcollectionquery), [`measureTerminalCellText`](#text-measureterminalcelltext), [`measureTextCells`](#text-measuretextcells)
+- [`measuredGraphemes`](#text-measuredgraphemes), [`nextGraphemeBoundary`](#text-nextgraphemeboundary), [`nextWordBoundary`](#text-nextwordboundary), [`normalizeTextCaret`](#text-normalizetextcaret), [`normalizeTextCursor`](#text-normalizetextcursor), [`normalizeTextDocumentOffset`](#text-normalizetextdocumentoffset), [`normalizeTextDocumentRange`](#text-normalizetextdocumentrange), [`normalizeTextDocumentSelection`](#text-normalizetextdocumentselection)
+- [`normalizeTextPosition`](#text-normalizetextposition), [`normalizeTextSelection`](#text-normalizetextselection), [`oneCellGlyph`](#text-onecellglyph), [`padTextCells`](#text-padtextcells), [`prepareTextBuffer`](#text-preparetextbuffer), [`prepareTextDocument`](#text-preparetextdocument), [`prepareTextDocumentLine`](#text-preparetextdocumentline), [`previousGraphemeBoundary`](#text-previousgraphemeboundary)
+- [`previousWordBoundary`](#text-previouswordboundary), [`queryIndexedCandidates`](#text-queryindexedcandidates), [`replaceTextRange`](#text-replacetextrange), [`sanitizeTerminalCellText`](#text-sanitizeterminalcelltext), [`sanitizeTerminalControlText`](#text-sanitizeterminalcontroltext), [`sanitizeTerminalSingleLineText`](#text-sanitizeterminalsinglelinetext), [`sanitizeTerminalText`](#text-sanitizeterminaltext), [`segmentGraphemes`](#text-segmentgraphemes)
+- [`selectedText`](#text-selectedtext), [`terminalTextWidth`](#text-terminaltextwidth), [`textCaretAt`](#text-textcaretat), [`textDocumentBytes`](#text-textdocumentbytes), [`textDocumentEdit`](#text-textdocumentedit), [`textDocumentLength`](#text-textdocumentlength), [`textDocumentLineAt`](#text-textdocumentlineat), [`textDocumentLineCount`](#text-textdocumentlinecount)
+- [`textDocumentLineIndexAtOffset`](#text-textdocumentlineindexatoffset), [`textDocumentLines`](#text-textdocumentlines), [`textDocumentSelectionBetween`](#text-textdocumentselectionbetween), [`textDocumentSelectionRange`](#text-textdocumentselectionrange), [`textDocumentSlice`](#text-textdocumentslice), [`textDocumentText`](#text-textdocumenttext), [`textPositionAt`](#text-textpositionat), [`textWidthProfileKey`](#text-textwidthprofilekey)
+- [`wordSelectionAt`](#text-wordselectionat), [`wrapTextCells`](#text-wraptextcells)
 
 ### @ismail-elkorchi/terminal-ui/theme
 
@@ -10311,6 +10312,15 @@ Import from: `@ismail-elkorchi/terminal-ui/component` (type only), `@ismail-elko
 export interface RenderSpan { … }
 ```
 
+<a id="component-renderspan-textorder"></a>
+#### textOrder
+
+Visual-cell spans have already passed through the canonical text layout.
+
+```ts
+readonly textOrder?: 'visual';
+```
+
 <a id="component-renderspan-text"></a>
 #### text
 
@@ -16359,6 +16369,13 @@ readonly wrap: boolean;
 readonly widthProfile: TextWidthProfile;
 ```
 
+<a id="components-forms-preparedtextarealayout-textpresentation"></a>
+#### textPresentation
+
+```ts
+readonly textPresentation?: import('../../text/presentation.ts').TextPresentation;
+```
+
 <a id="components-forms-preparedtextarealayout-theme"></a>
 #### theme
 
@@ -16841,6 +16858,13 @@ readonly theme: TerminalTheme;
 readonly widthProfile: TextWidthProfile;
 ```
 
+<a id="components-forms-textarealayoutrequest-textpresentation"></a>
+#### textPresentation
+
+```ts
+readonly textPresentation?: import('../../text/presentation.ts').TextPresentation;
+```
+
 <a id="components-forms-textarealayoutrequest-measurementwidths"></a>
 #### measurementWidths
 
@@ -17153,6 +17177,9 @@ Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/termi
 
 ```ts
 export type TextPointerTransition = {
+    readonly affinity?: import('../text/types.ts').TextAffinity;
+    readonly anchorAffinity?: import('../text/types.ts').TextAffinity;
+} & ({
     readonly kind: 'placeCaret';
     readonly offset: number;
 } | {
@@ -17163,8 +17190,10 @@ export type TextPointerTransition = {
     readonly kind: 'endSelection';
     readonly anchor: number;
     readonly offset: number;
-};
+});
 ```
+
+Related types: [`text`](#components-foundations-text), [`TextAffinity`](#text-textaffinity)
 
 <a id="components-forms-unscrolledcomboboxoptions"></a>
 ### UnscrolledComboboxOptions
@@ -22795,6 +22824,19 @@ readonly widthProfile?: TextWidthProfile;
 readonly graphics?: GraphicsProbeFacts;
 ```
 
+<a id="host-terminalcellpresentation"></a>
+### TerminalCellPresentation
+
+type · beta · [source](../../src/host/types.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/host` (type only)
+
+ECMA-48 mode 8 ordering only; this makes no claim about font shaping.
+
+```ts
+export type TerminalCellPresentation = 'unknown' | 'implicit' | 'explicit';
+```
+
 <a id="host-terminalclock"></a>
 ### TerminalClock
 
@@ -23080,6 +23122,15 @@ Import from: `@ismail-elkorchi/terminal-ui/host` (type only)
 
 ```ts
 export interface TerminalHostFacts { … }
+```
+
+<a id="host-terminalhostfacts-cellpresentation"></a>
+#### cellPresentation
+
+Independently qualified explicit ordering, supplied by the caller; not terminal detection.
+
+```ts
+readonly cellPresentation?: 'explicit';
 ```
 
 <a id="host-terminalhostfacts-runtime"></a>
@@ -23608,6 +23659,15 @@ enableFocusReporting(context?: TerminalOperationContext): Promise<TerminalOperat
 enableMetaSendsEscape(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
 ```
 
+<a id="host-terminalsession-enablecellpresentation"></a>
+#### enableCellPresentation
+
+Opt in only when every producer supplies visual cell order and matching source geometry.
+
+```ts
+enableCellPresentation(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
+```
+
 <a id="host-terminalsession-enableunicodegraphememode"></a>
 #### enableUnicodeGraphemeMode
 
@@ -23756,6 +23816,9 @@ export type TerminalStateChange = {
     readonly kind: 'unicodeGraphemeMode';
     readonly state: boolean;
 } | {
+    readonly kind: 'cellPresentation';
+    readonly state: TerminalCellPresentation;
+} | {
     readonly kind: 'keyboardProfile';
     readonly state: TerminalKeyboardProfile;
 } | {
@@ -23764,7 +23827,7 @@ export type TerminalStateChange = {
 };
 ```
 
-Related types: [`MouseReportingState`](#host-mousereportingstate), [`TerminalKeyboardProfile`](#protocol-terminalkeyboardprofile)
+Related types: [`MouseReportingState`](#host-mousereportingstate), [`TerminalCellPresentation`](#host-terminalcellpresentation), [`TerminalKeyboardProfile`](#protocol-terminalkeyboardprofile)
 
 <a id="host-terminalstateknowledge"></a>
 ### TerminalStateKnowledge
@@ -23835,6 +23898,13 @@ readonly metaSendsEscape: TerminalStateKnowledge;
 
 ```ts
 readonly unicodeGraphemeMode: TerminalStateKnowledge;
+```
+
+<a id="host-terminalstateprovenancesnapshot-cellpresentation"></a>
+#### cellPresentation
+
+```ts
+readonly cellPresentation: TerminalStateKnowledge;
 ```
 
 <a id="host-terminalstateprovenancesnapshot-keyboardprofile"></a>
@@ -23911,6 +23981,13 @@ readonly metaSendsEscape: boolean;
 readonly unicodeGraphemeMode: boolean;
 ```
 
+<a id="host-terminalstatesnapshot-cellpresentation"></a>
+#### cellPresentation
+
+```ts
+readonly cellPresentation: TerminalCellPresentation;
+```
+
 <a id="host-terminalstatesnapshot-keyboardprofile"></a>
 #### keyboardProfile
 
@@ -23955,13 +24032,6 @@ readonly graphemeClusters: true;
 
 ```ts
 readonly widthProfile: TextWidthProfile;
-```
-
-<a id="host-terminalunicodecapability-bidi"></a>
-#### bidi
-
-```ts
-readonly bidi: 'full' | 'stable-fallback';
 ```
 
 <a id="host-terminalwritereceipt"></a>
@@ -30812,6 +30882,13 @@ enableMetaSendsEscape(): Promise<void>;
 disableMetaSendsEscape(): Promise<void>;
 ```
 
+<a id="protocol-terminalprotocolwriter-setcellpresentation"></a>
+#### setCellPresentation
+
+```ts
+setCellPresentation(presentation: 'implicit' | 'explicit'): Promise<void>;
+```
+
 <a id="protocol-terminalprotocolwriter-enableunicodegraphememode"></a>
 #### enableUnicodeGraphemeMode
 
@@ -31442,6 +31519,13 @@ Bounded cell drawing. x/y are zero-based inside bounds; Braille coordinates are 
 export interface Canvas2D { … }
 ```
 
+<a id="renderer-canvas2d-textpresentation"></a>
+#### textPresentation
+
+```ts
+readonly textPresentation?: TextPresentation | undefined;
+```
+
 <a id="renderer-canvas2d-bounds"></a>
 #### bounds
 
@@ -32055,6 +32139,13 @@ export interface FrameBufferOptions { … }
 
 ```ts
 readonly widthProfile?: TextWidthProfile;
+```
+
+<a id="renderer-framebufferoptions-textpresentation"></a>
+#### textPresentation
+
+```ts
+readonly textPresentation?: TextPresentation | undefined;
 ```
 
 <a id="renderer-framebufferoptions-instrumentation"></a>
@@ -33192,6 +33283,13 @@ readonly theme?: TerminalTheme | TerminalThemeDefinition;
 readonly widthProfile?: TextWidthProfile;
 ```
 
+<a id="renderer-renderelementoptions-textpresentation"></a>
+#### textPresentation
+
+```ts
+readonly textPresentation?: TextPresentation | undefined;
+```
+
 <a id="renderer-renderelementoptions-framepasses"></a>
 #### framePasses
 
@@ -33410,6 +33508,13 @@ readonly height: number;
 
 ```ts
 readonly widthProfile: TextWidthProfile;
+```
+
+<a id="renderer-rendertarget-textpresentation"></a>
+#### textPresentation
+
+```ts
+readonly textPresentation?: TextPresentation | undefined;
 ```
 
 <a id="renderer-rendertarget-write"></a>
@@ -34223,11 +34328,12 @@ export declare function layoutElement(
   terminalSizeOrBounds: TerminalSize | Rect,
   themeInput?: TerminalTheme | TerminalThemeDefinition,
   widthProfile?: TextWidthProfile,
-  limits?: Partial<RenderBudgetLimits>
+  limits?: Partial<RenderBudgetLimits>,
+  textPresentation?: TextPresentation
 ): LayoutNode;
 ```
 
-Related types: [`Element`](#component-element), [`TerminalSize`](#host-terminalsize), [`LayoutNode`](#renderer-layoutnode), [`Rect`](#renderer-rect), [`RenderBudgetLimits`](#renderer-renderbudgetlimits), [`TextWidthProfile`](#text-textwidthprofile), [`TerminalTheme`](#theme-terminaltheme), [`TerminalThemeDefinition`](#theme-terminalthemedefinition)
+Related types: [`Element`](#component-element), [`TerminalSize`](#host-terminalsize), [`LayoutNode`](#renderer-layoutnode), [`Rect`](#renderer-rect), [`RenderBudgetLimits`](#renderer-renderbudgetlimits), [`TextPresentation`](#text-textpresentation), [`TextWidthProfile`](#text-textwidthprofile), [`TerminalTheme`](#theme-terminaltheme), [`TerminalThemeDefinition`](#theme-terminalthemedefinition)
 
 <a id="renderer-linepoints"></a>
 ### linePoints
@@ -34268,7 +34374,7 @@ Deliberate synchronous measurement, sharing the renderer's measurement and valid
 export declare function measureElement(
   element: Element<unknown>,
   constraints: TerminalSize,
-  options?: Pick<RenderElementOptions, 'theme' | 'widthProfile' | 'limits'>
+  options?: Pick<RenderElementOptions, 'theme' | 'widthProfile' | 'textPresentation' | 'limits'>
 ): Measurement;
 ```
 
@@ -34621,11 +34727,12 @@ export declare function tooltipLines(
   title: readonly RenderSpan[],
   body: readonly (readonly RenderSpan[])[],
   maxCells: number,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  textPresentation?: TextPresentation
 ): readonly TooltipLine[];
 ```
 
-Related types: [`RenderSpan`](#component-renderspan), [`TooltipLine`](#renderer-tooltipline), [`TextWidthProfile`](#text-textwidthprofile)
+Related types: [`RenderSpan`](#component-renderspan), [`TooltipLine`](#renderer-tooltipline), [`TextPresentation`](#text-textpresentation), [`TextWidthProfile`](#text-textwidthprofile)
 
 <a id="renderer-transformcanvaspoint"></a>
 ### transformCanvasPoint
@@ -36282,6 +36389,55 @@ readonly codeUnits: number;
 readonly bytes: number;
 ```
 
+<a id="text-terminaltextindex-visualgraphemes"></a>
+#### visualGraphemes
+
+```ts
+readonly visualGraphemes: readonly VisualGraphemeSegment[];
+```
+
+<a id="text-terminaltextindex-preparevisualwork"></a>
+#### prepareVisualWork
+
+```ts
+prepareVisualWork(): Generator<number, void>;
+```
+
+<a id="text-terminaltextindex-visualgraphemesincolumns"></a>
+#### visualGraphemesInColumns
+
+```ts
+visualGraphemesInColumns(start: number, end: number): readonly VisualGraphemeSegment[];
+```
+
+<a id="text-terminaltextindex-positiontovisualcolumn"></a>
+#### positionToVisualColumn
+
+```ts
+positionToVisualColumn(position: TextPosition): number;
+```
+
+<a id="text-terminaltextindex-visualcolumntoposition"></a>
+#### visualColumnToPosition
+
+```ts
+visualColumnToPosition(column: number): TextPosition;
+```
+
+<a id="text-terminaltextindex-movevisualposition"></a>
+#### moveVisualPosition
+
+```ts
+moveVisualPosition(position: TextPosition, delta: -1 | 1): TextPosition;
+```
+
+<a id="text-terminaltextindex-movevisualwordposition"></a>
+#### moveVisualWordPosition
+
+```ts
+moveVisualWordPosition(position: TextPosition, delta: -1 | 1): TextPosition;
+```
+
 <a id="text-terminaltextindex-graphemeindextocodeunitoffset"></a>
 #### graphemeIndexToCodeUnitOffset
 
@@ -36766,6 +36922,13 @@ readonly text: string;
 readonly cursor: number;
 ```
 
+<a id="text-texteditbuffer-affinity"></a>
+#### affinity
+
+```ts
+readonly affinity?: TextAffinity;
+```
+
 <a id="text-texteditbuffer-selection"></a>
 #### selection
 
@@ -36974,6 +37137,13 @@ Import from: `@ismail-elkorchi/terminal-ui/text` (type only)
 export interface TextIndexOptions extends TextMeasurementOptions, TextBoundaryOptions { … }
 ```
 
+<a id="text-textindexoptions-paragraph"></a>
+#### paragraph
+
+```ts
+readonly paragraph?: TextParagraphContext;
+```
+
 <a id="text-textline"></a>
 ### TextLine
 
@@ -37017,11 +37187,45 @@ Import from: `@ismail-elkorchi/terminal-ui/text` (type only)
 export interface TextMeasurementOptions { … }
 ```
 
+<a id="text-textmeasurementoptions-textpresentation"></a>
+#### textPresentation
+
+```ts
+readonly textPresentation?: TextPresentation | undefined;
+```
+
 <a id="text-textmeasurementoptions-widthprofile"></a>
 #### widthProfile
 
 ```ts
 readonly widthProfile?: TextWidthProfile;
+```
+
+<a id="text-textparagraphcontext"></a>
+### TextParagraphContext
+
+interface · beta · [source](../../src/text/types.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/text` (type only)
+
+```ts
+export interface TextParagraphContext { … }
+```
+
+<a id="text-textparagraphcontext-text"></a>
+#### text
+
+```ts
+readonly text: string;
+```
+
+<a id="text-textparagraphcontext-startoffset"></a>
+#### startOffset
+
+Start of this index's logical text in the complete paragraph.
+
+```ts
+readonly startOffset: number;
 ```
 
 <a id="text-textposition"></a>
@@ -37092,6 +37296,26 @@ readonly geometry?: boolean;
 readonly words?: boolean;
 ```
 
+<a id="text-textpresentation"></a>
+### TextPresentation
+
+interface · beta · [source](../../src/text/types.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/text` (type only)
+
+A paragraph-aware Unicode bidi implementation supplied once by the session.
+
+```ts
+export interface TextPresentation { … }
+```
+
+<a id="text-textpresentation-map"></a>
+#### map
+
+```ts
+readonly map: TextVisualOrderProvider;
+```
+
 <a id="text-textselection"></a>
 ### TextSelection
 
@@ -37115,6 +37339,108 @@ readonly startOffset: number;
 
 ```ts
 readonly endOffsetExclusive: number;
+```
+
+<a id="text-textvisualcluster"></a>
+### TextVisualCluster
+
+interface · beta · [source](../../src/text/types.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/text` (type only)
+
+```ts
+export interface TextVisualCluster { … }
+```
+
+<a id="text-textvisualcluster-startoffset"></a>
+#### startOffset
+
+```ts
+readonly startOffset: number;
+```
+
+<a id="text-textvisualcluster-endoffsetexclusive"></a>
+#### endOffsetExclusive
+
+```ts
+readonly endOffsetExclusive: number;
+```
+
+<a id="text-textvisualcluster-text"></a>
+#### text
+
+One printable grapheme. Mirroring may change its glyph, never its cell width.
+
+```ts
+readonly text: string;
+```
+
+<a id="text-textvisualcluster-direction"></a>
+#### direction
+
+```ts
+readonly direction: 'ltr' | 'rtl';
+```
+
+<a id="text-textvisualorderprovider"></a>
+### TextVisualOrderProvider
+
+type · beta · [source](../../src/text/types.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/text` (type only)
+
+```ts
+export type TextVisualOrderProvider = (request: TextVisualOrderRequest) => readonly TextVisualCluster[];
+```
+
+Related types: [`TextVisualCluster`](#text-textvisualcluster), [`TextVisualOrderRequest`](#text-textvisualorderrequest)
+
+<a id="text-textvisualorderrequest"></a>
+### TextVisualOrderRequest
+
+interface · beta · [source](../../src/text/types.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/text` (type only)
+
+```ts
+export interface TextVisualOrderRequest { … }
+```
+
+<a id="text-textvisualorderrequest-text"></a>
+#### text
+
+Complete logical paragraph, including context outside the requested wrapped line.
+
+```ts
+readonly text: string;
+```
+
+<a id="text-textvisualorderrequest-startoffset"></a>
+#### startOffset
+
+```ts
+readonly startOffset: number;
+```
+
+<a id="text-textvisualorderrequest-endoffsetexclusive"></a>
+#### endOffsetExclusive
+
+```ts
+readonly endOffsetExclusive: number;
+```
+
+<a id="text-textvisualorderrequest-widthprofile"></a>
+#### widthProfile
+
+```ts
+readonly widthProfile: TextWidthProfile;
+```
+
+<a id="text-textvisualorderrequest-graphemes"></a>
+#### graphemes
+
+```ts
+readonly graphemes: readonly GraphemeSegment[];
 ```
 
 <a id="text-textwidthprofile"></a>
@@ -37160,6 +37486,38 @@ export interface TextWrapOptions extends TextMeasurementOptions { … }
 
 ```ts
 readonly preserveWords?: boolean;
+```
+
+<a id="text-visualgraphemesegment"></a>
+### VisualGraphemeSegment
+
+interface · beta · [source](../../src/text/types.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/text` (type only)
+
+```ts
+export interface VisualGraphemeSegment extends GraphemeSegment { … }
+```
+
+<a id="text-visualgraphemesegment-direction"></a>
+#### direction
+
+```ts
+readonly direction: 'ltr' | 'rtl';
+```
+
+<a id="text-visualgraphemesegment-column"></a>
+#### column
+
+```ts
+readonly column: number;
+```
+
+<a id="text-visualgraphemesegment-endcolumnexclusive"></a>
+#### endColumnExclusive
+
+```ts
+readonly endColumnExclusive: number;
 ```
 
 <a id="text-applytextchangeset"></a>
@@ -37319,6 +37677,19 @@ defaultTextWidthProfile: TextWidthProfile
 ```
 
 Related types: [`TextWidthProfile`](#text-textwidthprofile)
+
+<a id="text-definetextpresentation"></a>
+### defineTextPresentation
+
+function · beta · [source](../../src/text/presentation.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/text`
+
+```ts
+export declare function defineTextPresentation(value: unknown): TextPresentation;
+```
+
+Related types: [`TextPresentation`](#text-textpresentation)
 
 <a id="text-definetextwidthprofile"></a>
 ### defineTextWidthProfile
@@ -40255,6 +40626,15 @@ readonly metaSendsEscape: ProtocolRequirement;
 readonly unicodeGraphemeMode: ProtocolRequirement;
 ```
 
+<a id="tui-sessionprotocolpolicy-cellpresentation"></a>
+#### cellPresentation
+
+Requires every text producer to use application-ordered cells and matching geometry.
+
+```ts
+readonly cellPresentation: ProtocolRequirement;
+```
+
 <a id="tui-sessionprotocolpolicy-keyboard"></a>
 #### keyboard
 
@@ -40709,6 +41089,13 @@ Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/termi
 
 ```ts
 export interface TuiContext { … }
+```
+
+<a id="tui-tuicontext-textpresentation"></a>
+#### textPresentation
+
+```ts
+readonly textPresentation?: TextPresentation | undefined;
 ```
 
 <a id="tui-tuicontext-terminalsize"></a>
@@ -42336,6 +42723,13 @@ Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/termi
 export interface TuiRunOptions<TState = unknown> { … }
 ```
 
+<a id="tui-tuirunoptions-textpresentation"></a>
+#### textPresentation
+
+```ts
+readonly textPresentation?: TextPresentation | undefined;
+```
+
 <a id="tui-tuirunoptions-runtimepolicy"></a>
 #### runtimePolicy
 
@@ -42714,6 +43108,13 @@ Import from: `@ismail-elkorchi/terminal-ui/tui` (type only)
 
 ```ts
 export interface TuiRuntimeOptions<TState, TMessage> { … }
+```
+
+<a id="tui-tuiruntimeoptions-textpresentation"></a>
+#### textPresentation
+
+```ts
+readonly textPresentation?: TextPresentation | undefined;
 ```
 
 <a id="tui-tuiruntimeoptions-runtimepolicy"></a>

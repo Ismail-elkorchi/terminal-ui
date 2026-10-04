@@ -15,7 +15,7 @@ import { waitUntil } from '../../support/async.ts';
 
 for (const sample of [
   { name: 'navigation CSI', initial: 'word', chunks: ['\u001B', '[', 'D'], expected: { text: 'word', cursor: 3 } },
-  { name: 'bracketed paste opener', initial: '', chunks: ['\u001B[20', '0~café 世界\u001B[201~'], expected: { text: 'café 世界', cursor: 7 } },
+  { name: 'bracketed paste opener', initial: '', chunks: ['\u001B[20', '0~café 世界\u001B[201~'], expected: { text: 'café 世界', cursor: 7, affinity: 'upstream' } },
 ]) {
   test(`input loop admits a split ${sample.name} continuation before ambiguity expires`, async () => {
     const app = defineTui({

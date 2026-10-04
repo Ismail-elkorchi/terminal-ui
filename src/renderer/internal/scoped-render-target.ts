@@ -4,7 +4,7 @@ import { terminalCellGraphemes } from '../../text/measure.ts';
 import type { FrameCellSource } from '../../visual/frame-source.ts';
 import { deriveFrameCellSource, frameCellSource } from '../../visual/frame-source.ts';
 import type { RenderBlock, RenderLine, RenderSpan } from '../../visual/render-content.ts';
-import { decodeTerminalLink } from '../../visual/render-content.ts';
+import { layoutRenderSpans, decodeTerminalLink } from '../../visual/render-content.ts';
 import { decodeTerminalStyle } from '../../visual/terminal-style.ts';
 import type { ComponentRenderTarget, RenderTarget, RenderTargetCell } from '../contracts.ts';
 import { recordTargetSegmentation, registerFrameBufferAlias, transferFrameBufferSpans } from '../frame-buffer.ts';
@@ -32,6 +32,7 @@ export function createLocalComponentRenderTarget(
     width: bounds.width,
     height: bounds.height,
     widthProfile: target.widthProfile,
+    textPresentation: target.textPresentation,
     write: (row, column, spans) => { assertActive(); absolute.write(bounds.row + row, bounds.column + column, spans); },
     writeLine: (row, column, line) => { assertActive(); absolute.writeLine(bounds.row + row, bounds.column + column, line); },
     writeBlock: (row, column, block) => { assertActive(); absolute.writeBlock(bounds.row + row, bounds.column + column, block); },
@@ -75,6 +76,7 @@ function createBoundedRenderTarget(
     width: target.width,
     height: target.height,
     widthProfile: target.widthProfile,
+    textPresentation: target.textPresentation,
     write,
     writeLine(row: number, column: number, line: RenderLine): void {
       if (writableBounds === undefined || !rowInside(row, writableBounds)) return;
@@ -93,6 +95,7 @@ function createBoundedRenderTarget(
       if (cell.continuation === true) return;
       write(cell.row, cell.column, [{
         text: cell.text,
+        textOrder: 'visual',
         ...(cell.style === undefined ? {} : { style: cell.style }),
         ...(cell.link === undefined ? {} : { link: cell.link }),
         ...(cell.source === undefined ? {} : { source: cell.source })
@@ -145,7 +148,7 @@ function writeClippedSpans(
 ): void {
   let nextColumn = Math.floor(column);
   const right = bounds.column + bounds.width;
-  for (const span of spans) {
+  for (const span of layoutRenderSpans(spans, { widthProfile: target.widthProfile, textPresentation: target.textPresentation })) {
     if (nextColumn > right) break;
     const graphemes = terminalCellGraphemes(span.text, { widthProfile: target.widthProfile },
       codeUnits => { recordTargetSegmentation(target, codeUnits); });

@@ -103,3 +103,24 @@ for (const density of ['regular', 'compact']) {
     assert.equal(frame.accessibility.root.pressed, true);
   });
 }
+
+for (const accessibleName of ['', 'Search']) {
+  test(`button preserves an explicit ${accessibleName === '' ? 'empty' : 'named'} semantic label without inventing visible content`, () => {
+    const frame = renderElementFrame(button({ id: 'source-button', label: '', accessibleName,
+      onPress: () => ignoreMessage() }), size, { focusPath: ['none'] });
+    assert.equal(frame.accessibility.root.label, accessibleName);
+    assert.equal(frame.cells.filter(cell => cell.source?.partType === 'label').length, 0);
+    assert.equal(frame.accessibility.root.role, 'button');
+  });
+}
+
+test('button still requires an explicit name when its visible caption is absent', () => {
+  assert.throws(() => button({ id: 'missing-name', label: '', onPress: () => ignoreMessage() }), /explicit accessibleName/u);
+});
+
+test('button rejects a null accessible name instead of treating it as an explicit string', () => {
+  for (const label of ['', 'Search']) {
+    assert.throws(() => button({ id: 'null-name', label, accessibleName: null,
+      onPress: () => ignoreMessage() }), /explicit accessibleName/u);
+  }
+});

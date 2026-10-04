@@ -1,3 +1,4 @@
+import type { TextPresentation } from '../text/presentation.ts';
 import type { AccessibleSnapshot } from '../accessibility/types.ts';
 import type { ElementFocusScope, LayerUnderlay } from '../element/metadata.ts';
 import type { Rect } from '../geometry/types.ts';
@@ -69,6 +70,7 @@ export interface RenderTarget {
   readonly width: number;
   readonly height: number;
   readonly widthProfile: TextWidthProfile;
+  readonly textPresentation?: TextPresentation | undefined;
   /** Writes sanitized spans at the target's row and column, clipped to its bounds. */
   write(row: number, column: number, spans: readonly RenderSpan[]): void;
   writeLine(row: number, column: number, line: RenderLine): void;
@@ -133,6 +135,7 @@ export interface StrokeFillOptions {
 
 /** Bounded cell drawing. x/y are zero-based inside bounds; Braille coordinates are 2×4 subcells per cell. */
 export interface Canvas2D {
+  readonly textPresentation?: TextPresentation | undefined;
   /** Frozen allocation in the target's coordinate space; drawing methods use its local origin. */
   readonly bounds: Rect;
   readonly widthProfile: TextWidthProfile;

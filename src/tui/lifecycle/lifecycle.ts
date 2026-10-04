@@ -1,3 +1,5 @@
+import { createProtocolWriter } from '../../protocol/index.ts';
+import { requireCommittedTerminalWrite } from '../../host/write-receipt.ts';
 import { createAccessibleSnapshot } from '../../accessibility/snapshot.ts';
 import type { AccessibleSnapshot } from '../../accessibility/types.ts';
 import type { DiagnosticOccurrence } from '../../diagnostics.ts';
@@ -38,7 +40,19 @@ export async function setupTuiSession(
   policy?: SessionProtocolPolicy,
   context: TerminalOperationContext = {}
 ): Promise<SessionProtocolSetupResult> {
-  return applySessionProtocolPolicy(session, policy, context);
+  const setup = await applySessionProtocolPolicy(session, policy, context);
+  if (setup.status !== 'ready' || setup.policy.cellPresentation === 'disabled') return setup;
+  if (setup.resultingState.cellPresentation !== 'explicit') {
+    throw new Error('A visual-cell surface requires established explicit cell presentation.');
+  }
+  // Ordering modes can be captured on paragraph creation. Replacing characters
+  // with spaces does not establish fresh paragraph attributes on an existing grid.
+  // This is full-surface TUI acquisition, shared by startup and resume; the host
+  // mode operation itself never clears caller content and partial diffs stay local.
+  await createProtocolWriter({ write: async text => {
+    requireCommittedTerminalWrite(await session.host.write({ text }, context));
+  } }).clearScreen();
+  return setup;
 }
 
 export async function restoreTuiSession(
@@ -58,6 +72,7 @@ export async function restoreTuiSession(
       focusReporting: 'indeterminate' as const,
       metaSendsEscape: 'indeterminate' as const,
       unicodeGraphemeMode: 'indeterminate' as const,
+      cellPresentation: 'indeterminate' as const,
       keyboardProfile: 'indeterminate' as const,
       cursorVisible: 'indeterminate' as const
     });

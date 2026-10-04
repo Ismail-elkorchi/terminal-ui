@@ -18,8 +18,8 @@ import {
   invertTextChangeSetWork,
 } from '../text/change-set.ts';
 import { sameDocumentSelection, sameTextCaret } from '../text/comparison.ts';
-import { textCaretAt, textDocumentSelectionBetween } from '../text/coordinates.ts';
-import { editTextDocumentWork } from '../text/document-edit.ts';
+import { textCaretAt } from '../text/coordinates.ts';
+import { editTextDocumentWork, textDocumentEditCaretWork } from '../text/document-edit.ts';
 import type { TextDocument } from '../text/document.ts';
 import {
   createTextDocumentWork,
@@ -172,7 +172,10 @@ export function* textAreaReductionWork(state: TextAreaState, transition: TextAre
       if (document === state.document) return unchangedTextAreaReduction(state);
       const inverseChanges = yield* invertTextChangePlanWork(state.document, changePlan);
       const requestedCaret = transition.caretOffset ?? (yield* caretAfterChangesWork(changePlan));
-      const after = { caret: textCaretAt(yield* normalizeTextDocumentOffsetWork(document, requestedCaret)) };
+      const affinity = changesCaretAffinity(changePlan, transition.caretOffset, state.caret);
+      const after = { caret: transition.caretOffset === undefined
+        ? yield* textDocumentEditCaretWork(document, requestedCaret, affinity)
+        : textCaretAt(yield* normalizeTextDocumentOffsetWork(document, requestedCaret), { affinity }) };
       const record = textAreaEditRecord(state, after, changePlan, inverseChanges);
       const historyResult = yield* recordTextAreaEditWork(state.history, record);
       const next: TextAreaState = {
@@ -192,18 +195,15 @@ export function* textAreaReductionWork(state: TextAreaState, transition: TextAre
       const offset = yield* normalizeTextDocumentOffsetWork(state.document, transition.transition.offset);
       const selected = transition.transition.kind === 'placeCaret'
         ? textAreaStateWithSelection(yield* breakTextAreaHistoryGroupWork(state), {
-          caret: textCaretAt(offset),
+          caret: textCaretAt(offset, transition.transition.affinity === undefined ? {} : { affinity: transition.transition.affinity }),
           revealCaret: true
         }, undefined)
         : textAreaStateWithSelection(yield* breakTextAreaHistoryGroupWork(state), {
-          caret: textCaretAt(offset),
+          caret: textCaretAt(offset, transition.transition.affinity === undefined ? {} : { affinity: transition.transition.affinity }),
           revealCaret: true
         }, yield* normalizeTextDocumentSelectionWork(
           state.document,
-          textDocumentSelectionBetween(
-            yield* normalizeTextDocumentOffsetWork(state.document, transition.transition.anchor),
-            offset,
-          ),
+          { anchor: { offset: yield* normalizeTextDocumentOffsetWork(state.document, transition.transition.anchor), affinity: transition.transition.anchorAffinity ?? 'downstream' }, focus: { offset, affinity: transition.transition.affinity ?? 'downstream' } },
         ));
       if (transition.scrollRequest === undefined) return textAreaReduction(selected, emptyTextChangeSet);
       return textAreaReduction({
@@ -507,6 +507,11 @@ function unchangedTextAreaReduction(state: TextAreaState): TextAreaReduction {
   return textAreaReduction(state, emptyTextChangeSet);
 }
 
+function changesCaretAffinity(changeSet: TextChangeSet, explicitOffset: number | undefined, previous: TextCaret): TextCaret['position']['affinity'] {
+  if (explicitOffset !== undefined) return previous.position.affinity;
+  return (changeSet.changes.at(-1)?.insertedText.length ?? 0) > 0 ? 'upstream' : previous.position.affinity;
+}
+
 function* caretAfterChangesWork(changeSet: TextChangeSet): Generator<number, number> {
   let delta = 0;
   let caret = 0;
@@ -523,7 +528,7 @@ export function applyTextPointerTransition(
   transition: TextPointerTransition
 ): TextEditBuffer {
   const offset = normalizeTextCursor(state.text, transition.offset);
-  if (transition.kind === 'placeCaret') return { text: state.text, cursor: offset };
+  if (transition.kind === 'placeCaret') return { text: state.text, cursor: offset, ...(transition.affinity === undefined ? {} : { affinity: transition.affinity }) };
   const anchor = normalizeTextCursor(state.text, transition.anchor);
   const selection = normalizeTextSelection(state.text, {
     startOffset: anchor,
@@ -532,6 +537,7 @@ export function applyTextPointerTransition(
   return {
     text: state.text,
     cursor: offset,
+    ...(transition.affinity === undefined ? {} : { affinity: transition.affinity }),
     ...(selection === undefined ? {} : { selection })
   };
 }

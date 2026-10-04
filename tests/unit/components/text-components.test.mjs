@@ -1121,7 +1121,7 @@ test('textInput maps pointer positions to text offsets when opted in', () => {
 
   assert.deepEqual(message?.action, {
     kind: 'pointer',
-    transition: { kind: 'placeCaret', offset: 2 }
+    transition: { kind: 'placeCaret', offset: 2, affinity: 'downstream' }
   });
 });
 
@@ -1177,7 +1177,7 @@ test('numberInput exposes the shared text pointer editing contract', () => {
 
   assert.deepEqual(placed?.action, {
     kind: 'pointer',
-    transition: { kind: 'placeCaret', offset: 3 },
+    transition: { kind: 'placeCaret', offset: 3, affinity: 'downstream' },
   });
 });
 
@@ -1205,7 +1205,7 @@ test('single-line text controls share cursor-relative rendering and pointer geom
   assert.match(renderFramePlain(textFrame), /‹def/u);
   assert.deepEqual(textMessage?.action, {
     kind: 'pointer',
-    transition: { kind: 'placeCaret', offset: 3 },
+    transition: { kind: 'placeCaret', offset: 3, affinity: 'downstream' },
   });
 
   const numberElement = createNumberInput({ meta: { accessibleName: 'Number input' },
@@ -1231,7 +1231,7 @@ test('single-line text controls share cursor-relative rendering and pointer geom
   assert.match(renderFramePlain(numberFrame), /‹5/u);
   assert.deepEqual(numberMessage?.action, {
     kind: 'pointer',
-    transition: { kind: 'placeCaret', offset: 4 },
+    transition: { kind: 'placeCaret', offset: 4, affinity: 'downstream' },
   });
 });
 
@@ -1258,42 +1258,42 @@ test('textArea maps pointer positions through gutters visual rows and selection 
     row: 2,
     column: 8,
     localRow: 2,
-    localColumn: 8
+    localColumn: 8 - target.bounds.column + 1
   }));
   const drag = target.message(pointerEvent({
     kind: 'drag',
     row: 2,
     column: 9,
     localRow: 2,
-    localColumn: 9,
+    localColumn: 9 - target.bounds.column + 1,
     pressRow: 2,
     pressColumn: 8,
     pressLocalRow: 2,
-    pressLocalColumn: 8
+    pressLocalColumn: 8 - target.bounds.column + 1
   }));
   const dragEnd = target.message(pointerEvent({
     kind: 'dragEnd',
     row: 2,
     column: 10,
     localRow: 2,
-    localColumn: 10,
+    localColumn: 10 - target.bounds.column + 1,
     pressRow: 2,
     pressColumn: 8,
     pressLocalRow: 2,
-    pressLocalColumn: 8
+    pressLocalColumn: 8 - target.bounds.column + 1
   }));
 
   assert.deepEqual(place?.action, {
     kind: 'pointer',
-    transition: { kind: 'placeCaret', offset: 8 }
+    transition: { kind: 'placeCaret', offset: 8, affinity: 'downstream' }
   });
   assert.deepEqual(drag?.action, {
     kind: 'pointer',
-    transition: { kind: 'extendSelection', anchor: 8, offset: 9 }
+    transition: { kind: 'extendSelection', anchor: 8, anchorAffinity: 'downstream', offset: 9, affinity: 'downstream' }
   });
   assert.deepEqual(dragEnd?.action, {
     kind: 'pointer',
-    transition: { kind: 'endSelection', anchor: 8, offset: 10 }
+    transition: { kind: 'endSelection', anchor: 8, anchorAffinity: 'downstream', offset: 10, affinity: 'upstream' }
   });
 
   const projectedRegions = renderElementRegions(textArea({
@@ -1315,11 +1315,11 @@ test('textArea maps pointer positions through gutters visual rows and selection 
     row: 2,
     column: 6,
     localRow: 2,
-    localColumn: 6,
+    localColumn: 6 - projectedTarget.bounds.column + 1,
   }));
   assert.deepEqual(projectedPlace?.action, {
     kind: 'pointer',
-    transition: { kind: 'placeCaret', offset: 1 },
+    transition: { kind: 'placeCaret', offset: 1, affinity: 'downstream' },
   });
 });
 
