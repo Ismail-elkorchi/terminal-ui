@@ -782,7 +782,7 @@ function comboboxAccessibility(
       children: [{
         id: relationship.popupId,
         role: 'listbox' as const,
-        ...(input.model.label === '' ? {} : { label: `${input.model.label} options` }),
+        label: input.model.label === '' ? '' : `${input.model.label} options`,
         window: {
           startIndex,
           endIndexExclusive: startIndex + options.length,
