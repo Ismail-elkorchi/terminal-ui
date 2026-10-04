@@ -359,7 +359,10 @@ function accessibleChildren(
   const clipsDescendants = clippedByViewport || renderNodeClipsChildren(renderNode);
   const rendered = orderedAccessibleChildren(renderNode, node).flatMap(({ child, childNode }) => {
     if (!childNode.visible) return [];
-    if (clipsDescendants && intersectRects(childNode.bounds, childNode.viewport) === undefined) return [];
+    // Focus resolution retains enabled logical targets across clipping. Keep
+    // that semantic branch too, without admitting unrelated offscreen content.
+    if (clipsDescendants && intersectRects(childNode.bounds, childNode.viewport) === undefined
+      && renderFocusRelation(focusPath, layoutFocusPath(path, childNode)) === 'none') return [];
     if (isDecorativeAccessibility(child.accessibility)) return [];
     const accessible = accessibleNode(
       child,

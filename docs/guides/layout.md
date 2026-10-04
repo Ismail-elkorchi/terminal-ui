@@ -154,3 +154,10 @@ ancestor. A layer explicitly declaring `backdrop: 'viewport'` still owns a
 terminal-wide backdrop. Empty-cell scroll
 indicators never replace already occupied cells, including explicit blanks and
 wide-grapheme continuation cells.
+
+Clipping an enabled focused control does not implicitly blur it. Its focused
+semantic ancestor branch remains in the accessibility snapshot while the
+caller prepares new layout or reveals it; unrelated clipped branches remain
+omitted. This preserves editing and focus agreement without admitting
+offscreen pixels, pointer targets, cursors, or hidden portals. Explicitly
+hidden, inert and decorative content keeps its existing exclusion policy.
