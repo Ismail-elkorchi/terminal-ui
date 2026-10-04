@@ -1,7 +1,9 @@
 import type { ComponentInput, ComponentRenderInput } from '../../component/contracts.ts';
 import { paintComponentScrollbar } from '../../component/scrollbar.ts';
+import { intersectRects } from '../../geometry/rect.ts';
 import type { Rect } from '../../geometry/types.ts';
 import { textDocumentLineIndexAtOffset, textDocumentSelectionRange } from '../../text/document.ts';
+import { measureTextCells } from '../../text/measure.ts';
 import type { TextSelection } from '../../text/types.ts';
 import { terminalStyleHasBackground } from '../../theme/theme.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
@@ -14,6 +16,8 @@ import type { TextAreaModel } from './model.ts';
 import { type ProjectedTextStyleRange } from './projection.ts';
 
 export function paintTextArea(input: ComponentRenderInput<TextAreaModel, TextAreaStylePart>): undefined {
+  const visible = intersectRects(input.bounds, input.viewport);
+  if (visible === undefined) return;
   if (textAreaLayoutPending(input)) {
     paintTextAreaPlane(input, input.bounds, input.style({ part: 'root' }), 'root.background', 'root');
     input.target.write(input.bounds.row, input.bounds.column, [span('Preparing editor…', {
@@ -62,19 +66,15 @@ export function paintTextArea(input: ComponentRenderInput<TextAreaModel, TextAre
           'upstream'
         )
       };
-  for (let visibleRow = 0; visibleRow < content.height; visibleRow += 1) {
+  const firstRow = Math.max(0, visible.row - content.row);
+  const endRow = Math.min(content.height, visible.row + visible.height - content.row);
+  const visibleContent = intersectRects(content, visible);
+  for (let visibleRow = firstRow; visibleRow < endRow; visibleRow += 1) {
     const rowIndex = geometry.scrollbar.scroll.offsetRow + visibleRow;
     const line = geometry.layout.lineAtRow(rowIndex);
     if (line === undefined) break;
     const isActive = input.model.highlightActiveLine
       && line.logicalLineIndex === activeDisplayLine;
-    const prefix = textAreaPrefixSpans(input, geometry, line, visibleRow, isActive);
-    const window = visibleTextWindow(
-      line,
-      geometry.scrollbar.scroll.offsetColumn,
-      content.width,
-    );
-    const valueSpans = textAreaValueSpans(input, geometry, line, window, selection, isActive);
     if (isActive) {
       paintTextAreaPlane(input, {
         row: content.row + visibleRow,
@@ -87,12 +87,23 @@ export function paintTextArea(input: ComponentRenderInput<TextAreaModel, TextAre
         ...(availabilityStates.length === 0 ? {} : { states: availabilityStates }),
       }), 'activeLine.background', 'activeLine');
     }
-    input.target.write(content.row + visibleRow, input.bounds.column, prefix);
-    input.target.write(content.row + visibleRow, content.column, valueSpans);
+    paintTextAreaPrefix(input, geometry, line, visibleRow, isActive);
+    if (visibleContent !== undefined) {
+      const window = visibleTextWindow(
+        line,
+        geometry.scrollbar.scroll.offsetColumn,
+        content.width,
+        visibleContent.column - content.column,
+        visibleContent.width,
+      );
+      const valueSpans = textAreaValueSpans(input, geometry, line, window, selection, isActive);
+      input.target.write(content.row + visibleRow, content.column + window.columnOffset, valueSpans);
+    }
   }
   paintComponentScrollbar({
     target: input.target,
     plan: geometry.scrollbar,
+    viewport: visible,
     theme: input.theme,
     style: (part, state, base) => input.style({ part, base, ...(state === undefined ? {} : { states: [state] }) }),
     frameSource: (sourceInput) => input.frameSource(sourceInput),
@@ -107,13 +118,12 @@ function paintTextAreaPlane(
   description: string,
   partName: 'root' | 'gutter' | 'activeLine',
 ): void {
-  if (
-    bounds.width <= 0 ||
-    bounds.height <= 0 ||
-    !terminalStyleHasBackground(style, input.theme)
-  ) return;
-  for (let row = 0; row < bounds.height; row += 1) {
-    input.target.write(bounds.row + row, bounds.column, [span(' '.repeat(bounds.width), {
+  const visible = intersectRects(bounds, input.viewport);
+  if (visible === undefined || !terminalStyleHasBackground(style, input.theme)) return;
+  // Editor allocations can be much larger than the terminal's writable window.
+  const text = ' '.repeat(visible.width);
+  for (let row = 0; row < visible.height; row += 1) {
+    input.target.write(visible.row + row, visible.column, [span(text, {
       ...(style === undefined ? {} : { style }),
       source: input.frameSource({
         cellRole: 'decoration',
@@ -153,13 +163,13 @@ function textAreaAvailabilityStates(
   return [];
 }
 
-function textAreaPrefixSpans(
+function paintTextAreaPrefix(
   input: ComponentRenderInput<TextAreaModel, TextAreaStylePart>,
   geometry: TextAreaGeometry,
   line: TextAreaLayoutLine,
   visibleRow: number,
   active: boolean,
-): readonly RenderSpan[] {
+): void {
   const availabilityStates = textAreaAvailabilityStates(input);
   const marker = textAreaGutterMarker(input, active, visibleRow);
   const markerStyle = input.style({
@@ -167,8 +177,9 @@ function textAreaPrefixSpans(
     base: textAreaGutterStyle(input, active),
     ...(availabilityStates.length === 0 ? {} : { states: availabilityStates }),
   });
+  const row = geometry.scrollbar.contentBounds.row + visibleRow;
   if (input.model.lineNumbers === undefined) {
-    return [span(`${marker} `, {
+    input.target.write(row, input.bounds.column, [span(`${marker} `, {
       ...(markerStyle === undefined ? {} : { style: markerStyle }),
       source: input.frameSource({
         cellRole: 'decoration',
@@ -176,32 +187,39 @@ function textAreaPrefixSpans(
         partType: active ? 'activeLine' : 'gutter',
         description: active ? 'activeLine.gutter' : 'gutter.prefix',
       }),
-    })];
+    })]);
+    return;
   }
   const numbers = input.model.lineNumbers;
   const width = Math.max(
     numbers.minWidth,
     String(numbers.startNumber + Math.max(0, geometry.lineCount - 1)).length,
   );
-  const lineNumber = line.firstVisualLine
-    ? String(numbers.startNumber + line.logicalLineIndex).padStart(width, ' ')
-    : ''.padStart(width, ' ');
+  const lineNumber = line.firstVisualLine ? String(numbers.startNumber + line.logicalLineIndex) : '';
+  const numberWidth = Math.max(width, lineNumber.length);
+  const numberColumn = input.bounds.column + measureTextCells(marker, { widthProfile: input.widthProfile }).cells;
   const lineNumberStyle = input.style({
     part: 'lineNumber',
     base: textAreaLineNumberStyle(active),
     ...(availabilityStates.length === 0 ? {} : { states: availabilityStates }),
   });
-  return [
-    span(marker, {
-      ...(markerStyle === undefined ? {} : { style: markerStyle }),
-      source: input.frameSource({
-        cellRole: 'decoration',
-        partName: active ? 'activeLine' : 'gutter',
-        partType: 'marker',
-        description: active ? 'activeLine.marker' : 'gutter.marker',
-      }),
+  input.target.write(row, input.bounds.column, [span(marker, {
+    ...(markerStyle === undefined ? {} : { style: markerStyle }),
+    source: input.frameSource({
+      cellRole: 'decoration',
+      partName: active ? 'activeLine' : 'gutter',
+      partType: 'marker',
+      description: active ? 'activeLine.marker' : 'gutter.marker',
     }),
-    span(lineNumber, {
+  })]);
+  const visibleNumber = intersectRects({ row, column: numberColumn, width: numberWidth, height: 1 }, input.viewport);
+  if (visibleNumber !== undefined) {
+    const paddingWidth = numberWidth - lineNumber.length;
+    const start = visibleNumber.column - numberColumn;
+    const end = start + visibleNumber.width;
+    const padding = ' '.repeat(Math.max(0, Math.min(end, paddingWidth) - start));
+    const text = padding + lineNumber.slice(Math.max(0, start - paddingWidth), Math.max(0, end - paddingWidth));
+    input.target.write(row, visibleNumber.column, [span(text, {
       ...(lineNumberStyle === undefined ? {} : { style: lineNumberStyle }),
       source: input.frameSource({
         cellRole: 'decoration',
@@ -209,17 +227,17 @@ function textAreaPrefixSpans(
         partType: 'lineNumber',
         description: active ? 'activeLine.lineNumber' : 'lineNumber',
       }),
+    })]);
+  }
+  input.target.write(row, numberColumn + numberWidth, [span(` ${input.theme.tokens.symbols.borderSingle.vertical} `, {
+    ...(markerStyle === undefined ? {} : { style: markerStyle }),
+    source: input.frameSource({
+      cellRole: 'decoration',
+      partName: active ? 'activeLine' : 'gutter',
+      partType: 'gutter',
+      description: active ? 'activeLine.gutter' : 'gutter.separator',
     }),
-    span(` ${input.theme.tokens.symbols.borderSingle.vertical} `, {
-      ...(markerStyle === undefined ? {} : { style: markerStyle }),
-      source: input.frameSource({
-        cellRole: 'decoration',
-        partName: active ? 'activeLine' : 'gutter',
-        partType: 'gutter',
-        description: active ? 'activeLine.gutter' : 'gutter.separator',
-      }),
-    }),
-  ];
+  })]);
 }
 
 function textAreaGutterMarker(
@@ -272,18 +290,29 @@ interface VisibleTextWindow {
   readonly text: string;
   readonly startOffset: number;
   readonly endOffset: number;
+  readonly columnOffset: number;
 }
 
 function visibleTextWindow(
   line: TextAreaLayoutLine,
   offsetColumn: number,
   width: number,
+  visibleOffset: number,
+  visibleWidth: number,
 ): VisibleTextWindow {
-  const startGrapheme = line.index.visualColumnToGraphemeIndex(Math.max(0, offsetColumn));
-  const endGrapheme = line.index.visualColumnToGraphemeIndex(Math.max(0, offsetColumn + width));
+  const logicalStart = line.index.visualColumnToGraphemeIndex(Math.max(0, offsetColumn));
+  // The existing scroll window snaps to a grapheme. Clip in its painted cell
+  // coordinates so partial wide glyphs stay at the same columns for the target.
+  const logicalColumn = line.index.graphemeIndexToVisualColumn(logicalStart);
+  const startGrapheme = line.index.visualColumnToGraphemeIndex(logicalColumn + visibleOffset);
+  const endGrapheme = Math.min(
+    line.index.visualColumnToGraphemeIndex(Math.max(0, offsetColumn + width)),
+    line.index.visualColumnToGraphemeIndex(logicalColumn + visibleOffset + visibleWidth),
+  );
   const startOffset = line.index.graphemeIndexToCodeUnitOffset(startGrapheme);
   const endOffset = line.index.graphemeIndexToCodeUnitOffset(endGrapheme);
-  return { text: line.text.slice(startOffset, endOffset), startOffset, endOffset };
+  const columnOffset = line.index.graphemeIndexToVisualColumn(startGrapheme) - logicalColumn;
+  return { text: line.text.slice(startOffset, endOffset), startOffset, endOffset, columnOffset };
 }
 
 function textAreaValueSpans(

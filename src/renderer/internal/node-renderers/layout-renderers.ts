@@ -1,9 +1,6 @@
 import type { AccessibleNode } from '../../../accessibility/types.ts';
 import { finiteNonNegativeIntegerOrZero } from '../../../foundation/validation.ts';
 import { splitTracks } from '../../../geometry/layout.ts';
-import type { Rect } from '../../../geometry/types.ts';
-import type { FrameCell } from '../../contracts.ts';
-import { blitFrameCell, createFrameBuffer } from '../../frame-buffer.ts';
 import {
   renderSplitPaneDividers,
   splitPaneAccessibleNode,
@@ -29,7 +26,6 @@ import {
   drawViewportIndicators,
   viewportAccessibleDescription,
   viewportChildBounds,
-  viewportIndicatorCellKey,
 } from './support/viewport.ts';
 import type { StructuralRendererMap } from './types.ts';
 
@@ -110,7 +106,7 @@ export const layoutRenderers = {
   viewport: {
     clipChildren: true,
     measure: layoutMeasurements.viewport,
-    layout: ({ renderNode, bounds, measureChild }) => {
+    layout: ({ renderNode, bounds, measureChild, clipChildrenTo }) => {
       const scrollbars = scrollbarsForRenderNode(
         renderNode,
         bounds,
@@ -121,6 +117,7 @@ export const layoutRenderers = {
         ),
         'both',
       );
+      clipChildrenTo(scrollbars.contentBounds);
       return [viewportChildBounds(
         renderNode,
         scrollbars.contentBounds,
@@ -128,10 +125,7 @@ export const layoutRenderers = {
       )];
     },
     render: (input) => {
-      const viewportBuffer = createFrameBuffer(input.buffer.width, input.buffer.height, {
-        widthProfile: input.buffer.widthProfile
-      });
-      input.renderChildren(viewportBuffer);
+      input.renderChildren();
       const scrollbars = scrollbarsForRenderNode(
         input.renderNode,
         input.layoutNode.bounds,
@@ -142,20 +136,13 @@ export const layoutRenderers = {
         ),
         'both'
       );
-      const occupiedCells = new Set<string>();
-      for (const cell of viewportBuffer.snapshot().cells) {
-        if (cellInside(cell, scrollbars.contentBounds)) {
-          blitFrameCell(input.buffer, cell);
-          occupiedCells.add(viewportIndicatorCellKey(cell.row, cell.column));
-        }
-      }
       drawViewportIndicators(
         input.buffer,
         input.renderNode,
         input.layoutNode,
         scrollbars.contentBounds,
         input.theme,
-        occupiedCells
+        input.cellOccupied
       );
       drawScrollbars(input.buffer, input.renderNode, scrollbars, input.theme);
     },
@@ -216,11 +203,4 @@ function groupAccessibleNode(id: string, focused: boolean): AccessibleNode {
     role: 'group',
     ...(focused ? { focused } : {}),
   };
-}
-
-function cellInside(cell: FrameCell, bounds: Rect): boolean {
-  return cell.row >= bounds.row
-    && cell.row < bounds.row + bounds.height
-    && cell.column >= bounds.column
-    && cell.column < bounds.column + bounds.width;
 }

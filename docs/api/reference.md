@@ -10998,6 +10998,8 @@ export declare function paintComponentScrollbar(
   input: {
     readonly target: RenderTarget;
     readonly plan: ComponentScrollbarPlan;
+    /** Paint-only clip in target coordinates; preserves logical track and thumb geometry. */
+    readonly viewport?: Rect;
     readonly theme: TerminalTheme;
     readonly style?: (part: 'scrollbarTrack' | 'scrollbarThumb', state: 'hovered' | 'disabled' | 'active' | undefined, base: import('../visual/render-content.ts').TerminalStyle) => import('../visual/render-content.ts').TerminalStyle | undefined;
     readonly frameSource: (input: {
@@ -11011,7 +11013,7 @@ export declare function paintComponentScrollbar(
 ): void;
 ```
 
-Related types: [`ComponentScrollbarPlan`](#component-componentscrollbarplan), [`TerminalStyle`](#component-terminalstyle), [`input`](#prompts-input), [`FrameCellSource`](#renderer-framecellsource), [`RenderTarget`](#renderer-rendertarget), [`TerminalTheme`](#theme-terminaltheme)
+Related types: [`ComponentScrollbarPlan`](#component-componentscrollbarplan), [`TerminalStyle`](#component-terminalstyle), [`viewport`](#layout-viewport), [`input`](#prompts-input), [`FrameCellSource`](#renderer-framecellsource), [`Rect`](#renderer-rect), [`RenderTarget`](#renderer-rendertarget), [`TerminalTheme`](#theme-terminaltheme)
 
 <a id="component-popupreducer"></a>
 ### popupReducer

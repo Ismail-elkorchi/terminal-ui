@@ -75,7 +75,7 @@ test('leaf paint rejects async results, closes its target, and observes later re
   }), size)), 'ok');
 });
 
-test('viewport buffer painting closes a failed child component target', async () => {
+test('viewport region painting closes a failed child component target', async () => {
   let target;
   const element = viewport(leaf(({ target: local }) => {
     target = local;

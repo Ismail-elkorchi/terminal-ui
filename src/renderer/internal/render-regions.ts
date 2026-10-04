@@ -18,6 +18,7 @@ import type { FrameBuffer } from '../frame-buffer.ts';
 import { createRegionFrameBuffer, seedFrameBufferRows } from '../frame-buffer.ts';
 import type { LayoutFocusTarget } from './focus.ts';
 import type { FrameSnapshotMetadata } from './frame-snapshot.ts';
+import type { RenderNode } from './render-tree/types.ts';
 
 export interface RenderRegionHitTarget<TMessage = unknown> extends FrameHitTarget, ScrollRoutable<TMessage> {
   readonly ownerIdentity: string;
@@ -65,6 +66,11 @@ export function toRegionHitTarget<TMessage>(
 
 export function hitTargetOwnerIdentity(path: FocusPath, nodeIdentity: string): string {
   return [...path, nodeIdentity].map((segment) => `${String(segment.length)}:${segment}`).join('');
+}
+
+/** A portal owns storage even when its layer equals its clipped ancestor's. */
+export function renderNodeStartsRegion(renderNode: RenderNode, node: LayoutNode, parentZIndex?: number): boolean {
+  return renderNode.kind === 'portal' || node.layer.zIndex !== parentZIndex;
 }
 
 export function regionIdForLayoutNode(node: LayoutNode, path: FocusPath): string {

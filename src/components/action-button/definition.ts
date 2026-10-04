@@ -18,6 +18,7 @@ import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
 import { mergeTerminalStyles } from '../../visual/terminal-style.ts';
 import type { ComponentDensity } from '../density.ts';
 import type { ButtonPressEvent, ButtonTone } from '../form-controls.ts';
+import { paintControlPadding } from '../shared/control-padding.ts';
 import { assertPressCallback, measureSpans } from '../shared/form-control-helpers.ts';
 import type { ButtonStylePart } from '../style-parts.ts';
 import type { ButtonOptions } from './options.ts';
@@ -124,14 +125,11 @@ function defineActionButtonComponent(name: `${string}/${string}`): ActionButtonC
       ...(visualStates.length === 0 ? {} : { states: visualStates }),
       base: buttonToneStyle(input.model.tone, true, input.busy),
     });
-    input.target.write(0, 0, [
-      ...spans,
-      ...(used >= input.target.width ? [] : [{
-        text: ' '.repeat(input.target.width - used),
-        ...(frameStyle === undefined ? {} : { style: frameStyle }),
-        source: input.frameSource({ partName: 'frame.fill', partType: 'frame', cellRole: 'content' }),
-      }]),
-    ]);
+    input.target.write(0, 0, spans);
+    paintControlPadding(input, 0, used, input.target.width - used, {
+      ...(frameStyle === undefined ? {} : { style: frameStyle }),
+      source: input.frameSource({ partName: 'frame.fill', partType: 'frame', cellRole: 'content' }),
+    });
   },
   keys: () => ({
     enter: () => ({ kind: 'press' }),

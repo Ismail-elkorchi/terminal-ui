@@ -31,6 +31,7 @@ import {
   assertTransitionCallback,
   withoutTransitionCallback,
 } from '../shared/form-control-helpers.ts';
+import { paintControlPadding } from '../shared/control-padding.ts';
 import { optionalBoolean, optionalString } from '../shared/input-control-helpers.ts';
 import { inspectTextSelection, inspectTextValue, inspectValidation } from '../shared/inspection.ts';
 import type { SingleLineTextWindow } from '../shared/single-line-text-window.ts';
@@ -390,11 +391,14 @@ function paintTextEntry(input: ComponentRenderInput<TextEntryModel, TextEntrySty
   if (input.bounds.width === 0 || input.bounds.height === 0) return;
   const plan = textEntryRenderPlan(input);
   input.target.write(0, 0, plan.value);
+  paintControlPadding(input, 0, plan.occupied, input.bounds.width - plan.occupied, plan.padding);
   if (plan.error !== undefined) input.target.write(1, 0, plan.error);
 }
 
 interface TextEntryRenderPlan {
   readonly value: readonly RenderSpan[];
+  readonly occupied: number;
+  readonly padding: Omit<RenderSpan, 'text'>;
   readonly error?: readonly RenderSpan[];
 }
 
@@ -420,11 +424,10 @@ function textEntryRenderPlan(
     usesPlaceholder ? shown : visual.visibleText,
     { widthProfile: input.widthProfile },
   ).cells;
-  const padding = Math.max(0, input.bounds.width - occupied);
-  if (padding > 0) spans.push(textEntryPaddingSpan(input, padding, styles.value));
   const value = clipRenderSpans(spans, input.bounds.width, { widthProfile: input.widthProfile });
   const error = textEntryErrorSpans(input);
-  return { value, ...(error === undefined ? {} : { error }) };
+  return { value, occupied, padding: textEntryPadding(input, styles.value),
+    ...(error === undefined ? {} : { error }) };
 }
 
 function textEntryRenderStyles(
@@ -555,12 +558,11 @@ export function selectionRanges(
   ];
 }
 
-function textEntryPaddingSpan(
+function textEntryPadding(
   input: ComponentRenderInput<TextEntryModel, TextEntryStylePart>,
-  width: number,
   style: TerminalStyle | undefined,
-): RenderSpan {
-  return span(' '.repeat(width), {
+): Omit<RenderSpan, 'text'> {
+  return {
     ...(style === undefined ? {} : { style }),
     source: input.frameSource({
       cellRole: 'content',
@@ -568,7 +570,7 @@ function textEntryPaddingSpan(
       partType: 'value',
       description: 'value.padding',
     }),
-  });
+  };
 }
 
 function textEntryErrorSpans(

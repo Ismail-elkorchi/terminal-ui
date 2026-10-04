@@ -175,3 +175,22 @@ screenshots.
 Executable example:
 
 - `examples/testing/harness.mjs`
+
+## Region ownership through clipping boundaries
+
+One renderer-owned traversal paints all descendants through the region
+compositor, including children of a viewport. Layout resolves the viewport's
+scrollbar-adjusted content clip in the same pass as child allocation. Ordinary region
+transitions preserve that clip and its graphics; they do not switch to a
+cell-only offscreen traversal. Portals explicitly reset placement and clipping
+to the retained terminal-root viewport after checking their anchor against the
+inherited clip. They own regions even when their effective z-index is unchanged. Hit and focus targets belong to the exact region
+that produced their layout, even when several overlapping regions share a
+z-index. Retained leaf paint invokes the same bounded, auto-closed paint scope
+as a fresh leaf. Reusing visual storage does not retain old message callbacks.
+
+Viewport indicators query only descendant region cells and shared-buffer
+write coverage instead of flattening content into a temporary frame. Unrelated
+siblings neither suppress indicators nor add snapshot work. Publication remains transactional: layout
+lifecycle callbacks and accepted interaction state follow successful terminal
+output, and failed candidates cannot mutate the previously accepted frame.

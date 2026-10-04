@@ -67,6 +67,7 @@ type ComboboxRenderState = ComboboxState | AutocompleteComboboxView;
 
 interface ComboboxModel {
   readonly label: string;
+  readonly labelVisibility: 'visible' | 'hidden';
   readonly collection: ListboxCollection<unknown>;
   readonly optionsView: ListboxView<unknown> | undefined;
   readonly query?: CollectionQuery;
@@ -227,12 +228,11 @@ const instantiateCombobox = defineComponent<ComboboxModel, ComboboxComponentActi
     const value = input.model.state.kind === 'autocomplete'
       ? input.model.state.input.text || input.model.placeholder
       : selected?.label ?? input.model.placeholder;
-    const label = input.model.required ? `${input.model.label} *` : input.model.label;
     return {
       minWidth: 1,
       minHeight: 1,
       preferredWidth:
-        measureTextCells(`${label}: ${value}  `, { widthProfile: input.widthProfile }).cells,
+        measureTextCells(`${comboboxLabelPrefix(input.model)}${value}  `, { widthProfile: input.widthProfile }).cells,
       preferredHeight: input.model.error === undefined ? 1 : 2,
     };
   },
@@ -545,6 +545,11 @@ function selectedComboboxOption(model: ComboboxModel): ListboxOption | undefined
   return id === undefined ? undefined : readListboxSource(model.collection).itemById(id)?.option;
 }
 
+function comboboxLabelPrefix(model: ComboboxModel): string {
+  if (model.labelVisibility === 'hidden') return '';
+  return `${model.label}${model.required ? ' *' : ''}: `;
+}
+
 interface AutocompleteComboboxInputVisual {
   readonly labelCells: number;
   readonly contentWidth: number;
@@ -557,8 +562,7 @@ function autocompleteComboboxInputVisual(
   width: number,
   widthProfile: TextWidthProfile,
 ): AutocompleteComboboxInputVisual {
-  const label = model.required ? `${model.label} *` : model.label;
-  const labelCells = measureTextCells(`${label}: `, { widthProfile }).cells;
+  const labelCells = measureTextCells(comboboxLabelPrefix(model), { widthProfile }).cells;
   const contentWidth = Math.max(0, width - labelCells - 2);
   return {
     labelCells,
@@ -581,8 +585,8 @@ function renderCombobox(input: ComponentRenderInput<ComboboxModel, ComboboxStyle
     ? 'disabled' as const
     : pointerVisualState(input.pointerState, `${input.id ?? 'combobox'}:trigger`) ??
       (input.focus === 'self' ? 'focused' as const : undefined);
-  const label = input.model.required ? `${input.model.label} *` : input.model.label;
-  const labelCells = measureTextCells(`${label}: `, { widthProfile: input.widthProfile }).cells;
+  const labelPrefix = comboboxLabelPrefix(input.model);
+  const labelCells = measureTextCells(labelPrefix, { widthProfile: input.widthProfile }).cells;
   const valueWidth = Math.max(0, input.bounds.width - labelCells - 2);
   const labelStyle = input.style({
     part: 'label',
@@ -646,8 +650,10 @@ function renderCombobox(input: ComponentRenderInput<ComboboxModel, ComboboxStyle
       ];
   }
   input.target.write(0, 0, [
-    comboboxSpan(input, label, 'label', 'label', labelStyle),
-    comboboxSpan(input, ': ', 'label', 'label.separator', labelStyle),
+    ...(labelPrefix.length === 0 ? [] : [
+      comboboxSpan(input, labelPrefix.slice(0, -2), 'label', 'label', labelStyle),
+      comboboxSpan(input, ': ', 'label', 'label.separator', labelStyle),
+    ]),
     ...valueSpans,
     comboboxSpan(input, ' ', 'marker', 'value.separator', markerStyle),
     comboboxSpan(
@@ -859,6 +865,7 @@ function createComboboxModel<TValue, TMessage extends ComponentMessage>(
 ): ComboboxModel {
   const label = value.label;
   if (typeof label !== 'string') throw new TypeError('combobox label must be a string.');
+  assertOptionalEnum(value.labelVisibility, ['visible', 'hidden'], 'combobox labelVisibility');
   const optionsView = matchingListboxView(value.collection, value.query, value.optionsView);
   const state = decodeComboboxState(
     'view' in value ? value.view : value.state,
@@ -902,6 +909,7 @@ function createComboboxModel<TValue, TMessage extends ComponentMessage>(
   }
   return {
     label: sanitizeTerminalText(label).text,
+    labelVisibility: value.labelVisibility ?? 'visible',
     collection: value.collection,
     optionsView,
     ...(value.query === undefined ? {} : { query: ownCollectionQueryRequest(value.query) }),

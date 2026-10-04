@@ -104,6 +104,8 @@ export interface RenderNodeLayoutInput<
   readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
   readonly bounds: Rect;
   readonly viewport: Rect;
+  /** Resolve a structural content clip during the same child allocation pass. */
+  readonly clipChildrenTo: (bounds: Rect) => void;
   readonly theme: TerminalTheme;
   readonly childCount: number;
   readonly measureChild: (index: number, constraints?: Rect) => Measurement;
@@ -136,7 +138,9 @@ export interface RenderNodeRenderInput<
   readonly focus: RenderFocusRelation;
   readonly focusedTargetId?: string;
   readonly pointerState?: PointerInteractionState;
-  readonly renderChildren: (target?: RenderTarget) => void;
+  readonly renderChildren: () => void;
+  /** Renderer-owned descendant coverage; used only for empty-cell decorations. */
+  readonly cellOccupied: (row: number, column: number) => boolean;
 }
 
 export interface RenderNodeAccessibilityInput<

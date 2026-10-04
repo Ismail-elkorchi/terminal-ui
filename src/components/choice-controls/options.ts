@@ -16,6 +16,8 @@ import type { ChoiceStylePart, ColorSwatchPickerStylePart } from '../style-parts
 interface CheckboxGroupOptionsBase<TValue> {
   readonly id: string;
   readonly label: string;
+  /** Whether the visible label row is painted; the accessible label is always retained. */
+  readonly labelVisibility?: 'visible' | 'hidden';
   readonly options: readonly ChoiceItem<TValue>[];
   readonly state: CollectionInteractionState;
   readonly required?: boolean;
@@ -66,6 +68,8 @@ export type DisabledColorSwatchPickerOptions<TValue, TMessage extends ComponentM
 interface RadioGroupOptionsBase<TValue> {
   readonly id: string;
   readonly label: string;
+  /** Whether the visible label row is painted; the accessible label is always retained. */
+  readonly labelVisibility?: 'visible' | 'hidden';
   readonly options: readonly ChoiceItem<TValue>[];
   readonly state: CollectionInteractionState;
   readonly required?: boolean;

@@ -18,6 +18,7 @@ import type {
   CollectionInteractionState,
   SelectionState,
 } from '../../interaction/collection-interaction.ts';
+import { assertOptionalEnum } from '../../foundation/validation.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
 import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
 import type { FocusTarget, HitTarget } from '../../renderer/contracts.ts';
@@ -25,8 +26,9 @@ import { oneCellGlyph, padTextCells } from '../../text/cell-geometry.ts';
 import { clipTextCells } from '../../text/clip.ts';
 import { terminalTextWidth } from '../../text/terminal-width.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
-import { measureRenderSpans, span } from '../../visual/render-content.ts';
+import { clipRenderSpans, measureRenderSpans, span } from '../../visual/render-content.ts';
 import { decodeTerminalStyle } from '../../visual/terminal-style.ts';
+import { paintControlPadding } from '../shared/control-padding.ts';
 import {
   choiceSelectedIds,
   decodeChoiceState,
@@ -57,6 +59,7 @@ import type {
 
 interface ChoiceModel {
   readonly label: string;
+  readonly labelVisibility: 'visible' | 'hidden';
   readonly options: readonly ChoiceModelItem[];
   readonly interaction: CollectionInteractionState;
   readonly required: boolean;
@@ -88,9 +91,9 @@ const instantiateCheckboxGroup = defineComponent<CheckboxGroupComponentOptions, 
   accessibleRole: 'group',
   createModel: (value) => createChoiceModel(value, 'checkboxGroup', true),
   render: (input) => {
-    paintLines(input, choiceLines(input, 'checkbox', true));
+    paintChoiceLines(input, 'checkbox');
   },
-  measure: (input) => measureLines(choiceLines(input, 'checkbox', false), input),
+  measure: (input) => measureLines(choiceLines(input, 'checkbox', false).map((line) => line.spans), input),
   keys: ({ model }) => checkboxChoiceKeys(model),
   hitTargets: checkboxChoiceHitTargets,
   accessibility: (input) => choiceAccessibility(input, 'checkbox'),
@@ -125,9 +128,9 @@ const instantiateRadioGroup = defineComponent<RadioGroupComponentOptions, RadioG
   accessibleRole: 'radiogroup',
   createModel: (value) => createChoiceModel(value, 'radioGroup', false),
   render: (input) => {
-    paintLines(input, choiceLines(input, 'radio', true));
+    paintChoiceLines(input, 'radio');
   },
-  measure: (input) => measureLines(choiceLines(input, 'radio', false), input),
+  measure: (input) => measureLines(choiceLines(input, 'radio', false).map((line) => line.spans), input),
   keys: ({ model }) => radioChoiceKeys(model),
   hitTargets: radioChoiceHitTargets,
   accessibility: (input) => choiceAccessibility(input, 'radio'),
@@ -282,6 +285,7 @@ function createChoiceModel(
   owner: string,
   multiple: boolean,
 ): ChoiceModel {
+  assertOptionalEnum(value.labelVisibility, ['visible', 'hidden'], `${owner} labelVisibility`);
   const options = value.options.map((item, index) =>
     decodeChoiceItem(item, `${owner} options[${String(index)}]`)
   );
@@ -294,6 +298,7 @@ function createChoiceModel(
   );
   return {
     label: cleanString(value.label, `${owner} label`),
+    labelVisibility: value.labelVisibility ?? 'visible',
     options,
     interaction,
     required: optionalBoolean(value.required, `${owner} required`) ?? false,
@@ -318,13 +323,33 @@ function decodeChoiceItem(
   };
 }
 
+interface ChoiceLine {
+  readonly spans: readonly RenderSpan[];
+  readonly padding?: Omit<RenderSpan, 'text'>;
+}
+
+function paintChoiceLines(
+  input: ComponentRenderInput<ChoiceModel, ChoiceStylePart>,
+  kind: 'checkbox' | 'radio',
+): void {
+  const lines = choiceLines(input, kind, true);
+  lines.slice(0, input.bounds.height).forEach((line, row) => {
+    input.target.write(row, 0, clipRenderSpans(line.spans, input.bounds.width, {
+      widthProfile: input.widthProfile,
+    }));
+    if (line.padding === undefined) return;
+    const used = measureRenderSpans(line.spans, { widthProfile: input.widthProfile });
+    paintControlPadding(input, row, used, input.bounds.width - used, line.padding);
+  });
+}
+
 function choiceLines(
   input: ComponentMeasureInput<ChoiceModel> | ComponentRenderInput<ChoiceModel, ChoiceStylePart>,
   kind: 'checkbox' | 'radio',
   decorated: boolean,
-): readonly (readonly RenderSpan[])[] {
+): readonly ChoiceLine[] {
   const selected = new Set(choiceSelectedIds(input.model.interaction.selection));
-  const optionLines = input.model.options.flatMap((option): readonly (readonly RenderSpan[])[] => {
+  const optionLines = input.model.options.flatMap((option): readonly ChoiceLine[] => {
     const pointer = pointerVisualState(input.pointerState, `${input.id ?? kind}:${option.id}`);
     const states = input.disabled || option.disabled
       ? ['disabled' as const]
@@ -395,14 +420,14 @@ function choiceLines(
     ];
   });
   return [
-    [styled(
+    ...(input.model.labelVisibility === 'hidden' ? [] : [{ spans: [styled(
       input,
       input.model.required ? `${input.model.label} *` : input.model.label,
       'label',
       decorated,
-    )],
+    )] }]),
     ...optionLines,
-    ...errorLines(input, input.model.error, 'error', decorated),
+    ...errorLines(input, input.model.error, 'error', decorated).map((spans) => ({ spans })),
   ];
 }
 
@@ -412,22 +437,19 @@ function choiceLine(
   spans: readonly RenderSpan[],
   decorated: boolean,
   states: readonly ('disabled' | 'hovered' | 'pressed' | 'active' | 'selected')[],
-): readonly RenderSpan[] {
-  if (!decorated || !('style' in input)) return spans;
-  const used = measureRenderSpans(spans, { widthProfile: input.widthProfile });
-  if (used >= input.bounds.width) return spans;
-  return [
-    ...spans,
-    choiceSpan(
+): ChoiceLine {
+  return {
+    spans,
+    ...(!decorated || !('style' in input) ? {} : { padding: choiceSpan(
       input,
-      ' '.repeat(input.bounds.width - used),
+      '',
       'option',
       `option.${option.id}.padding`,
       true,
       states,
       'content',
-    ),
-  ];
+    ) }),
+  };
 }
 
 function choiceSpan(
@@ -516,7 +538,7 @@ function radioChoiceHitTargets(
 }
 
 function choiceRows(input: ComponentInput<ChoiceModel>) {
-  let row = 1;
+  let row = input.model.labelVisibility === 'hidden' ? 0 : 1;
   return input.model.options.flatMap((option) => {
     const current = row;
     row += option.description === undefined ? 1 : 2;

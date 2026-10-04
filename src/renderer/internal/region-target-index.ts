@@ -2,14 +2,16 @@ import { rectsOverlap } from '../../geometry/rect.ts';
 import type { Rect } from '../../geometry/types.ts';
 import type { LayoutNode, RenderInstrumentation } from '../contracts.ts';
 import type { LayoutFocusTarget, RenderNodeLayoutTarget } from './focus.ts';
-import { collectLayoutFocusTargets, collectRenderNodeLayoutTargets } from './focus.ts';
+import { collectLayoutFocusTargets, collectRenderNodeLayoutTargets, layoutFocusPath } from './focus.ts';
+import { regionIdForLayoutNode, renderNodeStartsRegion } from './render-regions.ts';
+import type { FocusPath } from '../../interaction/focus.ts';
 import type { RenderNode } from './render-tree/types.ts';
 
 export interface RegionTargetIndex<TMessage> {
   readonly layoutTargets: readonly RenderNodeLayoutTarget<TMessage>[];
   readonly focusTargets: readonly LayoutFocusTarget[];
-  layoutTargetsForRegion(zIndex: number, bounds: Rect): readonly RenderNodeLayoutTarget<TMessage>[];
-  focusTargetsForRegion(zIndex: number, bounds: Rect): readonly LayoutFocusTarget[];
+  layoutTargetsForRegion(regionId: string, bounds: Rect): readonly RenderNodeLayoutTarget<TMessage>[];
+  focusTargetsForRegion(regionId: string, bounds: Rect): readonly LayoutFocusTarget[];
 }
 
 const committedRegionIndexes = new WeakMap<LayoutNode, {
@@ -27,13 +29,25 @@ export function createRegionTargetIndex<TMessage>(
   const layoutTargets = collectRenderNodeLayoutTargets(renderNode, layout);
   const focusTargets = collectLayoutFocusTargets(layout, instrumentation);
   instrumentation?.recordWork?.({ kind: 'target_index_entries', count: layoutTargets.length + focusTargets.length });
-  const layoutByLayer = groupByLayer(layoutTargets);
-  const focusByLayer = groupByLayer(focusTargets);
+  const owners = new WeakMap<LayoutNode['layer'], string>();
+  const visit = (current: RenderNode, node: LayoutNode, parentPath: FocusPath, parent?: LayoutNode): void => {
+    const path = layoutFocusPath(parentPath, node);
+    const regionId = parent !== undefined && !renderNodeStartsRegion(current, node, parent.layer.zIndex)
+      ? owners.get(parent.layer) : regionIdForLayoutNode(node, path);
+    if (regionId !== undefined) owners.set(node.layer, regionId);
+    for (const [index, child] of (current.children ?? []).entries()) {
+      const childLayout = node.children[index];
+      if (childLayout !== undefined) visit(child, childLayout, path, node);
+    }
+  };
+  visit(renderNode, layout, []);
+  const layoutByRegion = groupByRegion(layoutTargets, owners);
+  const focusByRegion = groupByRegion(focusTargets, owners);
   const index = Object.freeze({
     layoutTargets,
     focusTargets,
-    layoutTargetsForRegion: (zIndex: number, bounds: Rect) => layoutByLayer.get(zIndex)?.query(bounds, instrumentation) ?? [],
-    focusTargetsForRegion: (zIndex: number, bounds: Rect) => focusByLayer.get(zIndex)?.query(bounds, instrumentation) ?? []
+    layoutTargetsForRegion: (regionId: string, bounds: Rect) => layoutByRegion.get(regionId)?.query(bounds, instrumentation) ?? [],
+    focusTargetsForRegion: (regionId: string, bounds: Rect) => focusByRegion.get(regionId)?.query(bounds, instrumentation) ?? []
   });
   committedRegionIndexes.set(layout, { node: renderNode, index });
   return index;
@@ -65,16 +79,19 @@ export function createRowSpatialIndex<TTarget extends { readonly bounds: Rect }>
   return { query: (bounds, instrumentation) => overlapping(root, bounds, instrumentation) };
 }
 
-function groupByLayer<TTarget extends { readonly layer: { readonly zIndex: number }; readonly bounds: Rect }>(
-  targets: readonly TTarget[]
-): ReadonlyMap<number, RowSpatialIndex<TTarget>> {
-  const grouped = new Map<number, TTarget[]>();
+function groupByRegion<TTarget extends { readonly layer: LayoutNode['layer']; readonly bounds: Rect }>(
+  targets: readonly TTarget[],
+  owners: WeakMap<LayoutNode['layer'], string>,
+): ReadonlyMap<string, RowSpatialIndex<TTarget>> {
+  const grouped = new Map<string, TTarget[]>();
   for (const target of targets) {
-    const values = grouped.get(target.layer.zIndex) ?? [];
+    const id = owners.get(target.layer);
+    if (id === undefined) continue;
+    const values = grouped.get(id) ?? [];
     values.push(target);
-    grouped.set(target.layer.zIndex, values);
+    grouped.set(id, values);
   }
-  return new Map([...grouped].map(([zIndex, values]) => [zIndex, createRowSpatialIndex(values)]));
+  return new Map([...grouped].map(([id, values]) => [id, createRowSpatialIndex(values)]));
 }
 
 function buildRowIntervalIndex<TTarget extends { readonly bounds: Rect }>(

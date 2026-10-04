@@ -132,3 +132,25 @@ feedback, and accessibility behavior.
 
 See the executable [testing harness example](../../examples/testing/harness.mjs)
 for layout in a rendered frame.
+
+## Viewport layers and clipping
+
+A viewport clips and scrolls content without introducing a stacking context.
+Descendants keep their effective layers, so an open combobox popup inside
+`viewport(column([combobox(...), text(...)]), { id: 'content' })` paints above
+later base-layer text and keeps its option and outside-press targets. Nested
+viewports use the intersection of their content rectangles; scrollbar gutters
+are excluded from ordinary descendant painting, graphics, pointer targets and focus
+geometry. Scroll offsets are applied once during child allocation.
+
+Portals use the terminal-root viewport for placement and clipping, as specified
+by the public `portal()` contract. Their anchors retain the original allocation
+and scroll translation: a partially clipped trigger can open a popup outside
+its crop, but both the owning allocation and anchor must intersect the inherited
+clip. A fully clipped owner/anchor or hidden slot cannot spawn a popup. Zero-size
+intrinsic portal allocations are checked as insertion points. Portal
+regions retain their own target ownership even at the same z-index as a clipped
+ancestor. A layer explicitly declaring `backdrop: 'viewport'` still owns a
+terminal-wide backdrop. Empty-cell scroll
+indicators never replace already occupied cells, including explicit blanks and
+wide-grapheme continuation cells.

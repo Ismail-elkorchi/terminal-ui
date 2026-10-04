@@ -141,6 +141,15 @@ Buttons use the graphical control shape by default and accept
 Use the `ghost` button tone for toolbar actions that should inherit the bar
 until focused, hovered, or pressed.
 
+Comboboxes accept `labelVisibility: 'visible' | 'hidden'` in both select and
+autocomplete modes. The default is `'visible'`. Use `'hidden'` for compact
+toolbars or an already-labelled field: it removes the entire visible label,
+required marker, and `: ` prefix and reclaims their width for the value or
+placeholder. The `label` string is still required and continues to name the
+control and its popup accessibly. Required/error semantics, the disclosure
+marker, and interaction behavior are unchanged; autocomplete cursor and pointer
+positions follow the visible input starting at the first cell.
+
 Tabs accept `maxTabWidth` when document names must not let one tab consume the
 strip. The visible label is clipped, while its full accessible name and close
 action remain intact. Inactive panel elements and their caller-owned state are
@@ -334,3 +343,10 @@ adoption boundary.
 For app structure and controlled state, see [Building terminal apps](./building-terminal-apps.md).
 For reusable reducers, see [Behavior helpers](./behavior.md). For reusable
 component authoring, see [Component definitions](./component-definitions.md).
+
+`radioGroup()` and `checkboxGroup()` also accept
+`labelVisibility: 'hidden'`. This removes the complete visual group-label row,
+including its required marker, so a single option can occupy one terminal row.
+Option descriptions, validation errors and pointer targets move up with the
+option rows. The `label` remains required and names the accessible group; the
+default `'visible'` policy preserves the existing layout.

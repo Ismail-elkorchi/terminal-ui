@@ -124,28 +124,28 @@ export function drawViewportIndicators(
   node: LayoutNode,
   bounds: Rect,
   theme: TerminalTheme,
-  occupiedCells: ReadonlySet<string> = new Set()
+  cellOccupied: (row: number, column: number) => boolean = () => false
 ): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
   const state = viewportVisualState(renderNode, bounds, node);
   const style = renderNodeStyle(renderNode, 'empty');
   if (state.empty) {
-    writeViewportIndicator(buffer, renderNode, centered(bounds), theme.tokens.symbols.viewportEmpty, 'empty', style, occupiedCells);
+    writeViewportIndicator(buffer, renderNode, centered(bounds), theme.tokens.symbols.viewportEmpty, 'empty', style, cellOccupied);
     return;
   }
   const verticalScrollbar = hasScrollbarForAxis(renderNode, 'vertical');
   const horizontalScrollbar = hasScrollbarForAxis(renderNode, 'horizontal');
   if (state.clippedTop && !verticalScrollbar) {
-    writeViewportIndicator(buffer, renderNode, { row: bounds.row, column: midpoint(bounds.column, bounds.width) }, theme.tokens.symbols.viewportClipTop, 'clip-top', style, occupiedCells);
+    writeViewportIndicator(buffer, renderNode, { row: bounds.row, column: midpoint(bounds.column, bounds.width) }, theme.tokens.symbols.viewportClipTop, 'clip-top', style, cellOccupied);
   }
   if (state.clippedBottom && !verticalScrollbar) {
-    writeViewportIndicator(buffer, renderNode, { row: bounds.row + bounds.height - 1, column: midpoint(bounds.column, bounds.width) }, theme.tokens.symbols.viewportClipBottom, 'clip-bottom', style, occupiedCells);
+    writeViewportIndicator(buffer, renderNode, { row: bounds.row + bounds.height - 1, column: midpoint(bounds.column, bounds.width) }, theme.tokens.symbols.viewportClipBottom, 'clip-bottom', style, cellOccupied);
   }
   if (state.clippedLeft && !horizontalScrollbar) {
-    writeViewportIndicator(buffer, renderNode, { row: midpoint(bounds.row, bounds.height), column: bounds.column }, theme.tokens.symbols.viewportClipLeft, 'clip-left', style, occupiedCells);
+    writeViewportIndicator(buffer, renderNode, { row: midpoint(bounds.row, bounds.height), column: bounds.column }, theme.tokens.symbols.viewportClipLeft, 'clip-left', style, cellOccupied);
   }
   if (state.clippedRight && !horizontalScrollbar) {
-    writeViewportIndicator(buffer, renderNode, { row: midpoint(bounds.row, bounds.height), column: bounds.column + bounds.width - 1 }, theme.tokens.symbols.viewportClipRight, 'clip-right', style, occupiedCells);
+    writeViewportIndicator(buffer, renderNode, { row: midpoint(bounds.row, bounds.height), column: bounds.column + bounds.width - 1 }, theme.tokens.symbols.viewportClipRight, 'clip-right', style, cellOccupied);
   }
 }
 
@@ -166,9 +166,9 @@ function writeViewportIndicator(
   text: string,
   label: string,
   style: ReturnType<typeof renderNodeStyle>,
-  occupiedCells: ReadonlySet<string>
+  cellOccupied: (row: number, column: number) => boolean
 ): void {
-  if (occupiedCells.has(cellKey(position.row, position.column))) return;
+  if (cellOccupied(position.row, position.column)) return;
   const fallback = label === 'clip-top'
     ? '^'
     : label === 'clip-bottom'
@@ -190,10 +190,6 @@ function writeViewportIndicator(
   }]);
 }
 
-export function viewportIndicatorCellKey(row: number, column: number): string {
-  return cellKey(row, column);
-}
-
 function centered(bounds: Rect): { readonly row: number; readonly column: number } {
   return {
     row: midpoint(bounds.row, bounds.height),
@@ -203,8 +199,4 @@ function centered(bounds: Rect): { readonly row: number; readonly column: number
 
 function midpoint(start: number, size: number): number {
   return start + Math.max(0, Math.floor((size - 1) / 2));
-}
-
-function cellKey(row: number, column: number): string {
-  return `${String(row)}:${String(column)}`;
 }

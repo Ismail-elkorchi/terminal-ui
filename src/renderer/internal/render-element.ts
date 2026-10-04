@@ -74,7 +74,6 @@ import {
 import { createRenderEnvironment } from './render-environment.ts';
 import {
   hitTargetsForRenderNode,
-  renderNodeClipsChildren,
   renderRenderNode,
 } from './render-node-behavior.ts';
 import type { DraftRenderRegion, RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
@@ -82,12 +81,13 @@ import {
   createDraftRenderRegion,
   hitTargetOwnerIdentity,
   regionIdForLayoutNode,
+  renderNodeStartsRegion,
   toRegionHitTarget,
 } from './render-regions.ts';
 import { layoutRenderTree } from './render-tree-layout.ts';
 import { toRenderNode } from './render-tree/element.ts';
 import { renderNodeFactoryName } from './render-tree/node.ts';
-import type { RenderNode } from './render-tree/types.ts';
+import type { RenderNode, RenderNodeRenderInput } from './render-tree/types.ts';
 import { createPaintRetention } from './retained-paint.ts';
 import {
   createClippedRenderTarget,
@@ -349,7 +349,7 @@ function renderLayoutRegions<TMessage>(
       affected,
     );
     const path = nodePath(layout, []);
-    if (!composer.reuseFor(renderNode, layout, [])) {
+    if (layout.visible && !composer.reuseFor(renderNode, layout, [])) {
       renderRenderNodeToRegion(
         renderNode,
         layout,
@@ -450,7 +450,7 @@ function regionDependencyIndex<TMessage>(renderNode: RenderNode<TMessage>, layou
   ): void => {
     if (!node.visible) return;
     const path = nodePath(node, parentPath);
-    const regionId = parent?.layout.layer.zIndex === node.layer.zIndex
+    const regionId = parent !== undefined && !renderNodeStartsRegion(current, node, parent.layout.layer.zIndex)
       ? parent.regionId
       : regionIdForLayoutNode(node, path);
     const entry: RegionDependencyEntry = {
@@ -554,47 +554,44 @@ function renderRenderNodeToRegion<TMessage>(
     hitTargetOwnerIdentity(path, node.identity),
   );
   const focusedTargetId = focusedTargetIdForLayoutNode(node, path, focusPath);
-  if (composer.painting.paint({ renderNode, layoutNode: node, buffer: target, theme, widthProfile,
+  let cellOccupied: (row: number, column: number) => boolean = () => false;
+  const input = {
+    renderNode, layoutNode: node, buffer: target, theme, widthProfile,
     focus: renderFocusRelation(focusPath, path),
     ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
     ...(pointerState === undefined ? {} : { pointerState }),
-  }, path, buffer => {
-    renderRenderNodeToBuffer(renderNode, node, parentPath, buffer, theme, widthProfile,
-      focusPath, pointerVisuals, instrumentation);
+    cellOccupied: (row: number, column: number) => cellOccupied(row, column),
+  };
+  // Paint retention captures leaves only. Both paths invoke exactly the same
+  // bounded, auto-closed paint scope; subtree traversal remains renderer-owned.
+  if (composer.painting.paint(input, path, buffer => {
+    paintRenderNode(renderNode, { ...input, buffer, renderChildren() { /* Retained paint applies only to leaves. */ } }, instrumentation);
   })) return;
-  const localTarget = targetForRenderNode(renderNode, node, target);
-  const renderTarget = localTarget?.target ?? target;
-  const childrenTarget = renderNodeClipsChildren(renderNode)
-    ? createClippedRenderTarget(target, node.bounds, node.viewport)
-    : target;
-  try {
-    renderRenderNode(renderNode, {
-      layoutNode: node,
-      buffer: renderTarget,
-      theme,
-      widthProfile,
-      focus: renderFocusRelation(focusPath, path),
-      ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
-      ...(pointerState === undefined ? {} : { pointerState }),
-      renderChildren(requestedTarget = childrenTarget) {
+  paintRenderNode(renderNode, {
+    ...input,
+    renderChildren() {
+      const paint = (): void => {
         renderRenderNodeChildrenToRegions(
-          renderNode,
-          node,
-          path,
-          requestedTarget,
-          requestedTarget === childrenTarget,
-          region,
-          composer,
-          theme,
-          widthProfile,
-          focusPath,
-          pointerVisuals,
-          instrumentation,
+          renderNode, node, path, region, composer, theme, widthProfile,
+          focusPath, pointerVisuals, instrumentation,
         );
-      }
-    }, instrumentation);
+      };
+      if (renderNode.kind === 'viewport') cellOccupied = composer.contentCoverage(region, paint);
+      else paint();
+    },
+  }, instrumentation);
+}
+
+function paintRenderNode<TMessage>(
+  renderNode: RenderNode<TMessage>,
+  input: RenderNodeRenderInput<TMessage>,
+  instrumentation: RenderInstrumentation | undefined,
+): void {
+  const localTarget = targetForRenderNode(renderNode, input.layoutNode, input.buffer);
+  try {
+    renderRenderNode(renderNode, { ...input, buffer: localTarget.target }, instrumentation);
   } finally {
-    localTarget?.close();
+    localTarget.close();
   }
 }
 
@@ -602,8 +599,6 @@ function renderRenderNodeChildrenToRegions<TMessage>(
   renderNode: RenderNode<TMessage>,
   node: LayoutNode,
   path: FocusPath,
-  buffer: RenderTarget,
-  composeRegions: boolean,
   region: DraftRenderRegion,
   composer: RegionComposer<TMessage>,
   theme: TerminalTheme,
@@ -614,21 +609,8 @@ function renderRenderNodeChildrenToRegions<TMessage>(
 ): void {
   const children = renderNode.children ?? [];
   for (const { child, childNode } of orderedChildren(children, node)) {
-    if (!composeRegions) {
-      renderRenderNodeToBuffer(
-        child,
-        childNode,
-        path,
-        buffer,
-        theme,
-        widthProfile,
-        focusPath,
-        pointerVisuals,
-        instrumentation,
-      );
-      continue;
-    }
-    const separateRegion = childNode.layer.zIndex !== region.zIndex;
+    if (!childNode.visible) continue;
+    const separateRegion = renderNodeStartsRegion(child, childNode, region.zIndex);
     const childPath = nodePath(childNode, path);
     if (separateRegion && composer.reuseFor(child, childNode, path)) continue;
     const childRegion = separateRegion
@@ -645,61 +627,8 @@ function renderRenderNodeChildrenToRegions<TMessage>(
       focusPath,
       pointerVisuals,
       instrumentation,
-      childRegion === region ? buffer : childRegion.buffer
+      childRegion.buffer
     );
-  }
-}
-
-function renderRenderNodeToBuffer<TMessage>(
-  renderNode: RenderNode<TMessage>,
-  node: LayoutNode,
-  parentPath: FocusPath,
-  buffer: RenderTarget,
-  theme: TerminalTheme,
-  widthProfile: TextWidthProfile,
-  focusPath: FocusPath | undefined,
-  pointerVisuals: PointerVisualSnapshot | undefined,
-  instrumentation: RenderInstrumentation | undefined,
-): void {
-  if (!node.visible) return;
-  const path = nodePath(node, parentPath);
-  const pointerState = pointerStateForOwner(
-    pointerVisuals,
-    hitTargetOwnerIdentity(path, node.identity),
-  );
-  const focusedTargetId = focusedTargetIdForLayoutNode(node, path, focusPath);
-  const localTarget = targetForRenderNode(renderNode, node, buffer);
-  const renderTarget = localTarget?.target ?? buffer;
-  try {
-    renderRenderNode(renderNode, {
-      layoutNode: node,
-      buffer: renderTarget,
-      theme,
-      widthProfile,
-      focus: renderFocusRelation(focusPath, path),
-      ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
-      ...(pointerState === undefined ? {} : { pointerState }),
-      renderChildren(target = buffer) {
-        const childTarget = renderNodeClipsChildren(renderNode)
-          ? createClippedRenderTarget(target, node.bounds, node.viewport)
-          : target;
-        for (const { child, childNode } of orderedChildren(renderNode.children ?? [], node)) {
-          renderRenderNodeToBuffer(
-            child,
-            childNode,
-            path,
-            childTarget,
-            theme,
-            widthProfile,
-            focusPath,
-            pointerVisuals,
-            instrumentation,
-          );
-        }
-      }
-    }, instrumentation);
-  } finally {
-    localTarget?.close();
   }
 }
 
@@ -707,7 +636,7 @@ function targetForRenderNode(
   renderNode: RenderNode,
   node: LayoutNode,
   target: RenderTarget
-): { readonly target: RenderTarget; readonly close: () => void } | undefined {
+): { readonly target: RenderTarget; readonly close: () => void } {
   return renderNode.kind === 'component'
     ? createLocalComponentRenderTarget(target, node.bounds, node.viewport, {
         ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
@@ -715,7 +644,7 @@ function targetForRenderNode(
         name: renderNodeFactoryName(renderNode),
         rendererFamily: 'component'
       })
-    : undefined;
+    : { target: createClippedRenderTarget(target, node.viewport, node.viewport), close() { /* Structural targets are renderer-owned. */ } };
 }
 
 function nodePath(node: LayoutNode, parentPath: FocusPath): FocusPath {
@@ -736,6 +665,7 @@ function orderedChildren(
 
 interface RegionComposer<TMessage> {
   readonly painting: ReturnType<typeof createPaintRetention>;
+  contentCoverage(region: DraftRenderRegion, paint: () => void): (row: number, column: number) => boolean;
   reuseFor(renderNode: RenderNode, node: LayoutNode, parentPath: FocusPath): boolean;
   regionFor(renderNode: RenderNode, node: LayoutNode, path: FocusPath): DraftRenderRegion;
   snapshot(
@@ -761,6 +691,22 @@ function createRegionComposer<TMessage>(
   let regionOrder = 0;
   return {
     painting,
+    contentCoverage(region, paint) {
+      const firstRegion = regions.length;
+      const firstReused = reused.length;
+      // Shared storage may already contain earlier siblings. Existing damage
+      // scopes record admitted writes (including unchanged retained writes),
+      // so only this subtree's cells count as viewport content.
+      const coverage = captureFrameBufferDamage(region.buffer, paint);
+      const ownRegions = regions.slice(firstRegion);
+      const ownReused = reused.slice(firstReused);
+      return (row, column) => (coverage.rects.some(rect =>
+        row >= rect.row && row < rect.row + rect.height
+        && column >= rect.column && column < rect.column + rect.width)
+        && region.buffer.readCell(row, column) !== undefined)
+        || ownRegions.some(child => child.buffer.readCell(row, column) !== undefined)
+        || ownReused.some(child => snapshotRow(child.metadata, row)?.cells.has(column) === true);
+    },
     reuseFor(renderNode, node, parentPath) {
       const path = nodePath(node, parentPath);
       const id = regionIdForLayoutNode(node, path);
@@ -774,7 +720,7 @@ function createRegionComposer<TMessage>(
         if (!currentLayout.visible) return;
         const currentPath = nodePath(currentLayout, parentPath);
         painting.keep(current, currentLayout.identity, currentPath);
-        if (parentLayer !== currentLayout.layer.zIndex) {
+        if (renderNodeStartsRegion(current, currentLayout, parentLayer)) {
           const cached = prior.get(regionIdForLayoutNode(currentLayout, currentPath));
           if (cached !== undefined) {
             budget.addRegions();
@@ -829,10 +775,10 @@ function createRegionComposer<TMessage>(
           if (metadata === undefined) throw new Error('Framework frame snapshot metadata is unavailable.');
           const targets = measureRenderStage(instrumentation, 'region_targets', () => ({
             hitTargets: frameHitTargets(
-              index.layoutTargetsForRegion(region.zIndex, region.bounds),
+              index.layoutTargetsForRegion(region.id, region.bounds),
               theme, snapshotWidthProfile, region, decorativeNodes, budget,
             ),
-            focusTargets: index.focusTargetsForRegion(region.zIndex, region.bounds),
+            focusTargets: index.focusTargetsForRegion(region.id, region.bounds),
           }));
           return regionSnapshot(snapshot, {
             id: region.id,

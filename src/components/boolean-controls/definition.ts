@@ -10,6 +10,7 @@ import type { TextWidthProfile } from '../../text/types.ts';
 import type { ElementVisualState } from '../../visual/frame-source.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
 import { clipRenderSpans, measureRenderSpans } from '../../visual/render-content.ts';
+import { paintControlPadding } from '../shared/control-padding.ts';
 import type { CheckboxTransition, SwitchTransition } from '../form-controls.ts';
 import { assertTransitionCallback, measureSpans } from '../shared/form-control-helpers.ts';
 import type { ChoiceStylePart } from '../style-parts.ts';
@@ -426,8 +427,7 @@ function writeControlLines<TModel extends object, TPart extends string>(
     const used = measureRenderSpans(clipped, { widthProfile: input.widthProfile });
     const fill = clipped.at(-1);
     if (used < input.bounds.width && fill !== undefined) {
-      input.target.write(row, used, [{
-        text: ' '.repeat(input.bounds.width - used),
+      paintControlPadding(input, row, used, input.bounds.width - used, {
         ...(fill.style === undefined ? {} : { style: fill.style }),
         ...(fill.source === undefined ? {} : {
           source: {
@@ -438,7 +438,7 @@ function writeControlLines<TModel extends object, TPart extends string>(
             description: 'padding',
           },
         }),
-      }]);
+      });
     }
   });
 }

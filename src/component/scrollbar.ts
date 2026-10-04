@@ -1,6 +1,6 @@
 import { normalizeScrollState, scrollReducer } from '../behavior/scroll.ts';
 import { assertOptionalEnum, isNonArrayObject } from '../foundation/validation.ts';
-import { sameRect } from '../geometry/rect.ts';
+import { intersectRects, sameRect } from '../geometry/rect.ts';
 import type { Rect } from '../geometry/types.ts';
 import type { RoutedPointerEvent } from '../input/pointer.ts';
 import { ignoreMessage, type MessageResolution } from '../interaction/message.ts';
@@ -180,6 +180,8 @@ function componentScrollbarPlan(
 export function paintComponentScrollbar(input: {
   readonly target: RenderTarget;
   readonly plan: ComponentScrollbarPlan;
+  /** Paint-only clip in target coordinates; preserves logical track and thumb geometry. */
+  readonly viewport?: Rect;
   readonly theme: TerminalTheme;
   readonly style?: (
     part: 'scrollbarTrack' | 'scrollbarThumb',
@@ -195,10 +197,10 @@ export function paintComponentScrollbar(input: {
   }) => FrameCellSource;
 }): void {
   if (input.plan.layout?.verticalTrack !== undefined) {
-    paintTrack(input.target, input.plan.layout.verticalTrack, input.theme, input.frameSource, input.style);
+    paintTrack(input.target, input.plan.layout.verticalTrack, input.theme, input.frameSource, input.style, input.viewport);
   }
   if (input.plan.layout?.horizontalTrack !== undefined) {
-    paintTrack(input.target, input.plan.layout.horizontalTrack, input.theme, input.frameSource, input.style);
+    paintTrack(input.target, input.plan.layout.horizontalTrack, input.theme, input.frameSource, input.style, input.viewport);
   }
 }
 
@@ -332,9 +334,13 @@ function paintTrack(
     state: 'hovered' | 'disabled' | 'active' | undefined,
     base: import('../visual/render-content.ts').TerminalStyle,
   ) => import('../visual/render-content.ts').TerminalStyle | undefined,
+  viewport: Rect = track.bounds,
 ): void {
-  const size = track.axis === 'vertical' ? track.bounds.height : track.bounds.width;
-  for (let offset = 0; offset < size; offset += 1) {
+  const visible = intersectRects(track.bounds, viewport);
+  if (visible === undefined) return;
+  const first = track.axis === 'vertical' ? visible.row - track.bounds.row : visible.column - track.bounds.column;
+  const size = track.axis === 'vertical' ? visible.height : visible.width;
+  for (let offset = first; offset < first + size; offset += 1) {
     const thumb = offset >= track.thumb.start && offset < track.thumb.start + track.thumb.size;
     const partType = thumb ? 'thumb' as const : 'track' as const;
     const interactionState = scrollbarInteractionState(track.state);

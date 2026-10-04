@@ -25,6 +25,7 @@ import {
   assertTransitionCallback,
   withoutTransitionCallback,
 } from '../shared/form-control-helpers.ts';
+import { paintControlPadding } from '../shared/control-padding.ts';
 import {
   cleanString,
   optionalBoolean,
@@ -245,6 +246,8 @@ function paintNumberInput(input: ComponentRenderInput<NumberModel, NumberInputSt
   if (input.bounds.width === 0 || input.bounds.height === 0) return;
   const plan = numberInputRenderPlan(input);
   input.target.write(0, 0, plan.value);
+  const used = measureRenderSpans(plan.value, { widthProfile: input.widthProfile });
+  paintControlPadding(input, 0, used, plan.valueWidth - used, plan.padding);
   if (plan.stepper !== undefined) input.target.write(0, plan.valueWidth, plan.stepper);
   if (plan.error !== undefined) input.target.write(1, 0, plan.error);
 }
@@ -252,6 +255,7 @@ function paintNumberInput(input: ComponentRenderInput<NumberModel, NumberInputSt
 interface NumberInputRenderPlan {
   readonly value: readonly RenderSpan[];
   readonly valueWidth: number;
+  readonly padding: Omit<RenderSpan, 'text'>;
   readonly stepper?: readonly RenderSpan[];
   readonly error?: readonly RenderSpan[];
 }
@@ -272,12 +276,13 @@ function numberInputRenderPlan(
   const visual = numberInputVisual(input.model, inputBounds.width, input.widthProfile);
   const styles = numberInputRenderStyles(input, usesPlaceholder);
   const content = numberInputContentSpans(input, shown, usesPlaceholder, visual, styles);
-  const value = paddedNumberInputValue(input, inputBounds.width, content, styles.value);
+  const value = clipRenderSpans(content, inputBounds.width, { widthProfile: input.widthProfile });
   const stepper = geometry === undefined ? undefined : numberInputStepperSpans(input);
   const error = numberInputErrorSpans(input);
   return {
     value,
     valueWidth: inputBounds.width,
+    padding: numberInputPadding(input, styles.value),
     ...(stepper === undefined ? {} : { stepper }),
     ...(error === undefined ? {} : { error }),
   };
@@ -372,27 +377,19 @@ function numberInputContentSpans(
   return spans;
 }
 
-function paddedNumberInputValue(
+function numberInputPadding(
   input: ComponentRenderInput<NumberModel, NumberInputStylePart>,
-  width: number,
-  content: readonly RenderSpan[],
   style: TerminalStyle | undefined,
-): readonly RenderSpan[] {
-  const spans = clipRenderSpans(content, width, { widthProfile: input.widthProfile });
-  const used = measureRenderSpans(spans, { widthProfile: input.widthProfile });
-  if (used >= width) return spans;
-  return [
-    ...spans,
-    span(' '.repeat(width - used), {
-      ...(style === undefined ? {} : { style }),
-      source: input.frameSource({
-        cellRole: 'content',
-        partName: 'value',
-        partType: 'value',
-        description: 'value.padding',
-      }),
+): Omit<RenderSpan, 'text'> {
+  return {
+    ...(style === undefined ? {} : { style }),
+    source: input.frameSource({
+      cellRole: 'content',
+      partName: 'value',
+      partType: 'value',
+      description: 'value.padding',
     }),
-  ];
+  };
 }
 
 function numberInputStepperSpans(

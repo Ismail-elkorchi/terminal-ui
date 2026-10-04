@@ -32,8 +32,8 @@ test('row interval index preserves target order and visits only relevant rows', 
       target.layer.zIndex === 0 && overlaps(target.bounds, bounds));
     const expectedFocus = allFocus.filter((target) =>
       target.layer.zIndex === 0 && overlaps(target.bounds, bounds));
-    assert.deepEqual(index.layoutTargetsForRegion(0, bounds), expectedLayout);
-    assert.deepEqual(index.focusTargetsForRegion(0, bounds), expectedFocus);
+    assert.deepEqual(index.layoutTargetsForRegion(rendered.regions[0].id, bounds), expectedLayout);
+    assert.deepEqual(index.focusTargetsForRegion(rendered.regions[0].id, bounds), expectedFocus);
   }
   const visits = measurements
     .filter((entry) => entry.kind === 'region_target_visits')

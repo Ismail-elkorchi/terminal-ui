@@ -74,26 +74,30 @@ export function layoutChildBounds(
   viewport: Rect,
   measurements: RenderMeasurementContext,
   depth = 0,
-): readonly (Rect | null)[] {
+): { readonly bounds: readonly (Rect | null)[]; readonly viewport: Rect } {
+  let childViewport = renderNodeClipsChildren(renderNode)
+    ? intersectRects(bounds, viewport) ?? emptyRect(bounds) : viewport;
   const children = renderNode.children ?? [];
-  if (children.length === 0) return [];
+  if (children.length === 0) return { bounds: [], viewport: childViewport };
   if (renderNode.kind !== 'component' && (bounds.width <= 0 || bounds.height <= 0)) {
-    return children.map(() => emptyRect(bounds));
+    return { bounds: children.map(() => emptyRect(bounds)), viewport: childViewport };
   }
   const renderer = rendererForRenderNode(renderNode);
   if (renderer.layout === undefined) {
     throw new Error(`RenderNode "${renderNode.kind}" has children but does not define layout.`);
   }
   const measureChild = childMeasurer(children, bounds, measurements, depth);
-  return renderer.layout({
+  const childBounds = renderer.layout({
     renderNode: renderNode,
     bounds,
     viewport,
+    clipChildrenTo: clip => { childViewport = intersectRects(clip, childViewport) ?? emptyRect(clip); },
     theme: measurements.theme,
     childCount: children.length,
     measureChild,
     widthProfile: measurements.widthProfile
   });
+  return { bounds: childBounds, viewport: childViewport };
 }
 
 export function placeRenderNode(

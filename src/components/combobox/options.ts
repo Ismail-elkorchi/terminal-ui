@@ -26,6 +26,8 @@ type ComboboxOptionsBase<TValue> = (
 ) & {
   readonly id: string;
   readonly label: string;
+  /** Whether to paint the label prefix. Defaults to visible; label remains the accessible name. */
+  readonly labelVisibility?: 'visible' | 'hidden';
   readonly optionsView: ListboxView<TValue> | null;
   readonly placeholder?: string;
   readonly placement?: AnchoredSurfacePlacement;

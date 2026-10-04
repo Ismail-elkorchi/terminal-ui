@@ -24,7 +24,6 @@ import {
   layoutChildBounds,
   placeRenderNode,
   retainRenderMeasurements,
-  renderNodeClipsChildren,
 } from './render-node-behavior.ts';
 import { sameNodePhase } from './retained-dependencies.ts';
 import { renderNodeFactoryName } from './render-tree/node.ts';
@@ -39,12 +38,14 @@ interface RetainedLayout {
   readonly node: RenderNode;
   readonly allocation: Rect | null;
   readonly viewport: Rect;
+  readonly rootViewport: Rect;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
   readonly parentZIndex: number;
   readonly parentIdentity: string;
   readonly ordinal: number;
   readonly ancestorInert: boolean;
+  readonly portalOwnerVisible: boolean;
 }
 const retainedLayouts = new WeakMap<LayoutNode, RetainedLayout>();
 const layoutPredecessors = new WeakMap<LayoutNode, WeakRef<LayoutNode>>();
@@ -71,13 +72,14 @@ export function layoutRenderTree<TMessage>(
   const uniqueNodes = instrumentation?.recordWork === undefined ? undefined : new WeakSet<RenderNode>();
   const reusable = new WeakMap<RenderNode, boolean>();
   if (previous !== undefined) prepareRetention(renderNode, previous, reusable);
-  return layoutNode(renderNode, viewportBounds, viewportBounds, theme, widthProfile, measurements, budget, 0, 0, 0, [], false, instrumentation, uniqueNodes, previous, reusable);
+  return layoutNode(renderNode, viewportBounds, viewportBounds, viewportBounds, theme, widthProfile, measurements, budget, 0, 0, 0, [], false, true, instrumentation, uniqueNodes, previous, reusable);
 }
 
 function layoutNode<TMessage>(
   renderNode: RenderNode<TMessage>,
   allocation: Rect | null,
   viewport: Rect,
+  rootViewport: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
   measurements: RenderMeasurementContext,
@@ -87,20 +89,24 @@ function layoutNode<TMessage>(
   parentZIndex: number,
   parentIdentity: readonly string[],
   ancestorInert: boolean,
+  portalOwnerVisible: boolean,
   instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
   uniqueNodes?: WeakSet<RenderNode>,
   previous?: LayoutNode,
   reusable = new WeakMap<RenderNode, boolean>(),
 ): LaidOutRenderNode<TMessage> {
   const descriptor: RetainedLayout = {
-    node: renderNode, allocation, viewport, theme, widthProfile, parentZIndex,
-    parentIdentity: encodedIdentityPath(parentIdentity), ordinal, ancestorInert,
+    node: renderNode, allocation, viewport, rootViewport, theme, widthProfile, parentZIndex,
+    parentIdentity: encodedIdentityPath(parentIdentity), ordinal, ancestorInert, portalOwnerVisible,
   };
   const retained = retainLayout(previous, descriptor, reusable, budget, depth);
   if (retained !== undefined) return { node: renderNode, layout: retained };
   budget.visitNode(depth);
   recordLayoutVisit(renderNode, instrumentation, uniqueNodes);
-  const placement = placeLayoutNode(renderNode, allocation, viewport, theme, widthProfile, measurements, depth);
+  const placement = placeLayoutNode(
+    renderNode, allocation, viewport, theme, widthProfile, measurements, depth, rootViewport, portalOwnerVisible,
+  );
+  viewport = placement.viewport;
   renderNode = placement.node;
   const { bounds: placedBounds, visible } = placement;
   const children = renderNode.children ?? [];
@@ -136,7 +142,9 @@ function layoutNode<TMessage>(
       ? markPaintOrderedFocusChildren(identified)
       : identified };
   }
-  const childBounds = boundsForChildren(renderNode, placedBounds, viewport, measurements, depth);
+  const { bounds: childBounds, viewport: childViewport } = layoutChildBounds(
+    renderNode, placedBounds, viewport, measurements, depth,
+  );
   const focusTargets = (inert
     ? []
     : focusTargetsForRenderNode(renderNode, placedBounds, viewport, theme, widthProfile))
@@ -154,13 +162,11 @@ function layoutNode<TMessage>(
       }, target.bounds);
     });
   const focusScope = renderNode.focus?.scope;
-  const childViewport = renderNodeClipsChildren(renderNode)
-    ? intersectRects(placedBounds, viewport) ?? emptyRect(placedBounds)
-    : viewport;
   const laidOutChildren = children.map((child, index) => layoutNode(
     child,
     childBounds[index] === undefined ? emptyRect(placedBounds) : childBounds[index],
     childViewport,
+    rootViewport,
     theme,
     widthProfile,
     measurements,
@@ -170,6 +176,7 @@ function layoutNode<TMessage>(
     zIndex,
     identityPath,
     inert,
+    portalOwnerVisibleForChild(renderNode, childBounds[index], portalOwnerVisible),
     instrumentation,
     uniqueNodes,
     previous?.children[index],
@@ -206,6 +213,37 @@ function layoutNode<TMessage>(
   };
 }
 
+function portalOwnerVisibleForChild(
+  parent: RenderNode,
+  allocation: Rect | null | undefined,
+  ownerVisible: boolean,
+): boolean {
+  // Absolute preserves zero-bound logical/accessibility children. Its empty
+  // clipped allocation must not become a fresh portal insertion point.
+  return ownerVisible && (parent.kind !== 'absolute'
+    || ((allocation?.width ?? 0) > 0 && (allocation?.height ?? 0) > 0));
+}
+
+function portalAnchorVisible(
+  node: Extract<RenderNode, { readonly kind: 'portal' }>,
+  allocation: Rect | null,
+  viewport: Rect,
+): boolean {
+  if (allocation === null) return false;
+  const anchor = node.props.anchor;
+  const bounds = anchor.kind === 'allocation' ? allocation
+    : anchor.kind === 'target' ? anchor.bounds
+    : { row: anchor.row, column: anchor.column, width: 1, height: 1 };
+  // Portals contribute zero intrinsic size, so a visible insertion-point
+  // allocation is a valid anchor. Hidden slots remain null, and an empty
+  // inherited viewport still admits nothing.
+  const admitted = (rect: Rect): boolean => intersectRects({
+    row: Math.floor(rect.row), column: Math.floor(rect.column),
+    width: Math.max(1, Math.floor(rect.width)), height: Math.max(1, Math.floor(rect.height)),
+  }, viewport) !== undefined;
+  return admitted(allocation) && admitted(bounds);
+}
+
 function placeLayoutNode<TMessage>(
   renderNode: RenderNode<TMessage>,
   allocation: Rect | null,
@@ -214,8 +252,15 @@ function placeLayoutNode<TMessage>(
   widthProfile: TextWidthProfile,
   measurements: RenderMeasurementContext,
   depth: number,
-): { readonly node: RenderNode<TMessage>; readonly bounds: Rect; readonly visible: boolean } {
-  if (allocation === null) return { node: renderNode, bounds: emptyRect(viewport), visible: false };
+  rootViewport: Rect,
+  portalOwnerVisible: boolean,
+): { readonly node: RenderNode<TMessage>; readonly bounds: Rect; readonly viewport: Rect; readonly visible: boolean } {
+  const anchorVisible = renderNode.kind !== 'portal'
+    || (portalOwnerVisible && portalAnchorVisible(renderNode, allocation, viewport));
+  if (renderNode.kind === 'portal') viewport = rootViewport;
+  if (allocation === null || !anchorVisible) {
+    return { node: renderNode, bounds: emptyRect(allocation ?? viewport), viewport, visible: false };
+  }
   if (renderNode.kind === 'viewport' && renderNode.props.measured === true) {
     renderNode = resolveMeasuredViewport(renderNode, allocation, measurements, depth);
   }
@@ -235,7 +280,7 @@ function placeLayoutNode<TMessage>(
         : measurements.measure(child, allocation, depth + 1);
     },
   );
-  return { node: renderNode, bounds, visible: renderNode.layer?.visible !== false };
+  return { node: renderNode, bounds, viewport, visible: renderNode.layer?.visible !== false };
 }
 
 function recordLayoutVisit(
@@ -251,23 +296,6 @@ function recordLayoutVisit(
 
 function encodedIdentityPath(path: readonly string[]): string {
   return path.map((segment) => `${String(segment.length)}:${segment}`).join('');
-}
-
-function boundsForChildren(
-  renderNode: RenderNode,
-  bounds: Rect,
-  viewport: Rect,
-  measurements: RenderMeasurementContext,
-  depth: number,
-): readonly (Rect | null)[] {
-  const children = renderNode.children ?? [];
-  return children.length === 0 ? [] : layoutChildBounds(
-    renderNode,
-    bounds,
-    viewport,
-    measurements,
-    depth,
-  );
 }
 
 function emptyRect(bounds: Rect): Rect {
@@ -333,7 +361,9 @@ function sameLayoutDescriptor(a: RetainedLayout | undefined, b: RetainedLayout):
     && a.widthProfile.emoji === b.widthProfile.emoji && a.widthProfile.ambiguous === b.widthProfile.ambiguous
     && a.parentZIndex === b.parentZIndex && a.parentIdentity === b.parentIdentity
     && a.ordinal === b.ordinal && a.ancestorInert === b.ancestorInert
-    && sameNullableRect(a.allocation, b.allocation) && sameRect(a.viewport, b.viewport);
+    && a.portalOwnerVisible === b.portalOwnerVisible
+    && sameNullableRect(a.allocation, b.allocation) && sameRect(a.viewport, b.viewport)
+    && sameRect(a.rootViewport, b.rootViewport);
 }
 
 function rememberLayout(layout: LayoutNode, descriptor: RetainedLayout, previous?: LayoutNode): void {
