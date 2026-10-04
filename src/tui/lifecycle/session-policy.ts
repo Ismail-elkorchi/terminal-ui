@@ -1,4 +1,3 @@
-import type { TextPresentation } from '../../text/types.ts';
 import type { TerminalDiagnostic } from '../../diagnostics.ts';
 import { diagnostic } from '../../diagnostics.ts';
 import type {
@@ -96,16 +95,6 @@ export const defaultSessionProtocolPolicy: SessionProtocolPolicy = Object.freeze
   cursorVisibility: Object.freeze({ visibility: 'hide', requirement: 'optional' }),
   mouseReporting: Object.freeze({ mode: 'drag', requirement: 'optional' })
 });
-
-/** Recheck each newly acquired terminal lease before any application output. */
-export function assertSessionTextPresentation(
-  session: Pick<TerminalSession, 'initialState'>,
-  textPresentation: TextPresentation | undefined,
-): void {
-  if (session.initialState.cellPresentation === 'explicit' && textPresentation === undefined) {
-    throw new Error('An explicit-cell terminal requires a textPresentation provider for every text producer.');
-  }
-}
 
 export function createSessionProtocolPlan(
   policy: SessionProtocolPolicy = defaultSessionProtocolPolicy

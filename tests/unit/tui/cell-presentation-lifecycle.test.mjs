@@ -31,7 +31,7 @@ function modeHost(initialMode = 1) {
   host.stdout.write = async (chunk, context) => { await write(chunk, context); observe(chunk); };
   const recovery = host.stdout.writeRecovery.bind(host.stdout);
   host.stdout.writeRecovery = async (chunk, context) => { const receipt = await recovery(chunk, context); if (receipt.status === 'committed') observe(chunk); return receipt; };
-  return { host, mode: () => mode, surfaceClears: () => surfaceClears };
+  return { host, mode: () => mode, setMode: value => { mode = value; }, surfaceClears: () => surfaceClears };
 }
 function app(extra = {}) {
   return defineTui({ id: 'cell-presentation-lifecycle',
@@ -100,15 +100,35 @@ test('suspension restores the outer mode and reestablishes presentation before o
   assert.deepEqual(emulator.host.output().match(/\u001B\[8[hl]/gu), ['\u001B[8l', '\u001B[8h', '\u001B[8l', '\u001B[8h']);
 });
 
-test('already explicit host cannot start logical-only producers silently', async () => {
+test('ordinary default session starts on a caller-qualified explicit host without mapping', async () => {
   const host = createMemoryTerminalHost({ initialState: { cellPresentation: 'explicit' } });
-  await assert.rejects(runTui(app(), { host, graphics: 'none' }), TuiRunError);
-  assert.equal(host.frames().length, 0);
-  assert.equal(host.output(), '');
+  const running = runTui(app(), { host, graphics: 'none' });
+  await waitUntil(() => host.frames().length > 0);
+  host.input('\r');
+  assert.equal((await running).status, 'completed');
+  assert.equal(host.stdin.isRawModeEnabled(), false);
+  assert.doesNotMatch(host.output(), /\u001B\[8[hl]|\u001B\[2J/u);
   assert.equal(host.restores().at(-1).resultingState.cellPresentation, 'explicit');
 });
 
-test('resume rejects a newly explicit terminal before logical-only output and preserves its external baseline', async () => {
+test('ordinary session starts on an observed explicit host without mapping', async () => {
+  const emulator = modeHost(2);
+  emulator.host.runtime = 'node';
+  const originalCapabilities = emulator.host.getCapabilities;
+  emulator.host.getCapabilities = options => originalCapabilities({ ...options, activeProbes: ['terminalModes'] });
+  const running = runTui(app(), { host: emulator.host,
+    sessionPolicy: { ...sessionPolicy, cellPresentation: 'disabled' }, graphics: 'none' });
+  await waitUntil(() => emulator.host.frames().length > 0);
+  emulator.host.input('\r');
+  assert.equal((await running).status, 'completed');
+  assert.equal(emulator.mode(), 2);
+  assert.equal(emulator.host.stdin.isRawModeEnabled(), false);
+  assert.equal(emulator.surfaceClears(), 0);
+  assert.doesNotMatch(emulator.host.output(), /\u001B\[8[hl]/u);
+  assert.equal(emulator.host.restores().at(-1).resultingState.cellPresentation, 'explicit');
+});
+
+test('ordinary session resumes on a newly explicit terminal and preserves its external baseline', async () => {
   const emulator = modeHost();
   emulator.host.runtime = 'node';
   let resumed = false;
@@ -127,14 +147,42 @@ test('resume rejects a newly explicit terminal before logical-only output and pr
   await waitUntil(() => emulator.host.frames().length > 0);
   const framesBeforeSuspend = emulator.host.frames().length;
   emulator.host.input('\r');
-  await assert.rejects(running, TuiRunError);
-  assert.equal(resumed, false);
-  assert.equal(emulator.host.frames().length, framesBeforeSuspend);
+  assert.equal((await running).status, 'completed');
+  assert.equal(resumed, true);
+  assert.ok(emulator.host.frames().length > framesBeforeSuspend);
+  assert.equal(emulator.surfaceClears(), 0);
   assert.equal(emulator.mode(), 2);
   assert.equal(emulator.host.stdin.isRawModeEnabled(), false);
   assert.equal(emulator.host.restores().at(-1).resultingState.cellPresentation, 'explicit');
   assert.deepEqual(emulator.host.output().match(/\u001B\[8[hl]/gu), ['\u001B[8l']);
 });
+
+for (const mode of [0, 3]) {
+  test(`mapped session rejects resume when explicit presentation can no longer be established (mode ${mode})`, async () => {
+    const emulator = modeHost();
+    let resumed = false;
+    const program = app({ update: state => ({
+      state,
+      effects: [{ id: 'external-mode-change', concurrency: 'keep-first', async run(context) {
+        await context.withTerminalSuspended(async () => { emulator.setMode(mode); });
+        resumed = true;
+        return { kind: 'message', message: { kind: 'done' } };
+      } }],
+    }) });
+    const running = runTui(program, { host: emulator.host, textPresentation, sessionPolicy, graphics: 'none' });
+    await waitUntil(() => emulator.host.frames().length > 0);
+    const framesBeforeSuspend = emulator.host.frames().length;
+    emulator.host.input('\r');
+    await assert.rejects(running, TuiRunError);
+    assert.equal(resumed, false);
+    assert.equal(emulator.host.frames().length, framesBeforeSuspend);
+    assert.equal(emulator.surfaceClears(), 1);
+    assert.equal(emulator.mode(), mode);
+    assert.equal(emulator.host.stdin.isRawModeEnabled(), false);
+    assert.equal(emulator.host.restores().at(-1).resultingState.cellPresentation, mode === 0 ? 'unknown' : 'implicit');
+    assert.deepEqual(emulator.host.output().match(/\u001B\[8[hl]/gu), ['\u001B[8l', '\u001B[8h']);
+  });
+}
 
 test('surface reset follows explicit readback and occurs once before first frame', async () => {
   const emulator = modeHost();

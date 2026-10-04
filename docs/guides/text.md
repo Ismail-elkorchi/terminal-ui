@@ -177,14 +177,21 @@ Bidirectional ordering is an explicit producer/session contract. The host's
 claim about a terminal's font, joining, diacritic placement, shaping, or general
 Arabic support. No terminal-name heuristic establishes this capability.
 
-By default the library preserves logical order and does not change mode 8. A
-visual-cell application supplies one `TextPresentation` provider, created with
+By default the library preserves logical order and does not change mode 8. This
+ordinary pipeline accepts unknown, implicit and explicit initial modes and makes
+no bidi-ordering guarantee. An initially explicit terminal does not require an
+application to opt into mapped text. A visual-cell application supplies one
+`TextPresentation` provider, created with
 `defineTextPresentation({ map })`, through `runTui(app, { textPresentation,
 sessionPolicy: { ...defaultSessionProtocolPolicy, cellPresentation: 'required' }
 })`. The provider must implement its Unicode bidi policy; the library does not
-ship another bidi or shaping engine. Run configuration rejects an absent provider
-or an optional presentation setup: a visual producer cannot silently fall back to
-an implicitly reordering terminal.
+ship another bidi or shaping engine. A requested mapped session rejects an absent
+provider or an optional presentation setup: a visual producer cannot silently fall
+back to an implicitly reordering terminal. Each interactive TTY startup and
+suspension reacquisition must establish explicit presentation before a mapped
+application's output can resume. Explicitly selected non-TTY `last_frame` and
+`transcript_only` modes use the same provider for their frame artifacts and hook
+contexts, preserving logical accessible text without negotiating terminal modes.
 
 The provider must be deterministic for its request, and a changed ordering policy
 must have a new provider identity. The provider receives the complete logical paragraph and the requested line's

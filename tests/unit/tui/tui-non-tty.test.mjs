@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { runTui, TuiRunError } from '../../../dist/tui/index.js';
+import { defaultSessionProtocolPolicy, runTui, TuiRunError } from '../../../dist/tui/index.js';
 import { createMemoryTerminalHost } from '../../../dist/host/index.js';
 import { defineTui } from '../../../dist/tui/index.js';
+import { defineTextPresentation, segmentGraphemes } from '../../../dist/text/index.js';
+import { renderTuiOutput } from '../../../dist/renderer/index.js';
 import {
   statusBar,
   text
@@ -77,6 +79,49 @@ test('TUI non-TTY last_frame mode writes readable text without control sequences
   assert.match(host.output(), /\n\nready\n$/u);
   assert.doesNotMatch(host.output(), /\u001B\[/u);
 });
+
+for (const mode of ['last_frame', 'transcript_only']) {
+  test(`TUI non-TTY ${mode} preserves configured presentation in hooks and frame rendering`, async () => {
+    const host = createMemoryTerminalHost({ isTty: false });
+    const textPresentation = defineTextPresentation({ map: request => segmentGraphemes(
+      request.text.slice(request.startOffset, request.endOffsetExclusive),
+    ).map(cluster => ({
+      text: cluster.text,
+      startOffset: cluster.startOffset + request.startOffset,
+      endOffsetExclusive: cluster.endOffsetExclusive + request.startOffset,
+      direction: 'rtl',
+    })).reverse() });
+    const contexts = [];
+    const app = defineTui({
+      id: `non-tty-mapped-${mode}`,
+      transcript: true,
+      init: context => {
+        contexts.push(context.textPresentation);
+        return { state: { label: 'abc' } };
+      },
+      update: state => ({ state }),
+      view: (state, context) => {
+        contexts.push(context.textPresentation);
+        return statusBar({ id: 'status', leading: [{ id: 'state', kind: 'text', text: state.label }] });
+      },
+      nonTty: { mode },
+    });
+    const result = await runTui(app, { host, textPresentation,
+      sessionPolicy: { ...defaultSessionProtocolPolicy, cellPresentation: 'required' } });
+    assert.equal(result.status, 'completed');
+    assert.deepEqual(contexts, [textPresentation, textPresentation]);
+    assert.equal(result.state.label, 'abc');
+    const commit = result.transcript?.steps.find(step => step.kind === 'commit')?.commit;
+    assert.ok(commit);
+    const output = renderTuiOutput({ frame: commit.frame });
+    assert.equal(output.plainTextFrame, 'cba');
+    assert.match(output.accessibleText, /abc/u);
+    assert.equal(host.output(), mode === 'last_frame' ? `${output.accessibleText}\n\n${output.plainTextFrame}\n` : '');
+    assert.doesNotMatch(host.output(), /\u001B/u);
+    assert.equal(host.restores().length, 0);
+    assert.equal(host.stdin.isRawModeEnabled(), false);
+  });
+}
 
 test('TUI non-TTY run reports initialization failures without disposing an injected host', async () => {
   const host = createMemoryTerminalHost({ isTty: false });

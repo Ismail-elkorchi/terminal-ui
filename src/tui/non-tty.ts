@@ -53,7 +53,7 @@ export async function runTuiNonTty<TState, TMessage>(
     );
   }
 
-  const context = nonTtyContext(host, capabilities);
+  const context = nonTtyContext(host, capabilities, options.textPresentation);
   let state: TState;
   try {
     state = decodeTuiInitialResult<TState, TMessage>(definition.init(context)).state;
@@ -167,8 +167,13 @@ export async function runTuiNonTty<TState, TMessage>(
       };
 }
 
-function nonTtyContext(host: TerminalHost, capabilities: TerminalCapabilityProfile): TuiContext {
+function nonTtyContext(
+  host: TerminalHost,
+  capabilities: TerminalCapabilityProfile,
+  textPresentation: TuiContext['textPresentation'],
+): TuiContext {
   return {
+    textPresentation,
     terminalSize: decodeTuiTerminalSize(host.getTerminalSize()),
     capabilities,
     diagnostics: [],

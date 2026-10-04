@@ -17,7 +17,7 @@ import type { NormalizedTuiRunOptions } from './lifecycle/run-configuration.ts';
 import { resolveTuiRunOptions } from './lifecycle/run-configuration.ts';
 import { TuiRunLifecycleOwner } from './lifecycle/run-lifecycle.ts';
 import { createTuiRuntimeWithCapabilitySnapshot, tuiRuntimeRunner } from './runtime.ts';
-import { assertSessionTextPresentation, inputProfileForSession } from './lifecycle/session-policy.ts';
+import { inputProfileForSession } from './lifecycle/session-policy.ts';
 import { createTerminalSuspension } from './lifecycle/terminal-suspension.ts';
 import { createTuiTranscript, withTuiTranscript } from './transcript.ts';
 import type { TuiApp, TuiExit, TuiRunOptions, TuiRunResult, TuiRuntime } from './types.ts';
@@ -51,7 +51,6 @@ export async function runTui<TState, TMessage>(
     host: terminalHost,
     input: inputSuspension,
     policy: normalized.sessionPolicy,
-    textPresentation: normalized.textPresentation,
     graphics: normalized.graphics,
     recoveryTimeoutMs: normalized.lifecycle.restorationTimeoutMs,
     ...(transcript === undefined ? {} : { transcript }),
@@ -111,7 +110,6 @@ export async function runTui<TState, TMessage>(
       assertRequiredGraphics(normalized.graphics, capabilities);
       const openedSession = await startupPhase('session', async () => terminalHost.beginSession({ id: app.id }));
       lifecycle.openSession(openedSession);
-      assertSessionTextPresentation(openedSession, normalized.textPresentation);
       const setup = await startupPhase('setup', async (signal) =>
         setupTuiSession(openedSession, normalized.sessionPolicy, { signal }));
       setupDiagnostics.push(...setup.diagnostics);
