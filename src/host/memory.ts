@@ -285,7 +285,7 @@ export function createMemoryTerminalHost(options: unknown = {}): MemoryTerminalH
       rows: terminalSize.rows,
       supportsRawInput: true,
       supportsResizeEvents: true,
-      ...(config.initialState?.cellPresentation === 'explicit' ? { cellPresentation: 'explicit' as const } : {}),
+      ...(config.cellPresentation === undefined ? {} : { cellPresentation: config.cellPresentation }),
       supportsTerminalProtocols: isTty
     },
     environment: { variables: config.env ?? {} },
@@ -317,7 +317,7 @@ export function createMemoryTerminalHost(options: unknown = {}): MemoryTerminalH
     resolverInput,
     beginSession: (id, capabilities) => terminalState.beginLease(id, capabilities),
     beginObservationRefresh: () => terminalState.beginObservationRefresh(),
-    observeModes: (reports) => terminalState.observeModes(reports),
+    observeModes: (reports, conflictingModes) => terminalState.observeModes(reports, conflictingModes),
     observeKeyboardProfile: (profile) => terminalState.observeKeyboardProfile(profile),
     write: (chunk, signal) => output.write(chunk, { signal }),
     writeRecovery: (chunk, signal) => output.writeRecovery(chunk, { signal })
@@ -375,7 +375,8 @@ export function createMemoryTerminalHost(options: unknown = {}): MemoryTerminalH
   } satisfies MemoryTerminalHost;
   terminalState.bind(host, {
     rawInputKnowledge: 'library_known',
-    observeCellPresentation: (context, recovery) => detector.observeCellPresentation(context.signal, recovery),
+    observeBidiMode: (context, recovery) => detector.observeBidiMode(context.signal, recovery),
+    ...(config.cellPresentation === undefined ? {} : { cellPresentation: config.cellPresentation }),
     ...(config.initialState === undefined ? {} : { initialState: config.initialState })
   });
   return host;
@@ -403,6 +404,7 @@ function decodeMemoryTerminalHostOptions(value: unknown): MemoryTerminalHostOpti
   const observer = decodeMemoryObserver(options['observer']);
   const capabilities = options['capabilities'];
   const initialState = options['initialState'];
+  const cellPresentation = options['cellPresentation'];
   if (capabilities !== undefined
     && (typeof capabilities !== 'object' || capabilities === null || Array.isArray(capabilities))) {
     throw new TypeError('Memory terminal host capabilities must be an object when provided.');
@@ -417,6 +419,7 @@ function decodeMemoryTerminalHostOptions(value: unknown): MemoryTerminalHostOpti
     ...(capabilities === undefined
       ? {}
       : { capabilities }),
+    ...(cellPresentation === undefined ? {} : { cellPresentation: cellPresentation as NonNullable<MemoryTerminalHostOptions['cellPresentation']> }),
     ...(initialState === undefined
       ? {}
       : { initialState: initialState as NonNullable<MemoryTerminalHostOptions['initialState']> }),

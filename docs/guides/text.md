@@ -173,9 +173,11 @@ not physical terminal-input latency or portable performance guarantees.
 ## Bidirectional Text
 
 Bidirectional ordering is an explicit producer/session contract. The host's
-`cellPresentation` capability concerns standard ECMA-48 mode 8 only. It makes no
-claim about a terminal's font, joining, diacritic placement, shaping, or general
-Arabic support. No terminal-name heuristic establishes this capability.
+`cellPresentation` capability means physical left-to-right cells in application
+order, with no additional terminal reordering or mirroring, and matching cursor,
+pointer and physical horizontal-arrow semantics. Font shaping, joining, diacritic
+placement and cell width are separate concerns. No terminal-name heuristic or
+mode-8 report establishes this complete invariant.
 
 By default the library preserves logical order and does not change mode 8. This
 ordinary pipeline accepts unknown, implicit and explicit initial modes and makes
@@ -188,7 +190,7 @@ sessionPolicy: { ...defaultSessionProtocolPolicy, cellPresentation: 'required' }
 ship another bidi or shaping engine. A requested mapped session rejects an absent
 provider or an optional presentation setup: a visual producer cannot silently fall
 back to an implicitly reordering terminal. Each interactive TTY startup and
-suspension reacquisition must establish explicit presentation before a mapped
+suspension reacquisition must establish application-ordered physical cells before a mapped
 application's output can resume. Explicitly selected non-TTY `last_frame` and
 `transcript_only` modes use the same provider for their frame artifacts and hook
 contexts, preserving logical accessible text without negotiating terminal modes.
@@ -211,38 +213,70 @@ visual cell. Never reorder serialized ANSI: it has lost the source/cluster and
 style ownership needed by this contract. Frame and diff artifacts contain the
 same final visual cells and require no second reordering pass during replay.
 
-Host discovery sends bounded, namespace-specific DECRQM requests. A missing or
-unrecognized standard-mode-8 reply leaves state `unknown`; a mode write is never
-attempted against an unknown baseline. `session.enableCellPresentation()` requires
-raw input, an observed mutable mode, a known initial restoration state and a response observer when a transition is needed. It writes standard-mode
-8 reset only when needed, then requires readback before reporting `observed`
-explicit presentation. Permanently implicit terminals reject the operation;
-permanently explicit terminals require no mutation. An unrecognized query does not
-prove that set/reset is unsupported and does not erase independently configured
-operation support. Conversely, operation support and a caller-qualified initial
-state do not authorize a speculative mode-8 transition without mutable readback.
-Required setup failures remain authoritative in `TuiRunError.message`, including
-the actionable hint; `exit.diagnostics` retains the operation, requirement and
-rejected or indeterminate outcome, including after suspension recovery.
+Host discovery sends bounded, namespace-specific DECRQM requests. Raw standard
+ECMA-48 mode 8 (BDSM) is recorded as `bidiMode: 'unknown' | 'implicit' | 'explicit'`,
+with its own provenance and restoration baseline. Its reset disables implicit
+bidirectional processing but does not establish left-to-right character path.
+VTE's explicit RTL character path can mirror text, cursor and pointer coordinates
+while returning the same mode-8 reset and cursor-position replies as explicit
+LTR. Clearing or reacquiring a screen does not repair inherited RTL direction.
+No SCP direction write is sent: resetting SCP to its default would not restore an
+unknown inherited value.
 
-A visual-cell host independently qualified without mode-8 support can supply
-`createNodeTerminalHost({ initialState: { cellPresentation: 'explicit' } })` (and
-the equivalent other host options). This asserts only cell ordering. It must be
-backed by actual qualification of the terminal/version, font/configuration and
-transport; the library does not infer it. The capability records that caller
-fact separately from an unrecognized mode reply. The no-transition operation
-returns `assurance: 'assumed'`, with `explicit` provenance, not an invented
-terminal observation. It emits no mode change or restoration reset. A recognized
-implicit-mode reply overrides a contradictory supplied fact and requires the
-normal verified transition. A contradicted caller qualification is not resurrected
-by a later inconclusive refresh.
+A visual-cell caller must independently qualify the full terminal configuration,
+including direction, physical coordinates and horizontal-arrow behavior, then
+supply one of these host declarations (available on every host adapter):
 
-Session snapshots expose
-`cellPresentation: 'unknown' | 'implicit' | 'explicit'` and provenance, and the
-capability's probe facts retain the original standard-mode report.
+```ts
+import { createNodeTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
+
+createNodeTerminalHost({ cellPresentation: { qualification: 'existing' } });
+createNodeTerminalHost({ cellPresentation: { qualification: 'mode-8-reset' } });
+```
+
+`existing` attests that the full invariant is already true. It requires no mode
+implementation or mode mutation. `mode-8-reset` attests that the full invariant
+will be true after observed mode-8 reset, including independently qualified
+inherited character path and input semantics. It is not a request to fix arbitrary
+terminal configuration. This route requires raw input, an observed mutable mode,
+a known restoration baseline and response readback when a transition is needed;
+a permanently reset mode needs no transition. Permanently implicit state rejects.
+Generic `cellPresentation` capability overrides/probe flags are rejected.
+Unknown state, terminal identity and a supplied raw
+`initialState.bidiMode` baseline are never affirmative proof of the full invariant.
+
+A declaration applies to that host's lifetime, including suspension/reacquisition.
+The caller must preserve its qualified direction and configuration during external
+terminal use. A mode refresh reobserves BDSM only; it cannot requalify character
+path or physical semantics. An implicit report or conflicting mode evidence
+permanently invalidates an `existing` declaration on that host. A later reset or
+inconclusive refresh never resurrects contradicted caller evidence.
+
+Session snapshots derive `cellPresentation: 'unknown' | 'application-ordered'`
+from this declaration and, for the reset-qualified route, observed explicit BDSM.
+The full operation returns `assurance: 'declared'`, with `explicit` provenance;
+it never claims that a mode query observed the full physical invariant. Raw mode
+restoration remains separately `observed`. Accepted reports, original mode-8
+values, missing replies and conflicting reports remain in capability facts.
+A primary-DA reply cannot finish an empty or incomplete mode collection early;
+accepted valid reports survive a collection timeout. Contradictions demote the
+affected capability despite configured support or terminal identity. An
+inconclusive refresh cannot clear them; a fresh nonconflicting report is required. Late replies are quarantined
+before another query; retired evidence and replayed prefixes cannot authorize new
+work. DECRQM has no transaction identifier, so replies delayed beyond the bounded
+quarantine remain a transport limitation rather than proof of query identity.
+
+Required setup failures remain authoritative in `TuiRunError.primaryDiagnostic`
+and `message`; `exit.diagnostics` retains operation, requirement, rejection or
+indeterminate outcome and evidence, including after suspension recovery.
+`HOST_CELL_PRESENTATION_UNQUALIFIED` means full qualification is missing;
+`HOST_CELL_PRESENTATION_CONTRADICTED` means observed evidence contradicts it.
+Missing mode readback, raw-input failure, immutable modes and transport uncertainty
+have their actual diagnostic cause. A declaration must not be used to bypass
+those failures.
 
 A mode report describes the global mode; it does not rewrite attributes retained
-on existing terminal paragraphs. On verified explicit acquisition, the full-screen
+on existing terminal paragraphs. On qualified application-ordered acquisition, the full-screen
 TUI establishes a fresh surface with the existing ED2 clear operation before its
 first frame, and again after suspension reacquisition. It does this only after
 successful setup. The low-level mode API never clears content, and incremental
@@ -255,11 +289,13 @@ startup failure, cancellation, suspension and disposal. Interrupted writes remai
 indeterminate and are recoverable; restoration uses recovery output and verifies
 its readback. Unknown initial mode states are never guessed or reset.
 
-Qualification has two separate layers: deterministic tests establish source maps,
+Qualification has separate layers: deterministic tests establish source maps,
 metadata preservation, clipping and full-frame/diff equivalence; a real terminal
 must establish actual glyph ordering, joining and mark placement with its installed
-font. The mode-8 session boundary has been observed on Xfce/VTE 8001, with
-implicit → explicit → implicit replies and raw-input restoration. This is not a
+font. The raw mode-8 boundary has been observed on Xfce/VTE 8001, with
+implicit → explicit → implicit replies and raw-input restoration. An additional
+native SCP-RTL test demonstrates that identical reset reports do not prove
+physical LTR cells. This is not a
 claim about every VTE version, font, terminal, multiplexer or transport. Native
 control/selection and lifecycle qualification remains required for each supported
 host configuration.

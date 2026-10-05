@@ -115,11 +115,13 @@ export class TerminalInputAuthority implements TerminalInput {
     }
     if (signalAborted(transaction.signal)) return { status: 'cancelled' };
     const owner = this.#acquireReader();
+    const precedingInput = transaction.protocol.acceptReplayedResponses === false
+      ? this.#replay.splice(0)
+      : [];
     const buffered = new Uint8Array(MAX_PROBE_BYTES);
     let byteCount = 0;
     let searchStart = 0;
     let overflow: Uint8Array | undefined;
-    const cleanupState = { bufferedInputHandled: false };
     const consumed: ByteRange[] = [];
     try {
       const sending = transaction.send();
@@ -132,6 +134,8 @@ export class TerminalInputAuthority implements TerminalInput {
         const retainedLength = Math.min(bytes.byteLength, MAX_PROBE_BYTES - byteCount);
         buffered.set(bytes.subarray(0, retainedLength), byteCount);
         byteCount += retainedLength;
+        if (retainedLength < bytes.byteLength) overflow = bytes.subarray(retainedLength).slice();
+        if (signalAborted(transaction.signal)) break;
         const retained = buffered.subarray(0, byteCount);
         for (;;) {
           const search = findTerminalResponse(retained, searchStart, transaction.protocol);
@@ -142,11 +146,6 @@ export class TerminalInputAuthority implements TerminalInput {
           }
           if (search.kind === 'matched' || search.kind === 'fence') {
             consumed.push({ start: search.start, end: search.end });
-            this.#prependReplayBytes([
-              ...bytePartsExcluding(retained, consumed),
-              bytes.subarray(retainedLength),
-            ]);
-            cleanupState.bufferedInputHandled = true;
             return search.kind === 'matched'
               ? { status: 'matched', value: search.value }
               : { status: 'unsupported' };
@@ -154,34 +153,24 @@ export class TerminalInputAuthority implements TerminalInput {
           searchStart = search.nextStart;
           break;
         }
-        if (retainedLength < bytes.byteLength) overflow = bytes.subarray(retainedLength).slice();
+        const collected = completeResponseBatch(transaction.protocol, searchStart === byteCount);
+        if (collected !== undefined) return { status: 'matched', value: collected };
         nextRead = this.#next(transaction.signal, owner);
       }
       if (signalAborted(transaction.signal)) return { status: 'cancelled' };
-      this.#prependReplayBytes([
-        bytesExcluding(buffered.subarray(0, byteCount), consumed),
-        ...(overflow === undefined ? [] : [overflow]),
-      ]);
-      cleanupState.bufferedInputHandled = true;
       return { status: 'inconclusive' };
     } catch (cause) {
       if (signalAborted(transaction.signal)) return { status: 'cancelled' };
       return { status: 'failed', cause };
     } finally {
-      if (!cleanupState.bufferedInputHandled) {
-        if (signalAborted(transaction.signal)) {
-          this.#startLateProbeFilter(transaction.clock, transaction.protocol);
-          this.#prependReplayBytes([
-            this.#filterProbeBytes(bytesExcluding(buffered.subarray(0, byteCount), consumed)),
-            ...(overflow === undefined ? [] : [this.#filterProbeBytes(overflow)]),
-          ]);
-        } else {
-          this.#prependReplayBytes([
-            bytesExcluding(buffered.subarray(0, byteCount), consumed),
-            ...(overflow === undefined ? [] : [overflow]),
-          ]);
-        }
-      }
+      const lateProtocol = transaction.protocol.retire?.()
+        ?? (signalAborted(transaction.signal) ? transaction.protocol : undefined);
+      if (lateProtocol !== undefined) this.#startLateProbeFilter(transaction.clock, lateProtocol);
+      this.#prependReplayBytes([
+        this.#filterProbeBytes(bytesExcluding(buffered.subarray(0, byteCount), consumed)),
+        ...(overflow === undefined ? [] : [this.#filterProbeBytes(overflow)]),
+      ]);
+      this.#replay.unshift(...precedingInput);
       this.#releaseReader(owner);
     }
   }
@@ -359,7 +348,10 @@ export class TerminalInputAuthority implements TerminalInput {
     filter.inspected += retainedLength;
     for (;;) {
       const match = findTerminalResponse(candidate, 0, filter.protocol);
-      if (match.kind === 'consume') {
+      if (match.kind === 'consume' || (
+        filter.protocol.quarantineUntilDeadline === true
+        && (match.kind === 'matched' || match.kind === 'fence')
+      )) {
         candidate = bytesExcluding(candidate, [{ start: match.start, end: match.end }]);
         continue;
       }
@@ -376,7 +368,7 @@ export class TerminalInputAuthority implements TerminalInput {
     }
     if (filter.inspected >= MAX_PROBE_BYTES) {
       filter.held = new Uint8Array();
-      this.#finishLateProbeFilter(false);
+      if (filter.protocol.quarantineUntilDeadline !== true) this.#finishLateProbeFilter(false);
       return concatenateBytes(candidate, overflow);
     }
     const prefixStart = incompleteTerminalResponseStart(candidate);
@@ -414,6 +406,7 @@ export class TerminalInputAuthority implements TerminalInput {
 
   #scheduleLateProbeDeadline(filter: LateTerminalResponseFilter): void {
     this.#cancelLateProbeDeadline(filter);
+    if (filter.protocol.quarantineUntilDeadline === true) return;
     const controller = new AbortController();
     filter.prefixDeadline = controller;
     void filter.clock.sleep(LATE_PROBE_AMBIGUITY_MS, controller.signal).then(
@@ -489,6 +482,13 @@ export class TerminalInputAuthority implements TerminalInput {
 
 function signalAborted(signal?: AbortSignal): boolean {
   return signal?.aborted === true;
+}
+
+function completeResponseBatch<TValue>(
+  protocol: TerminalResponseProtocol<TValue>,
+  fullyFramed: boolean
+): TValue | undefined {
+  return fullyFramed ? protocol.complete?.() : undefined;
 }
 
 interface LateTerminalResponseFilter {

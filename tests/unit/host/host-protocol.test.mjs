@@ -24,6 +24,16 @@ import { applySessionProtocolPolicy } from '../../../dist/tui/index.js';
 
 const kittyEvents = kittyKeyboardProfile(3);
 
+async function detectModes(host, options = {}) {
+  let settled = false;
+  const result = host.getCapabilities({ activeProbes: ['terminalModes'], ...options }).finally(() => { settled = true; });
+  while (!settled) {
+    await new Promise(resolve => setImmediate(resolve));
+    host.clock.advance(100);
+  }
+  return result;
+}
+
 function hostFacts(overrides = {}) {
   return {
     runtime: 'node',
@@ -485,7 +495,7 @@ test('terminal mode discovery observes outer state and enables only safely owned
   ].join('');
   host.input(`before${reports}after`);
 
-  const capabilities = await host.getCapabilities({ activeProbes: ['terminalModes'] });
+  const capabilities = await detectModes(host);
   const session = await host.beginSession({ id: 'observed-modes' });
   const input = host.stdin.read()[Symbol.asyncIterator]();
   const retainedInput = await readInputText(input, 'beforeafter'.length);
@@ -510,14 +520,11 @@ test('terminal mode discovery observes outer state and enables only safely owned
 test('a refreshed mode observation replaces omitted values from the previous terminal', async () => {
   const host = createMemoryTerminalHost();
   host.input('\u001B[?2027;1$y\u001B[?1;2c');
-  const first = await host.getCapabilities({ activeProbes: ['terminalModes'] });
+  const first = await detectModes(host);
   assert.equal(first.unicodeGraphemeMode.support, 'supported');
 
   host.input('\u001B[?1;2c');
-  const refreshed = await host.getCapabilities({
-    activeProbes: ['terminalModes'],
-    refresh: true
-  });
+  const refreshed = await detectModes(host, { refresh: true });
   const session = await host.beginSession({ id: 'refreshed-terminal-modes' });
 
   assert.equal(refreshed.unicodeGraphemeMode.support, 'unknown');
@@ -555,7 +562,7 @@ test('active terminal capability probes own their complete temporary sessions', 
   ].join(''));
 
   const results = await Promise.allSettled([
-    host.getCapabilities({ activeProbes: ['terminalModes'] }),
+    detectModes(host),
     host.getCapabilities({ activeProbes: ['keyboardProtocol'] })
   ]);
 
@@ -597,7 +604,7 @@ for (const [report, initial, acceptedOperation, rejectedOperation] of [
   test(`permanent cursor mode ${report.endsWith('3$y') ? 'set' : 'reset'} permits only its current state`, async () => {
     const host = createMemoryTerminalHost();
     host.input(`${report}\u001B[?1;2c`);
-    const capabilities = await host.getCapabilities({ activeProbes: ['terminalModes'] });
+    const capabilities = await detectModes(host);
     const session = await host.beginSession({ id: `permanent-cursor-${acceptedOperation}` });
     const accepted = acceptedOperation === 'show'
       ? await session.showCursor()
@@ -625,7 +632,7 @@ test('permanent mouse modes reject only transitions that conflict with the fixed
     '\u001B[?1006;2$y',
     '\u001B[?1;2c'
   ].join(''));
-  const capabilities = await host.getCapabilities({ activeProbes: ['terminalModes'] });
+  const capabilities = await detectModes(host);
   const session = await host.beginSession({ id: 'permanent-mouse-click' });
 
   const compatible = await session.enableMouseReporting('click');
@@ -643,7 +650,7 @@ test('partial mouse mode evidence does not claim the complete state was observed
   const host = createMemoryTerminalHost();
   host.input('\u001B[?1006;1$y\u001B[?1;2c');
 
-  await host.getCapabilities({ activeProbes: ['terminalModes'] });
+  await detectModes(host);
   const session = await host.beginSession({ id: 'partial-mouse-evidence' });
 
   assert.deepEqual(session.initialState.mouseReporting, { tracking: 'none', encoding: 'default' });
@@ -763,6 +770,7 @@ test('terminal sessions restore state in protocol-safe order', async () => {
     mouseReporting: { tracking: 'none', encoding: 'default' },
     focusReporting: false,
     unicodeGraphemeMode: false,
+    bidiMode: 'unknown',
     cellPresentation: 'unknown',
     metaSendsEscape: false,
     keyboardProfile: LEGACY_KEYBOARD_PROFILE,
@@ -890,10 +898,7 @@ test('session protocol policies fail only required unavailable operations', asyn
   });
 
   assert.equal(result.status, 'failed');
-  assert.deepEqual(result.applied, [{
-    kind: 'keyboardProfile',
-    state: LEGACY_KEYBOARD_PROFILE
-  }]);
+  assert.deepEqual(result.applied, []);
   assert.deepEqual(result.skipped.map((item) => item.kind), [
     'alternateScreen',
     'bracketedPaste',
@@ -901,6 +906,7 @@ test('session protocol policies fail only required unavailable operations', asyn
     'unicodeGraphemeMode',
     'cellPresentation',
     'metaSendsEscape',
+    'keyboardProfile',
     'mouseReporting',
     'focusReporting',
     'cursorVisibility'
@@ -1952,7 +1958,7 @@ function deferred() {
 test('a fixed incompatible mode rejects even a contradictory caller no-op baseline', async () => {
   const host = createMemoryTerminalHost({ initialState: { cursorVisible: false } });
   host.input('\u001B[?25;3$y\u001B[?1;2c');
-  await host.getCapabilities({ activeProbes: ['terminalModes'] });
+  await detectModes(host);
   const session = await host.beginSession();
   const result = await session.hideCursor();
   assert.equal(result.status, 'rejected');
@@ -1964,6 +1970,69 @@ test('a fixed incompatible mode rejects even a contradictory caller no-op baseli
 test('an observed externally owned synchronized frame overrides independently configured support', async () => {
   const host = createMemoryTerminalHost({ capabilities: { probes: { synchronizedOutput: 'supported' } } });
   host.input('\u001B[?2026;1$y\u001B[?1;2c');
-  const profile = await host.getCapabilities({ activeProbes: ['terminalModes'] });
+  const profile = await detectModes(host);
   assert.equal(profile.synchronizedOutput.support, 'unknown');
+});
+
+for (const { mode, capability, operation, stateKey, initialState } of [
+  { mode: '25', capability: 'cursorVisibility', operation: 'showCursor', stateKey: 'cursorVisible', initialState: { cursorVisible: true } },
+  { mode: '1000', capability: 'mouseReporting', operation: 'enableMouseReporting', stateKey: 'mouseReporting' },
+  { mode: '1002', capability: 'mouseReporting', operation: 'enableMouseReporting', stateKey: 'mouseReporting' },
+  { mode: '1003', capability: 'mouseReporting', operation: 'enableMouseReporting', stateKey: 'mouseReporting' },
+  { mode: '1006', capability: 'mouseReporting', operation: 'enableMouseReporting', stateKey: 'mouseReporting' },
+  { mode: '1004', capability: 'focusReporting', operation: 'enableFocusReporting', stateKey: 'focusReporting', initialState: { focusReporting: true } },
+  { mode: '1036', capability: 'metaSendsEscape', operation: 'enableMetaSendsEscape', stateKey: 'metaSendsEscape', initialState: { metaSendsEscape: true } },
+  { mode: '1049', capability: 'alternateScreen', operation: 'enableAlternateScreen', stateKey: 'alternateScreen', initialState: { alternateScreen: true } },
+  { mode: '2004', capability: 'bracketedPaste', operation: 'enableBracketedPaste', stateKey: 'bracketedPaste', initialState: { bracketedPaste: true } },
+  { mode: '2027', capability: 'unicodeGraphemeMode', operation: 'enableUnicodeGraphemeMode', stateKey: 'unicodeGraphemeMode', initialState: { unicodeGraphemeMode: true } },
+]) {
+  test(`conflicting private mode ${mode} blocks configured support and caller no-ops without speculative cleanup`, async () => {
+    const host = createMemoryTerminalHost({ initialState, env: { TERM: 'xterm-256color' },
+      capabilities: { probes: { [capability]: 'supported' }, overrides: { [capability]: true } } });
+    host.input(`\u001b[?${mode};2$y\u001b[?${mode};4$y\u001b[?1;2c`);
+    const profile = await detectModes(host);
+    assert.equal(profile[capability].support, 'unknown');
+    assert.equal(profile[capability].diagnostics[0].data.reason, 'mode-reports-conflicting');
+    const session = await host.beginSession();
+    assert.equal(session.initialState.provenance[stateKey], 'indeterminate');
+    const before = host.output();
+    const outcome = await session[operation]();
+    assert.equal(outcome.status, 'rejected');
+    assert.equal(outcome.diagnostic.data.reason, 'mode-reports-conflicting');
+    const restored = await session.restore();
+    assert.equal(restored.status, 'restored');
+    assert.equal(restored.attempted.length, 0);
+    assert.equal(host.output(), before);
+  });
+}
+
+test('synchronized-output conflicts survive configured overrides and inconclusive refresh until fresh evidence resolves them', async () => {
+  const host = createMemoryTerminalHost({ capabilities: {
+    probes: { synchronizedOutput: 'supported' }, overrides: { synchronizedOutput: true },
+  } });
+  host.input('\u001b[?2026;1$y\u001b[?2026;2$y\u001b[?1;2c');
+  const conflicted = await detectModes(host);
+  assert.equal(conflicted.synchronizedOutput.support, 'unknown');
+  host.input('\u001b[?1;2c');
+  const omitted = await detectModes(host, { refresh: true });
+  assert.equal(omitted.synchronizedOutput.support, 'unknown');
+  assert.equal(omitted.synchronizedOutput.diagnostics[0].data.reason, 'mode-reports-conflicting');
+  host.input('\u001b[?2026;0$y\u001b[?1;2c');
+  const unrecognized = await detectModes(host, { refresh: true });
+  assert.equal(unrecognized.synchronizedOutput.support, 'unknown');
+  host.input('\u001b[?2026;2$y\u001b[?1;2c');
+  const resolved = await detectModes(host, { refresh: true });
+  assert.equal(resolved.synchronizedOutput.support, 'supported');
+});
+
+test('unresolved alternate-screen conflict cannot disappear into restoration defaults on refresh', async () => {
+  const host = createMemoryTerminalHost({ capabilities: { overrides: { alternateScreen: true } } });
+  host.input('\u001b[?1049;2$y\u001b[?1049;4$y\u001b[?1;2c');
+  await detectModes(host);
+  host.input('\u001b[?1;2c');
+  await detectModes(host, { refresh: true });
+  const session = await host.beginSession();
+  assert.equal(session.initialState.provenance.alternateScreen, 'indeterminate');
+  assert.equal((await session.enableAlternateScreen()).diagnostic.data.reason, 'mode-reports-conflicting');
+  assert.equal((await session.restore()).attempted.length, 0);
 });

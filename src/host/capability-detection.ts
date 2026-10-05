@@ -7,7 +7,8 @@ import type {
   TerminalCapabilityResolverInput,
 } from './capabilities.ts';
 import { resolveTerminalCapabilities } from './capabilities.ts';
-import type { TerminalCapabilityProfile } from './capability-types.ts';
+import { diagnostic } from '../diagnostics.ts';
+import type { TerminalCapabilityName, TerminalCapabilityProfile } from './capability-types.ts';
 import {
   cellPixelGeometryQueryRequest,
   createCellPixelGeometryResponseProtocol,
@@ -20,10 +21,11 @@ import {
 } from './graphics-query.ts';
 import type { TerminalInputAuthority } from './input-authority.ts';
 import { waitForTerminalOperation } from './operation.ts';
-import type { TerminalModeReports, TerminalModeReportState } from './terminal-mode-query.ts';
+import type { TerminalModeEvidence, TerminalModeKey, TerminalModeReports, TerminalModeReportState } from './terminal-mode-query.ts';
 import {
   createTerminalModeResponseProtocol,
   modeIsMutable,
+  modeIsSet,
   terminalModeQueryRequest,
 } from './terminal-mode-query.ts';
 import type {
@@ -46,7 +48,7 @@ export interface TerminalCapabilityDetectorOptions {
   readonly resolverInput: TerminalCapabilityResolverInput;
   readonly beginSession: (id: string, capabilities: TerminalCapabilityProfile) => Promise<TerminalSession>;
   readonly beginObservationRefresh: () => Promise<void>;
-  readonly observeModes: (reports: TerminalModeReports) => Promise<void>;
+  readonly observeModes: (reports: TerminalModeReports, conflictingModes: readonly TerminalModeKey[]) => Promise<void>;
   readonly observeKeyboardProfile: (profile: TerminalKeyboardProfile) => Promise<void>;
   readonly writeRecovery: (output: TerminalOutputChunk, signal: AbortSignal) => Promise<TerminalWriteReceipt>;
   readonly write: (output: TerminalOutputChunk, signal: AbortSignal) => Promise<TerminalWriteReceipt>;
@@ -64,6 +66,8 @@ export class TerminalCapabilityDetector {
   #graphicsProbe: Promise<void> | undefined;
   #probeTail: Promise<void> | undefined;
   #modesObserved = false;
+  #modeEvidence: TerminalModeEvidence | undefined;
+  readonly #modeConflicts = new Set<TerminalModeKey>();
   #cellPresentationMode: TerminalModeReportState | undefined;
   #qualifiedCellPresentation: boolean;
   #graphicsObserved = false;
@@ -71,7 +75,7 @@ export class TerminalCapabilityDetector {
 
   constructor(options: TerminalCapabilityDetectorOptions) {
     this.#options = options;
-    this.#qualifiedCellPresentation = options.resolverInput.host.cellPresentation === 'explicit';
+    this.#qualifiedCellPresentation = options.resolverInput.host.cellPresentation !== undefined;
     this.#configuredProbeFacts = { ...options.resolverInput.probes };
     this.#probeFacts = { ...this.#configuredProbeFacts };
     this.#graphicsFacts = options.resolverInput.graphics;
@@ -82,15 +86,16 @@ export class TerminalCapabilityDetector {
     return this.#profile;
   }
 
-  async observeCellPresentation(signal?: AbortSignal, recovery = false): Promise<TerminalModeReportState | undefined> {
+  async observeBidiMode(signal?: AbortSignal, recovery = false): Promise<TerminalModeReportState | undefined> {
     await this.#options.input.settleResponseQuarantine(signal);
     signal?.throwIfAborted();
     const timeout = probeController(DEFAULT_PROBE_TIMEOUT_MS, this.#options.clock, signal);
+    const protocol = createTerminalModeResponseProtocol(['standard:8']);
     try {
       const result = await this.#options.input.queryTerminal({
         signal: timeout.signal,
         clock: this.#options.clock,
-        protocol: createTerminalModeResponseProtocol(['standard:8']),
+        protocol,
         send: async () => {
           const write = recovery ? this.#options.writeRecovery : this.#options.write;
           requireCommittedTerminalWrite(await write(
@@ -98,7 +103,7 @@ export class TerminalCapabilityDetector {
           ));
         }
       });
-      return result.status === 'matched' ? result.value['standard:8'] : undefined;
+      return result.status !== 'failed' && signal?.aborted !== true ? protocol.evidence().reports['standard:8'] : undefined;
     } finally {
       timeout.close();
     }
@@ -204,6 +209,7 @@ export class TerminalCapabilityDetector {
   #resetObservedProbes(): void {
     this.#modesObserved = false;
     this.#cellPresentationMode = undefined;
+    this.#modeEvidence = undefined;
     this.#graphicsObserved = false;
     this.#graphicsFacts = this.#options.resolverInput.graphics;
     this.#probeFacts = { ...this.#configuredProbeFacts };
@@ -307,16 +313,17 @@ export class TerminalCapabilityDetector {
     await this.#options.input.settleResponseQuarantine(ownerSignal);
     ownerSignal?.throwIfAborted();
     const operationController = probeController(timeoutMs, this.#options.clock, ownerSignal);
-    let reports: TerminalModeReports | undefined;
+    let evidence: TerminalModeEvidence | undefined;
     let failure: unknown;
     const session = await this.#options.beginSession('terminal-mode-probe', this.#profile);
     try {
       const raw = await session.enableRawInput({ signal: operationController.signal });
       if (raw.status === 'applied') {
+        const protocol = createTerminalModeResponseProtocol();
         const result = await this.#options.input.queryTerminal({
           signal: operationController.signal,
           clock: this.#options.clock,
-          protocol: createTerminalModeResponseProtocol(),
+          protocol,
           send: async () => {
             requireCommittedTerminalWrite(await this.#options.write(
               { text: terminalModeQueryRequest() },
@@ -324,7 +331,7 @@ export class TerminalCapabilityDetector {
             ));
           }
         });
-        if (result.status === 'matched') reports = result.value;
+        if (result.status !== 'failed' && ownerSignal?.aborted !== true) evidence = protocol.evidence();
       }
     } catch (cause) {
       failure = cause;
@@ -340,9 +347,15 @@ export class TerminalCapabilityDetector {
       }
     }
     if (failure !== undefined) throw terminalProbeError(failure);
-    if (reports === undefined) return;
-    await this.#options.observeModes(reports);
-    this.#recordModeProbe(reports);
+    if (evidence === undefined) return;
+    this.#modeEvidence = evidence;
+    for (const mode of Object.keys(evidence.reports) as TerminalModeKey[]) {
+      if (modeIsSet(evidence.reports[mode]) !== undefined) this.#modeConflicts.delete(mode);
+    }
+    for (const mode of evidence.conflictingModes) this.#modeConflicts.add(mode);
+    await this.#options.observeModes(evidence.reports, [...this.#modeConflicts]);
+    if (evidence.conflictingModes.includes('standard:8') && this.#options.resolverInput.host.cellPresentation?.qualification === 'existing') this.#qualifiedCellPresentation = false;
+    this.#recordModeProbe(evidence.reports);
     this.#modesObserved = true;
   }
 
@@ -402,11 +415,8 @@ export class TerminalCapabilityDetector {
   #recordModeProbe(reports: TerminalModeReports): void {
     const cellPresentation = reports['standard:8'];
     this.#cellPresentationMode = cellPresentation;
-    if (cellPresentation === 'set' || cellPresentation === 'permanently_set') this.#qualifiedCellPresentation = false;
-    const qualified = this.#qualifiedCellPresentation;
-    this.#probeFacts.cellPresentation = cellPresentation === 'permanently_reset'
-      || qualified && (cellPresentation === undefined || cellPresentation === 'unrecognized')
-      ? 'supported' : modeSupport(cellPresentation, this.#configuredProbeFacts.cellPresentation);
+    if ((cellPresentation === 'set' || cellPresentation === 'permanently_set')
+      && this.#options.resolverInput.host.cellPresentation?.qualification === 'existing') this.#qualifiedCellPresentation = false;
     this.#probeFacts.cursorVisibility = modeSupport(reports['private:25'], this.#configuredProbeFacts.cursorVisibility);
     this.#probeFacts.focusReporting = modeSupport(reports['private:1004'], this.#configuredProbeFacts.focusReporting);
     this.#probeFacts.metaSendsEscape = modeSupport(reports['private:1036'], this.#configuredProbeFacts.metaSendsEscape);
@@ -428,17 +438,35 @@ export class TerminalCapabilityDetector {
   #resolve(): TerminalCapabilityProfile {
     const host = { ...this.#options.resolverInput.host };
     if (!this.#qualifiedCellPresentation) delete host.cellPresentation;
-    const profile = resolveTerminalCapabilities({
+    const resolved = resolveTerminalCapabilities({
       ...this.#options.resolverInput,
       probes: this.#probeFacts,
       host,
       ...(this.#graphicsFacts === undefined ? {} : { graphics: this.#graphicsFacts })
     });
-    if (this.#cellPresentationMode === undefined) return profile;
+    const profile = { ...resolved };
+    for (const mode of this.#modeConflicts) {
+      const capability = capabilityForMode(mode);
+      const current = profile[capability];
+      profile[capability] = Object.freeze({ ...current, support: 'unknown',
+        facts: Object.freeze([...current.facts, Object.freeze({ kind: 'probe' as const, name: 'conflictingMode', value: mode })]),
+        diagnostics: Object.freeze([diagnostic('HOST_CAPABILITY_UNKNOWN',
+          `Conflicting ${mode} reports cannot establish ${capability}.`, { severity: 'warning', target: capability,
+            data: { capability, reason: 'mode-reports-conflicting', mode } })]),
+      });
+    }
+    if (this.#modeEvidence === undefined) return profile;
     return { ...profile, cellPresentation: Object.freeze({
       ...profile.cellPresentation,
+      ...(host.cellPresentation?.qualification === 'mode-8-reset'
+        && (modeIsMutable(this.#cellPresentationMode) === true || this.#cellPresentationMode === 'permanently_reset')
+        ? { support: 'supported' as const, diagnostics: [] } : {}),
       facts: Object.freeze([...profile.cellPresentation.facts, Object.freeze({
-        kind: 'probe' as const, name: 'standard:8', value: this.#cellPresentationMode,
+        kind: 'probe' as const, name: 'standard:8', value: this.#cellPresentationMode ?? null,
+      }), Object.freeze({ kind: 'probe' as const, name: 'terminalModes.collection', value: {
+        complete: this.#modeEvidence.complete, missingModes: [...this.#modeEvidence.missingModes],
+        conflictingModes: [...this.#modeEvidence.conflictingModes],
+      }
       })]),
     }) };
   }
@@ -527,4 +555,21 @@ function mouseModeSupport(
   return encoding === 'supported' && tracking.some((support) => support === 'supported')
     ? 'supported'
     : configured;
+}
+
+function capabilityForMode(mode: TerminalModeKey): TerminalCapabilityName {
+  switch (mode) {
+    case 'standard:8': return 'cellPresentation';
+    case 'private:25': return 'cursorVisibility';
+    case 'private:1000':
+    case 'private:1002':
+    case 'private:1003':
+    case 'private:1006': return 'mouseReporting';
+    case 'private:1004': return 'focusReporting';
+    case 'private:1036': return 'metaSendsEscape';
+    case 'private:1049': return 'alternateScreen';
+    case 'private:2004': return 'bracketedPaste';
+    case 'private:2026': return 'synchronizedOutput';
+    case 'private:2027': return 'unicodeGraphemeMode';
+  }
 }

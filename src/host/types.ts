@@ -3,7 +3,7 @@ import type { TerminalSize } from '../geometry/types.ts';
 import type { MouseReportingMode, MouseReportingState } from '../protocol/index.ts';
 import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
 import type { TerminalCapabilityConfiguration } from './capabilities.ts';
-import type { RuntimeTarget, TerminalCapabilityProfile } from './capability-types.ts';
+import type { RuntimeTarget, TerminalCapabilityProfile, TerminalCellPresentationQualification } from './capability-types.ts';
 
 export type { TerminalSize } from '../geometry/types.ts';
 export type {
@@ -130,8 +130,12 @@ export type TerminalWriteReceipt =
   | { readonly status: 'failed_before_write'; readonly diagnostic: TerminalDiagnostic }
   | { readonly status: 'indeterminate'; readonly diagnostic: TerminalDiagnostic };
 
-/** ECMA-48 mode 8 ordering only; this makes no claim about font shaping. */
-export type TerminalCellPresentation = 'unknown' | 'implicit' | 'explicit';
+/** Raw ECMA-48 BDSM (standard mode 8), independent of character path and physical cells. */
+export type TerminalBidiMode = 'unknown' | 'implicit' | 'explicit';
+
+/** Application-ordered physical left-to-right cells, without terminal reordering or mirroring. */
+export type TerminalCellPresentation = 'unknown' | 'application-ordered';
+
 
 export interface TerminalSession {
   readonly id: string;
@@ -178,7 +182,7 @@ export type TerminalOperationOutcome =
       readonly diagnostics: readonly TerminalDiagnostic[];
     };
 
-export type TerminalOperationAssurance = 'observed' | 'sent' | 'assumed';
+export type TerminalOperationAssurance = 'observed' | 'sent' | 'assumed' | 'declared';
 
 export interface TerminalStateSnapshot {
   readonly rawInput: boolean;
@@ -188,6 +192,9 @@ export interface TerminalStateSnapshot {
   readonly focusReporting: boolean;
   readonly metaSendsEscape: boolean;
   readonly unicodeGraphemeMode: boolean;
+  /** Raw mode state is evidence for BDSM and its restoration only. */
+  readonly bidiMode: TerminalBidiMode;
+  /** Derived full invariant; a mode report alone never establishes it. */
   readonly cellPresentation: TerminalCellPresentation;
   readonly keyboardProfile: TerminalKeyboardProfile;
   readonly cursorVisible: boolean;
@@ -209,12 +216,13 @@ export interface TerminalStateProvenanceSnapshot {
   readonly focusReporting: TerminalStateKnowledge;
   readonly metaSendsEscape: TerminalStateKnowledge;
   readonly unicodeGraphemeMode: TerminalStateKnowledge;
+  readonly bidiMode: TerminalStateKnowledge;
   readonly cellPresentation: TerminalStateKnowledge;
   readonly keyboardProfile: TerminalStateKnowledge;
   readonly cursorVisible: TerminalStateKnowledge;
 }
 
-export type TerminalInitialState = Partial<Omit<TerminalStateSnapshot, 'provenance'>>;
+export type TerminalInitialState = Partial<Omit<TerminalStateSnapshot, 'provenance' | 'cellPresentation'>>;
 
 export type TerminalStateChange =
   | { readonly kind: 'rawInput'; readonly state: boolean }
@@ -224,13 +232,14 @@ export type TerminalStateChange =
   | { readonly kind: 'focusReporting'; readonly state: boolean }
   | { readonly kind: 'metaSendsEscape'; readonly state: boolean }
   | { readonly kind: 'unicodeGraphemeMode'; readonly state: boolean }
+  | { readonly kind: 'bidiMode'; readonly state: TerminalBidiMode }
   | { readonly kind: 'cellPresentation'; readonly state: TerminalCellPresentation }
   | { readonly kind: 'keyboardProfile'; readonly state: TerminalKeyboardProfile }
   | { readonly kind: 'cursorVisible'; readonly state: boolean };
 
 export type TerminalRestoreCompletion = TerminalStateChange & {
   /** Evidence for this restored state, independent of output transport completion. */
-  readonly assurance: Exclude<TerminalOperationAssurance, 'assumed'>;
+  readonly assurance: Extract<TerminalOperationAssurance, 'observed' | 'sent'>;
 };
 
 export interface TerminalRestoreResult {
@@ -294,6 +303,7 @@ export interface NodeTerminalHostOptions {
   readonly process?: NodeProcessLike;
   readonly capabilities?: TerminalCapabilityConfiguration;
   readonly initialState?: TerminalInitialState;
+  readonly cellPresentation?: TerminalCellPresentationQualification;
 }
 
 export interface MemoryTerminalHostOptions {
@@ -305,6 +315,7 @@ export interface MemoryTerminalHostOptions {
   readonly observer?: TerminalHostObserver;
   readonly capabilities?: TerminalCapabilityConfiguration;
   readonly initialState?: TerminalInitialState;
+  readonly cellPresentation?: TerminalCellPresentationQualification;
 }
 
 export interface RuntimeInputSource {
@@ -340,6 +351,7 @@ export interface DenoTerminalHostOptions {
   readonly capabilities?: TerminalCapabilityConfiguration;
   readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsubscribe;
   readonly initialState?: TerminalInitialState;
+  readonly cellPresentation?: TerminalCellPresentationQualification;
 }
 
 export interface BunTerminalHostOptions {
@@ -351,6 +363,7 @@ export interface BunTerminalHostOptions {
   readonly capabilities?: TerminalCapabilityConfiguration;
   readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsubscribe;
   readonly initialState?: TerminalInitialState;
+  readonly cellPresentation?: TerminalCellPresentationQualification;
 }
 
 export interface PtyTerminalHostOptions {
@@ -366,6 +379,7 @@ export interface PtyTerminalHostOptions {
   readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsubscribe;
   readonly capabilities?: TerminalCapabilityConfiguration;
   readonly initialState?: TerminalInitialState;
+  readonly cellPresentation?: TerminalCellPresentationQualification;
 }
 
 export interface PtyTerminalHost extends TerminalHost {

@@ -6,14 +6,13 @@ import type {
   TerminalInitialState,
   TerminalStateChange,
   TerminalStateKnowledge,
-  TerminalStateProvenanceSnapshot,
-  TerminalStateSnapshot,
 } from '../types.ts';
 import type {
   KeyboardScreenState,
   TerminalScreen,
   TerminalStateAuthorityOptions,
   TerminalStateKey,
+  TerminalStateStorage,
 } from './contracts.ts';
 
 export function terminalScreen(alternateScreen: boolean): TerminalScreen {
@@ -39,7 +38,7 @@ export function keyboardScreenState(
 export function initialTerminalState(
   host: TerminalHost,
   options: TerminalStateAuthorityOptions
-): TerminalStateSnapshot {
+): TerminalStateStorage {
   const explicit = decodeInitialTerminalState(options.initialState);
   const rawInput = explicit.rawInput ?? host.stdin.isRawModeEnabled?.() ?? false;
   const values = {
@@ -50,11 +49,11 @@ export function initialTerminalState(
     focusReporting: explicit.focusReporting ?? false,
     metaSendsEscape: explicit.metaSendsEscape ?? false,
     unicodeGraphemeMode: explicit.unicodeGraphemeMode ?? false,
-    cellPresentation: explicit.cellPresentation ?? 'unknown',
+    bidiMode: explicit.bidiMode ?? 'unknown',
     keyboardProfile: explicit.keyboardProfile ?? LEGACY_KEYBOARD_PROFILE,
     cursorVisible: explicit.cursorVisible ?? true
-  } satisfies Omit<TerminalStateSnapshot, 'provenance'>;
-  const provenance: TerminalStateProvenanceSnapshot = {
+  } satisfies Omit<TerminalStateStorage, 'provenance'>;
+  const provenance: TerminalStateStorage['provenance'] = {
     rawInput: Object.hasOwn(explicit, 'rawInput') ? 'explicit' : options.rawInputKnowledge,
     alternateScreen: initialKnowledge(explicit, 'alternateScreen'),
     bracketedPaste: initialKnowledge(explicit, 'bracketedPaste'),
@@ -62,7 +61,7 @@ export function initialTerminalState(
     focusReporting: initialKnowledge(explicit, 'focusReporting'),
     metaSendsEscape: initialKnowledge(explicit, 'metaSendsEscape'),
     unicodeGraphemeMode: initialKnowledge(explicit, 'unicodeGraphemeMode'),
-    cellPresentation: initialKnowledge(explicit, 'cellPresentation'),
+    bidiMode: initialKnowledge(explicit, 'bidiMode'),
     keyboardProfile: initialKnowledge(explicit, 'keyboardProfile'),
     cursorVisible: initialKnowledge(explicit, 'cursorVisible')
   };
@@ -82,6 +81,7 @@ function decodeInitialTerminalState(initial: unknown): TerminalInitialState {
     throw new TypeError('Terminal initial state must be an object.');
   }
   const supplied = initial as Readonly<Record<string, unknown>>;
+  if (Object.hasOwn(supplied, 'cellPresentation')) throw new TypeError('Initial cellPresentation is not raw terminal state; use a caller-qualified cellPresentation declaration.');
   const rawInput = optionalInitialBoolean(supplied['rawInput'], 'rawInput');
   const alternateScreen = optionalInitialBoolean(supplied['alternateScreen'], 'alternateScreen');
   const bracketedPaste = optionalInitialBoolean(supplied['bracketedPaste'], 'bracketedPaste');
@@ -91,9 +91,9 @@ function decodeInitialTerminalState(initial: unknown): TerminalInitialState {
     supplied['unicodeGraphemeMode'],
     'unicodeGraphemeMode',
   );
-  const cellPresentation = supplied['cellPresentation'];
-  if (cellPresentation !== undefined && cellPresentation !== 'unknown' && cellPresentation !== 'implicit' && cellPresentation !== 'explicit') {
-    throw new TypeError('Terminal initial state cellPresentation must be unknown, implicit or explicit.');
+  const bidiMode = supplied['bidiMode'];
+  if (bidiMode !== undefined && bidiMode !== 'unknown' && bidiMode !== 'implicit' && bidiMode !== 'explicit') {
+    throw new TypeError('Terminal initial state bidiMode must be unknown, implicit or explicit.');
   }
   const cursorVisible = optionalInitialBoolean(supplied['cursorVisible'], 'cursorVisible');
   const mouseReporting = supplied['mouseReporting'];
@@ -107,7 +107,7 @@ function decodeInitialTerminalState(initial: unknown): TerminalInitialState {
     ...(unicodeGraphemeMode === undefined
       ? {}
       : { unicodeGraphemeMode }),
-    ...(cellPresentation === undefined ? {} : { cellPresentation }),
+    ...(bidiMode === undefined ? {} : { bidiMode }),
     ...(cursorVisible === undefined ? {} : { cursorVisible }),
     ...(mouseReporting === undefined
       ? {}
@@ -124,15 +124,15 @@ function optionalInitialBoolean(value: unknown, field: string): boolean | undefi
 }
 
 export function cloneTerminalState(
-  state: TerminalStateSnapshot,
+  state: TerminalStateStorage,
   uncertain: ReadonlySet<TerminalStateKey>
-): TerminalStateSnapshot {
+): TerminalStateStorage {
   const provenance = { ...state.provenance };
   for (const key of uncertain) provenance[key] = 'indeterminate';
   return freezeTerminalState({ ...state, provenance });
 }
 
-export function freezeTerminalState(state: TerminalStateSnapshot): TerminalStateSnapshot {
+export function freezeTerminalState(state: TerminalStateStorage): TerminalStateStorage {
   return Object.freeze({
     ...state,
     mouseReporting: Object.isFrozen(state.mouseReporting)
@@ -158,8 +158,8 @@ export function keyboardProfilesEqual(left: TerminalKeyboardProfile, right: Term
 }
 
 export function sameMouseReportingState(
-  left: TerminalStateSnapshot['mouseReporting'],
-  right: TerminalStateSnapshot['mouseReporting']
+  left: TerminalStateStorage['mouseReporting'],
+  right: TerminalStateStorage['mouseReporting']
 ): boolean {
   return left.tracking === right.tracking && left.encoding === right.encoding;
 }

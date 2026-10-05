@@ -61,7 +61,8 @@ activates the focused button.
 `runTui()` resolves with a discriminated `TuiRunResult` for application completion,
 cancellation, or host interruption. Operational failures reject with
 `TuiRunError`; its `exit` retains diagnostics and the final accessible
-snapshot. Full-screen applications reject non-TTY execution by default. Set an
+snapshot, and `primaryDiagnostic` exposes the exact diagnostic selected for the
+error message and cause. Cleanup failures do not replace the original failure. Full-screen applications reject non-TTY execution by default. Set an
 explicit `nonTty` policy on the TUI definition only when transcript or
 last-frame output is meaningful for that application.
 

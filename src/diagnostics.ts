@@ -7,6 +7,8 @@ import { redactSecretLikeText } from './text/secrets.ts';
 export type TerminalDiagnosticValue = JsonValue;
 
 const terminalDiagnosticCodeValues = [
+  'HOST_CELL_PRESENTATION_UNQUALIFIED',
+  'HOST_CELL_PRESENTATION_CONTRADICTED',
   'HOST_CAPABILITY_UNAVAILABLE',
   'HOST_CAPABILITY_UNSUPPORTED',
   'HOST_CAPABILITY_UNKNOWN',

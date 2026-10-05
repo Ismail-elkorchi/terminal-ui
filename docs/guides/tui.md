@@ -14,7 +14,11 @@ call `start()` before dispatching and `dispose()` when finished.
 An app ends by returning `exit` from `init()` or `update()`. Application
 completion, cancellation, and host interruption resolve to typed results.
 Operational failure rejects `runTui()` with `TuiRunError`; its `exit` retains
-diagnostics and the last accessible snapshot. The default non-TTY policy
+diagnostics and the last accessible snapshot. Its `primaryDiagnostic` is the
+exact diagnostic used for `message` and `cause`. Required rejected operations
+and any indeterminate operation stop session setup before later operations run;
+cleanup still restores acquired state. Cleanup failures remain in the diagnostics
+and message without replacing the primary failure. The default non-TTY policy
 rejects full-screen execution. Choose an explicit `nonTty` mode when output is
 redirected; see [non-TTY behavior](./non-tty.md).
 

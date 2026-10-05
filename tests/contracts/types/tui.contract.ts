@@ -1,8 +1,10 @@
+import type { TerminalDiagnostic } from '@ismail-elkorchi/terminal-ui';
 import { text, type Element } from '@ismail-elkorchi/terminal-ui/components';
 import {
   defineTui,
   runTui,
   type TuiApp,
+  type TuiRunError,
   type TuiRunResult
 } from '@ismail-elkorchi/terminal-ui/tui';
 
@@ -72,3 +74,10 @@ void arrayStateApp;
 void nullMessageApp;
 void publicRunResult;
 void resolvedError;
+
+// The public selection is the one used by TuiRunError.message and cause.
+declare const runFailure: TuiRunError<State>;
+const selectedFailure: TerminalDiagnostic | undefined = runFailure.primaryDiagnostic;
+// @ts-expect-error the selected primary diagnostic is read-only
+runFailure.primaryDiagnostic = undefined;
+void selectedFailure;

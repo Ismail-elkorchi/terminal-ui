@@ -5,6 +5,14 @@ export type TerminalResponseClassification<TValue> =
 
 export interface TerminalResponseProtocol<TValue> {
   classify(control: Uint8Array): TerminalResponseClassification<TValue> | undefined;
+  /** Finish a collection only after every control in the current input batch was inspected. */
+  complete?(): TValue | undefined;
+  /** Seal collected evidence and optionally drain outstanding responses before the next query. */
+  retire?(): TerminalResponseProtocol<unknown> | undefined;
+  /** Multi-response quarantine cannot end at the first late response or ambiguous prefix. */
+  readonly quarantineUntilDeadline?: boolean;
+  /** Previously replayed input is not evidence for a newly issued observation. */
+  readonly acceptReplayedResponses?: boolean;
 }
 
 export type TerminalResponseSearch<TValue> =

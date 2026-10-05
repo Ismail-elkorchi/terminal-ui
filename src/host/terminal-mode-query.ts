@@ -26,6 +26,18 @@ export const queriedModes: readonly TerminalModeKey[] = Object.freeze([
 export type TerminalModeReportState = 'unrecognized' | 'set' | 'reset' | 'permanently_set' | 'permanently_reset';
 export type TerminalModeReports = Readonly<Partial<Record<TerminalModeKey, TerminalModeReportState>>>;
 
+export interface TerminalModeEvidence {
+  readonly reports: TerminalModeReports;
+  readonly missingModes: readonly TerminalModeKey[];
+  readonly conflictingModes: readonly TerminalModeKey[];
+  /** Every requested mode replied; conflicting reports remain unusable even when complete. */
+  readonly complete: boolean;
+}
+
+export interface TerminalModeResponseProtocol extends TerminalResponseProtocol<TerminalModeReports> {
+  evidence(): TerminalModeEvidence;
+}
+
 export function terminalModeQueryRequest(modes: readonly TerminalModeKey[] = queriedModes): string {
   return `${modes.map((mode) => {
     const [namespace, number] = mode.split(':');
@@ -33,20 +45,50 @@ export function terminalModeQueryRequest(modes: readonly TerminalModeKey[] = que
   }).join('')}\u001B[c`;
 }
 
-export function createTerminalModeResponseProtocol(modes: readonly TerminalModeKey[] = queriedModes): TerminalResponseProtocol<TerminalModeReports> {
-  const reports: Partial<Record<TerminalModeKey, TerminalModeReportState>> = {};
+export function createTerminalModeResponseProtocol(modes: readonly TerminalModeKey[] = queriedModes): TerminalModeResponseProtocol {
+  const requested = [...new Set(modes)];
+  const reports = new Map<TerminalModeKey, TerminalModeReportState>();
+  const received = new Set<TerminalModeKey>();
+  const conflicts = new Set<TerminalModeKey>();
+  let deviceAttributesReceived = false;
+  let retired = false;
+  const complete = (): boolean => requested.every((mode) => received.has(mode));
+  const snapshot = (): TerminalModeReports => Object.freeze(Object.fromEntries(reports));
   return {
+    acceptReplayedResponses: false,
     classify(control): TerminalResponseClassification<TerminalModeReports> | undefined {
       const body = csiBody(control);
       if (body === undefined || body.length === 0) return undefined;
       if (isPrimaryDeviceAttributes(body)) {
-        return { kind: 'matched', value: Object.freeze({ ...reports }) };
+        if (!retired) deviceAttributesReceived = true;
+        return { kind: 'consume' };
       }
       const report = parseModeReport(body);
-      if (report === undefined || !modes.includes(report.mode)) return undefined;
-      reports[report.mode] = report.state;
+      if (report === undefined || !requested.includes(report.mode)) return undefined;
+      if (!retired) {
+        if (received.has(report.mode) && reports.get(report.mode) !== report.state) {
+          conflicts.add(report.mode);
+          reports.delete(report.mode);
+        }
+        received.add(report.mode);
+        if (!conflicts.has(report.mode)) reports.set(report.mode, report.state);
+      }
       return { kind: 'consume' };
-    }
+    },
+    complete: () => complete() ? snapshot() : undefined,
+    evidence: () => Object.freeze({
+      reports: snapshot(),
+      missingModes: Object.freeze(requested.filter((mode) => !received.has(mode))),
+      conflictingModes: Object.freeze(requested.filter((mode) => conflicts.has(mode))),
+      complete: complete(),
+    }),
+    retire() {
+      retired = true;
+      return deviceAttributesReceived && complete() ? undefined : {
+        quarantineUntilDeadline: true,
+        classify: (control) => this.classify(control),
+      };
+    },
   };
 }
 

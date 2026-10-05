@@ -28,6 +28,7 @@ export function createBunTerminalHost(options: BunTerminalHostOptions = {}): Ter
     ...bunHostOutput('stdout', options.stdout, processLike?.stdout),
     ...bunHostOutput('stderr', options.stderr, processLike?.stderr),
     ...(options.capabilities === undefined ? {} : { capabilities: options.capabilities }),
+    ...(options.cellPresentation === undefined ? {} : { cellPresentation: options.cellPresentation }),
     ...(options.initialState === undefined ? {} : { initialState: options.initialState }),
     ...optionalEnv(options.env ?? processLike?.env)
   });

@@ -229,14 +229,16 @@ function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): 
   return harness;
 }
 
-const privateModeQueryPattern = new RegExp(String.raw`\u001B\[\?(\d+)\$p`, 'gu');
+const modeQueryPattern = new RegExp(String.raw`\u001B\[(\??)(\d+)\$p`, 'gu');
 
 function ptyProtocolResponse(output: string): string {
   const responses: string[] = [];
-  for (const match of output.matchAll(privateModeQueryPattern)) {
-    const mode = match[1];
-    if (mode === undefined) continue;
-    responses.push(`\u001B[?${mode};${mode === '25' ? '1' : '2'}$y`);
+  for (const match of output.matchAll(modeQueryPattern)) {
+    const namespace = match[1];
+    const mode = match[2];
+    if (namespace === undefined || mode === undefined) continue;
+    const state = namespace === '?' ? mode === '25' ? '1' : '2' : '0';
+    responses.push(`\u001B[${namespace}${mode};${state}$y`);
   }
   if (output.includes('\u001B[c')) responses.push('\u001B[?1;2c');
   return responses.join('');

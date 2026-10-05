@@ -42,8 +42,8 @@ export async function setupTuiSession(
 ): Promise<SessionProtocolSetupResult> {
   const setup = await applySessionProtocolPolicy(session, policy, context);
   if (setup.status !== 'ready' || setup.policy.cellPresentation === 'disabled') return setup;
-  if (setup.resultingState.cellPresentation !== 'explicit') {
-    throw new Error('A visual-cell surface requires established explicit cell presentation.');
+  if (setup.resultingState.cellPresentation !== 'application-ordered') {
+    throw new Error('A visual-cell surface requires established application-ordered physical cells.');
   }
   // Ordering modes can be captured on paragraph creation. Replacing characters
   // with spaces does not establish fresh paragraph attributes on an existing grid.
@@ -72,6 +72,7 @@ export async function restoreTuiSession(
       focusReporting: 'indeterminate' as const,
       metaSendsEscape: 'indeterminate' as const,
       unicodeGraphemeMode: 'indeterminate' as const,
+      bidiMode: 'indeterminate' as const,
       cellPresentation: 'indeterminate' as const,
       keyboardProfile: 'indeterminate' as const,
       cursorVisible: 'indeterminate' as const

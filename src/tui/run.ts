@@ -219,15 +219,17 @@ export async function runTui<TState, TMessage>(
 export class TuiRunError<TState = unknown> extends TerminalUiError {
   override readonly name = 'TuiRunError';
   readonly exit: Extract<TuiExit<TState>, { readonly status: 'error' }>;
+  /** The diagnostic selected for message and cause, before any appended cleanup detail. */
+  readonly primaryDiagnostic: TerminalDiagnostic | undefined;
 
   constructor(exit: Extract<TuiExit<TState>, { readonly status: 'error' }>) {
     const failure = primaryRunFailure(exit.diagnostics);
-    const cleanup = [...exit.diagnostics].reverse().find(({ diagnostic: item }) =>
-      item !== failure && (item.code === 'HOST_RESTORE_FAILED' || item.code === 'TUI_CLEANUP_FAILED'
-        || item.code === 'TUI_CLEANUP_TIMEOUT'))?.diagnostic;
+    const cleanup = exit.diagnostics.find(({ diagnostic: item }) =>
+      item !== failure && isCleanupDiagnostic(item))?.diagnostic;
     const message = runFailureMessage(failure);
     super(cleanup === undefined ? message : `${message} Cleanup: ${runFailureMessage(cleanup)}`, { cause: failure?.cause });
     this.exit = exit;
+    this.primaryDiagnostic = failure;
   }
 }
 
@@ -237,12 +239,21 @@ function operationalExit<TState>(exit: TuiExit<TState>): TuiRunResult<TState> {
 }
 
 function primaryRunFailure(diagnostics: readonly DiagnosticOccurrence[]): TerminalDiagnostic | undefined {
-  const failures = diagnostics.map(item => item.diagnostic).reverse();
-  // A required operation's outcome is authoritative even when the adapter reports
+  const failures = diagnostics.map(item => item.diagnostic).filter(item =>
+    item.data?.['outcome'] !== 'rejected' || item.data['requirement'] === 'required');
+  // Optional rejections do not fail setup. A required operation's outcome is
+  // authoritative even when the adapter reports
   // it as a warning and setup/cleanup subsequently add generic error summaries.
   return failures.find(item => item.data?.['outcome'] === 'indeterminate'
     || item.data?.['requirement'] === 'required' && item.data['outcome'] === 'rejected')
+    ?? failures.find(item => !isCleanupDiagnostic(item)
+      && (item.severity === 'fatal' || item.severity === 'error'))
     ?? failures.find(item => item.severity === 'fatal' || item.severity === 'error');
+}
+
+function isCleanupDiagnostic(item: TerminalDiagnostic): boolean {
+  return item.code === 'HOST_RESTORE_FAILED' || item.code === 'TUI_CLEANUP_FAILED'
+    || item.code === 'TUI_CLEANUP_TIMEOUT';
 }
 
 function runFailureMessage(failure: TerminalDiagnostic | undefined): string {

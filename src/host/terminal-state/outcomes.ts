@@ -39,13 +39,17 @@ export function unavailableCapabilityOutcome(
   ));
 }
 
-export function permanentModeTransitionDiagnostic(
+export function modeTransitionDiagnostic(
   lease: TerminalLeaseSnapshot,
   change: TerminalStateChange,
-  reports: TerminalModeReports
+  reports: TerminalModeReports,
+  conflicts: ReadonlySet<keyof TerminalModeReports>,
 ): TerminalDiagnostic | undefined {
-  const requestedModes = requestedPrivateModes(change);
+  const requestedModes = requestedTerminalModes(change);
   for (const [mode, requested] of requestedModes) {
+    if (conflicts.has(mode)) return diagnostic('HOST_PROTOCOL_UNSUPPORTED',
+      `Conflicting terminal reports cannot authorize ${change.kind}.`, { severity: 'warning', target: lease.id,
+        data: { operation: change.kind, reason: 'mode-reports-conflicting', mode, requested } });
     const fixed = permanentModeValue(reports[mode]);
     if (fixed === undefined || fixed === requested) continue;
     return diagnostic(
@@ -61,7 +65,7 @@ export function permanentModeTransitionDiagnostic(
   return undefined;
 }
 
-function requestedPrivateModes(
+export function requestedTerminalModes(
   change: TerminalStateChange
 ): readonly (readonly [keyof TerminalModeReports, boolean])[] {
   switch (change.kind) {
@@ -71,7 +75,8 @@ function requestedPrivateModes(
     case 'focusReporting': return [['private:1004', change.state]];
     case 'metaSendsEscape': return [['private:1036', change.state]];
     case 'unicodeGraphemeMode': return [['private:2027', change.state]];
-    case 'cellPresentation': return change.state === 'unknown' ? [] : [['standard:8', change.state === 'implicit']];
+    case 'bidiMode': return [['standard:8', change.state === 'implicit']];
+    case 'cellPresentation': return [];
     case 'mouseReporting': {
       const mouse = change.state;
       return [
@@ -110,7 +115,7 @@ export function capabilityForState(kind: TerminalStateKey): TerminalCapabilityNa
     case 'focusReporting': return 'focusReporting';
     case 'metaSendsEscape': return 'metaSendsEscape';
     case 'unicodeGraphemeMode': return 'unicodeGraphemeMode';
-    case 'cellPresentation': return 'cellPresentation';
+    case 'bidiMode': return 'cellPresentation';
     case 'keyboardProfile': return 'keyboardProtocol';
     case 'cursorVisible': return 'cursorVisibility';
   }

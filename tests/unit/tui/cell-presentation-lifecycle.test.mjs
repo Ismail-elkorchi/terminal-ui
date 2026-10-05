@@ -16,8 +16,10 @@ const sessionPolicy = { ...defaultSessionProtocolPolicy, alternateScreen: 'disab
   keyboard: { ...defaultSessionProtocolPolicy.keyboard, requirement: 'disabled' },
   cursorVisibility: { visibility: 'unchanged', requirement: 'disabled' }, mouseReporting: { mode: 'none', requirement: 'disabled' } };
 
-function modeHost(initialMode = 1) {
-  const host = createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 3 } });
+function modeHost(initialMode = 1, qualification = 'mode-8-reset') {
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 3 },
+    ...(qualification === null ? {} : { cellPresentation: { qualification } }),
+  });
   let mode = initialMode;
   let surfaceClears = 0;
   const observe = chunk => {
@@ -25,7 +27,9 @@ function modeHost(initialMode = 1) {
     if (text.includes('\u001B[2J')) surfaceClears += 1;
     if (text.includes('\u001B[8l')) mode = 2;
     if (text.includes('\u001B[8h')) mode = 1;
-    if (text.includes('\u001B[8$p')) host.input(`\u001B[8;${mode}$y\u001B[?1;2c`);
+    const queries = [...text.matchAll(/\u001B\[(\??)(\d+)\$p/gu)];
+    if (queries.length > 0) host.input(`${queries.map(([, prefix, number]) =>
+      `\u001B[${prefix}${number};${prefix === '' && number === '8' ? mode : 0}$y`).join('')}\u001B[?1;2c`);
   };
   const write = host.stdout.write.bind(host.stdout);
   host.stdout.write = async (chunk, context) => { await write(chunk, context); observe(chunk); };
@@ -46,7 +50,7 @@ function assertRestored(emulator) {
   assert.equal(emulator.mode(), 1);
   assert.equal(emulator.host.stdin.isRawModeEnabled(), false);
   assert.equal(emulator.host.restores().at(-1).status, 'restored');
-  assert.equal(emulator.host.restores().at(-1).resultingState.cellPresentation, 'implicit');
+  assert.equal(emulator.host.restores().at(-1).resultingState.bidiMode, 'implicit');
 }
 
 test('explicit TUI configuration rejects missing mapping before any terminal operation', async () => {
@@ -101,14 +105,14 @@ test('suspension restores the outer mode and reestablishes presentation before o
 });
 
 test('ordinary default session starts on a caller-qualified explicit host without mapping', async () => {
-  const host = createMemoryTerminalHost({ initialState: { cellPresentation: 'explicit' } });
+  const host = createMemoryTerminalHost({ cellPresentation: { qualification: 'existing' } });
   const running = runTui(app(), { host, graphics: 'none' });
   await waitUntil(() => host.frames().length > 0);
   host.input('\r');
   assert.equal((await running).status, 'completed');
   assert.equal(host.stdin.isRawModeEnabled(), false);
   assert.doesNotMatch(host.output(), /\u001B\[8[hl]|\u001B\[2J/u);
-  assert.equal(host.restores().at(-1).resultingState.cellPresentation, 'explicit');
+  assert.equal(host.restores().at(-1).resultingState.cellPresentation, 'application-ordered');
 });
 
 test('ordinary session starts on an observed explicit host without mapping', async () => {
@@ -125,7 +129,7 @@ test('ordinary session starts on an observed explicit host without mapping', asy
   assert.equal(emulator.host.stdin.isRawModeEnabled(), false);
   assert.equal(emulator.surfaceClears(), 0);
   assert.doesNotMatch(emulator.host.output(), /\u001B\[8[hl]/u);
-  assert.equal(emulator.host.restores().at(-1).resultingState.cellPresentation, 'explicit');
+  assert.equal(emulator.host.restores().at(-1).resultingState.cellPresentation, 'application-ordered');
 });
 
 test('ordinary session resumes on a newly explicit terminal and preserves its external baseline', async () => {
@@ -153,7 +157,7 @@ test('ordinary session resumes on a newly explicit terminal and preserves its ex
   assert.equal(emulator.surfaceClears(), 0);
   assert.equal(emulator.mode(), 2);
   assert.equal(emulator.host.stdin.isRawModeEnabled(), false);
-  assert.equal(emulator.host.restores().at(-1).resultingState.cellPresentation, 'explicit');
+  assert.equal(emulator.host.restores().at(-1).resultingState.cellPresentation, 'application-ordered');
   assert.deepEqual(emulator.host.output().match(/\u001B\[8[hl]/gu), ['\u001B[8l']);
 });
 
@@ -178,6 +182,7 @@ for (const mode of [0, 3]) {
       const failure = error.exit.diagnostics.find(({ diagnostic }) =>
         diagnostic.data?.operation === 'cellPresentation' && diagnostic.data?.outcome === 'rejected')?.diagnostic;
       assert.ok(failure, 'resume retains the authoritative required-operation failure');
+      assert.equal(error.primaryDiagnostic, failure);
       assert.ok(error.message.startsWith(failure.message));
       return true;
     });
@@ -186,7 +191,7 @@ for (const mode of [0, 3]) {
     assert.equal(emulator.surfaceClears(), 1);
     assert.equal(emulator.mode(), mode);
     assert.equal(emulator.host.stdin.isRawModeEnabled(), false);
-    assert.equal(emulator.host.restores().at(-1).resultingState.cellPresentation, mode === 0 ? 'unknown' : 'implicit');
+    assert.equal(emulator.host.restores().at(-1).resultingState.bidiMode, mode === 0 ? 'unknown' : 'implicit');
     assert.deepEqual(emulator.host.output().match(/\u001B\[8[hl]/gu), ['\u001B[8l', '\u001B[8h']);
   });
 }
@@ -234,6 +239,8 @@ test('required mode failure is the actionable primary error, including warning o
     assert.ok(error instanceof TuiRunError);
     const failure = error.exit.diagnostics.find(({ diagnostic }) =>
       diagnostic.data?.operation === 'cellPresentation' && diagnostic.data?.outcome === 'rejected').diagnostic;
+    assert.equal(error.primaryDiagnostic, failure);
+    assert.equal(error.cause, failure.cause);
     assert.equal(failure.data.requirement, 'required');
     assert.equal(failure.severity, 'warning');
     assert.ok(error.message.startsWith(failure.message));
@@ -247,9 +254,6 @@ test('required mode failure is the actionable primary error, including warning o
 
 test('unrecognized alternate-screen query does not reject a working visual-cell session', async () => {
   const emulator = modeHost();
-  const input = emulator.host.input.bind(emulator.host);
-  emulator.host.input = chunk => input(String(chunk).startsWith('\u001B[8;')
-    ? `\u001B[?1049;0$y${chunk}` : chunk);
   const running = runTui(app(), { host: emulator.host, textPresentation,
     sessionPolicy: { ...sessionPolicy, alternateScreen: 'required' }, graphics: 'none' });
   await waitUntil(() => emulator.host.frames().length > 0);
@@ -258,3 +262,25 @@ test('unrecognized alternate-screen query does not reject a working visual-cell 
   assertRestored(emulator);
   assert.deepEqual(emulator.host.output().match(/\u001B\[\?1049[hl]/gu), ['\u001B[?1049h', '\u001B[?1049l']);
 });
+
+for (const mode of [2, 4]) {
+  test(`explicit bidi-mode evidence alone cannot admit mapped application cells (mode ${mode})`, async () => {
+    const emulator = modeHost(mode, null);
+    let initialized = false;
+    await assert.rejects(runTui(app({ init: () => {
+      initialized = true;
+      return { state: { value: 'unexpected' } };
+    } }), { host: emulator.host, textPresentation, sessionPolicy, graphics: 'none' }), error => {
+      assert.ok(error instanceof TuiRunError);
+      assert.equal(error.primaryDiagnostic.code, 'HOST_CELL_PRESENTATION_UNQUALIFIED');
+      assert.equal(error.primaryDiagnostic.data.operation, 'cellPresentation');
+      assert.equal(error.primaryDiagnostic.data.outcome, 'rejected');
+      return true;
+    });
+    assert.equal(initialized, false);
+    assert.equal(emulator.host.frames().length, 0);
+    assert.equal(emulator.surfaceClears(), 0);
+    assert.equal(emulator.mode(), mode);
+    assert.equal(emulator.host.stdin.isRawModeEnabled(), false);
+  });
+}

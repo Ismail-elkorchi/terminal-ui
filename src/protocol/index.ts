@@ -53,7 +53,8 @@ export interface TerminalProtocolWriter {
   disableFocusReporting(): Promise<void>;
   enableMetaSendsEscape(): Promise<void>;
   disableMetaSendsEscape(): Promise<void>;
-  setCellPresentation(presentation: 'implicit' | 'explicit'): Promise<void>;
+  /** Raw ECMA-48 mode 8 only; this does not establish physical character path or cell order. */
+  setBidiMode(mode: 'implicit' | 'explicit'): Promise<void>;
   enableUnicodeGraphemeMode(): Promise<void>;
   disableUnicodeGraphemeMode(): Promise<void>;
   pushKeyboardProfile(profile: TerminalKeyboardProfile): Promise<void>;
@@ -89,10 +90,10 @@ export function createProtocolWriter(sink: TerminalProtocolSink): TerminalProtoc
     disableFocusReporting: async () => sink.write('\u001B[?1004l'),
     enableMetaSendsEscape: async () => sink.write('\u001B[?1036h'),
     disableMetaSendsEscape: async () => sink.write('\u001B[?1036l'),
-    setCellPresentation: async (presentation) => {
-      const supplied: unknown = presentation;
-      if (supplied !== 'implicit' && supplied !== 'explicit') throw new TypeError('Cell presentation must be implicit or explicit.');
-      await sink.write(presentation === 'explicit' ? '\u001B[8l' : '\u001B[8h');
+    setBidiMode: async (mode) => {
+      const supplied: unknown = mode;
+      if (supplied !== 'implicit' && supplied !== 'explicit') throw new TypeError('Bidirectional mode must be implicit or explicit.');
+      await sink.write(mode === 'explicit' ? '\u001B[8l' : '\u001B[8h');
     },
     enableUnicodeGraphemeMode: async () => sink.write('\u001B[?2027h'),
     disableUnicodeGraphemeMode: async () => sink.write('\u001B[?2027l'),

@@ -114,7 +114,7 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
       rows: getTerminalSize().rows,
       supportsRawInput: typeof inputStream.setRawMode === 'function',
       supportsResizeEvents: typeof outputStream.on === 'function' && typeof outputStream.off === 'function',
-      ...(options.initialState?.cellPresentation === 'explicit' ? { cellPresentation: 'explicit' as const } : {}),
+      ...(options.cellPresentation === undefined ? {} : { cellPresentation: options.cellPresentation }),
       supportsTerminalProtocols: stdout.isTty(),
       ...(colorDepth === undefined ? {} : { colorDepth })
     },
@@ -132,7 +132,7 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
     resolverInput,
     beginSession: (id, capabilities) => terminalState.beginLease(id, capabilities),
     beginObservationRefresh: () => terminalState.beginObservationRefresh(),
-    observeModes: (reports) => terminalState.observeModes(reports),
+    observeModes: (reports, conflictingModes) => terminalState.observeModes(reports, conflictingModes),
     observeKeyboardProfile: (profile) => terminalState.observeKeyboardProfile(profile),
     write: (chunk, signal) => output.write(chunk, { signal }),
     writeRecovery: (chunk, signal) => output.writeRecovery(chunk, { signal })
@@ -165,8 +165,9 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
   };
   terminalState.bind(host, {
     rawInputKnowledge: typeof inputStream.isRaw === 'boolean' ? 'observed' : 'library_known',
-    observeCellPresentation: (context, recovery) => detector.observeCellPresentation(context.signal, recovery),
+    observeBidiMode: (context, recovery) => detector.observeBidiMode(context.signal, recovery),
     verifyKeyboardProfile: (flags, context) => detector.verifyKeyboardProfile(flags, context.signal),
+    ...(options.cellPresentation === undefined ? {} : { cellPresentation: options.cellPresentation }),
     ...(options.initialState === undefined ? {} : { initialState: options.initialState })
   });
   return host;

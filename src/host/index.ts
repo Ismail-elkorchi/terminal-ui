@@ -20,6 +20,7 @@ export type {
 export { terminalCapabilityNames } from './capability-types.ts';
 export type {
   CapabilitySourceFact,
+  TerminalCellPresentationQualification,
   CapabilitySourceKind,
   CapabilitySupport,
   HostFeatureAvailability,
@@ -57,6 +58,7 @@ export type {
   TerminalCapabilityDetectionOptions,
   TerminalClock,
   TerminalCellPresentation,
+  TerminalBidiMode,
   TerminalEnvironment,
   TerminalHost,
   TerminalInitialState,

@@ -72,7 +72,9 @@ export interface SessionProtocolSetupResult {
   readonly status: 'ready' | 'failed';
   readonly policy: SessionProtocolPolicy;
   readonly planned: readonly SessionProtocolOperation[];
+  /** Operations whose requested state was established. */
   readonly applied: readonly TerminalStateChange[];
+  /** Disabled, rejected, indeterminate, or unattempted operations; diagnostics identify why. */
   readonly skipped: readonly SessionProtocolOperation[];
   readonly resultingState: TerminalStateSnapshot;
   readonly diagnostics: readonly TerminalDiagnostic[];
@@ -130,6 +132,11 @@ export async function applySessionProtocolPolicy(
   const diagnostics: TerminalDiagnostic[] = [];
   let status: SessionProtocolSetupResult['status'] = 'ready';
   for (const item of planned) {
+    if (status === 'failed') {
+      skipped.push(item);
+      diagnostics.push(skippedDiagnostic(session, item, 'setup_failed'));
+      continue;
+    }
     if (
       (item.requirement === 'disabled' && item.kind !== 'keyboardProfile')
       || item.target === 'unchanged'
@@ -148,11 +155,11 @@ export async function applySessionProtocolPolicy(
     diagnostics.push(operationFailureDiagnostic(session, item, result), ...result.diagnostics);
     skipped.push(item);
     if (item.requirement === 'required' || result.status === 'indeterminate') status = 'failed';
-    if (result.status === 'indeterminate') break;
   }
   const resultingState = await session.currentState();
   if (
-    resultingState.mouseReporting.tracking !== 'none'
+    status === 'ready'
+    && resultingState.mouseReporting.tracking !== 'none'
     && resultingState.mouseReporting.encoding !== 'sgr'
   ) {
     status = 'failed';
@@ -217,7 +224,8 @@ async function applyOperation(
 
 function skippedDiagnostic(
   session: TerminalSession,
-  item: SessionProtocolOperation
+  item: SessionProtocolOperation,
+  reason: 'policy' | 'setup_failed' = 'policy'
 ): TerminalDiagnostic {
   return diagnostic('HOST_PROTOCOL_SKIPPED', `Terminal protocol operation skipped: ${item.kind}.`, {
     severity: 'info',
@@ -225,7 +233,8 @@ function skippedDiagnostic(
     data: {
       operation: item.kind,
       requirement: item.requirement,
-      target: protocolTarget(item.target)
+      target: protocolTarget(item.target),
+      reason
     }
   });
 }

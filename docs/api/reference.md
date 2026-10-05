@@ -19,14 +19,14 @@ See [API stability](../guides/api-stability.md) for stability labels.
 - [`BunTerminalHostOptions`](#host-bunterminalhostoptions), [`CapabilityOverride`](#host-capabilityoverride), [`CapabilityOverrides`](#host-capabilityoverrides), [`CapabilitySourceFact`](#host-capabilitysourcefact), [`CapabilitySourceKind`](#host-capabilitysourcekind), [`CapabilitySupport`](#host-capabilitysupport), [`ControlledTerminalClock`](#host-controlledterminalclock), [`CreateTerminalHostOptions`](#host-createterminalhostoptions)
 - [`DenoTerminalHostOptions`](#host-denoterminalhostoptions), [`EnvironmentFacts`](#host-environmentfacts), [`GraphicsProbeFacts`](#host-graphicsprobefacts), [`HostFeatureAvailability`](#host-hostfeatureavailability), [`KittyGraphicsProbeFacts`](#host-kittygraphicsprobefacts), [`MemoryTerminalHost`](#host-memoryterminalhost), [`MemoryTerminalHostOptions`](#host-memoryterminalhostoptions), [`MouseReportingEncoding`](#host-mousereportingencoding)
 - [`MouseReportingMode`](#host-mousereportingmode), [`MouseReportingState`](#host-mousereportingstate), [`NodeProcessLike`](#host-nodeprocesslike), [`NodeReadableTerminalStream`](#host-nodereadableterminalstream), [`NodeTerminalHostOptions`](#host-nodeterminalhostoptions), [`NodeTerminalSignal`](#host-nodeterminalsignal), [`NodeWritableTerminalStream`](#host-nodewritableterminalstream), [`ProtocolProbeFacts`](#host-protocolprobefacts)
-- [`PtyTerminalHost`](#host-ptyterminalhost), [`PtyTerminalHostOptions`](#host-ptyterminalhostoptions), [`RuntimeInputSource`](#host-runtimeinputsource), [`RuntimeTarget`](#host-runtimetarget), [`RuntimeTerminalInputOptions`](#host-runtimeterminalinputoptions), [`RuntimeTerminalOutputOptions`](#host-runtimeterminaloutputoptions), [`TerminalActiveCapabilityProbe`](#host-terminalactivecapabilityprobe), [`TerminalCapabilityConfiguration`](#host-terminalcapabilityconfiguration)
-- [`TerminalCapabilityDetectionOptions`](#host-terminalcapabilitydetectionoptions), [`TerminalCapabilityName`](#host-terminalcapabilityname), [`TerminalCapabilityProfile`](#host-terminalcapabilityprofile), [`TerminalCapabilityResolverInput`](#host-terminalcapabilityresolverinput), [`TerminalCellPresentation`](#host-terminalcellpresentation), [`TerminalClock`](#host-terminalclock), [`TerminalColorCapability`](#host-terminalcolorcapability), [`TerminalEnvironment`](#host-terminalenvironment)
-- [`TerminalFeatureSupport`](#host-terminalfeaturesupport), [`TerminalGraphicsCapability`](#host-terminalgraphicscapability), [`TerminalHost`](#host-terminalhost), [`TerminalHostFacts`](#host-terminalhostfacts), [`TerminalInitialState`](#host-terminalinitialstate), [`TerminalInput`](#host-terminalinput), [`TerminalInputChunk`](#host-terminalinputchunk), [`TerminalInputReadOptions`](#host-terminalinputreadoptions)
-- [`TerminalKittyGraphicsCapability`](#host-terminalkittygraphicscapability), [`TerminalOperationAssurance`](#host-terminaloperationassurance), [`TerminalOperationContext`](#host-terminaloperationcontext), [`TerminalOperationOutcome`](#host-terminaloperationoutcome), [`TerminalOutput`](#host-terminaloutput), [`TerminalOutputChunk`](#host-terminaloutputchunk), [`TerminalRestoreCompletion`](#host-terminalrestorecompletion), [`TerminalRestoreOptions`](#host-terminalrestoreoptions)
-- [`TerminalRestoreReason`](#host-terminalrestorereason), [`TerminalRestoreResult`](#host-terminalrestoreresult), [`TerminalSession`](#host-terminalsession), [`TerminalSessionOptions`](#host-terminalsessionoptions), [`TerminalSignal`](#host-terminalsignal), [`TerminalSignalSource`](#host-terminalsignalsource), [`TerminalSize`](#host-terminalsize), [`TerminalSleepOutcome`](#host-terminalsleepoutcome)
-- [`TerminalStateChange`](#host-terminalstatechange), [`TerminalStateKnowledge`](#host-terminalstateknowledge), [`TerminalStateProvenanceSnapshot`](#host-terminalstateprovenancesnapshot), [`TerminalStateSnapshot`](#host-terminalstatesnapshot), [`TerminalUnicodeCapability`](#host-terminalunicodecapability), [`TerminalWriteReceipt`](#host-terminalwritereceipt), [`Unsubscribe`](#host-unsubscribe), [`capabilityIsSupported`](#host-capabilityissupported)
-- [`committedTerminalWrite`](#host-committedterminalwrite), [`createBunTerminalHost`](#host-createbunterminalhost), [`createDenoTerminalHost`](#host-createdenoterminalhost), [`createMemoryTerminalHost`](#host-creatememoryterminalhost), [`createNodeTerminalHost`](#host-createnodeterminalhost), [`createPtyTerminalHost`](#host-createptyterminalhost), [`createTerminalHost`](#host-createterminalhost), [`detectTerminalCapabilities`](#host-detectterminalcapabilities)
-- [`failedTerminalWrite`](#host-failedterminalwrite), [`indeterminateTerminalWrite`](#host-indeterminateterminalwrite), [`resolveTerminalCapabilities`](#host-resolveterminalcapabilities), [`restoreTerminalState`](#host-restoreterminalstate), [`terminalCapabilityNames`](#host-terminalcapabilitynames)
+- [`PtyTerminalHost`](#host-ptyterminalhost), [`PtyTerminalHostOptions`](#host-ptyterminalhostoptions), [`RuntimeInputSource`](#host-runtimeinputsource), [`RuntimeTarget`](#host-runtimetarget), [`RuntimeTerminalInputOptions`](#host-runtimeterminalinputoptions), [`RuntimeTerminalOutputOptions`](#host-runtimeterminaloutputoptions), [`TerminalActiveCapabilityProbe`](#host-terminalactivecapabilityprobe), [`TerminalBidiMode`](#host-terminalbidimode)
+- [`TerminalCapabilityConfiguration`](#host-terminalcapabilityconfiguration), [`TerminalCapabilityDetectionOptions`](#host-terminalcapabilitydetectionoptions), [`TerminalCapabilityName`](#host-terminalcapabilityname), [`TerminalCapabilityProfile`](#host-terminalcapabilityprofile), [`TerminalCapabilityResolverInput`](#host-terminalcapabilityresolverinput), [`TerminalCellPresentation`](#host-terminalcellpresentation), [`TerminalCellPresentationQualification`](#host-terminalcellpresentationqualification), [`TerminalClock`](#host-terminalclock)
+- [`TerminalColorCapability`](#host-terminalcolorcapability), [`TerminalEnvironment`](#host-terminalenvironment), [`TerminalFeatureSupport`](#host-terminalfeaturesupport), [`TerminalGraphicsCapability`](#host-terminalgraphicscapability), [`TerminalHost`](#host-terminalhost), [`TerminalHostFacts`](#host-terminalhostfacts), [`TerminalInitialState`](#host-terminalinitialstate), [`TerminalInput`](#host-terminalinput)
+- [`TerminalInputChunk`](#host-terminalinputchunk), [`TerminalInputReadOptions`](#host-terminalinputreadoptions), [`TerminalKittyGraphicsCapability`](#host-terminalkittygraphicscapability), [`TerminalOperationAssurance`](#host-terminaloperationassurance), [`TerminalOperationContext`](#host-terminaloperationcontext), [`TerminalOperationOutcome`](#host-terminaloperationoutcome), [`TerminalOutput`](#host-terminaloutput), [`TerminalOutputChunk`](#host-terminaloutputchunk)
+- [`TerminalRestoreCompletion`](#host-terminalrestorecompletion), [`TerminalRestoreOptions`](#host-terminalrestoreoptions), [`TerminalRestoreReason`](#host-terminalrestorereason), [`TerminalRestoreResult`](#host-terminalrestoreresult), [`TerminalSession`](#host-terminalsession), [`TerminalSessionOptions`](#host-terminalsessionoptions), [`TerminalSignal`](#host-terminalsignal), [`TerminalSignalSource`](#host-terminalsignalsource)
+- [`TerminalSize`](#host-terminalsize), [`TerminalSleepOutcome`](#host-terminalsleepoutcome), [`TerminalStateChange`](#host-terminalstatechange), [`TerminalStateKnowledge`](#host-terminalstateknowledge), [`TerminalStateProvenanceSnapshot`](#host-terminalstateprovenancesnapshot), [`TerminalStateSnapshot`](#host-terminalstatesnapshot), [`TerminalUnicodeCapability`](#host-terminalunicodecapability), [`TerminalWriteReceipt`](#host-terminalwritereceipt)
+- [`Unsubscribe`](#host-unsubscribe), [`capabilityIsSupported`](#host-capabilityissupported), [`committedTerminalWrite`](#host-committedterminalwrite), [`createBunTerminalHost`](#host-createbunterminalhost), [`createDenoTerminalHost`](#host-createdenoterminalhost), [`createMemoryTerminalHost`](#host-creatememoryterminalhost), [`createNodeTerminalHost`](#host-createnodeterminalhost), [`createPtyTerminalHost`](#host-createptyterminalhost)
+- [`createTerminalHost`](#host-createterminalhost), [`detectTerminalCapabilities`](#host-detectterminalcapabilities), [`failedTerminalWrite`](#host-failedterminalwrite), [`indeterminateTerminalWrite`](#host-indeterminateterminalwrite), [`resolveTerminalCapabilities`](#host-resolveterminalcapabilities), [`restoreTerminalState`](#host-restoreterminalstate), [`terminalCapabilityNames`](#host-terminalcapabilitynames)
 
 ### @ismail-elkorchi/terminal-ui/input
 
@@ -21566,6 +21566,13 @@ readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsu
 readonly initialState?: TerminalInitialState;
 ```
 
+<a id="host-bunterminalhostoptions-cellpresentation"></a>
+#### cellPresentation
+
+```ts
+readonly cellPresentation?: TerminalCellPresentationQualification;
+```
+
 <a id="host-capabilityoverride"></a>
 ### CapabilityOverride
 
@@ -21599,7 +21606,7 @@ type · beta · [source](../../src/host/capabilities.ts)
 Import from: `@ismail-elkorchi/terminal-ui/host` (type only)
 
 ```ts
-export type CapabilityOverrides = Partial<Record<TerminalCapabilityName, boolean | CapabilityOverride>>;
+export type CapabilityOverrides = Partial<Record<Exclude<TerminalCapabilityName, 'cellPresentation'>, boolean | CapabilityOverride>>;
 ```
 
 Related types: [`CapabilityOverride`](#host-capabilityoverride), [`TerminalCapabilityName`](#host-terminalcapabilityname)
@@ -21799,6 +21806,13 @@ readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsu
 
 ```ts
 readonly initialState?: TerminalInitialState;
+```
+
+<a id="host-denoterminalhostoptions-cellpresentation"></a>
+#### cellPresentation
+
+```ts
+readonly cellPresentation?: TerminalCellPresentationQualification;
 ```
 
 <a id="host-environmentfacts"></a>
@@ -22049,6 +22063,13 @@ readonly capabilities?: TerminalCapabilityConfiguration;
 readonly initialState?: TerminalInitialState;
 ```
 
+<a id="host-memoryterminalhostoptions-cellpresentation"></a>
+#### cellPresentation
+
+```ts
+readonly cellPresentation?: TerminalCellPresentationQualification;
+```
+
 <a id="host-mousereportingencoding"></a>
 ### MouseReportingEncoding
 
@@ -22292,6 +22313,13 @@ readonly capabilities?: TerminalCapabilityConfiguration;
 readonly initialState?: TerminalInitialState;
 ```
 
+<a id="host-nodeterminalhostoptions-cellpresentation"></a>
+#### cellPresentation
+
+```ts
+readonly cellPresentation?: TerminalCellPresentationQualification;
+```
+
 <a id="host-nodeterminalsignal"></a>
 ### NodeTerminalSignal
 
@@ -22378,7 +22406,7 @@ type · beta · [source](../../src/host/capabilities.ts)
 Import from: `@ismail-elkorchi/terminal-ui/host` (type only)
 
 ```ts
-export type ProtocolProbeFacts = Partial<Record<TerminalCapabilityName, TerminalFeatureSupport>>;
+export type ProtocolProbeFacts = Partial<Record<Exclude<TerminalCapabilityName, 'cellPresentation'>, TerminalFeatureSupport>>;
 ```
 
 Related types: [`TerminalCapabilityName`](#host-terminalcapabilityname), [`TerminalFeatureSupport`](#host-terminalfeaturesupport)
@@ -22494,6 +22522,13 @@ readonly capabilities?: TerminalCapabilityConfiguration;
 
 ```ts
 readonly initialState?: TerminalInitialState;
+```
+
+<a id="host-ptyterminalhostoptions-cellpresentation"></a>
+#### cellPresentation
+
+```ts
+readonly cellPresentation?: TerminalCellPresentationQualification;
 ```
 
 <a id="host-runtimeinputsource"></a>
@@ -22644,6 +22679,19 @@ Import from: `@ismail-elkorchi/terminal-ui/host` (type only)
 
 ```ts
 export type TerminalActiveCapabilityProbe = 'graphics' | 'keyboardProtocol' | 'terminalModes';
+```
+
+<a id="host-terminalbidimode"></a>
+### TerminalBidiMode
+
+type · beta · [source](../../src/host/types.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/host` (type only)
+
+Raw ECMA-48 BDSM (standard mode 8), independent of character path and physical cells.
+
+```ts
+export type TerminalBidiMode = 'unknown' | 'implicit' | 'explicit';
 ```
 
 <a id="host-terminalcapabilityconfiguration"></a>
@@ -22831,10 +22879,38 @@ type · beta · [source](../../src/host/types.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui/host` (type only)
 
-ECMA-48 mode 8 ordering only; this makes no claim about font shaping.
+Application-ordered physical left-to-right cells, without terminal reordering or mirroring.
 
 ```ts
-export type TerminalCellPresentation = 'unknown' | 'implicit' | 'explicit';
+export type TerminalCellPresentation = 'unknown' | 'application-ordered';
+```
+
+<a id="host-terminalcellpresentationqualification"></a>
+### TerminalCellPresentationQualification
+
+interface · beta · [source](../../src/host/capability-types.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/host` (type only)
+
+Caller attestation of independently qualified physical left-to-right application cell order,
+aligned cursor and pointer coordinates, and physical horizontal-arrow semantics. Includes
+inherited direction and related terminal configuration; excludes glyph shaping and width.
+The attestation applies throughout this host lifetime, including resumed sessions. The caller
+must preserve qualified direction/configuration across external terminal use; a mode query
+cannot revalidate those unqueryable preconditions. Observed contradiction invalidates it.
+This declares evidence, never a request to make an unqualified terminal compatible.
+
+```ts
+export interface TerminalCellPresentationQualification { … }
+```
+
+<a id="host-terminalcellpresentationqualification-qualification"></a>
+#### qualification
+
+Already true, or true after an observed standard-mode-8 reset.
+
+```ts
+readonly qualification: 'existing' | 'mode-8-reset';
 ```
 
 <a id="host-terminalclock"></a>
@@ -23127,10 +23203,10 @@ export interface TerminalHostFacts { … }
 <a id="host-terminalhostfacts-cellpresentation"></a>
 #### cellPresentation
 
-Independently qualified explicit ordering, supplied by the caller; not terminal detection.
+Caller-qualified full physical-cell invariant; never inferred from terminal identity or BDSM.
 
 ```ts
-readonly cellPresentation?: 'explicit';
+readonly cellPresentation?: TerminalCellPresentationQualification;
 ```
 
 <a id="host-terminalhostfacts-runtime"></a>
@@ -23204,7 +23280,7 @@ type · beta · [source](../../src/host/types.ts)
 Import from: `@ismail-elkorchi/terminal-ui/host` (type only)
 
 ```ts
-export type TerminalInitialState = Partial<Omit<TerminalStateSnapshot, 'provenance'>>;
+export type TerminalInitialState = Partial<Omit<TerminalStateSnapshot, 'provenance' | 'cellPresentation'>>;
 ```
 
 Related types: [`TerminalStateSnapshot`](#host-terminalstatesnapshot)
@@ -23319,7 +23395,7 @@ type · beta · [source](../../src/host/types.ts)
 Import from: `@ismail-elkorchi/terminal-ui/host` (type only)
 
 ```ts
-export type TerminalOperationAssurance = 'observed' | 'sent' | 'assumed';
+export type TerminalOperationAssurance = 'observed' | 'sent' | 'assumed' | 'declared';
 ```
 
 <a id="host-terminaloperationcontext"></a>
@@ -23463,7 +23539,7 @@ Import from: `@ismail-elkorchi/terminal-ui/host` (type only)
 ```ts
 export type TerminalRestoreCompletion = TerminalStateChange & {
     /** Evidence for this restored state, independent of output transport completion. */
-    readonly assurance: Exclude<TerminalOperationAssurance, 'assumed'>;
+    readonly assurance: Extract<TerminalOperationAssurance, 'observed' | 'sent'>;
 };
 ```
 
@@ -23816,6 +23892,9 @@ export type TerminalStateChange = {
     readonly kind: 'unicodeGraphemeMode';
     readonly state: boolean;
 } | {
+    readonly kind: 'bidiMode';
+    readonly state: TerminalBidiMode;
+} | {
     readonly kind: 'cellPresentation';
     readonly state: TerminalCellPresentation;
 } | {
@@ -23827,7 +23906,7 @@ export type TerminalStateChange = {
 };
 ```
 
-Related types: [`MouseReportingState`](#host-mousereportingstate), [`TerminalCellPresentation`](#host-terminalcellpresentation), [`TerminalKeyboardProfile`](#protocol-terminalkeyboardprofile)
+Related types: [`MouseReportingState`](#host-mousereportingstate), [`TerminalBidiMode`](#host-terminalbidimode), [`TerminalCellPresentation`](#host-terminalcellpresentation), [`TerminalKeyboardProfile`](#protocol-terminalkeyboardprofile)
 
 <a id="host-terminalstateknowledge"></a>
 ### TerminalStateKnowledge
@@ -23898,6 +23977,13 @@ readonly metaSendsEscape: TerminalStateKnowledge;
 
 ```ts
 readonly unicodeGraphemeMode: TerminalStateKnowledge;
+```
+
+<a id="host-terminalstateprovenancesnapshot-bidimode"></a>
+#### bidiMode
+
+```ts
+readonly bidiMode: TerminalStateKnowledge;
 ```
 
 <a id="host-terminalstateprovenancesnapshot-cellpresentation"></a>
@@ -23981,8 +24067,19 @@ readonly metaSendsEscape: boolean;
 readonly unicodeGraphemeMode: boolean;
 ```
 
+<a id="host-terminalstatesnapshot-bidimode"></a>
+#### bidiMode
+
+Raw mode state is evidence for BDSM and its restoration only.
+
+```ts
+readonly bidiMode: TerminalBidiMode;
+```
+
 <a id="host-terminalstatesnapshot-cellpresentation"></a>
 #### cellPresentation
+
+Derived full invariant; a mode report alone never establishes it.
 
 ```ts
 readonly cellPresentation: TerminalCellPresentation;
@@ -30882,11 +30979,13 @@ enableMetaSendsEscape(): Promise<void>;
 disableMetaSendsEscape(): Promise<void>;
 ```
 
-<a id="protocol-terminalprotocolwriter-setcellpresentation"></a>
-#### setCellPresentation
+<a id="protocol-terminalprotocolwriter-setbidimode"></a>
+#### setBidiMode
+
+Raw ECMA-48 mode 8 only; this does not establish physical character path or cell order.
 
 ```ts
-setCellPresentation(presentation: 'implicit' | 'explicit'): Promise<void>;
+setBidiMode(mode: 'implicit' | 'explicit'): Promise<void>;
 ```
 
 <a id="protocol-terminalprotocolwriter-enableunicodegraphememode"></a>
@@ -40700,12 +40799,16 @@ readonly planned: readonly SessionProtocolOperation[];
 <a id="tui-sessionprotocolsetupresult-applied"></a>
 #### applied
 
+Operations whose requested state was established.
+
 ```ts
 readonly applied: readonly TerminalStateChange[];
 ```
 
 <a id="tui-sessionprotocolsetupresult-skipped"></a>
 #### skipped
+
+Disabled, rejected, indeterminate, or unattempted operations; diagnostics identify why.
 
 ```ts
 readonly skipped: readonly SessionProtocolOperation[];
@@ -42683,6 +42786,15 @@ readonly name = "TuiRunError";
 readonly exit: Extract<TuiExit<TState>, {
         readonly status: 'error';
     }>;
+```
+
+<a id="tui-tuirunerror-primarydiagnostic"></a>
+#### primaryDiagnostic
+
+The diagnostic selected for message and cause, before any appended cleanup detail.
+
+```ts
+readonly primaryDiagnostic: TerminalDiagnostic | undefined;
 ```
 
 <a id="tui-tuirunerror-constructor"></a>

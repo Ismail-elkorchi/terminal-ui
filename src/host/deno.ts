@@ -37,6 +37,7 @@ export function createDenoTerminalHost(options: DenoTerminalHostOptions = {}): T
     stderr: options.stderr ?? denoOutputOptions(deno?.stderr),
     ...(getNativeTerminalSize === undefined ? {} : { getTerminalSize: getNativeTerminalSize }),
     ...(options.capabilities === undefined ? {} : { capabilities: options.capabilities }),
+    ...(options.cellPresentation === undefined ? {} : { cellPresentation: options.cellPresentation }),
     ...(options.initialState === undefined ? {} : { initialState: options.initialState }),
     ...optionalEnv(options.env ?? denoEnvironment(deno))
   });

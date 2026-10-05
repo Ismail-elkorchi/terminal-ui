@@ -1,3 +1,4 @@
+import type { TerminalCellPresentationQualification } from '../capability-types.ts';
 import type { TerminalDiagnostic } from '../../diagnostics.ts';
 import type { TerminalKeyboardProfile } from '../../protocol/keyboard.ts';
 import type {
@@ -7,10 +8,15 @@ import type {
   TerminalRestoreResult,
   TerminalStateKnowledge,
   TerminalStateSnapshot,
+  TerminalStateChange,
 } from '../types.ts';
 
 
-export type TerminalStateKey = keyof Omit<TerminalStateSnapshot, 'provenance'>;
+export type TerminalStateStorage = Omit<TerminalStateSnapshot, 'cellPresentation' | 'provenance'> & {
+  readonly provenance: Omit<TerminalStateSnapshot['provenance'], 'cellPresentation'>;
+};
+export type TerminalRestorableStateChange = Exclude<TerminalStateChange, { readonly kind: 'cellPresentation' }>;
+export type TerminalStateKey = keyof Omit<TerminalStateStorage, 'provenance'>;
 
 export type TerminalScreen = 'main' | 'alternate';
 
@@ -45,7 +51,8 @@ export type KeyboardFrameState = 'none' | 'push_uncertain' | 'owned' | 'pop_unce
 export interface TerminalStateAuthorityOptions {
   readonly rawInputKnowledge: TerminalStateKnowledge;
   readonly initialState?: TerminalInitialState;
-  readonly observeCellPresentation?: (context: TerminalOperationContext, recovery: boolean) => Promise<import('../terminal-mode-query.ts').TerminalModeReportState | undefined>;
+  readonly cellPresentation?: TerminalCellPresentationQualification;
+  readonly observeBidiMode?: (context: TerminalOperationContext, recovery: boolean) => Promise<import('../terminal-mode-query.ts').TerminalModeReportState | undefined>;
   readonly verifyKeyboardProfile?: (
     flags: number,
     context: TerminalOperationContext

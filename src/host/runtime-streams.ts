@@ -47,6 +47,7 @@ export interface StreamTerminalHostOptions {
   readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsubscribe;
   readonly capabilities?: TerminalCapabilityConfiguration;
   readonly initialState?: import('./types.ts').TerminalInitialState;
+  readonly cellPresentation?: import('./capability-types.ts').TerminalCellPresentationQualification;
 }
 
 export function createStreamTerminalHost(options: StreamTerminalHostOptions): TerminalHost {
@@ -70,7 +71,7 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
       rows: initialTerminalSize.rows,
       supportsRawInput: options.stdin?.setRawMode !== undefined,
       supportsResizeEvents: options.subscribeSignals !== undefined,
-      ...(options.initialState?.cellPresentation === 'explicit' ? { cellPresentation: 'explicit' as const } : {}),
+      ...(options.cellPresentation === undefined ? {} : { cellPresentation: options.cellPresentation }),
       supportsTerminalProtocols: stdout.isTty()
     },
     environment: { variables: options.env ?? {} },
@@ -87,7 +88,7 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
     resolverInput,
     beginSession: (id, capabilities) => terminalState.beginLease(id, capabilities),
     beginObservationRefresh: () => terminalState.beginObservationRefresh(),
-    observeModes: (reports) => terminalState.observeModes(reports),
+    observeModes: (reports, conflictingModes) => terminalState.observeModes(reports, conflictingModes),
     observeKeyboardProfile: (profile) => terminalState.observeKeyboardProfile(profile),
     write: (chunk, signal) => output.write(chunk, { signal }),
     writeRecovery: (chunk, signal) => output.writeRecovery(chunk, { signal })
@@ -120,8 +121,9 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
   };
   terminalState.bind(host, {
     rawInputKnowledge: options.stdin?.isRawModeEnabled === undefined ? 'library_known' : 'observed',
-    observeCellPresentation: (context, recovery) => detector.observeCellPresentation(context.signal, recovery),
+    observeBidiMode: (context, recovery) => detector.observeBidiMode(context.signal, recovery),
     verifyKeyboardProfile: (flags, context) => detector.verifyKeyboardProfile(flags, context.signal),
+    ...(options.cellPresentation === undefined ? {} : { cellPresentation: options.cellPresentation }),
     ...(options.initialState === undefined ? {} : { initialState: options.initialState })
   });
   return host;

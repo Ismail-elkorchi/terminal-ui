@@ -78,3 +78,17 @@ export type TerminalCapabilityProfile = {
   readonly graphics: TerminalGraphicsCapability;
   readonly diagnostics: readonly TerminalDiagnostic[];
 } & Readonly<Record<TerminalCapabilityName, CapabilitySupport>>;
+
+/**
+ * Caller attestation of independently qualified physical left-to-right application cell order,
+ * aligned cursor and pointer coordinates, and physical horizontal-arrow semantics. Includes
+ * inherited direction and related terminal configuration; excludes glyph shaping and width.
+ * The attestation applies throughout this host lifetime, including resumed sessions. The caller
+ * must preserve qualified direction/configuration across external terminal use; a mode query
+ * cannot revalidate those unqueryable preconditions. Observed contradiction invalidates it.
+ * This declares evidence, never a request to make an unqualified terminal compatible.
+ */
+export interface TerminalCellPresentationQualification {
+  /** Already true, or true after an observed standard-mode-8 reset. */
+  readonly qualification: 'existing' | 'mode-8-reset';
+}
