@@ -214,10 +214,16 @@ same final visual cells and require no second reordering pass during replay.
 Host discovery sends bounded, namespace-specific DECRQM requests. A missing or
 unrecognized standard-mode-8 reply leaves state `unknown`; a mode write is never
 attempted against an unknown baseline. `session.enableCellPresentation()` requires
-raw input, a known initial state and a response observer when a transition is needed. It writes standard-mode
+raw input, an observed mutable mode, a known initial restoration state and a response observer when a transition is needed. It writes standard-mode
 8 reset only when needed, then requires readback before reporting `observed`
 explicit presentation. Permanently implicit terminals reject the operation;
-permanently explicit terminals require no mutation.
+permanently explicit terminals require no mutation. An unrecognized query does not
+prove that set/reset is unsupported and does not erase independently configured
+operation support. Conversely, operation support and a caller-qualified initial
+state do not authorize a speculative mode-8 transition without mutable readback.
+Required setup failures remain authoritative in `TuiRunError.message`, including
+the actionable hint; `exit.diagnostics` retains the operation, requirement and
+rejected or indeterminate outcome, including after suspension recovery.
 
 A visual-cell host independently qualified without mode-8 support can supply
 `createNodeTerminalHost({ initialState: { cellPresentation: 'explicit' } })` (and

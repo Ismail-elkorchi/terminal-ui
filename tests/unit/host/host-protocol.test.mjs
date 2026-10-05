@@ -1948,3 +1948,22 @@ function deferred() {
   const promise = new Promise((complete) => { resolve = complete; });
   return { promise, resolve };
 }
+
+test('a fixed incompatible mode rejects even a contradictory caller no-op baseline', async () => {
+  const host = createMemoryTerminalHost({ initialState: { cursorVisible: false } });
+  host.input('\u001B[?25;3$y\u001B[?1;2c');
+  await host.getCapabilities({ activeProbes: ['terminalModes'] });
+  const session = await host.beginSession();
+  const result = await session.hideCursor();
+  assert.equal(result.status, 'rejected');
+  assert.match(result.diagnostic.message, /private:25 is permanent/u);
+  assert.doesNotMatch(host.output(), /\u001B\[\?25l/u);
+  assert.equal((await session.restore()).status, 'restored');
+});
+
+test('an observed externally owned synchronized frame overrides independently configured support', async () => {
+  const host = createMemoryTerminalHost({ capabilities: { probes: { synchronizedOutput: 'supported' } } });
+  host.input('\u001B[?2026;1$y\u001B[?1;2c');
+  const profile = await host.getCapabilities({ activeProbes: ['terminalModes'] });
+  assert.equal(profile.synchronizedOutput.support, 'unknown');
+});

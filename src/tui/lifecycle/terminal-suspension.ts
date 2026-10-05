@@ -190,6 +190,7 @@ export function createTerminalSuspension<TState, TMessage>(
           // The new lease owns the freshly observed external baseline, including on setup failure.
           options.replaceSession(session);
           const setup = await setupTuiSession(session, options.policy, { signal: recoverySignal });
+          for (const issue of setup.diagnostics) runtime.reportDiagnostic(issue);
           if (setup.status === 'failed') {
             throw new Error('Terminal session could not be reconfigured after suspension.');
           }

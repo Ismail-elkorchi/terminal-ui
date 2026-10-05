@@ -13,7 +13,7 @@ import {
 import { waitForTerminalOperation } from './operation.ts';
 import { createTerminalRestorePlan } from './session-restore.ts';
 import type { TerminalModeReports, TerminalModeReportState } from './terminal-mode-query.ts';
-import { modeIsSet } from './terminal-mode-query.ts';
+import { modeIsMutable, modeIsSet } from './terminal-mode-query.ts';
 import type {
   KeyboardFrame,
   KeyboardFrameState,
@@ -254,6 +254,8 @@ export class TerminalStateAuthority {
       const change = { kind, state: nextState } as TerminalStateChange;
       const cancellation = cancelledOperationDiagnostic(lease, context);
       if (cancellation !== undefined) return terminalOperationRejected(cancellation);
+      const fixedMode = permanentModeTransitionDiagnostic(lease, change, this.#modeReports);
+      if (fixedMode !== undefined) return terminalOperationRejected(fixedMode);
       if (change.kind === 'cellPresentation') {
         const presentation = this.cellPresentationPreflight(lease, change);
         if (presentation !== undefined) return presentation;
@@ -261,10 +263,9 @@ export class TerminalStateAuthority {
       if (kind !== 'cellPresentation' && equal(this.#current[kind], nextState) && !this.#uncertain.has(kind)) {
         return terminalOperationApplied(change, assuranceForKnowledge(this.#current.provenance[kind]));
       }
-      const fixedMode = permanentModeTransitionDiagnostic(lease, change, this.#modeReports);
-      if (fixedMode !== undefined) return terminalOperationRejected(fixedMode);
       const unavailable = unavailableCapabilityOutcome(lease, capabilityForState(kind));
       if (unavailable !== undefined) return unavailable;
+      const wasUncertain = this.#uncertain.has(kind);
       this.#uncertain.add(kind);
       try {
         await apply(context);
@@ -273,7 +274,7 @@ export class TerminalStateAuthority {
           return terminalOperationIndeterminate(change, supersededOperationDiagnostic(lease, change));
         }
         if (cause instanceof TerminalWriteError && cause.receipt.status === 'failed_before_write') {
-          this.#uncertain.delete(kind);
+          if (!wasUncertain) this.#uncertain.delete(kind);
           return terminalOperationRejected(cause.receipt.diagnostic);
         }
         this.markIndeterminate(kind);
@@ -307,11 +308,14 @@ export class TerminalStateAuthority {
       && (knowledge === 'observed' || knowledge === 'explicit')) {
       return terminalOperationApplied(change, assuranceForKnowledge(knowledge));
     }
-    if (lease.initialState.cellPresentation === 'unknown' || this.#observeCellPresentation === undefined
+    if (modeIsMutable(this.#modeReports['standard:8']) !== true
+      || lease.initialState.cellPresentation === 'unknown' || this.#observeCellPresentation === undefined
       || !this.#current.rawInput) {
       return terminalOperationRejected(diagnostic('HOST_CAPABILITY_UNAVAILABLE',
-        'Changing cell presentation requires a known initial mode 8 state, a response observer and active raw input.',
-        { severity: 'warning', target: lease.id, data: { operation: 'cellPresentation' } }));
+        'Changing cell presentation requires an observed mutable standard mode 8, a known restoration state, a response observer and active raw input.',
+        { severity: 'warning', target: lease.id,
+          hint: 'Use a terminal that reports and verifies standard mode 8, or supply initialState.cellPresentation only after independently qualifying the existing cell order. Terminal identity alone is not sufficient.',
+          data: { operation: 'cellPresentation' } }));
     }
     return undefined;
   }

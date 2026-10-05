@@ -238,3 +238,58 @@ test('a contradicted caller qualification cannot return after an inconclusive re
   assert.equal((await session.restore()).status, 'restored');
   assert.deepEqual(modeWrites(host.output()), []);
 });
+
+for (const reply of ['\u001B[?1;2c', '\u001B[8;0$y\u001B[?1;2c']) {
+  test(`missing or unrecognized mode-8 query cannot authorize a qualified implicit transition: ${JSON.stringify(reply)}`, async () => {
+    const host = createMemoryTerminalHost({ initialState: { cellPresentation: 'implicit' },
+      capabilities: { probes: { cellPresentation: 'supported' } } });
+    host.input(reply);
+    const profile = await host.getCapabilities({ activeProbes: ['terminalModes'] });
+    assert.equal(profile.cellPresentation.support, 'supported', 'independent operation evidence survives');
+    const session = await preparedSession(host);
+    const result = await session.enableCellPresentation();
+    assert.equal(result.status, 'rejected');
+    assert.match(result.diagnostic.message, /observed mutable standard mode 8/u);
+    assert.match(result.diagnostic.hint, /independently qualifying/u);
+    assert.equal((await session.restore()).status, 'restored');
+    assert.deepEqual(modeWrites(host.output()), []);
+  });
+}
+
+test('mode-1049 unrecognized readback preserves independent set/reset support and safe restoration', async () => {
+  const host = createMemoryTerminalHost({ initialState: { alternateScreen: false },
+    capabilities: { probes: { alternateScreen: 'supported' } } });
+  // Exact unrecognized private-mode response, alongside working standard mode 8.
+  host.input('\u001B[?1049;0$y\u001B[8;1$y\u001B[?1;2c');
+  const profile = await host.getCapabilities({ activeProbes: ['terminalModes'] });
+  assert.equal(profile.alternateScreen.support, 'supported');
+  const session = await preparedSession(host);
+  assert.equal(session.initialState.provenance.alternateScreen, 'explicit');
+  assert.equal((await session.enableAlternateScreen()).status, 'applied');
+  host.input(report(2));
+  assert.equal((await session.enableCellPresentation()).status, 'applied');
+  host.input(report(1));
+  assert.equal((await session.restore()).status, 'restored');
+  assert.deepEqual(host.output().match(/\u001B\[\?1049[hl]/gu), ['\u001B[?1049h', '\u001B[?1049l']);
+  assert.deepEqual(modeWrites(host.output()), ['\u001B[8l', '\u001B[8h']);
+});
+
+test('a failed-before-write retry does not erase uncertainty from an earlier partial mutation', async () => {
+  const host = await observedHost();
+  const session = await preparedSession(host);
+  let attempts = 0;
+  const write = host.write.bind(host);
+  host.write = (chunk, context) => chunk.text === '\u001B[8l'
+    ? Promise.resolve(++attempts === 1
+      ? indeterminateTerminalWrite('test', new Error('partial mode write'))
+      : failedTerminalWrite('test', new Error('retry never wrote')))
+    : write(chunk, context);
+  assert.equal((await session.enableCellPresentation()).status, 'indeterminate');
+  assert.equal((await session.enableCellPresentation()).status, 'rejected');
+  assert.equal((await session.currentState()).provenance.cellPresentation, 'indeterminate');
+  host.input(report(1));
+  const restored = await session.restore('error');
+  assert.equal(restored.status, 'restored');
+  assert.ok(restored.completed.some(item => item.kind === 'cellPresentation'));
+  assert.deepEqual(modeWrites(host.output()), ['\u001B[8h']);
+});

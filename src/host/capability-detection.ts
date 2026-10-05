@@ -406,17 +406,17 @@ export class TerminalCapabilityDetector {
     const qualified = this.#qualifiedCellPresentation;
     this.#probeFacts.cellPresentation = cellPresentation === 'permanently_reset'
       || qualified && (cellPresentation === undefined || cellPresentation === 'unrecognized')
-      ? 'supported' : modeSupport(cellPresentation);
-    this.#probeFacts.cursorVisibility = modeSupport(reports['private:25']);
-    this.#probeFacts.focusReporting = modeSupport(reports['private:1004']);
-    this.#probeFacts.metaSendsEscape = modeSupport(reports['private:1036']);
-    this.#probeFacts.alternateScreen = modeSupport(reports['private:1049']);
-    this.#probeFacts.bracketedPaste = modeSupport(reports['private:2004']);
-    this.#probeFacts.mouseReporting = mouseModeSupport(reports);
-    this.#probeFacts.unicodeGraphemeMode = modeSupport(reports['private:2027']);
+      ? 'supported' : modeSupport(cellPresentation, this.#configuredProbeFacts.cellPresentation);
+    this.#probeFacts.cursorVisibility = modeSupport(reports['private:25'], this.#configuredProbeFacts.cursorVisibility);
+    this.#probeFacts.focusReporting = modeSupport(reports['private:1004'], this.#configuredProbeFacts.focusReporting);
+    this.#probeFacts.metaSendsEscape = modeSupport(reports['private:1036'], this.#configuredProbeFacts.metaSendsEscape);
+    this.#probeFacts.alternateScreen = modeSupport(reports['private:1049'], this.#configuredProbeFacts.alternateScreen);
+    this.#probeFacts.bracketedPaste = modeSupport(reports['private:2004'], this.#configuredProbeFacts.bracketedPaste);
+    this.#probeFacts.mouseReporting = mouseModeSupport(reports, this.#configuredProbeFacts.mouseReporting);
+    this.#probeFacts.unicodeGraphemeMode = modeSupport(reports['private:2027'], this.#configuredProbeFacts.unicodeGraphemeMode);
     this.#probeFacts.synchronizedOutput = reports['private:2026'] === 'set'
       ? 'unknown'
-      : modeSupport(reports['private:2026']);
+      : modeSupport(reports['private:2026'], this.#configuredProbeFacts.synchronizedOutput);
     this.#profile = this.#resolve();
   }
 
@@ -500,9 +500,15 @@ function probeController(
   };
 }
 
-function modeSupport(report: TerminalModeReportState | undefined): 'supported' | 'unsupported' | 'unknown' {
+function modeSupport(
+  report: TerminalModeReportState | undefined,
+  configured: 'supported' | 'unsupported' | 'unknown' = 'unknown',
+): 'supported' | 'unsupported' | 'unknown' {
   const mutable = modeIsMutable(report);
-  return mutable === undefined ? 'unknown' : mutable ? 'supported' : 'unsupported';
+  // Only missing/unrecognized queries preserve independent operation evidence.
+  // Recognized safety demotions, such as externally owned synchronized output,
+  // are handled by their caller and must not fall back to configured support.
+  return mutable === undefined ? configured : mutable ? 'supported' : 'unsupported';
 }
 
 function terminalProbeError(cause: unknown): Error {
@@ -511,11 +517,14 @@ function terminalProbeError(cause: unknown): Error {
     : new Error('Terminal capability probing failed.', { cause });
 }
 
-function mouseModeSupport(reports: TerminalModeReports): 'supported' | 'unsupported' | 'unknown' {
+function mouseModeSupport(
+  reports: TerminalModeReports,
+  configured: 'supported' | 'unsupported' | 'unknown' = 'unknown',
+): 'supported' | 'unsupported' | 'unknown' {
   const encoding = modeSupport(reports['private:1006']);
-  const tracking = [reports['private:1000'], reports['private:1002'], reports['private:1003']].map(modeSupport);
+  const tracking = [reports['private:1000'], reports['private:1002'], reports['private:1003']].map(report => modeSupport(report));
   if (encoding === 'unsupported' || tracking.every((support) => support === 'unsupported')) return 'unsupported';
   return encoding === 'supported' && tracking.some((support) => support === 'supported')
     ? 'supported'
-    : 'unknown';
+    : configured;
 }

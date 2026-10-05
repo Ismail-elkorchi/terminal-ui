@@ -145,7 +145,7 @@ export async function applySessionProtocolPolicy(
       diagnostics.push(...result.diagnostics);
       continue;
     }
-    diagnostics.push(operationFailureDiagnostic(session, item, result.diagnostic), ...result.diagnostics);
+    diagnostics.push(operationFailureDiagnostic(session, item, result), ...result.diagnostics);
     skipped.push(item);
     if (item.requirement === 'required' || result.status === 'indeterminate') status = 'failed';
     if (result.status === 'indeterminate') break;
@@ -233,15 +233,22 @@ function skippedDiagnostic(
 function operationFailureDiagnostic(
   session: TerminalSession,
   item: SessionProtocolOperation,
-  error: TerminalDiagnostic
+  result: Exclude<TerminalOperationOutcome, { readonly status: 'applied' }>
 ): TerminalDiagnostic {
+  const error = result.diagnostic;
   return diagnostic(error.code, error.message, {
-    severity: error.severity,
+    severity: item.requirement === 'required' && (error.severity === 'debug' || error.severity === 'info')
+      ? 'warning' : error.severity,
     target: error.target ?? session.id,
     ...(error.cause === undefined ? {} : { cause: error.cause }),
-    ...(error.hint === undefined ? {} : { hint: error.hint }),
+    ...(error.hint === undefined
+      ? item.requirement === 'required'
+        ? { hint: `The required ${item.kind} operation did not succeed. Use a host that can establish this state and safely restore it; capability detection alone does not establish the session.` }
+        : {}
+      : { hint: error.hint }),
     data: {
       ...(error.data ?? {}),
+      outcome: result.status,
       operation: item.kind,
       requirement: item.requirement,
       target: protocolTarget(item.target)

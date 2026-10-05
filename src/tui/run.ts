@@ -221,7 +221,12 @@ export class TuiRunError<TState = unknown> extends TerminalUiError {
   readonly exit: Extract<TuiExit<TState>, { readonly status: 'error' }>;
 
   constructor(exit: Extract<TuiExit<TState>, { readonly status: 'error' }>) {
-    super(primaryRunFailureMessage(exit), { cause: primaryRunFailureCause(exit) });
+    const failure = primaryRunFailure(exit.diagnostics);
+    const cleanup = [...exit.diagnostics].reverse().find(({ diagnostic: item }) =>
+      item !== failure && (item.code === 'HOST_RESTORE_FAILED' || item.code === 'TUI_CLEANUP_FAILED'
+        || item.code === 'TUI_CLEANUP_TIMEOUT'))?.diagnostic;
+    const message = runFailureMessage(failure);
+    super(cleanup === undefined ? message : `${message} Cleanup: ${runFailureMessage(cleanup)}`, { cause: failure?.cause });
     this.exit = exit;
   }
 }
@@ -231,16 +236,25 @@ function operationalExit<TState>(exit: TuiExit<TState>): TuiRunResult<TState> {
   return exit;
 }
 
-function primaryRunFailureMessage<TState>(exit: TuiExit<TState>): string {
-  const occurrence = [...exit.diagnostics].reverse().find(({ diagnostic: item }) =>
-    item.severity === 'fatal' || item.severity === 'error');
-  return occurrence?.diagnostic.message ?? 'TUI run failed.';
+function primaryRunFailure(diagnostics: readonly DiagnosticOccurrence[]): TerminalDiagnostic | undefined {
+  const failures = diagnostics.map(item => item.diagnostic).reverse();
+  // A required operation's outcome is authoritative even when the adapter reports
+  // it as a warning and setup/cleanup subsequently add generic error summaries.
+  return failures.find(item => item.data?.['outcome'] === 'indeterminate'
+    || item.data?.['requirement'] === 'required' && item.data['outcome'] === 'rejected')
+    ?? failures.find(item => item.severity === 'fatal' || item.severity === 'error');
 }
 
-function primaryRunFailureCause<TState>(exit: TuiExit<TState>): unknown {
-  const occurrence = [...exit.diagnostics].reverse().find(({ diagnostic: item }) =>
-    item.severity === 'fatal' || item.severity === 'error');
-  return occurrence?.diagnostic.cause;
+function runFailureMessage(failure: TerminalDiagnostic | undefined): string {
+  if (failure === undefined) return 'TUI run failed.';
+  const cause = failure.cause;
+  const detail = typeof cause === 'string' ? cause
+    : cause !== null && typeof cause === 'object' && 'message' in cause
+      && typeof cause['message'] === 'string' ? cause['message'] : undefined;
+  return [failure.message,
+    ...(detail === undefined || detail === failure.message ? [] : [detail]),
+    ...(failure.hint === undefined ? [] : [failure.hint]),
+  ].join(' ');
 }
 
 function assertRequiredGraphics(

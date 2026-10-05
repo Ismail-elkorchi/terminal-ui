@@ -57,7 +57,8 @@ export function modeIsSet(state: TerminalModeReportState | undefined): boolean |
 }
 
 export function modeIsMutable(state: TerminalModeReportState | undefined): boolean | undefined {
-  if (state === undefined) return undefined;
+  // An unrecognized query says nothing about set/reset implementation.
+  if (state === undefined || state === 'unrecognized') return undefined;
   return state === 'set' || state === 'reset';
 }
 

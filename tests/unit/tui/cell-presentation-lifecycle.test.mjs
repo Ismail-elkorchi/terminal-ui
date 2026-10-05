@@ -173,7 +173,14 @@ for (const mode of [0, 3]) {
     await waitUntil(() => emulator.host.frames().length > 0);
     const framesBeforeSuspend = emulator.host.frames().length;
     emulator.host.input('\r');
-    await assert.rejects(running, TuiRunError);
+    await assert.rejects(running, error => {
+      assert.ok(error instanceof TuiRunError);
+      const failure = error.exit.diagnostics.find(({ diagnostic }) =>
+        diagnostic.data?.operation === 'cellPresentation' && diagnostic.data?.outcome === 'rejected')?.diagnostic;
+      assert.ok(failure, 'resume retains the authoritative required-operation failure');
+      assert.ok(error.message.startsWith(failure.message));
+      return true;
+    });
     assert.equal(resumed, false);
     assert.equal(emulator.host.frames().length, framesBeforeSuspend);
     assert.equal(emulator.surfaceClears(), 1);
@@ -219,4 +226,35 @@ test('surface initialization write failure restores presentation without publish
   await assert.rejects(runTui(app(), { host: emulator.host, textPresentation, sessionPolicy, graphics: 'none' }), TuiRunError);
   assert.equal(emulator.host.frames().length, 0);
   assertRestored(emulator);
+});
+
+test('required mode failure is the actionable primary error, including warning outcomes', async () => {
+  const emulator = modeHost(0);
+  await assert.rejects(runTui(app(), { host: emulator.host, textPresentation, sessionPolicy, graphics: 'none' }), error => {
+    assert.ok(error instanceof TuiRunError);
+    const failure = error.exit.diagnostics.find(({ diagnostic }) =>
+      diagnostic.data?.operation === 'cellPresentation' && diagnostic.data?.outcome === 'rejected').diagnostic;
+    assert.equal(failure.data.requirement, 'required');
+    assert.equal(failure.severity, 'warning');
+    assert.ok(error.message.startsWith(failure.message));
+    assert.ok(error.message.includes(failure.hint));
+    assert.doesNotMatch(error.message, /^Required terminal session protocol setup failed/u);
+    return true;
+  });
+  assert.equal(emulator.host.frames().length, 0);
+  assert.equal(emulator.host.restores().at(-1).status, 'restored');
+});
+
+test('unrecognized alternate-screen query does not reject a working visual-cell session', async () => {
+  const emulator = modeHost();
+  const input = emulator.host.input.bind(emulator.host);
+  emulator.host.input = chunk => input(String(chunk).startsWith('\u001B[8;')
+    ? `\u001B[?1049;0$y${chunk}` : chunk);
+  const running = runTui(app(), { host: emulator.host, textPresentation,
+    sessionPolicy: { ...sessionPolicy, alternateScreen: 'required' }, graphics: 'none' });
+  await waitUntil(() => emulator.host.frames().length > 0);
+  emulator.host.input('\r');
+  assert.equal((await running).status, 'completed');
+  assertRestored(emulator);
+  assert.deepEqual(emulator.host.output().match(/\u001B\[\?1049[hl]/gu), ['\u001B[?1049h', '\u001B[?1049l']);
 });
