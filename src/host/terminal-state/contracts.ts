@@ -1,4 +1,4 @@
-import type { TerminalCellPresentationQualification } from '../capability-types.ts';
+import type { CellPresentationObservation, CellPresentationResolution } from '../cell-presentation.ts';
 import type { TerminalDiagnostic } from '../../diagnostics.ts';
 import type { TerminalKeyboardProfile } from '../../protocol/keyboard.ts';
 import type {
@@ -51,7 +51,7 @@ export type KeyboardFrameState = 'none' | 'push_uncertain' | 'owned' | 'pop_unce
 export interface TerminalStateAuthorityOptions {
   readonly rawInputKnowledge: TerminalStateKnowledge;
   readonly initialState?: TerminalInitialState;
-  readonly cellPresentation?: TerminalCellPresentationQualification;
+  readonly resolveCellPresentation: (observation: CellPresentationObservation) => CellPresentationResolution;
   readonly observeBidiMode?: (context: TerminalOperationContext, recovery: boolean) => Promise<import('../terminal-mode-query.ts').TerminalModeReportState | undefined>;
   readonly verifyKeyboardProfile?: (
     flags: number,

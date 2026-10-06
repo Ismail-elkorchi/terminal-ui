@@ -3,7 +3,7 @@ import type { TerminalSize } from '../geometry/types.ts';
 import type { MouseReportingMode, MouseReportingState } from '../protocol/index.ts';
 import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
 import type { TerminalCapabilityConfiguration } from './capabilities.ts';
-import type { RuntimeTarget, TerminalCapabilityProfile, TerminalCellPresentationQualification } from './capability-types.ts';
+import type { RuntimeTarget, TerminalCapabilityProfile } from './capability-types.ts';
 
 export type { TerminalSize } from '../geometry/types.ts';
 export type {
@@ -182,7 +182,7 @@ export type TerminalOperationOutcome =
       readonly diagnostics: readonly TerminalDiagnostic[];
     };
 
-export type TerminalOperationAssurance = 'observed' | 'sent' | 'assumed' | 'declared';
+export type TerminalOperationAssurance = 'observed' | 'sent' | 'assumed';
 
 export interface TerminalStateSnapshot {
   readonly rawInput: boolean;
@@ -303,7 +303,6 @@ export interface NodeTerminalHostOptions {
   readonly process?: NodeProcessLike;
   readonly capabilities?: TerminalCapabilityConfiguration;
   readonly initialState?: TerminalInitialState;
-  readonly cellPresentation?: TerminalCellPresentationQualification;
 }
 
 export interface MemoryTerminalHostOptions {
@@ -315,7 +314,6 @@ export interface MemoryTerminalHostOptions {
   readonly observer?: TerminalHostObserver;
   readonly capabilities?: TerminalCapabilityConfiguration;
   readonly initialState?: TerminalInitialState;
-  readonly cellPresentation?: TerminalCellPresentationQualification;
 }
 
 export interface RuntimeInputSource {
@@ -351,7 +349,6 @@ export interface DenoTerminalHostOptions {
   readonly capabilities?: TerminalCapabilityConfiguration;
   readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsubscribe;
   readonly initialState?: TerminalInitialState;
-  readonly cellPresentation?: TerminalCellPresentationQualification;
 }
 
 export interface BunTerminalHostOptions {
@@ -363,7 +360,6 @@ export interface BunTerminalHostOptions {
   readonly capabilities?: TerminalCapabilityConfiguration;
   readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsubscribe;
   readonly initialState?: TerminalInitialState;
-  readonly cellPresentation?: TerminalCellPresentationQualification;
 }
 
 export interface PtyTerminalHostOptions {
@@ -379,7 +375,6 @@ export interface PtyTerminalHostOptions {
   readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsubscribe;
   readonly capabilities?: TerminalCapabilityConfiguration;
   readonly initialState?: TerminalInitialState;
-  readonly cellPresentation?: TerminalCellPresentationQualification;
 }
 
 export interface PtyTerminalHost extends TerminalHost {

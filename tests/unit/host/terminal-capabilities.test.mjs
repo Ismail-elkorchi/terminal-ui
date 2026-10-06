@@ -14,3 +14,20 @@ test('inconclusive tmux probes retain evidence and explicit rejections override 
     assert.equal(resolveTerminalCapabilities({ ...input, probes: { [name]: 'unsupported' } })[name].support, 'unsupported');
   }
 });
+
+
+test('automatic alternate-screen policy admits VT assumptions but rejects known limited terminals', () => {
+  const host = { runtime: 'node', inputIsTty: true, outputIsTty: true, supportsRawInput: true,
+    supportsResizeEvents: true, supportsTerminalProtocols: true };
+  for (const term of ['xterm-256color', 'screen-256color', 'tmux-256color', 'vendor-vt']) {
+    const input = { host, environment: { variables: { TERM: term } } };
+    assert.equal(resolveTerminalCapabilities(input).alternateScreen.support, 'supported', term);
+    assert.equal(resolveTerminalCapabilities({ ...input, probes: { alternateScreen: 'unsupported' } }).alternateScreen.support, 'unsupported', term);
+  }
+  for (const term of ['dumb', 'linux', 'vt100', 'vt220']) {
+    assert.equal(resolveTerminalCapabilities({ host, environment: { variables: { TERM: term } } }).alternateScreen.support, 'unsupported', term);
+  }
+  assert.equal(resolveTerminalCapabilities({ host: { ...host, outputIsTty: false } }).alternateScreen.support, 'unsupported');
+  assert.equal(resolveTerminalCapabilities({ host, environment: { variables: { TERM: 'vt100' } },
+    probes: { alternateScreen: 'supported' } }).alternateScreen.support, 'supported', 'current positive mode evidence takes precedence');
+});

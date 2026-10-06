@@ -1,10 +1,10 @@
+import type { CellPresentationObservation } from './cell-presentation.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import { diagnostic } from '../diagnostics.ts';
 import type { MouseReportingMode } from '../protocol/index.ts';
 import { createProtocolWriter } from '../protocol/index.ts';
 import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
 import { decodeKeyboardProfile, LEGACY_KEYBOARD_PROFILE } from '../protocol/keyboard.ts';
-import { decodeCellPresentationQualification } from './capabilities.ts';
 import type { TerminalCapabilityName, TerminalCapabilityProfile } from './capability-types.ts';
 import {
   terminalOperationApplied,
@@ -83,6 +83,10 @@ export class TerminalStateAuthorityBinding {
     this.#authority = new TerminalStateAuthority(host, options);
   }
 
+  presentationObservation(): CellPresentationObservation | undefined {
+    return this.#authority?.presentationObservation();
+  }
+
   beginLease(id: string, capabilities: TerminalCapabilityProfile): Promise<TerminalSession> {
     return this.authority().beginLease(id, capabilities);
   }
@@ -134,7 +138,7 @@ export class TerminalStateAuthorityBinding {
 
 export class TerminalStateAuthority {
   readonly #host: TerminalHost;
-  readonly #cellPresentation: TerminalStateAuthorityOptions['cellPresentation'];
+  readonly #resolveCellPresentation: TerminalStateAuthorityOptions['resolveCellPresentation'];
   readonly #rawInputKnowledge: TerminalStateKnowledge;
   readonly #verifyKeyboardProfile: TerminalStateAuthorityOptions['verifyKeyboardProfile'];
   readonly #observeBidiMode: TerminalStateAuthorityOptions['observeBidiMode'];
@@ -147,19 +151,16 @@ export class TerminalStateAuthority {
   #modeReports: TerminalModeReports = Object.freeze({});
   #current: TerminalStateStorage;
   #generation = 0;
-  #cellPresentationQualificationInvalidated = false;
   #tail: Promise<void> | undefined;
 
   constructor(host: TerminalHost, options: TerminalStateAuthorityOptions) {
     this.#host = host;
-    this.#cellPresentation = decodeCellPresentationQualification(options.cellPresentation);
+    this.#resolveCellPresentation = options.resolveCellPresentation;
     this.#rawInputKnowledge = options.rawInputKnowledge;
     this.#verifyKeyboardProfile = options.verifyKeyboardProfile;
     this.#observeBidiMode = options.observeBidiMode;
     this.#initial = initialTerminalState(host, options);
     this.#current = this.#initial;
-    this.#cellPresentationQualificationInvalidated = this.#cellPresentation?.qualification === 'existing'
-      && this.#initial.bidiMode === 'implicit';
     const initialScreen = terminalScreen(this.#initial.alternateScreen);
     const inactiveScreen = otherTerminalScreen(initialScreen);
     const initialActiveKeyboard = keyboardScreenState(
@@ -209,7 +210,6 @@ export class TerminalStateAuthority {
       this.#modeReports = Object.freeze({ ...reports });
       this.#modeConflicts = new Set(conflictingModes);
       const implicit = modeIsSet(reports['standard:8']);
-      if ((implicit === true || conflictingModes.includes('standard:8')) && this.#cellPresentation?.qualification === 'existing') this.#cellPresentationQualificationInvalidated = true;
       if (implicit !== undefined) this.setKnown('bidiMode', implicit ? 'implicit' : 'explicit', 'observed');
       this.observeBooleanMode('cursorVisible', reports['private:25']);
       this.observeBooleanMode('focusReporting', reports['private:1004']);
@@ -237,16 +237,27 @@ export class TerminalStateAuthority {
 
   snapshot(): TerminalStateSnapshot {
     const state = cloneTerminalState(this.#current, this.#uncertain);
-    const uncertain = state.provenance.bidiMode === 'indeterminate';
-    const qualified = !uncertain && !this.#cellPresentationQualificationInvalidated
-      && (this.#cellPresentation?.qualification === 'existing'
-        || this.#cellPresentation?.qualification === 'mode-8-reset'
-          && state.bidiMode === 'explicit' && state.provenance.bidiMode === 'observed');
+    const resolution = this.presentationResolution();
+    const admitted = resolution.capability.support === 'supported' && !resolution.resetRequired;
     return Object.freeze({ ...state,
-      cellPresentation: qualified ? 'application-ordered' : 'unknown',
+      cellPresentation: admitted ? 'application-ordered' : 'unknown',
       provenance: Object.freeze({ ...state.provenance,
-        cellPresentation: qualified ? 'explicit' : uncertain ? 'indeterminate' : 'assumed' }),
+        cellPresentation: resolution.capability.facts.some(fact => fact.name === 'cellPresentation.evidence' && fact.value === 'indeterminate')
+          ? 'indeterminate' : 'assumed' }),
     });
+  }
+
+  private presentationResolution(): ReturnType<TerminalStateAuthorityOptions['resolveCellPresentation']> {
+    return this.#resolveCellPresentation(this.presentationObservation());
+  }
+
+  presentationObservation(): CellPresentationObservation {
+    return {
+      ...(this.#current.bidiMode === 'unknown' ? {} : { implicit: this.#current.bidiMode === 'implicit' }),
+      indeterminate: this.#uncertain.has('bidiMode') || this.#current.provenance.bidiMode === 'indeterminate',
+      ...(this.#modeReports['standard:8'] === undefined ? {} : { report: this.#modeReports['standard:8'] }),
+      conflicting: this.#modeConflicts.has('standard:8'),
+    };
   }
 
   currentState(lease: TerminalSessionLease): Promise<TerminalStateSnapshot> {
@@ -324,27 +335,22 @@ export class TerminalStateAuthority {
     lease: TerminalSessionLease,
     change: Extract<TerminalStateChange, { readonly kind: 'bidiMode' }>,
   ): TerminalOperationOutcome | undefined {
-    if (this.snapshot().cellPresentation === 'application-ordered') return terminalOperationApplied(change, 'declared');
+    const resolution = this.presentationResolution();
+    if (resolution.capability.support === 'supported' && !resolution.resetRequired) return terminalOperationApplied(change, 'assumed');
+    const issue = resolution.capability.diagnostics[0];
+    if (issue !== undefined) return this.#uncertain.has('bidiMode')
+      ? terminalOperationIndeterminate(change, issue) : terminalOperationRejected(issue);
     const report = this.#modeReports['standard:8'];
     const data = { operation: 'cellPresentation', mode: 'standard:8', report: report ?? null,
-      bidiMode: this.#current.bidiMode, restorationBaseline: lease.initialState.bidiMode,
-      qualification: this.#cellPresentation?.qualification ?? null };
-    const rejected = (code: 'HOST_CAPABILITY_UNAVAILABLE' | 'HOST_CELL_PRESENTATION_UNQUALIFIED' | 'HOST_CELL_PRESENTATION_CONTRADICTED',
+      bidiMode: this.#current.bidiMode, restorationBaseline: lease.initialState.bidiMode };
+    const rejected = (code: 'HOST_CAPABILITY_UNAVAILABLE',
       reason: string, message: string): TerminalOperationOutcome => terminalOperationRejected(diagnostic(code, message,
         { severity: 'warning', target: lease.id, data: { ...data, reason } }));
-    if (this.#cellPresentationQualificationInvalidated) return rejected('HOST_CELL_PRESENTATION_CONTRADICTED',
-      'qualification-contradicted', 'Implicit or conflicting bidirectional evidence contradicts the caller qualification of existing application-ordered physical cells.');
-    if (this.#modeConflicts.has('standard:8')) return rejected('HOST_CAPABILITY_UNAVAILABLE',
-      'mode-reports-conflicting', 'Conflicting standard-mode-8 reports cannot authorize the qualified reset path.');
-    if (report === 'permanently_set') return rejected('HOST_CELL_PRESENTATION_CONTRADICTED',
-      'bidi-mode-fixed-implicit', 'Terminal standard mode 8 is permanently implicit and cannot establish application-ordered physical cells.');
     if (!this.#current.rawInput) return rejected('HOST_CAPABILITY_UNAVAILABLE',
       'raw-input-inactive', 'Cell-presentation acquisition requires active raw input.');
-    if (this.#cellPresentation === undefined) return rejected('HOST_CELL_PRESENTATION_UNQUALIFIED',
-      'presentation-unqualified', 'Application-ordered physical cells are unqualified: standard mode 8 does not establish left-to-right character path, cursor, pointer or arrow semantics.');
     if (report === undefined || report === 'unrecognized') return rejected('HOST_CAPABILITY_UNAVAILABLE',
       report === undefined ? 'bidi-mode-unreported' : 'bidi-mode-unrecognized',
-      'The qualified mode-8-reset path requires an observed bidirectional mode and cannot acquire or restore an unreported mode.');
+      'The observed mode-8-reset path requires an observed bidirectional mode and cannot acquire or restore an unreported mode.');
     if (lease.initialState.bidiMode === 'unknown') return rejected('HOST_CAPABILITY_UNAVAILABLE',
       'restoration-baseline-unknown', 'Bidirectional-mode acquisition has no known restoration baseline.');
     if (this.#observeBidiMode === undefined) return rejected('HOST_CAPABILITY_UNAVAILABLE',
@@ -855,7 +861,7 @@ export class TerminalStateAuthority {
       'cursorVisible'
     ] as const;
     for (const kind of modeKinds) {
-      if (this.#current.provenance[kind] === 'explicit') continue;
+      if (this.#current.provenance[kind] === 'explicit' || kind === 'bidiMode' && this.#uncertain.has(kind)) continue;
       this.setKnown(kind, this.#initial[kind], this.#initial.provenance[kind]);
     }
   }
@@ -1053,7 +1059,7 @@ export class TerminalSessionLease implements TerminalSession {
     const outcome = await this.mutate('bidiMode', 'explicit', (operationContext) =>
       this.protocol(operationContext).setBidiMode('explicit'), context);
     const change = { kind: 'cellPresentation', state: 'application-ordered' } as const;
-    if (outcome.status === 'applied') return { ...outcome, change, assurance: 'declared' };
+    if (outcome.status === 'applied') return { ...outcome, change, assurance: 'assumed' };
     if (outcome.status === 'indeterminate') return { ...outcome, attempted: change };
     return outcome;
   }

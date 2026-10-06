@@ -1,3 +1,4 @@
+import { rejectLegacyCellPresentation } from './cell-presentation.ts';
 import type { TerminalSize } from '../geometry/types.ts';
 import { resolveTerminalCapabilities } from './capabilities.ts';
 import { TerminalCapabilityDetector } from './capability-detection.ts';
@@ -259,6 +260,7 @@ export interface MemoryTerminalHost extends TerminalHost {
 
 export function createMemoryTerminalHost(options?: MemoryTerminalHostOptions): MemoryTerminalHost;
 export function createMemoryTerminalHost(options: unknown = {}): MemoryTerminalHost {
+  rejectLegacyCellPresentation(options);
   const config = decodeMemoryTerminalHostOptions(options);
   let terminalSize: TerminalSize = config.terminalSize ?? { columns: 80, rows: 24 };
   const isTty = config.isTty ?? true;
@@ -270,6 +272,7 @@ export function createMemoryTerminalHost(options: unknown = {}): MemoryTerminalH
   const signals = new MemorySignals();
   const clock = new MemoryClock();
   const {
+    cellPresentation,
     probes,
     colorDepth,
     widthProfile,
@@ -285,10 +288,10 @@ export function createMemoryTerminalHost(options: unknown = {}): MemoryTerminalH
       rows: terminalSize.rows,
       supportsRawInput: true,
       supportsResizeEvents: true,
-      ...(config.cellPresentation === undefined ? {} : { cellPresentation: config.cellPresentation }),
       supportsTerminalProtocols: isTty
     },
     environment: { variables: config.env ?? {} },
+    ...(cellPresentation === undefined ? {} : { cellPresentation }),
     ...(probes === undefined ? {} : { probes }),
     ...(colorDepth === undefined ? {} : { colorDepth }),
     ...(widthProfile === undefined ? {} : { widthProfile }),
@@ -312,6 +315,7 @@ export function createMemoryTerminalHost(options: unknown = {}): MemoryTerminalH
   const restores: TerminalRestoreResult[] = [];
   const terminalState = new TerminalStateAuthorityBinding();
   const detector = new TerminalCapabilityDetector({
+    presentationObservation: () => terminalState.presentationObservation(),
     input: stdin,
     clock,
     resolverInput,
@@ -375,8 +379,8 @@ export function createMemoryTerminalHost(options: unknown = {}): MemoryTerminalH
   } satisfies MemoryTerminalHost;
   terminalState.bind(host, {
     rawInputKnowledge: 'library_known',
+    resolveCellPresentation: observation => detector.resolveCellPresentation(observation),
     observeBidiMode: (context, recovery) => detector.observeBidiMode(context.signal, recovery),
-    ...(config.cellPresentation === undefined ? {} : { cellPresentation: config.cellPresentation }),
     ...(config.initialState === undefined ? {} : { initialState: config.initialState })
   });
   return host;
@@ -404,7 +408,6 @@ function decodeMemoryTerminalHostOptions(value: unknown): MemoryTerminalHostOpti
   const observer = decodeMemoryObserver(options['observer']);
   const capabilities = options['capabilities'];
   const initialState = options['initialState'];
-  const cellPresentation = options['cellPresentation'];
   if (capabilities !== undefined
     && (typeof capabilities !== 'object' || capabilities === null || Array.isArray(capabilities))) {
     throw new TypeError('Memory terminal host capabilities must be an object when provided.');
@@ -419,7 +422,6 @@ function decodeMemoryTerminalHostOptions(value: unknown): MemoryTerminalHostOpti
     ...(capabilities === undefined
       ? {}
       : { capabilities }),
-    ...(cellPresentation === undefined ? {} : { cellPresentation: cellPresentation as NonNullable<MemoryTerminalHostOptions['cellPresentation']> }),
     ...(initialState === undefined
       ? {}
       : { initialState: initialState as NonNullable<MemoryTerminalHostOptions['initialState']> }),

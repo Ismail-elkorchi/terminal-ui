@@ -6,7 +6,6 @@ import type { TextWidthProfile } from '../text/types.ts';
 import { defineTextWidthProfile } from '../text/width-profile.ts';
 import type {
   CapabilitySourceFact,
-  TerminalCellPresentationQualification,
   CapabilitySupport,
   HostFeatureAvailability,
   RuntimeTarget,
@@ -16,11 +15,11 @@ import type {
   TerminalFeatureSupport,
   TerminalUnicodeCapability,
 } from './capability-types.ts';
+import { resolveCellPresentation, snapshotCellPresentationConfiguration } from './cell-presentation.ts';
+import type { TerminalCellPresentationConfiguration } from './capability-types.ts';
 import { inferControlCapability, protocolFloor } from './protocol-evidence.ts';
 
 export interface TerminalHostFacts {
-  /** Caller-qualified full physical-cell invariant; never inferred from terminal identity or BDSM. */
-  readonly cellPresentation?: TerminalCellPresentationQualification;
   readonly runtime: RuntimeTarget;
   readonly inputIsTty: boolean;
   readonly outputIsTty: boolean;
@@ -58,6 +57,7 @@ export interface CapabilityOverride {
 export type CapabilityOverrides = Partial<Record<Exclude<TerminalCapabilityName, 'cellPresentation'>, boolean | CapabilityOverride>>;
 
 export interface TerminalCapabilityConfiguration {
+  readonly cellPresentation?: TerminalCellPresentationConfiguration;
   readonly probes?: ProtocolProbeFacts;
   readonly overrides?: CapabilityOverrides;
   readonly colorDepth?: 0 | 1 | 4 | 8 | 24;
@@ -66,6 +66,7 @@ export interface TerminalCapabilityConfiguration {
 }
 
 export interface TerminalCapabilityResolverInput {
+  readonly cellPresentation?: TerminalCellPresentationConfiguration;
   readonly host: TerminalHostFacts;
   readonly environment?: EnvironmentFacts;
   readonly probes?: ProtocolProbeFacts;
@@ -87,10 +88,11 @@ interface CapabilityBasis {
 export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInput): TerminalCapabilityProfile {
   for (const supplied of [input.probes, input.overrides]) {
     if (supplied !== undefined && Object.hasOwn(supplied, 'cellPresentation')) {
-      throw new TypeError('Cell presentation cannot be supplied as generic capability support; use a caller-qualified host declaration.');
+      throw new TypeError('Cell presentation cannot be supplied as generic capability support; use the cellPresentation capability configuration.');
     }
   }
-  const cellPresentation = decodeCellPresentationQualification(input.host.cellPresentation);
+  if (Object.hasOwn(input.host, 'cellPresentation')) throw new TypeError('The host cellPresentation qualification was removed.');
+  snapshotCellPresentationConfiguration(input.cellPresentation);
   const interactive = input.host.inputIsTty && input.host.outputIsTty;
   const outputAvailability = availability(input.host.outputIsTty && input.host.supportsTerminalProtocols);
   const interactiveAvailability = availability(interactive && input.host.supportsTerminalProtocols);
@@ -172,15 +174,7 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
       input,
       true
     )),
-    cellPresentation: resolveCapability(input, 'cellPresentation', {
-      support: cellPresentation?.qualification === 'existing' ? 'supported' : 'unknown',
-      availability: interactiveAvailability,
-      unavailable: 'Host cannot establish application-ordered physical cells.',
-      unknown: 'Application-ordered physical cells require a caller qualification; mode 8 alone does not establish this invariant.',
-      requiresSessionOperation: true,
-      facts: [hostFact('supportsTerminalProtocols', input.host.supportsTerminalProtocols),
-        ...(input.host.cellPresentation === undefined ? [] : [{ kind: 'override' as const, name: 'cellPresentation.qualification', value: cellPresentation?.qualification ?? null }])]
-    }),
+    cellPresentation: resolveCellPresentation(input).capability,
     unicodeGraphemeMode: resolveCapability(input, 'unicodeGraphemeMode', {
       support: 'unknown',
       availability: outputAvailability,
@@ -451,16 +445,4 @@ function environmentFacts(environment: EnvironmentFacts | undefined, names: read
 
 function env(environment: EnvironmentFacts | undefined, name: string): string | undefined {
   return environment?.variables?.[name];
-}
-
-/** Snapshot caller evidence at host creation; malformed declarations never act as requests. */
-export function decodeCellPresentationQualification(value: unknown): TerminalCellPresentationQualification | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value !== 'object' || value === null || Array.isArray(value)
-    || Object.keys(value).some(key => key !== 'qualification')
-    || !('qualification' in value)
-    || (value.qualification !== 'existing' && value.qualification !== 'mode-8-reset')) {
-    throw new TypeError('Cell presentation requires a caller qualification of existing or mode-8-reset.');
-  }
-  return Object.freeze({ qualification: value.qualification });
 }

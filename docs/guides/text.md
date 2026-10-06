@@ -172,116 +172,200 @@ not physical terminal-input latency or portable performance guarantees.
 
 ## Bidirectional Text
 
-Bidirectional ordering is an explicit producer/session contract. The host's
+Bidirectional ordering is a producer/session contract. The host's
 `cellPresentation` capability means physical left-to-right cells in application
 order, with no additional terminal reordering or mirroring, and matching cursor,
 pointer and physical horizontal-arrow semantics. Font shaping, joining, diacritic
 placement and cell width are separate concerns. No terminal-name heuristic or
 mode-8 report establishes this complete invariant.
 
-By default the library preserves logical order and does not change mode 8. This
-ordinary pipeline accepts unknown, implicit and explicit initial modes and makes
-no bidi-ordering guarantee. An initially explicit terminal does not require an
-application to opt into mapped text. A visual-cell application supplies one
-`TextPresentation` provider, created with
-`defineTextPresentation({ map })`, through `runTui(app, { textPresentation,
-sessionPolicy: { ...defaultSessionProtocolPolicy, cellPresentation: 'required' }
-})`. The provider must implement its Unicode bidi policy; the library does not
-ship another bidi or shaping engine. A requested mapped session rejects an absent
-provider or an optional presentation setup: a visual producer cannot silently fall
-back to an implicitly reordering terminal. Each interactive TTY startup and
-suspension reacquisition must establish application-ordered physical cells before a mapped
-application's output can resume. Explicitly selected non-TTY `last_frame` and
-`transcript_only` modes use the same provider for their frame artifacts and hook
-contexts, preserving logical accessible text without negotiating terminal modes.
+By default the text pipeline preserves logical order and does not change mode 8.
+This ordinary pipeline accepts unknown, implicit and explicit initial modes and
+makes no bidi-ordering guarantee. An initially explicit terminal does not require
+an application to opt into mapped text. A visual-cell application supplies one
+`TextPresentation` provider, created with `defineTextPresentation({ map })`, through
+`runTui(app, { textPresentation, sessionPolicy: { ...defaultSessionProtocolPolicy,
+cellPresentation: 'required' } })`. The provider must implement its Unicode bidi
+policy; the library does not ship another bidi or shaping engine. A requested
+mapped session rejects an absent provider or optional presentation setup: a visual
+producer cannot silently fall back after rejected or indeterminate setup. Each
+interactive TTY startup and suspension reacquisition must admit application-ordered
+physical cells before a mapped application's output resumes. Explicitly selected
+non-TTY `last_frame` and `transcript_only` modes use the same provider for frame
+artifacts and hook contexts, preserving logical accessible text without negotiating
+terminal modes.
 
 The provider must be deterministic for its request, and a changed ordering policy
-must have a new provider identity. The provider receives the complete logical paragraph and the requested line's
-UTF-16 range. It returns a visual-order permutation of grapheme source ranges,
-with a printable glyph and LTR/RTL direction per cluster. The shared text index
-validates the grapheme bijection, source boundaries and unchanged cell widths,
-and owns the visual/source map used for painting, pointer hits, caret movement and
-selection. Application text, search offsets, accessibility values, paste and
-submitted values stay logical. Provider identity participates in retained layout,
-measurement and painting caches.
+must have a new provider identity. The provider receives the complete logical
+paragraph and the requested line's UTF-16 range. It returns a visual-order
+permutation of grapheme source ranges, with a printable glyph and LTR/RTL direction
+per cluster. The shared text index validates the grapheme bijection, source
+boundaries and unchanged cell widths, and owns the visual/source map used for
+painting, pointer hits, caret movement and selection. Application text, search
+offsets, accessibility values, paste and submitted values stay logical. Provider
+identity participates in retained layout, measurement and painting caches.
 
-Logical styled spans are mapped together before clipping, preserving their
-style, hyperlink and source metadata. A producer that already owns visual cell
-layout marks spans `textOrder: 'visual'`; these spans delimit independent runs and
-are not reordered again. `writeCell()` already means an explicitly positioned
-visual cell. Never reorder serialized ANSI: it has lost the source/cluster and
-style ownership needed by this contract. Frame and diff artifacts contain the
-same final visual cells and require no second reordering pass during replay.
+Logical styled spans are mapped together before clipping, preserving their style,
+hyperlink and source metadata. A producer that already owns visual cell layout
+marks spans `textOrder: 'visual'`; these spans delimit independent runs and are not
+reordered again. `writeCell()` already means an explicitly positioned visual cell.
+Never reorder serialized ANSI: it has lost the source/cluster and style ownership
+needed by this contract. Frame and diff artifacts contain the same final visual
+cells and require no second reordering pass during replay.
+
+### Automatic admission and strict policy
+
+Hosts use `capabilities.cellPresentation.policy: 'auto'` by default. Ordinary
+memory and VT hosts need no presentation declaration or terminal-name allowlist.
+With no known incompatible condition, an unknown or unrecognized mode-8 state is
+admitted without changing terminal modes. An observed reset also needs no write.
+The resulting full presentation has `assurance: 'assumed'` and snapshot provenance
+`assumed`, including when a raw mode-8 reset was observed. Automatic admission is
+a compatibility assumption, not proof of physical direction, coordinates or input
+semantics.
+
+For callers that cannot accept that assumption, select strict policy:
+
+```ts
+import { createNodeTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
+
+const host = createNodeTerminalHost({
+  capabilities: { cellPresentation: { policy: 'strict' } },
+});
+```
+
+Strict rejects admission that relies on an assumption. Native mode-8 readback does
+not verify the entire invariant, so even observed reset can be rejected. Strict
+policy does not promise that every terminal offers enough evidence for admission.
 
 Host discovery sends bounded, namespace-specific DECRQM requests. Raw standard
 ECMA-48 mode 8 (BDSM) is recorded as `bidiMode: 'unknown' | 'implicit' | 'explicit'`,
 with its own provenance and restoration baseline. Its reset disables implicit
 bidirectional processing but does not establish left-to-right character path.
-VTE's explicit RTL character path can mirror text, cursor and pointer coordinates
-while returning the same mode-8 reset and cursor-position replies as explicit
-LTR. Clearing or reacquiring a screen does not repair inherited RTL direction.
-No SCP direction write is sent: resetting SCP to its default would not restore an
-unknown inherited value.
+An inherited, unqueryable RTL SCP character path remains part of automatic
+admission's assumption; the host does not verify or repair it. VTE's explicit RTL
+character path can mirror text, cursor and pointer coordinates while returning the same mode-8 reset and cursor-position replies as explicit LTR.
+Clearing or reacquiring a screen does not repair inherited RTL direction. No SCP
+direction write is sent: resetting SCP to its default would not restore an unknown
+inherited value.
 
-A visual-cell caller must independently qualify the full terminal configuration,
-including direction, physical coordinates and horizontal-arrow behavior, then
-supply one of these host declarations (available on every host adapter):
+An observed mutable implicit mode must be reset and read back before automatic
+admission. This requires raw input, observed mutability and a known restoration
+baseline. The exact original mode is restored and verified afterward. A permanently
+implicit mode, conflicting reports, failed writes and missing or uncertain
+readback cannot fall back to an assumption. A supplied `initialState.bidiMode`
+remains a raw restoration baseline with `explicit` provenance; it is neither an
+observed mode report nor proof of physical cell semantics. An implicit supplied
+baseline cannot authorize an unobserved mutable transition.
+
+### Narrow configuration exceptions
+
+Known Kitty and Konsole configuration hazards block automatic admission until the
+caller has independently satisfied the applicable condition. The supported
+exceptions are `kitty-force-ltr` and `konsole-bidi-disabled`. Each exception is
+bound to an exact terminal/transport context, not a blanket terminal-family
+qualification. Read the `cellPresentation.context` and `cellPresentation.conditions`
+facts from `host.getCapabilities()` to identify that context and the applicable
+conditions without maintaining your own terminal-identity classifier. A `null`
+context means the context cannot safely scope an exception; do not substitute a made-up
+context. Exceptions currently require a direct terminal connection. SSH and
+tmux, screen or Zellij contexts return `null` because they cannot identify the
+effective outer terminal/profile reliably. Ordinary SSH or multiplexer sessions
+with no known configuration hazard can still use automatic native-grid admission;
+that remains an assumption. Mixed identity evidence, such as a Ghostty
+`TERM_PROGRAM` with an inherited `KITTY_WINDOW_ID`, or simultaneous Kitty and
+Konsole markers, also produces no reusable exception context. The host does not
+send an active terminal-identity probe; environment facts cannot verify the
+effective outer terminal or profile.
+
+For example, after independently configuring and checking Kitty's left-to-right
+behavior in the current context:
 
 ```ts
 import { createNodeTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
 
-createNodeTerminalHost({ cellPresentation: { qualification: 'existing' } });
-createNodeTerminalHost({ cellPresentation: { qualification: 'mode-8-reset' } });
+const inspectingHost = createNodeTerminalHost();
+const profile = await inspectingHost.getCapabilities();
+const context = profile.cellPresentation.facts.find(
+  fact => fact.name === 'cellPresentation.context',
+)?.value;
+const conditions = profile.cellPresentation.facts.find(
+  fact => fact.name === 'cellPresentation.conditions',
+)?.value;
+await inspectingHost.dispose();
+
+if (typeof context !== 'string' || !Array.isArray(conditions)
+  || !conditions.includes('kitty-force-ltr')) {
+  throw new Error('The expected Kitty context is unavailable');
+}
+const host = createNodeTerminalHost({
+  capabilities: {
+    cellPresentation: {
+      exceptions: [{ condition: 'kitty-force-ltr', context }],
+    },
+  },
+});
 ```
 
-`existing` attests that the full invariant is already true. It requires no mode
-implementation or mode mutation. `mode-8-reset` attests that the full invariant
-will be true after observed mode-8 reset, including independently qualified
-inherited character path and input semantics. It is not a request to fix arbitrary
-terminal configuration. This route requires raw input, an observed mutable mode,
-a known restoration baseline and response readback when a transition is needed;
-a permanently reset mode needs no transition. Permanently implicit state rejects.
-Generic `cellPresentation` capability overrides/probe flags are rejected.
-Unknown state, terminal identity and a supplied raw
-`initialState.bidiMode` baseline are never affirmative proof of the full invariant.
+For a checked Konsole configuration with bidi disabled, use
+`{ condition: 'konsole-bidi-disabled', context }` with its captured context.
+Capturing a context does not validate the condition; the caller must check it and
+preserve that configuration, including during suspended external terminal use.
+Do not reuse the exception after changing the terminal or transport context.
+Transient Kitty window IDs do not change the context, but recorded terminal
+versions do. Hosts capture policy, exceptions and environment at creation; mutating
+the original options afterward does not change admission or rescope an exception.
+Exceptions remove only the named configuration hazard. They never override
+negative mode evidence, write/readback uncertainty or strict policy, and successful
+automatic admission still reports `assumed`.
 
-A declaration applies to that host's lifetime, including suspension/reacquisition.
-The caller must preserve its qualified direction and configuration during external
-terminal use. A mode refresh reobserves BDSM only; it cannot requalify character
-path or physical semantics. An implicit report or conflicting mode evidence
-permanently invalidates an `existing` declaration on that host. A later reset or
-inconclusive refresh never resurrects contradicted caller evidence.
+The old top-level `cellPresentation: { qualification: ... }` option and
+`TerminalCellPresentationQualification` type are removed. Use the capability
+policy and, only when needed, a concrete condition exception. Generic
+`cellPresentation` capability overrides/probe flags remain rejected.
 
-Session snapshots derive `cellPresentation: 'unknown' | 'application-ordered'`
-from this declaration and, for the reset-qualified route, observed explicit BDSM.
-The full operation returns `assurance: 'declared'`, with `explicit` provenance;
-it never claims that a mode query observed the full physical invariant. Raw mode
-restoration remains separately `observed`. Accepted reports, original mode-8
-values, missing replies and conflicting reports remain in capability facts.
-A primary-DA reply cannot finish an empty or incomplete mode collection early;
-accepted valid reports survive a collection timeout. Contradictions demote the
-affected capability despite configured support or terminal identity. An
-inconclusive refresh cannot clear them; a fresh nonconflicting report is required. Late replies are quarantined
-before another query; retired evidence and replayed prefixes cannot authorize new
-work. DECRQM has no transaction identifier, so replies delayed beyond the bounded
-quarantine remain a transport limitation rather than proof of query identity.
+### Evidence and lifecycle
+
+Session snapshots expose `cellPresentation: 'unknown' | 'application-ordered'`
+separately from raw BDSM. Raw mode observations and restoration can be `observed`
+while the full physical invariant remains `assumed`. Accepted reports, original
+mode-8 values, missing replies and conflicting reports remain in capability facts.
+Mode-query completion owns both the requested mode replies and the trailing
+primary-DA fence. An early DA cannot finish an empty or incomplete collection, and
+a mode reply alone cannot release raw input while a split DA tail is still due.
+The collection's `complete` fact describes mode-reply coverage; valid reports remain
+usable if the fence is missing when the query times out. Discovery and final
+restoration retain raw-input ownership through the existing bounded late-response
+quarantine before releasing it, consuming late response tails while preserving
+concurrent user keys. Accepted valid reports survive a collection timeout. An inconclusive refresh
+cannot erase earlier implicit or conflicting evidence and reopen automatic
+admission. Fresh nonconflicting mode evidence is needed to resolve those blockers.
+
+An initial mode-query write failure also blocks admission and marks full
+presentation evidence `indeterminate`, even though a query does not mutate the
+mode. Timeout or unrecognized refresh results cannot clear that failure; a fresh
+coherent known mode report is required. No fictitious mode restoration is
+attempted for a failed query.
+
+Late replies are quarantined before another query; retired evidence and replayed
+prefixes cannot authorize new work. DECRQM has no transaction identifier, so
+replies delayed beyond the bounded quarantine remain a transport limitation rather
+than proof of query identity.
 
 Required setup failures remain authoritative in `TuiRunError.primaryDiagnostic`
-and `message`; `exit.diagnostics` retains operation, requirement, rejection or
-indeterminate outcome and evidence, including after suspension recovery.
-`HOST_CELL_PRESENTATION_UNQUALIFIED` means full qualification is missing;
-`HOST_CELL_PRESENTATION_CONTRADICTED` means observed evidence contradicts it.
-Missing mode readback, raw-input failure, immutable modes and transport uncertainty
-have their actual diagnostic cause. A declaration must not be used to bypass
-those failures.
+and `message`; `exit.diagnostics` retains the operation, requirement, rejection or
+indeterminate outcome and evidence, including after suspension recovery. Missing
+readback, raw-input failure, immutable modes and transport uncertainty keep their
+actual diagnostic cause. Admission policy and exceptions cannot bypass them.
 
 A mode report describes the global mode; it does not rewrite attributes retained
-on existing terminal paragraphs. On qualified application-ordered acquisition, the full-screen
-TUI establishes a fresh surface with the existing ED2 clear operation before its
-first frame, and again after suspension reacquisition. It does this only after
-successful setup. The low-level mode API never clears content, and incremental
-or clipped clears never become full-terminal clears. VTE 0.80.1 retains bidi flags
-per paragraph; this distinction is visible in its [mode-change handler](https://github.com/GNOME/vte/blob/0.80.1/src/vteseq.cc#L374-L395)
+on existing terminal paragraphs. On admitted application-ordered acquisition, the
+full-screen TUI establishes a fresh surface with the existing ED2 clear operation
+before its first frame, and again after suspension reacquisition. It does this
+only after successful setup. The low-level mode API never clears content, and
+incremental or clipped clears never become full-terminal clears. VTE 0.80.1 retains
+bidi flags per paragraph; this distinction is visible in its
+[mode-change handler](https://github.com/GNOME/vte/blob/0.80.1/src/vteseq.cc#L374-L395)
 and [paragraph-update logic](https://github.com/GNOME/vte/blob/0.80.1/src/vte.cc#L3355-L3425).
 
 The same session authority restores the known initial state on normal exit,
@@ -289,16 +373,15 @@ startup failure, cancellation, suspension and disposal. Interrupted writes remai
 indeterminate and are recoverable; restoration uses recovery output and verifies
 its readback. Unknown initial mode states are never guessed or reset.
 
-Qualification has separate layers: deterministic tests establish source maps,
+Verification has separate layers: deterministic tests establish source maps,
 metadata preservation, clipping and full-frame/diff equivalence; a real terminal
 must establish actual glyph ordering, joining and mark placement with its installed
-font. The raw mode-8 boundary has been observed on Xfce/VTE 8001, with
-implicit → explicit → implicit replies and raw-input restoration. An additional
-native SCP-RTL test demonstrates that identical reset reports do not prove
-physical LTR cells. This is not a
-claim about every VTE version, font, terminal, multiplexer or transport. Native
-control/selection and lifecycle qualification remains required for each supported
-host configuration.
+font. The raw mode-8 boundary has been observed on Xfce/VTE 8001, with implicit →
+explicit → implicit replies and raw-input restoration. An additional native
+SCP-RTL test demonstrates that identical reset reports do not prove physical LTR
+cells. Automatic admission does not extend those observations to every VTE version,
+font, terminal, multiplexer or transport. Native control/selection and lifecycle
+validation is still needed for physical-terminal guarantees.
 
 `sanitizeTerminalControlText()` removes unsafe control sequences while retaining
 tabs and source-removal metadata. Use it when a source-mapped layout owns tab

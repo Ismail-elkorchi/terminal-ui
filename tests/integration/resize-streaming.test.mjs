@@ -13,11 +13,11 @@ import {
 } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
 import { appendLogHistory, createLogHistory } from '../../dist/behavior/index.js';
-import { waitUntil } from '../support/async.ts';
+import { waitForRecordedFrames, waitUntil } from '../support/async.ts';
 
 const enterKey = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
 
-test('PTY harness handles resize while async stream messages are rendering', async () => {
+test('PTY harness handles resize while async stream messages are rendering', { timeout: 5000 }, async () => {
   const result = createPtyTerminalHarness({ terminalSize: { columns: 36, rows: 8 } });
   assert.equal(result.status, 'available');
   const harness = result.harness;
@@ -64,8 +64,9 @@ test('PTY harness handles resize while async stream messages are rendering', asy
     ], { id: 'root' })
   });
 
+  const ready = waitForRecordedFrames(harness, 2);
   const running = runTui(app, { host: harness.host });
-  await waitUntil(() => harness.frames().length >= 2);
+  await ready;
   await harness.resize({ columns: 52, rows: 8 });
   await waitUntil(() => harness.frames().at(-1)?.width === 52);
   await waitUntil(() => /stream item/u.test(harness.output()));

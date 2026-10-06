@@ -464,13 +464,14 @@ test('interaction scripts assert styled text focus selection and hit targets aga
   assert.equal(scriptResult.diagnostics.length, 0);
 });
 
-test('PTY harness reports standard modes independently without inventing physical-cell qualification', async () => {
+test('PTY harness reports standard modes independently of assumed native-grid admission', async () => {
   const result = createPtyTerminalHarness();
   assert.equal(result.status, 'available');
   const harness = result.harness;
   try {
     const capabilities = await harness.host.getCapabilities({ activeProbes: ['terminalModes'] });
-    assert.equal(capabilities.cellPresentation.support, 'unknown');
+    assert.equal(capabilities.cellPresentation.support, 'supported');
+    assert.equal(capabilities.cellPresentation.facts.find(fact => fact.name === 'cellPresentation.evidence').value, 'assumed');
     assert.equal(capabilities.cellPresentation.facts.find(fact => fact.name === 'standard:8').value, 'unrecognized');
     assert.deepEqual(capabilities.cellPresentation.facts.find(fact => fact.name === 'terminalModes.collection').value, {
       complete: true, missingModes: [], conflictingModes: [],

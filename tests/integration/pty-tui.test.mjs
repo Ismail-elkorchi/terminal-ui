@@ -11,11 +11,11 @@ import {
   text
 } from '../../dist/components/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
-import { waitUntil } from '../support/async.ts';
+import { waitForRecordedFrames } from '../support/async.ts';
 
 const enterKey = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
 
-test('PTY harness runs full-screen TUI and captures protocol restoration on success', async () => {
+test('PTY harness runs full-screen TUI and captures protocol restoration on success', { timeout: 5000 }, async () => {
   const result = createPtyTerminalHarness({ terminalSize: { columns: 32, rows: 5 } });
   assert.equal(result.status, 'available');
   const harness = result.harness;
@@ -37,8 +37,10 @@ test('PTY harness runs full-screen TUI and captures protocol restoration on succ
     })
   });
 
+  const ready = waitForRecordedFrames(harness, 1);
   const running = runTui(app, { host: harness.host });
-  await waitUntil(() => harness.frames().length === 1);
+  await ready;
+  assert.equal(harness.frames().length, 1);
   await harness.input(enterKey);
   const exit = await running;
 
@@ -61,7 +63,7 @@ test('PTY harness runs full-screen TUI and captures protocol restoration on succ
   assert.match(harness.output(), /\u001B\[\?25h/u);
 });
 
-test('PTY harness restores full-screen protocols on interrupt signals', async () => {
+test('PTY harness restores full-screen protocols on interrupt signals', { timeout: 5000 }, async () => {
   const result = createPtyTerminalHarness({ terminalSize: { columns: 24, rows: 4 } });
   assert.equal(result.status, 'available');
   const harness = result.harness;
@@ -72,8 +74,10 @@ test('PTY harness restores full-screen protocols on interrupt signals', async ()
     view: () => text({ content: 'waiting', id: 'waiting' })
   });
 
+  const ready = waitForRecordedFrames(harness, 1);
   const running = runTui(app, { host: harness.host });
-  await waitUntil(() => harness.frames().length === 1);
+  await ready;
+  assert.equal(harness.frames().length, 1);
   await harness.input({ kind: 'signal', signal: 'SIGINT' });
   const exit = await running;
 

@@ -5,10 +5,15 @@ import { createTerminalModeResponseProtocol, queriedModes } from './terminal-mod
 import type { TerminalModeKey } from './terminal-mode-query.ts';
 import type { TerminalClock, TerminalInputChunk } from './types.ts';
 
-void test('mode collection completes a valid mode-8 response without a DA reply', async () => {
+void test('mode collection owns its DA reply after a valid mode-8 response', async () => {
   const harness = modeHarness();
   const query = harness.query(['standard:8']);
+  let finished = false;
+  void query.result.then(() => { finished = true; });
   harness.push('before\u001B[8;2$yafter');
+  await flush();
+  assert.equal(finished, false);
+  harness.push('\u001B[?1;2c');
   assert.deepEqual(await query.result, { status: 'matched', value: { 'standard:8': 'reset' } });
   assert.deepEqual(query.protocol.evidence(), {
     reports: { 'standard:8': 'reset' }, missingModes: [], conflictingModes: [], complete: true,
@@ -61,7 +66,7 @@ void test('mode collection frames every split boundary and consumes same-batch d
   }
   const harness = modeHarness();
   const query = harness.query(['standard:8']);
-  harness.push(Uint8Array.from([0x9b, ...new TextEncoder().encode('8;4$y')]));
+  harness.push(Uint8Array.from([0x9b, ...new TextEncoder().encode('8;4$y\u001B[?1;2c')]));
   assert.deepEqual(await query.result, { status: 'matched', value: { 'standard:8': 'permanently_reset' } });
   await harness.authority.dispose();
 });
@@ -159,7 +164,9 @@ void test('retired mode collection consumes late DA and reports for the full qua
   const harness = modeHarness();
   const first = harness.query(['standard:8']);
   harness.push('\u001B[8;2$y');
-  assert.deepEqual(await first.result, { status: 'matched', value: { 'standard:8': 'reset' } });
+  await flush();
+  first.controller.abort('DA fence timeout');
+  assert.deepEqual(await first.result, { status: 'cancelled' });
   const retry = harness.query(['standard:8']);
   await flush();
   assert.equal(harness.sends(), 1);

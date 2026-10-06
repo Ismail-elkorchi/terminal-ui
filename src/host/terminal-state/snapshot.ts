@@ -81,7 +81,7 @@ function decodeInitialTerminalState(initial: unknown): TerminalInitialState {
     throw new TypeError('Terminal initial state must be an object.');
   }
   const supplied = initial as Readonly<Record<string, unknown>>;
-  if (Object.hasOwn(supplied, 'cellPresentation')) throw new TypeError('Initial cellPresentation is not raw terminal state; use a caller-qualified cellPresentation declaration.');
+  if (Object.hasOwn(supplied, 'cellPresentation')) throw new TypeError('Initial cellPresentation is not raw terminal state; configure admission through capabilities.cellPresentation.');
   const rawInput = optionalInitialBoolean(supplied['rawInput'], 'rawInput');
   const alternateScreen = optionalInitialBoolean(supplied['alternateScreen'], 'alternateScreen');
   const bracketedPaste = optionalInitialBoolean(supplied['bracketedPaste'], 'bracketedPaste');

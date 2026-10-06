@@ -72,7 +72,7 @@ export class TerminalInputAuthority implements TerminalInput {
     const result = await this.queryTerminal({
       signal,
       clock,
-      protocol: kittyKeyboardResponseProtocol,
+      protocol: createKittyKeyboardResponseProtocol(),
       send
     });
     if (result.status === 'matched') return { status: 'supported', flags: result.value };
@@ -197,8 +197,26 @@ export class TerminalInputAuthority implements TerminalInput {
     return this.#startRelease('terminal_input_released');
   }
 
-  setRawMode(enabled: boolean): Promise<void> | void {
-    return this.#source.setRawMode?.(enabled);
+  async setRawMode(enabled: boolean): Promise<void> {
+    let retirementFailure: unknown;
+    if (!enabled) {
+      try {
+        // A query owns all replies it issued through the existing bounded
+        // quarantine. Retire those bytes before returning the terminal to
+        // cooked input, including temporary probe leases and suspension.
+        await this.settleResponseQuarantine();
+      } catch (cause) {
+        retirementFailure = cause;
+      }
+    }
+    try {
+      // Failed input retirement must not prevent the raw-off cleanup attempt.
+      await this.#source.setRawMode?.(enabled);
+    } catch (cause) {
+      if (retirementFailure !== undefined) throw new AggregateError([retirementFailure, cause], 'Terminal input retirement and raw-mode restoration failed.', { cause });
+      throw cause;
+    }
+    if (retirementFailure !== undefined) throw new Error('Terminal input response retirement failed.', { cause: retirementFailure });
   }
 
   isRawModeEnabled(): boolean {
@@ -506,8 +524,33 @@ interface ByteRange {
   readonly end: number;
 }
 
-const kittyKeyboardResponseProtocol: TerminalResponseProtocol<number> = Object.freeze({
-  classify(control: Uint8Array): TerminalResponseClassification<number> | undefined {
+function createKittyKeyboardResponseProtocol(): TerminalResponseProtocol<number> {
+  let flags: number | undefined;
+  let fenced = false;
+  return {
+    classify(control) {
+      const result = classifyKittyKeyboardResponse(control);
+      if (result?.kind === 'matched') {
+        flags = result.value;
+        return { kind: 'consume' };
+      }
+      if (result?.kind === 'fence') {
+        fenced = true;
+        return flags === undefined ? result : { kind: 'consume' };
+      }
+      return result;
+    },
+    complete: () => fenced ? flags : undefined,
+    retire: () => fenced && flags !== undefined ? undefined : {
+      quarantineUntilDeadline: true,
+      classify(control) {
+        return classifyKittyKeyboardResponse(control) === undefined ? undefined : { kind: 'consume' };
+      },
+    },
+  };
+}
+
+function classifyKittyKeyboardResponse(control: Uint8Array): TerminalResponseClassification<number> | undefined {
     const body = csiBody(control);
     if (body === undefined || body.length < 3 || body[0] !== questionMark) return undefined;
     const final = body.at(-1);
@@ -526,7 +569,6 @@ const kittyKeyboardResponseProtocol: TerminalResponseProtocol<number> = Object.f
     }
     return undefined;
   }
-});
 
 const questionMark = 0x3f;
 const semicolon = 0x3b;

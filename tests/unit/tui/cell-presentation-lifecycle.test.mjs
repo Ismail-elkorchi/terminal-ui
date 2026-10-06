@@ -16,9 +16,9 @@ const sessionPolicy = { ...defaultSessionProtocolPolicy, alternateScreen: 'disab
   keyboard: { ...defaultSessionProtocolPolicy.keyboard, requirement: 'disabled' },
   cursorVisibility: { visibility: 'unchanged', requirement: 'disabled' }, mouseReporting: { mode: 'none', requirement: 'disabled' } };
 
-function modeHost(initialMode = 1, qualification = 'mode-8-reset') {
+function modeHost(initialMode = 1, policy = 'auto') {
   const host = createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 3 },
-    ...(qualification === null ? {} : { cellPresentation: { qualification } }),
+    capabilities: { cellPresentation: { policy } },
   });
   let mode = initialMode;
   let surfaceClears = 0;
@@ -104,8 +104,8 @@ test('suspension restores the outer mode and reestablishes presentation before o
   assert.deepEqual(emulator.host.output().match(/\u001B\[8[hl]/gu), ['\u001B[8l', '\u001B[8h', '\u001B[8l', '\u001B[8h']);
 });
 
-test('ordinary default session starts on a caller-qualified explicit host without mapping', async () => {
-  const host = createMemoryTerminalHost({ cellPresentation: { qualification: 'existing' } });
+test('ordinary default session starts on a no-option host without mapping', async () => {
+  const host = createMemoryTerminalHost();
   const running = runTui(app(), { host, graphics: 'none' });
   await waitUntil(() => host.frames().length > 0);
   host.input('\r');
@@ -213,12 +213,12 @@ test('surface reset follows explicit readback and occurs once before first frame
 });
 
 test('rejected presentation acquisition never clears the caller surface', async () => {
-  const emulator = modeHost(0);
+  const emulator = modeHost(3);
   await assert.rejects(runTui(app(), { host: emulator.host, textPresentation, sessionPolicy, graphics: 'none' }), TuiRunError);
   assert.equal(emulator.surfaceClears(), 0);
   assert.equal(emulator.host.frames().length, 0);
   assert.equal(emulator.host.stdin.isRawModeEnabled(), false);
-  assert.equal(emulator.mode(), 0);
+  assert.equal(emulator.mode(), 3);
 });
 
 test('surface initialization write failure restores presentation without publishing a frame', async () => {
@@ -234,7 +234,7 @@ test('surface initialization write failure restores presentation without publish
 });
 
 test('required mode failure is the actionable primary error, including warning outcomes', async () => {
-  const emulator = modeHost(0);
+  const emulator = modeHost(3);
   await assert.rejects(runTui(app(), { host: emulator.host, textPresentation, sessionPolicy, graphics: 'none' }), error => {
     assert.ok(error instanceof TuiRunError);
     const failure = error.exit.diagnostics.find(({ diagnostic }) =>
@@ -264,15 +264,15 @@ test('unrecognized alternate-screen query does not reject a working visual-cell 
 });
 
 for (const mode of [2, 4]) {
-  test(`explicit bidi-mode evidence alone cannot admit mapped application cells (mode ${mode})`, async () => {
-    const emulator = modeHost(mode, null);
+  test(`strict policy rejects assumed physical cells despite observed explicit bidi mode (mode ${mode})`, async () => {
+    const emulator = modeHost(mode, 'strict');
     let initialized = false;
     await assert.rejects(runTui(app({ init: () => {
       initialized = true;
       return { state: { value: 'unexpected' } };
     } }), { host: emulator.host, textPresentation, sessionPolicy, graphics: 'none' }), error => {
       assert.ok(error instanceof TuiRunError);
-      assert.equal(error.primaryDiagnostic.code, 'HOST_CELL_PRESENTATION_UNQUALIFIED');
+      assert.equal(error.primaryDiagnostic.data.policy, 'strict');
       assert.equal(error.primaryDiagnostic.data.operation, 'cellPresentation');
       assert.equal(error.primaryDiagnostic.data.outcome, 'rejected');
       return true;
@@ -284,3 +284,18 @@ for (const mode of [2, 4]) {
     assert.equal(emulator.host.stdin.isRawModeEnabled(), false);
   });
 }
+
+
+test('mapped automatic session admits an unrecognized mode without modifying it', async () => {
+  const emulator = modeHost(0);
+  const running = runTui(app(), { host: emulator.host, textPresentation, sessionPolicy, graphics: 'none' });
+  await waitUntil(() => emulator.host.frames().length > 0);
+  assert.equal(emulator.surfaceClears(), 1);
+  assert.equal(emulator.mode(), 0);
+  emulator.host.input('\r');
+  assert.equal((await running).status, 'completed');
+  assert.equal(emulator.mode(), 0);
+  assert.equal(emulator.host.stdin.isRawModeEnabled(), false);
+  assert.doesNotMatch(emulator.host.output(), /\u001B\[8[hl]/u);
+  assert.equal(emulator.host.restores().at(-1).resultingState.provenance.cellPresentation, 'assumed');
+});

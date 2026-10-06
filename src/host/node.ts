@@ -1,3 +1,4 @@
+import { rejectLegacyCellPresentation } from './cell-presentation.ts';
 import process from 'node:process';
 import type { TerminalSize } from '../geometry/types.ts';
 import { abortableSleep } from './abortable-sleep.ts';
@@ -90,6 +91,7 @@ class ProcessEnvironment implements TerminalEnvironment {
 }
 
 export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): TerminalHost {
+  rejectLegacyCellPresentation(options);
   const nodeProcess = options.process ?? process;
   const inputStream = options.stdin ?? nodeProcess.stdin;
   const outputStream = options.stdout ?? nodeProcess.stdout;
@@ -114,11 +116,11 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
       rows: getTerminalSize().rows,
       supportsRawInput: typeof inputStream.setRawMode === 'function',
       supportsResizeEvents: typeof outputStream.on === 'function' && typeof outputStream.off === 'function',
-      ...(options.cellPresentation === undefined ? {} : { cellPresentation: options.cellPresentation }),
       supportsTerminalProtocols: stdout.isTty(),
       ...(colorDepth === undefined ? {} : { colorDepth })
     },
     environment: { variables: environment },
+    ...(options.capabilities?.cellPresentation === undefined ? {} : { cellPresentation: options.capabilities.cellPresentation }),
     ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
     ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides }),
     ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth }),
@@ -127,6 +129,7 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
   } satisfies Parameters<typeof resolveTerminalCapabilities>[0];
   const terminalState = new TerminalStateAuthorityBinding();
   const detector = new TerminalCapabilityDetector({
+    presentationObservation: () => terminalState.presentationObservation(),
     input: stdin,
     clock,
     resolverInput,
@@ -165,9 +168,9 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
   };
   terminalState.bind(host, {
     rawInputKnowledge: typeof inputStream.isRaw === 'boolean' ? 'observed' : 'library_known',
+    resolveCellPresentation: observation => detector.resolveCellPresentation(observation),
     observeBidiMode: (context, recovery) => detector.observeBidiMode(context.signal, recovery),
     verifyKeyboardProfile: (flags, context) => detector.verifyKeyboardProfile(flags, context.signal),
-    ...(options.cellPresentation === undefined ? {} : { cellPresentation: options.cellPresentation }),
     ...(options.initialState === undefined ? {} : { initialState: options.initialState })
   });
   return host;

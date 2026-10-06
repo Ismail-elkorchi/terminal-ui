@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { diagnostic } from '../../../dist/diagnostics.js';
+import { flushAsync, waitUntil } from '../../support/async.ts';
 
 import {
   createSessionProtocolPlan,
@@ -24,14 +25,19 @@ import { applySessionProtocolPolicy } from '../../../dist/tui/index.js';
 
 const kittyEvents = kittyKeyboardProfile(3);
 
-async function detectModes(host, options = {}) {
+async function settleWithClock(host, promise) {
   let settled = false;
-  const result = host.getCapabilities({ activeProbes: ['terminalModes'], ...options }).finally(() => { settled = true; });
+  const result = promise.finally(() => { settled = true; });
+  void result.catch(() => undefined);
   while (!settled) {
-    await new Promise(resolve => setImmediate(resolve));
-    host.clock.advance(100);
+    await flushAsync();
+    if (!settled) host.clock.advance(100);
   }
   return result;
+}
+
+async function detectModes(host, options = {}) {
+  return settleWithClock(host, host.getCapabilities({ activeProbes: ['terminalModes'], ...options }));
 }
 
 function hostFacts(overrides = {}) {
@@ -89,7 +95,7 @@ test('host capability helper distinguishes input and output protocol support', (
   assert.equal(capabilities.rawInput.support, 'supported');
   assert.equal(capabilities.rawInput.availability, 'unavailable');
   assert.equal(capabilities.rawInput.diagnostics[0]?.code, 'HOST_CAPABILITY_UNAVAILABLE');
-  assert.equal(capabilities.alternateScreen.support, 'unknown');
+  assert.equal(capabilities.alternateScreen.support, 'supported');
   assert.equal(capabilities.alternateScreen.availability, 'available');
   assert.equal(capabilities.synchronizedOutput.support, 'unknown');
   assert.equal(capabilities.synchronizedOutput.availability, 'available');
@@ -105,7 +111,7 @@ test('capability resolution distinguishes support, adapter availability, and env
   );
 
   const unknown = resolveTerminalCapabilities({ host: hostFacts({ supportsResizeEvents: false }) });
-  assert.deepEqual([unknown.alternateScreen.support, unknown.alternateScreen.availability], ['unknown', 'available']);
+  assert.deepEqual([unknown.alternateScreen.support, unknown.alternateScreen.availability], ['supported', 'available']);
   assert.deepEqual([unknown.resize.support, unknown.resize.availability], ['supported', 'unavailable']);
 
   const dumb = resolveTerminalCapabilities({
@@ -130,20 +136,20 @@ test('capability resolution distinguishes support, adapter availability, and env
     host: hostFacts(),
     environment: { variables: { TERM: 'screen-256color' } }
   });
-  assert.equal(screen.alternateScreen.support, 'unknown');
+  assert.equal(screen.alternateScreen.support, 'supported');
 
   const misleading = resolveTerminalCapabilities({
     host: hostFacts(),
     environment: { variables: { TERM: 'vendor-terminal', TERM_PROGRAM: 'unknown-program' } }
   });
-  assert.equal(misleading.alternateScreen.support, 'unknown');
+  assert.equal(misleading.alternateScreen.support, 'supported');
   assert.equal(misleading.bracketedPaste.support, 'unknown');
 
   const linux = resolveTerminalCapabilities({
     host: hostFacts(),
     environment: { variables: { TERM: 'linux' } }
   });
-  assert.equal(linux.alternateScreen.support, 'supported');
+  assert.equal(linux.alternateScreen.support, 'unsupported');
   assert.equal(linux.cursorVisibility.support, 'supported');
   assert.equal(linux.bracketedPaste.support, 'unknown');
 
@@ -249,7 +255,7 @@ test('synchronized output requires an explicit probe or override', () => {
 test('active Kitty discovery consumes only its split response and replays unrelated input', async () => {
   const host = createMemoryTerminalHost();
   host.input('before\u001B[?');
-  host.input('7uafter');
+  host.input('7u\u001B[?1;2cafter');
 
   const capabilities = await host.getCapabilities({
     activeProbes: ['keyboardProtocol'],
@@ -268,7 +274,7 @@ test('active Kitty discovery consumes only its split response and replays unrela
 
 test('Kitty discovery records inherited flags and a legacy session establishes its own frame', async () => {
   const host = createMemoryTerminalHost();
-  host.input('\u001B[?3u');
+  host.input('\u001B[?3u\u001B[?1;2c');
 
   await host.getCapabilities({ activeProbes: ['keyboardProtocol'] });
   const session = await host.beginSession({ id: 'nested-legacy-keyboard' });
@@ -373,10 +379,10 @@ test('active Kitty discovery uses primary device attributes as an unsupported fe
   const host = createMemoryTerminalHost();
   host.input('before\u001B[?1;2cafter');
 
-  const capabilities = await host.getCapabilities({
+  const capabilities = await settleWithClock(host, host.getCapabilities({
     activeProbes: ['keyboardProtocol'],
     probeTimeoutMs: 10
-  });
+  }));
   const input = host.stdin.read()[Symbol.asyncIterator]();
   const retainedInput = await readInputText(input, 'beforeafter'.length);
   await input.return?.();
@@ -399,7 +405,7 @@ test('active Kitty discovery is bounded and replays buffered user input after ti
   assert.equal(host.output().includes('\u001B[?u'), true);
   host.clock.advance(25);
 
-  const capabilities = await detection;
+  const capabilities = await settleWithClock(host, detection);
   const input = host.stdin.read()[Symbol.asyncIterator]();
   const replayed = await input.next();
   await input.return?.();
@@ -425,7 +431,7 @@ test('a refreshed Kitty probe receives a full timeout budget after response quar
   }
   assert.equal(host.output().match(/\u001B\[\?u/gu)?.length, 1);
   host.clock.advance(25);
-  const first = await firstDetection;
+  const first = await settleWithClock(host, firstDetection);
   assert.equal(first.keyboardProtocol.support, 'unknown');
 
   const refreshedDetection = host.getCapabilities({
@@ -433,19 +439,10 @@ test('a refreshed Kitty probe receives a full timeout budget after response quar
     probeTimeoutMs: 25,
     refresh: true
   });
-  await Promise.resolve();
-  await Promise.resolve();
-  host.clock.advance(100);
-  for (
-    let attempt = 0;
-    attempt < 50 && (host.output().match(/\u001B\[\?u/gu)?.length ?? 0) < 2;
-    attempt += 1
-  ) {
-    await Promise.resolve();
-  }
-  assert.equal(host.output().match(/\u001B\[\?u/gu)?.length, 2);
-  host.input('\u001B[?3u');
-  const refreshed = await refreshedDetection;
+  await waitUntil(() => (host.output().match(/\u001B\[\?u/gu)?.length ?? 0) === 2);
+  host.clock.advance(24);
+  host.input('\u001B[?3u\u001B[?1;2c');
+  const refreshed = await settleWithClock(host, refreshedDetection);
 
   assert.equal(refreshed.keyboardProtocol.support, 'supported');
   const session = await host.beginSession({ id: 'refreshed-kitty-probe' });
@@ -455,7 +452,7 @@ test('a refreshed Kitty probe receives a full timeout budget after response quar
 
 test('an inconclusive refreshed Kitty probe cannot retain the previous endpoint profile', async () => {
   const host = createMemoryTerminalHost();
-  host.input('\u001B[?3u');
+  host.input('\u001B[?3u\u001B[?1;2c');
   await host.getCapabilities({ activeProbes: ['keyboardProtocol'], probeTimeoutMs: 25 });
 
   const refreshedDetection = host.getCapabilities({
@@ -469,7 +466,7 @@ test('an inconclusive refreshed Kitty probe cannot retain the previous endpoint 
     attempt += 1
   ) await Promise.resolve();
   host.clock.advance(25);
-  const refreshed = await refreshedDetection;
+  const refreshed = await settleWithClock(host, refreshedDetection);
   const session = await host.beginSession({ id: 'inconclusive-refreshed-kitty' });
 
   assert.equal(refreshed.keyboardProtocol.support, 'unknown');
@@ -546,7 +543,7 @@ test('capability refresh is rejected while an application terminal lease is acti
 
 test('active terminal capability probes own their complete temporary sessions', async () => {
   const host = createMemoryTerminalHost();
-  host.input([
+  const modeReplies = [
     '\u001B[?25;2$y',
     '\u001B[?1000;2$y',
     '\u001B[?1002;2$y',
@@ -557,9 +554,14 @@ test('active terminal capability probes own their complete temporary sessions', 
     '\u001B[?2004;2$y',
     '\u001B[?2026;2$y',
     '\u001B[?2027;2$y',
-    '\u001B[?3u',
     '\u001B[?1;2c'
-  ].join(''));
+  ].join('');
+  const write = host.stdout.write.bind(host.stdout);
+  host.stdout.write = async (chunk, context) => {
+    await write(chunk, context);
+    if (String(chunk).includes('\u001B[8$p')) host.input(modeReplies);
+    if (String(chunk).includes('\u001B[?u')) host.input('\u001B[?3u\u001B[?1;2c');
+  };
 
   const results = await Promise.allSettled([
     detectModes(host),
@@ -588,7 +590,8 @@ test('cancelling the creator of a capability probe retires its terminal operatio
   controller.abort(new Error('startup cancelled'));
   await assert.rejects(detection, /startup cancelled/u);
   for (let attempt = 0; attempt < 20 && host.restores().length === 0; attempt += 1) {
-    await Promise.resolve();
+    await flushAsync();
+    if (host.restores().length === 0) host.clock.advance(100);
   }
 
   assert.equal(host.stdin.isRawModeEnabled(), false);
@@ -771,7 +774,7 @@ test('terminal sessions restore state in protocol-safe order', async () => {
     focusReporting: false,
     unicodeGraphemeMode: false,
     bidiMode: 'unknown',
-    cellPresentation: 'unknown',
+    cellPresentation: 'application-ordered',
     metaSendsEscape: false,
     keyboardProfile: LEGACY_KEYBOARD_PROFILE,
     cursorVisible: true
@@ -1249,7 +1252,7 @@ test('session policy enables and restores a supported Kitty keyboard profile', a
 test('stream hosts verify the Kitty flags accepted by the terminal', async () => {
   const output = [];
   const host = createBunTerminalHost({
-    stdin: { source: runtimeInput(['\u001B[?3u']), isTty: true },
+    stdin: { source: runtimeInput(['\u001B[?3u\u001B[?1;2c']), isTty: true },
     stdout: {
       write: (chunk) => output.push(String(chunk)),
       recoveryWrite: (chunk) => output.push(String(chunk)),
@@ -1271,7 +1274,7 @@ test('stream hosts verify the Kitty flags accepted by the terminal', async () =>
 test('stream hosts revert to legacy input when requested Kitty flags are not verified', async () => {
   const output = [];
   const host = createBunTerminalHost({
-    stdin: { source: runtimeInput(['\u001B[?1u']), isTty: true },
+    stdin: { source: runtimeInput(['\u001B[?1u\u001B[?1;2c']), isTty: true },
     stdout: {
       write: (chunk) => output.push(String(chunk)),
       recoveryWrite: (chunk) => output.push(String(chunk)),
@@ -1295,7 +1298,7 @@ test('failed alternate-screen keyboard verification restores its screen-local fr
   const output = [];
   const inheritedMain = kittyKeyboardProfile(5);
   const host = createBunTerminalHost({
-    stdin: { source: runtimeInput(['\u001B[?1u']), isTty: true },
+    stdin: { source: runtimeInput(['\u001B[?1u\u001B[?1;2c']), isTty: true },
     stdout: {
       write: (chunk) => output.push(String(chunk)),
       recoveryWrite: (chunk) => output.push(String(chunk)),
@@ -1328,7 +1331,7 @@ test('session setup uses the authoritative profile restored after Kitty verifica
   const output = [];
   const inherited = kittyKeyboardProfile(5);
   const host = createBunTerminalHost({
-    stdin: { source: runtimeInput(['\u001B[?1u']), isTty: true },
+    stdin: { source: runtimeInput(['\u001B[?1u\u001B[?1;2c']), isTty: true },
     stdout: {
       write: (chunk) => output.push(String(chunk)),
       recoveryWrite: (chunk) => output.push(String(chunk)),
@@ -1362,7 +1365,7 @@ test('session setup uses the authoritative profile restored after Kitty verifica
 test('failed Kitty fallback is indeterminate after a committed profile push', async () => {
   const output = [];
   const host = createBunTerminalHost({
-    stdin: { source: runtimeInput(['\u001B[?1u']), isTty: true },
+    stdin: { source: runtimeInput(['\u001B[?1u\u001B[?1;2c']), isTty: true },
     stdout: {
       write: (chunk) => output.push(String(chunk)),
       recoveryWrite: (chunk) => output.push(String(chunk)),
@@ -2035,4 +2038,100 @@ test('unresolved alternate-screen conflict cannot disappear into restoration def
   assert.equal(session.initialState.provenance.alternateScreen, 'indeterminate');
   assert.equal((await session.enableAlternateScreen()).diagnostic.data.reason, 'mode-reports-conflicting');
   assert.equal((await session.restore()).attempted.length, 0);
+});
+
+
+test('successful Kitty discovery retains temporary raw input through a split trailing DA', async () => {
+  const host = createMemoryTerminalHost();
+  let settled = false;
+  const detecting = host.getCapabilities({ activeProbes: ['keyboardProtocol'] }).finally(() => { settled = true; });
+  await waitUntil(() => host.output().includes('\u001B[?u'));
+  host.input('before\u001B[?3u\u001B[?1;');
+  await flushAsync();
+  assert.equal(settled, false, 'flags alone cannot release the query-owned DA reply');
+  assert.equal(host.stdin.isRawModeEnabled(), true);
+  host.input('2cafter');
+  const profile = await detecting;
+  assert.equal(profile.keyboardProtocol.support, 'supported');
+  assert.equal(host.stdin.isRawModeEnabled(), false);
+  assert.equal(host.restores().at(-1)?.status, 'restored');
+  const input = host.stdin.read()[Symbol.asyncIterator]();
+  assert.equal(await readInputText(input, 'beforeafter'.length), 'beforeafter');
+  await input.return?.();
+});
+
+test('unfenced Kitty flags time out inconclusively and drain their late DA before raw release', async () => {
+  const host = createMemoryTerminalHost();
+  let settled = false;
+  const detecting = host.getCapabilities({ activeProbes: ['keyboardProtocol'], probeTimeoutMs: 25 }).finally(() => { settled = true; });
+  await waitUntil(() => host.output().includes('\u001B[?u'));
+  host.input('before\u001B[?3u');
+  await flushAsync();
+  assert.equal(settled, false);
+  host.clock.advance(25);
+  await flushAsync();
+  assert.equal(settled, false);
+  assert.equal(host.stdin.isRawModeEnabled(), true);
+  host.input('\u001B[?1;');
+  await flushAsync();
+  host.input('2cafter');
+  const profile = await settleWithClock(host, detecting);
+  assert.equal(profile.keyboardProtocol.support, 'unknown', 'late fence cannot retroactively qualify timed-out flags');
+  assert.equal(host.stdin.isRawModeEnabled(), false);
+  const input = host.stdin.read()[Symbol.asyncIterator]();
+  assert.equal(await readInputText(input, 'beforeafter'.length), 'beforeafter');
+  await input.return?.();
+});
+
+test('probe retirement failure still attempts temporary raw-input restoration', async () => {
+  for (const activeProbe of ['keyboardProtocol', 'terminalModes']) {
+    const host = createMemoryTerminalHost();
+    const settle = host.stdin.settleResponseQuarantine.bind(host.stdin);
+    let querySent = false;
+    host.stdin.settleResponseQuarantine = async (...args) => {
+      if (querySent) throw new Error('injected response-retirement failure');
+      return settle(...args);
+    };
+    const write = host.stdout.write.bind(host.stdout);
+    host.stdout.write = async (chunk, context) => {
+      await write(chunk, context);
+      if (String(chunk).includes('\u001B[?u') || String(chunk).includes('\u001B[8$p')) querySent = true;
+    };
+    host.input(activeProbe === 'keyboardProtocol' ? '\u001B[?3u\u001B[?1;2c' : '\u001B[8;2$y\u001B[?1;2c');
+    await assert.rejects(settleWithClock(host, host.getCapabilities({ activeProbes: [activeProbe] })));
+    assert.equal(querySent, true);
+    assert.equal(host.stdin.isRawModeEnabled(), false, 'drain failure must not skip the raw-off cleanup attempt');
+    assert.ok(host.restores().length > 0);
+    host.stdin.settleResponseQuarantine = settle;
+  }
+});
+
+
+test('an early unsupported Kitty fence retains raw input while delayed flags are retired', async () => {
+  const host = createMemoryTerminalHost();
+  let settled = false;
+  const detecting = host.getCapabilities({ activeProbes: ['keyboardProtocol'] }).finally(() => { settled = true; });
+  await waitUntil(() => host.output().includes('\u001B[?u'));
+  host.input('before\u001B[?1;2c');
+  await flushAsync();
+  assert.equal(settled, false, 'unsupported DA still leaves ownership of possible delayed flags');
+  assert.equal(host.stdin.isRawModeEnabled(), true);
+  host.input('\u001B[?7');
+  await flushAsync();
+  host.input('uafter');
+  await flushAsync();
+  host.clock.advance(99);
+  await flushAsync();
+  assert.equal(settled, false);
+  assert.equal(host.stdin.isRawModeEnabled(), true);
+  host.clock.advance(1);
+  const profile = await detecting;
+  assert.equal(profile.keyboardProtocol.support, 'unsupported', 'late flags do not change retired probe evidence');
+  assert.equal(host.stdin.isRawModeEnabled(), false);
+  const session = await host.beginSession();
+  assert.deepEqual(session.initialState.keyboardProfile, LEGACY_KEYBOARD_PROFILE);
+  await session.restore();
+  const input = host.stdin.read()[Symbol.asyncIterator]();
+  assert.equal(await readInputText(input, 'beforeafter'.length), 'beforeafter');
+  await input.return?.();
 });

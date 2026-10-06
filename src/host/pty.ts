@@ -1,3 +1,4 @@
+import { rejectLegacyCellPresentation } from './cell-presentation.ts';
 import type { TerminalSize } from '../geometry/types.ts';
 import { resolveTerminalCapabilities } from './capabilities.ts';
 import { TerminalCapabilityDetector } from './capability-detection.ts';
@@ -65,6 +66,7 @@ class PtyOutput implements TerminalOutput {
 }
 
 export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): PtyTerminalHost {
+  rejectLegacyCellPresentation(options);
   let terminalSize = initialPtyTerminalSize(options);
   const inputSource = new RuntimeInput({ ...options.stdin, isTty: options.stdin?.isTty ?? true });
   const stdin = new TerminalInputAuthority(inputSource, () => inputSource.dispose());
@@ -81,6 +83,7 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
   };
   const terminalState = new TerminalStateAuthorityBinding();
   const detector = new TerminalCapabilityDetector({
+    presentationObservation: () => terminalState.presentationObservation(),
     input: stdin,
     clock,
     resolverInput,
@@ -122,9 +125,9 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
   };
   terminalState.bind(host, {
     rawInputKnowledge: options.stdin?.isRawModeEnabled === undefined ? 'library_known' : 'observed',
+    resolveCellPresentation: observation => detector.resolveCellPresentation(observation),
     observeBidiMode: (context, recovery) => detector.observeBidiMode(context.signal, recovery),
     verifyKeyboardProfile: (flags, context) => detector.verifyKeyboardProfile(flags, context.signal),
-    ...(options.cellPresentation === undefined ? {} : { cellPresentation: options.cellPresentation }),
     ...(options.initialState === undefined ? {} : { initialState: options.initialState })
   });
   return host;
@@ -154,10 +157,10 @@ function ptyCapabilityResolverInput(
       rows: terminalSize.rows,
       supportsRawInput: options.stdin?.setRawMode !== undefined,
       supportsResizeEvents: options.subscribeSignals !== undefined,
-      ...(options.cellPresentation === undefined ? {} : { cellPresentation: options.cellPresentation }),
       supportsTerminalProtocols: stdout.isTty(),
     },
     environment: { variables: options.env ?? {} },
+    ...(capabilities?.cellPresentation === undefined ? {} : { cellPresentation: capabilities.cellPresentation }),
     ...(capabilities?.probes === undefined ? {} : { probes: capabilities.probes }),
     ...(capabilities?.colorDepth === undefined ? {} : { colorDepth: capabilities.colorDepth }),
     ...(capabilities?.widthProfile === undefined ? {} : { widthProfile: capabilities.widthProfile }),

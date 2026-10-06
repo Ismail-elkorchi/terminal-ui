@@ -1,3 +1,4 @@
+import { rejectLegacyCellPresentation } from './cell-presentation.ts';
 import process from 'node:process';
 import { denoSignalSubscriber } from './native-signals.ts';
 import {
@@ -23,6 +24,7 @@ interface DenoLike {
 }
 
 export function createDenoTerminalHost(options: DenoTerminalHostOptions = {}): TerminalHost {
+  rejectLegacyCellPresentation(options);
   const deno = denoGlobal();
   const subscribeSignals = options.subscribeSignals ?? denoSignalSubscriber(deno);
   const getNativeTerminalSize = options.stdout === undefined
@@ -37,7 +39,6 @@ export function createDenoTerminalHost(options: DenoTerminalHostOptions = {}): T
     stderr: options.stderr ?? denoOutputOptions(deno?.stderr),
     ...(getNativeTerminalSize === undefined ? {} : { getTerminalSize: getNativeTerminalSize }),
     ...(options.capabilities === undefined ? {} : { capabilities: options.capabilities }),
-    ...(options.cellPresentation === undefined ? {} : { cellPresentation: options.cellPresentation }),
     ...(options.initialState === undefined ? {} : { initialState: options.initialState }),
     ...optionalEnv(options.env ?? denoEnvironment(deno))
   });

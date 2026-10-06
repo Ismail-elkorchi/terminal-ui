@@ -18,7 +18,6 @@ type InferredControlCapability = Extract<
 >;
 
 const xtermLikeTerms = /^(?:xterm|screen|tmux|rxvt|alacritty|kitty|wezterm|foot|contour|ghostty|st)(?:[-.]|$)/u;
-const screenTerms = /^screen(?:[-.]|$)/u;
 const basicVtTerms = /^(?:linux|vt\d+)(?:[-.]|$)/u;
 const recognizedPrograms = new Set([
   'apple_terminal',
@@ -49,8 +48,10 @@ export function inferControlCapability(
 
   switch (capability) {
     case 'alternateScreen':
-      if (term !== undefined && screenTerms.test(term)) return 'unknown';
-      return xtermLike || knownProgram || (term !== undefined && basicVtTerms.test(term)) ? 'supported' : 'unknown';
+      if (term !== undefined && basicVtTerms.test(term)) return 'unsupported';
+      // Full-screen VT adapters conventionally provide 1049, including screen/tmux.
+      // This is a control-policy assumption; a negative mode report takes precedence.
+      return 'supported';
     case 'bell':
     case 'cursorVisibility':
     case 'textAttributes':

@@ -1,3 +1,4 @@
+import { rejectLegacyCellPresentation } from './cell-presentation.ts';
 import { processSignalSubscriber } from './native-signals.ts';
 import { NodeTerminalOutput } from './node-output.ts';
 import {
@@ -17,6 +18,7 @@ interface BunLike {
 }
 
 export function createBunTerminalHost(options: BunTerminalHostOptions = {}): TerminalHost {
+  rejectLegacyCellPresentation(options);
   const bun = bunGlobal();
   const processLike = processGlobal();
   const subscribeSignals = options.subscribeSignals ?? processSignalSubscriber(processLike);
@@ -28,7 +30,6 @@ export function createBunTerminalHost(options: BunTerminalHostOptions = {}): Ter
     ...bunHostOutput('stdout', options.stdout, processLike?.stdout),
     ...bunHostOutput('stderr', options.stderr, processLike?.stderr),
     ...(options.capabilities === undefined ? {} : { capabilities: options.capabilities }),
-    ...(options.cellPresentation === undefined ? {} : { cellPresentation: options.cellPresentation }),
     ...(options.initialState === undefined ? {} : { initialState: options.initialState }),
     ...optionalEnv(options.env ?? processLike?.env)
   });

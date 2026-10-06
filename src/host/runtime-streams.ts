@@ -1,3 +1,4 @@
+import { rejectLegacyCellPresentation } from './cell-presentation.ts';
 import type { TerminalSize } from '../geometry/types.ts';
 import { abortableSleep } from './abortable-sleep.ts';
 import type { TerminalCapabilityConfiguration } from './capabilities.ts';
@@ -47,10 +48,10 @@ export interface StreamTerminalHostOptions {
   readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsubscribe;
   readonly capabilities?: TerminalCapabilityConfiguration;
   readonly initialState?: import('./types.ts').TerminalInitialState;
-  readonly cellPresentation?: import('./capability-types.ts').TerminalCellPresentationQualification;
 }
 
 export function createStreamTerminalHost(options: StreamTerminalHostOptions): TerminalHost {
+  rejectLegacyCellPresentation(options);
   const inputSource = new RuntimeInput(options.stdin);
   const stdin = new TerminalInputAuthority(inputSource, () => inputSource.dispose());
   const stdout = options.stdoutOutput ?? new RuntimeOutput(options.stdout);
@@ -71,10 +72,10 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
       rows: initialTerminalSize.rows,
       supportsRawInput: options.stdin?.setRawMode !== undefined,
       supportsResizeEvents: options.subscribeSignals !== undefined,
-      ...(options.cellPresentation === undefined ? {} : { cellPresentation: options.cellPresentation }),
       supportsTerminalProtocols: stdout.isTty()
     },
     environment: { variables: options.env ?? {} },
+    ...(options.capabilities?.cellPresentation === undefined ? {} : { cellPresentation: options.capabilities.cellPresentation }),
     ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
     ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides }),
     ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth }),
@@ -83,6 +84,7 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
   } satisfies Parameters<typeof resolveTerminalCapabilities>[0];
   const terminalState = new TerminalStateAuthorityBinding();
   const detector = new TerminalCapabilityDetector({
+    presentationObservation: () => terminalState.presentationObservation(),
     input: stdin,
     clock,
     resolverInput,
@@ -121,9 +123,9 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
   };
   terminalState.bind(host, {
     rawInputKnowledge: options.stdin?.isRawModeEnabled === undefined ? 'library_known' : 'observed',
+    resolveCellPresentation: observation => detector.resolveCellPresentation(observation),
     observeBidiMode: (context, recovery) => detector.observeBidiMode(context.signal, recovery),
     verifyKeyboardProfile: (flags, context) => detector.verifyKeyboardProfile(flags, context.signal),
-    ...(options.cellPresentation === undefined ? {} : { cellPresentation: options.cellPresentation }),
     ...(options.initialState === undefined ? {} : { initialState: options.initialState })
   });
   return host;

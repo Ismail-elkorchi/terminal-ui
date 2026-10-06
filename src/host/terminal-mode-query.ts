@@ -75,7 +75,9 @@ export function createTerminalModeResponseProtocol(modes: readonly TerminalModeK
       }
       return { kind: 'consume' };
     },
-    complete: () => complete() ? snapshot() : undefined,
+    // The request includes DA after its mode queries. Own that response before
+    // releasing raw input; a mode reply alone can precede a split DA tail.
+    complete: () => complete() && deviceAttributesReceived ? snapshot() : undefined,
     evidence: () => Object.freeze({
       reports: snapshot(),
       missingModes: Object.freeze(requested.filter((mode) => !received.has(mode))),

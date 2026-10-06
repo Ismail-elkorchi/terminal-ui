@@ -27,6 +27,8 @@ void test('bounded readback consumes only requested mode and valid reports', () 
   for (const [number, state] of ['unrecognized', 'set', 'reset', 'permanently_set', 'permanently_reset'].entries()) {
     const observation = createTerminalModeResponseProtocol(['standard:8']);
     assert.deepEqual(observation.classify(bytes(`\u001B[8;${String(number)}$y`)), { kind: 'consume' });
+    assert.equal(observation.complete?.(), undefined, 'the requested DA fence still belongs to this query');
+    observation.classify(bytes('\u001B[?1;2c'));
     assert.deepEqual(observation.complete?.(), { 'standard:8': state });
   }
 });

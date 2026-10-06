@@ -20,7 +20,6 @@ export type {
 export { terminalCapabilityNames } from './capability-types.ts';
 export type {
   CapabilitySourceFact,
-  TerminalCellPresentationQualification,
   CapabilitySourceKind,
   CapabilitySupport,
   HostFeatureAvailability,
@@ -167,3 +166,5 @@ export async function detectTerminalCapabilities(host: TerminalHost): Promise<Te
 export async function restoreTerminalState(host: TerminalHost): Promise<TerminalRestoreResult> {
   return host.restoreTerminalState('disposed');
 }
+
+export type { TerminalCellPresentationConfiguration, TerminalCellPresentationException } from './capability-types.ts';

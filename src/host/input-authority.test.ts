@@ -351,7 +351,7 @@ void test('a retry waits out the previous response quarantine before accepting i
   const wasRetrySent = (): boolean => retrySent;
   for (let attempt = 0; attempt < 10 && !wasRetrySent(); attempt += 1) await Promise.resolve();
   assert.equal(retrySent, true);
-  reads[0]?.resolve({ done: false, value: { data: '\u001B[?7u' } });
+  reads[0]?.resolve({ done: false, value: { data: '\u001B[?7u\u001B[?1;2c' } });
 
   assert.deepEqual(await retry, { status: 'supported', flags: 7 });
   await authority.dispose();
@@ -413,3 +413,57 @@ function controlledClock(): TerminalClock & { advance(ms: number): void } {
     }
   };
 }
+
+
+void test('Kitty flags retain response ownership until a split requested DA arrives', async () => {
+  const reads: PromiseWithResolvers<IteratorResult<TerminalInputChunk>>[] = [];
+  const source: import('./types.ts').TerminalInput = {
+    read: () => ({ [Symbol.asyncIterator]: () => ({ next: () => {
+      const read = Promise.withResolvers<IteratorResult<TerminalInputChunk>>();
+      reads.push(read);
+      return read.promise;
+    } }) }),
+    isTty: () => true,
+  };
+  const authority = new TerminalInputAuthority(source);
+  let settled = false;
+  const probing = authority.probeKittyKeyboard(new AbortController().signal, probeClock).finally(() => { settled = true; });
+  await waitForReadCount(reads, 1);
+  reads[0]?.resolve({ done: false, value: { data: 'before\u001B[?7u\u001B[?1;' } });
+  await waitForReadCount(reads, 2);
+  assert.equal(settled, false);
+  reads[1]?.resolve({ done: false, value: { data: '2cafter' } });
+  assert.deepEqual(await probing, { status: 'supported', flags: 7 });
+  const reader = authority.read()[Symbol.asyncIterator]();
+  let retained = '';
+  while (retained.length < 'beforeafter'.length) {
+    const chunk = await reader.next();
+    if (chunk.done) assert.fail('Expected user input around the completed response.');
+    retained += inputText(chunk.value.data);
+  }
+  assert.equal(retained, 'beforeafter');
+  await reader.return?.();
+  await authority.dispose();
+});
+
+void test('raw-off is still attempted if retiring response ownership fails', async () => {
+  let raw = true;
+  const changes: boolean[] = [];
+  const source: import('./types.ts').TerminalInput = {
+    read: () => ({ [Symbol.asyncIterator]: () => ({ next: async () => ({ done: true as const, value: undefined }) }) }),
+    isTty: () => true,
+    isRawModeEnabled: () => raw,
+    setRawMode(enabled) { changes.push(enabled); raw = enabled; },
+  };
+  const authority = new TerminalInputAuthority(source);
+  const retirementFailure = new Error('injected retirement failure');
+  authority.settleResponseQuarantine = async () => { throw retirementFailure; };
+  await assert.rejects(authority.setRawMode(false), (error: unknown) => {
+    assert.ok(error instanceof Error);
+    assert.equal(error.cause, retirementFailure);
+    return true;
+  });
+  assert.deepEqual(changes, [false]);
+  assert.equal(raw, false);
+  await authority.dispose();
+});

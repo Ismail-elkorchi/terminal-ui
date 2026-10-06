@@ -1,33 +1,54 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createMemoryTerminalHost } from '../../../dist/host/index.js';
+import { createMemoryTerminalHost, createPtyTerminalHost } from '../../../dist/host/index.js';
 import { failedTerminalWrite, indeterminateTerminalWrite } from '../../../dist/host/index.js';
+import { resolveCellPresentation } from '../../../dist/host/cell-presentation.js';
+import { queriedModes } from '../../../dist/host/terminal-mode-query.js';
+import { flushAsync, waitUntil } from '../../support/async.ts';
 
 const report = (state) => `\u001B[8;${state}$y\u001B[?1;2c`;
 const modeWrites = (text) => text.match(/\u001B\[8[hl]/gu) ?? [];
 async function observedHost(state = 1, options = {}) {
-  const host = createMemoryTerminalHost({ cellPresentation: { qualification: 'mode-8-reset' }, ...options });
+  const host = createMemoryTerminalHost(options);
   host.input(report(state));
   await detectModes(host);
   return host;
 }
 
-async function detectModes(host, options = {}) {
+async function settleWithClock(host, promise) {
   let settled = false;
-  const result = host.getCapabilities({ activeProbes: ['terminalModes'], ...options }).finally(() => { settled = true; });
+  const result = promise.finally(() => { settled = true; });
+  void result.catch(() => undefined);
   while (!settled) {
-    await new Promise(resolve => setImmediate(resolve));
-    host.clock.advance(100);
+    await flushAsync();
+    if (!settled) host.clock.advance(100);
   }
   return result;
 }
+async function detectModes(host, options = {}) {
+  return settleWithClock(host, host.getCapabilities({ activeProbes: ['terminalModes'], ...options }));
+}
+async function readInputText(host, length) {
+  const input = host.stdin.read()[Symbol.asyncIterator]();
+  let text = '';
+  try {
+    while (text.length < length) {
+      const chunk = (await input.next()).value.data;
+      text += typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk);
+    }
+    return text;
+  } finally {
+    await input.return?.();
+  }
+}
+
 async function preparedSession(host) {
   const session = await host.beginSession();
   assert.equal((await session.enableRawInput()).status, 'applied');
   return session;
 }
 
-test('mode 8 is standard namespace, and establishment and restoration are observed', async () => {
+test('raw mode 8 uses the standard namespace and reset/restoration are observed', async () => {
   const host = await observedHost();
   const session = await preparedSession(host);
   assert.equal(session.initialState.bidiMode, 'implicit');
@@ -36,9 +57,9 @@ test('mode 8 is standard namespace, and establishment and restoration are observ
   assert.doesNotMatch(host.output(), /\u001B\[\?8\$p/u);
   host.input(report(2));
   assert.deepEqual(await session.enableCellPresentation(), {
-    status: 'applied', assurance: 'declared', change: { kind: 'cellPresentation', state: 'application-ordered' }, diagnostics: [],
+    status: 'applied', assurance: 'assumed', change: { kind: 'cellPresentation', state: 'application-ordered' }, diagnostics: [],
   });
-  assert.equal((await session.currentState()).provenance.cellPresentation, 'explicit');
+  assert.equal((await session.currentState()).provenance.cellPresentation, 'assumed');
   host.input(report(1));
   const restored = await session.restore('success');
   assert.equal(restored.status, 'restored');
@@ -48,16 +69,38 @@ test('mode 8 is standard namespace, and establishment and restoration are observ
   assert.deepEqual(modeWrites(host.output()), ['\u001B[8l', '\u001B[8h']);
 });
 
-test('terminal identity cannot invent an unknown baseline', async () => {
-  for (const state of [undefined, 0]) {
-    const options = { cellPresentation: undefined, env: { TERM: 'xterm-256color', VTE_VERSION: '8001' } };
-    const host = state === undefined ? createMemoryTerminalHost(options) : await observedHost(state, options);
-    const session = await preparedSession(host);
+for (const state of [undefined, 0]) {
+  test(`default automatic admission does not invent a raw baseline (${state ?? 'unreported'})`, async () => {
+    const host = state === undefined ? createMemoryTerminalHost() : await observedHost(state);
+    const profile = await host.getCapabilities();
+    assert.equal(profile.cellPresentation.support, 'supported');
+    const session = await host.beginSession();
     assert.equal(session.initialState.bidiMode, 'unknown');
-    assert.equal((await session.enableCellPresentation()).status, 'rejected');
-    assert.equal((await session.restore('error')).status, 'restored');
+    assert.equal(session.initialState.provenance.bidiMode, 'assumed');
+    assert.equal(session.initialState.cellPresentation, 'application-ordered');
+    assert.equal(session.initialState.provenance.cellPresentation, 'assumed');
+    const outcome = await session.enableCellPresentation();
+    assert.equal(outcome.status, 'applied');
+    assert.equal(outcome.assurance, 'assumed');
+    const restored = await session.restore();
+    assert.equal(restored.status, 'restored');
+    assert.equal(restored.attempted.some(item => item.kind === 'bidiMode'), false);
+    assert.equal(host.stdin.isRawModeEnabled(), false);
     assert.deepEqual(modeWrites(host.output()), []);
-  }
+  });
+}
+
+test('a no-option VT transport admits its unknown baseline without terminal mutation', async () => {
+  const host = createPtyTerminalHost();
+  const session = await host.beginSession();
+  assert.equal(session.initialState.bidiMode, 'unknown');
+  assert.equal(session.initialState.cellPresentation, 'application-ordered');
+  assert.equal(session.initialState.provenance.cellPresentation, 'assumed');
+  assert.equal((await session.enableCellPresentation()).assurance, 'assumed');
+  const restored = await session.restore();
+  assert.equal(restored.status, 'restored');
+  assert.deepEqual(restored.attempted, []);
+  await host.dispose();
 });
 
 test('permanent implicit state rejects reset while permanent explicit state needs no write', async () => {
@@ -72,7 +115,7 @@ test('permanent implicit state rejects reset while permanent explicit state need
   const already = await explicit.beginSession();
   const accepted = await already.enableCellPresentation();
   assert.equal(accepted.status, 'applied');
-  assert.equal(accepted.assurance, 'declared');
+  assert.equal(accepted.assurance, 'assumed');
   assert.equal((await already.restore()).status, 'restored');
   assert.deepEqual(modeWrites(explicit.output()), []);
 });
@@ -143,7 +186,7 @@ test('nested explicit sessions do not reset the outer owner and disposal restore
   host.input(report(2));
   await outer.enableCellPresentation();
   const inner = await host.beginSession();
-  assert.equal((await inner.enableCellPresentation()).assurance, 'declared');
+  assert.equal((await inner.enableCellPresentation()).assurance, 'assumed');
   assert.equal((await inner.restore()).status, 'restored');
   assert.deepEqual(modeWrites(host.output()), ['\u001B[8l']);
   host.input(report(1));
@@ -152,7 +195,7 @@ test('nested explicit sessions do not reset the outer owner and disposal restore
   assert.equal(host.stdin.isRawModeEnabled(), false);
 });
 
-test('capability refresh discards old mode-8 knowledge and preserves unrelated input', async () => {
+test('inconclusive capability refresh retains negative mode evidence and preserves unrelated input', async () => {
   const host = await observedHost();
   host.input('typing\u001B[?1;2c');
   const profile = await detectModes(host, { refresh: true });
@@ -174,13 +217,15 @@ test('missing mode readback is bounded and cannot establish a sent reset', async
   const establishing = session.enableCellPresentation();
   while ((host.output().match(/\u001B\[8\$p/gu) ?? []).length === queries) await Promise.resolve();
   host.clock.advance(100);
-  assert.equal((await establishing).status, 'indeterminate');
-  assert.equal((await session.currentState()).provenance.cellPresentation, 'indeterminate');
-  // The existing response quarantine owns late replies before restoration starts a new query.
+  await flushAsync();
   host.input(report(2));
+  assert.equal((await settleWithClock(host, establishing)).status, 'indeterminate');
+  assert.equal((await session.currentState()).provenance.cellPresentation, 'indeterminate');
+  // A retained late reply stays owned by the previous query until its bounded quarantine settles.
   const restoring = session.restore('timeout');
   while ((host.output().match(/\u001B\[8\$p/gu) ?? []).length === queries + 1) {
-    await Promise.resolve(); host.clock.advance(1);
+    await flushAsync();
+    if ((host.output().match(/\u001B\[8\$p/gu) ?? []).length === queries + 1) host.clock.advance(1);
   }
   host.input(report(1));
   const result = await restoring;
@@ -188,33 +233,37 @@ test('missing mode readback is bounded and cannot establish a sent reset', async
   assert.equal(result.resultingState.bidiMode, 'implicit');
 });
 
-test('caller-qualified visual-cell host needs no mode implementation or state change', async () => {
-  const host = await observedHost(0, { cellPresentation: { qualification: 'existing' } });
+test('automatic admission records policy, context and the unrecognized raw report separately', async () => {
+  const host = await observedHost(0);
   const profile = await host.getCapabilities();
   assert.equal(profile.cellPresentation.support, 'supported');
-  assert.ok(profile.cellPresentation.facts.some(fact => fact.kind === 'override' && fact.name === 'cellPresentation.qualification'));
+  assert.ok(profile.cellPresentation.facts.some(fact => fact.name === 'cellPresentation.policy' && fact.value === 'auto'));
+  assert.ok(profile.cellPresentation.facts.some(fact => fact.name === 'cellPresentation.context' && typeof fact.value === 'string'));
+  assert.ok(profile.cellPresentation.facts.some(fact => fact.name === 'cellPresentation.conditions' && Array.isArray(fact.value)));
   assert.ok(profile.cellPresentation.facts.some(fact => fact.name === 'standard:8' && fact.value === 'unrecognized'));
   const session = await host.beginSession();
   assert.equal(session.initialState.bidiMode, 'unknown');
   assert.equal(session.initialState.cellPresentation, 'application-ordered');
-  assert.equal(session.initialState.provenance.cellPresentation, 'explicit');
-  const result = await session.enableCellPresentation();
-  assert.equal(result.status, 'applied');
-  assert.equal(result.assurance, 'declared', 'caller qualification is not a terminal observation');
+  assert.equal(session.initialState.provenance.cellPresentation, 'assumed');
+  assert.equal((await session.enableCellPresentation()).assurance, 'assumed');
   assert.equal((await session.restore()).status, 'restored');
   assert.deepEqual(modeWrites(host.output()), []);
 });
 
-test('an observed implicit mode permanently invalidates a contradictory existing qualification', async () => {
-  const host = await observedHost(1, { cellPresentation: { qualification: 'existing' } });
+test('an observed implicit mode requires reset and readback rather than an assumption fallback', async () => {
+  const host = await observedHost(1);
   const session = await preparedSession(host);
   assert.equal(session.initialState.bidiMode, 'implicit');
   assert.equal(session.initialState.cellPresentation, 'unknown');
+  host.input(report(2));
   const result = await session.enableCellPresentation();
-  assert.equal(result.status, 'rejected');
-  assert.equal(result.diagnostic.code, 'HOST_CELL_PRESENTATION_CONTRADICTED');
+  assert.equal(result.status, 'applied');
+  assert.equal(result.assurance, 'assumed');
+  assert.equal((await session.currentState()).provenance.bidiMode, 'observed');
+  assert.equal((await session.currentState()).provenance.cellPresentation, 'assumed');
+  host.input(report(1));
   assert.equal((await session.restore()).status, 'restored');
-  assert.deepEqual(modeWrites(host.output()), []);
+  assert.deepEqual(modeWrites(host.output()), ['\u001B[8l', '\u001B[8h']);
 });
 
 test('a retry raw-input setter that mutates then throws still restores raw input', async () => {
@@ -238,24 +287,25 @@ test('a retry raw-input setter that mutates then throws still restores raw input
   assert.equal(host.stdin.isRawModeEnabled(), false);
 });
 
-test('a contradicted caller qualification cannot return after an inconclusive refresh', async () => {
-  const host = await observedHost(1, { cellPresentation: { qualification: 'existing' } });
+test('negative implicit evidence cannot become automatic admission after an inconclusive refresh', async () => {
+  const host = await observedHost(1);
   host.input('\u001B[?1;2c');
   const profile = await detectModes(host, { refresh: true });
   assert.equal(profile.cellPresentation.support, 'unknown');
   const session = await preparedSession(host);
   assert.equal(session.initialState.bidiMode, 'unknown');
+  assert.equal(session.initialState.cellPresentation, 'unknown');
   assert.equal((await session.enableCellPresentation()).status, 'rejected');
   assert.equal((await session.restore()).status, 'restored');
   assert.deepEqual(modeWrites(host.output()), []);
 });
 
 for (const reply of ['\u001B[?1;2c', '\u001B[8;0$y\u001B[?1;2c']) {
-  test(`missing or unrecognized mode-8 query cannot authorize a qualified implicit transition: ${JSON.stringify(reply)}`, async () => {
-    const host = createMemoryTerminalHost({ cellPresentation: { qualification: 'mode-8-reset' }, initialState: { bidiMode: 'implicit' } });
+  test(`missing or unrecognized mode-8 query cannot authorize a supplied implicit baseline: ${JSON.stringify(reply)}`, async () => {
+    const host = createMemoryTerminalHost({ initialState: { bidiMode: 'implicit' } });
     host.input(reply);
     const profile = await detectModes(host);
-    assert.equal(profile.cellPresentation.support, 'unknown', 'caller declaration cannot establish an unobserved qualified transition');
+    assert.equal(profile.cellPresentation.support, 'unknown', 'an implicit baseline cannot be assumed safe without a verified transition');
     const session = await preparedSession(host);
     const result = await session.enableCellPresentation();
     assert.equal(result.status, 'rejected');
@@ -266,7 +316,7 @@ for (const reply of ['\u001B[?1;2c', '\u001B[8;0$y\u001B[?1;2c']) {
 }
 
 test('mode-1049 unrecognized readback preserves independent set/reset support and safe restoration', async () => {
-  const host = createMemoryTerminalHost({ cellPresentation: { qualification: 'mode-8-reset' }, initialState: { alternateScreen: false },
+  const host = createMemoryTerminalHost({ initialState: { alternateScreen: false },
     capabilities: { probes: { alternateScreen: 'supported' } } });
   // Exact unrecognized private-mode response, alongside working standard mode 8.
   host.input('\u001B[?1049;0$y\u001B[8;1$y\u001B[?1;2c');
@@ -283,7 +333,7 @@ test('mode-1049 unrecognized readback preserves independent set/reset support an
   assert.deepEqual(modeWrites(host.output()), ['\u001B[8l', '\u001B[8h']);
 });
 
-test('a failed-before-write retry does not erase uncertainty from an earlier partial mutation', async () => {
+test('an indeterminate mutation prevents admission retries until the known baseline is restored', async () => {
   const host = await observedHost();
   const session = await preparedSession(host);
   let attempts = 0;
@@ -294,7 +344,8 @@ test('a failed-before-write retry does not erase uncertainty from an earlier par
       : failedTerminalWrite('test', new Error('retry never wrote')))
     : write(chunk, context);
   assert.equal((await session.enableCellPresentation()).status, 'indeterminate');
-  assert.equal((await session.enableCellPresentation()).status, 'rejected');
+  assert.equal((await session.enableCellPresentation()).status, 'indeterminate');
+  assert.equal(attempts, 1, 'uncertainty must not trigger another mutation or an assumption fallback');
   assert.equal((await session.currentState()).provenance.cellPresentation, 'indeterminate');
   host.input(report(1));
   const restored = await session.restore('error');
@@ -304,65 +355,64 @@ test('a failed-before-write retry does not erase uncertainty from an earlier par
 });
 
 for (const state of [2, 4]) {
-  test(`raw mode-8 state ${state} alone cannot prove physical left-to-right cells`, async () => {
-    const host = await observedHost(state, {
-      cellPresentation: undefined,
-      env: { TERM_PROGRAM: 'WezTerm', VTE_VERSION: '8400' },
-    });
+  test(`observed mode-8 reset ${state} admits by assumption without changing its raw state`, async () => {
+    const host = await observedHost(state, { env: { TERM_PROGRAM: 'WezTerm', VTE_VERSION: '8400' } });
     const profile = await host.getCapabilities();
-    assert.equal(profile.cellPresentation.support, 'unknown');
+    assert.equal(profile.cellPresentation.support, 'supported');
     assert.ok(profile.cellPresentation.facts.some(fact => fact.name === 'standard:8'));
-    const session = await preparedSession(host);
+    const session = await host.beginSession();
     assert.equal(session.initialState.bidiMode, 'explicit');
     assert.equal(session.initialState.provenance.bidiMode, 'observed');
-    assert.equal(session.initialState.cellPresentation, 'unknown');
+    assert.equal(session.initialState.cellPresentation, 'application-ordered');
+    assert.equal(session.initialState.provenance.cellPresentation, 'assumed');
     const outcome = await session.enableCellPresentation();
-    assert.equal(outcome.status, 'rejected');
-    assert.equal(outcome.diagnostic.code, 'HOST_CELL_PRESENTATION_UNQUALIFIED');
-    assert.equal(outcome.diagnostic.data.report, state === 2 ? 'reset' : 'permanently_reset');
-    assert.equal(outcome.diagnostic.data.qualification, null);
+    assert.equal(outcome.status, 'applied');
+    assert.equal(outcome.assurance, 'assumed', 'a raw mode report does not observe the full physical invariant');
     await session.restore();
     assert.deepEqual(modeWrites(host.output()), []);
     assert.doesNotMatch(host.output(), /\u001B\[[012] k/u, 'no guessed SCP direction/restoration');
   });
 }
 
-test('an explicit raw restoration baseline is not a full-state declaration or observed reset', async () => {
-  for (const cellPresentation of [undefined, { qualification: 'mode-8-reset' }]) {
-    const host = createMemoryTerminalHost({ cellPresentation, initialState: { bidiMode: 'explicit' } });
-    const session = await preparedSession(host);
-    assert.equal(session.initialState.bidiMode, 'explicit');
-    assert.equal(session.initialState.provenance.bidiMode, 'explicit');
-    assert.equal(session.initialState.cellPresentation, 'unknown');
-    assert.equal((await session.enableCellPresentation()).status, 'rejected');
-    await session.restore();
-    assert.deepEqual(modeWrites(host.output()), []);
-  }
+test('a supplied explicit raw baseline remains distinct from automatic physical-cell assumptions', async () => {
+  const host = createMemoryTerminalHost({ initialState: { bidiMode: 'explicit' } });
+  const session = await host.beginSession();
+  assert.equal(session.initialState.bidiMode, 'explicit');
+  assert.equal(session.initialState.provenance.bidiMode, 'explicit');
+  assert.equal(session.initialState.cellPresentation, 'application-ordered');
+  assert.equal(session.initialState.provenance.cellPresentation, 'assumed');
+  assert.equal((await session.enableCellPresentation()).assurance, 'assumed');
+  await session.restore();
+  assert.deepEqual(modeWrites(host.output()), []);
 });
 
-test('the qualified reset path declares physical semantics but observes only raw BDSM', async () => {
+test('automatic admission assumes physical semantics but observes only raw BDSM', async () => {
   const host = await observedHost(2);
   const session = await host.beginSession();
   assert.equal(session.initialState.cellPresentation, 'application-ordered');
-  assert.equal(session.initialState.provenance.cellPresentation, 'explicit');
+  assert.equal(session.initialState.provenance.cellPresentation, 'assumed');
   assert.equal(session.initialState.provenance.bidiMode, 'observed');
-  assert.equal((await session.enableCellPresentation()).assurance, 'declared');
+  assert.equal((await session.enableCellPresentation()).assurance, 'assumed');
   const restored = await session.restore();
   assert.equal(restored.status, 'restored');
   assert.equal(restored.attempted.some(operation => operation.kind === 'cellPresentation'), false);
   assert.deepEqual(modeWrites(host.output()), []);
 });
 
-test('full presentation declarations reject malformed values and the removed raw-state alias', () => {
-  for (const cellPresentation of ['explicit', 'application-ordered', {}, { qualification: 'implicit' },
-    { qualification: 'existing', demand: true }]) {
-    assert.throws(() => createMemoryTerminalHost({ cellPresentation }), /caller qualification/u);
+test('removed qualification options and malformed admission policies fail loudly', () => {
+  for (const cellPresentation of [undefined, 'explicit', 'application-ordered', {}, { qualification: 'existing' }, { qualification: 'mode-8-reset' }]) {
+    assert.throws(() => createMemoryTerminalHost({ cellPresentation }), TypeError);
+  }
+  for (const cellPresentation of ['auto', { policy: 'qualified' }, { qualification: 'existing' },
+    { exceptions: [{ condition: 'any-terminal', context: 'example' }] },
+    { exceptions: [{ condition: 'kitty-force-ltr' }] }]) {
+    assert.throws(() => createMemoryTerminalHost({ capabilities: { cellPresentation } }), TypeError);
   }
   assert.throws(() => createMemoryTerminalHost({ initialState: { cellPresentation: 'explicit' } }), /not raw terminal state/u);
 });
 
-test('conflicting reports invalidate an existing declaration and retain collection evidence', async () => {
-  const host = createMemoryTerminalHost({ cellPresentation: { qualification: 'existing' } });
+test('conflicting reports reject admission and an inconclusive refresh retains the rejection', async () => {
+  const host = createMemoryTerminalHost();
   host.input('\u001B[8;2$y\u001B[8;1$y\u001B[?1;2c');
   const profile = await detectModes(host);
   assert.equal(profile.cellPresentation.support, 'unknown');
@@ -372,30 +422,36 @@ test('conflicting reports invalidate an existing declaration and retain collecti
   assert.ok(collection.missingModes.includes('private:25'));
   const session = await preparedSession(host);
   assert.equal(session.initialState.cellPresentation, 'unknown');
-  assert.equal((await session.enableCellPresentation()).diagnostic.code, 'HOST_CELL_PRESENTATION_CONTRADICTED');
+  assert.equal((await session.enableCellPresentation()).status, 'rejected');
   await session.restore();
+  host.input('\u001B[?1;2c');
+  await detectModes(host, { refresh: true });
+  const inconclusive = await preparedSession(host);
+  assert.equal((await inconclusive.enableCellPresentation()).status, 'rejected');
+  await inconclusive.restore();
   host.input(report(2));
   await detectModes(host, { refresh: true });
-  const resumed = await preparedSession(host);
+  const resumed = await host.beginSession();
   assert.equal(resumed.initialState.bidiMode, 'explicit');
-  assert.equal(resumed.initialState.cellPresentation, 'unknown');
-  assert.equal((await resumed.enableCellPresentation()).diagnostic.code, 'HOST_CELL_PRESENTATION_CONTRADICTED');
+  assert.equal(resumed.initialState.cellPresentation, 'application-ordered');
+  assert.equal((await resumed.enableCellPresentation()).assurance, 'assumed');
   await resumed.restore();
+  assert.deepEqual(modeWrites(host.output()), []);
 });
 
-test('host-lifetime declaration survives refresh without pretending mode observations requalify direction', async () => {
-  const host = await observedHost(0, { cellPresentation: { qualification: 'existing' } });
+test('unrecognized refresh preserves auto policy without claiming observation of physical direction', async () => {
+  const host = await observedHost(0);
   host.input(report(0));
   const profile = await detectModes(host, { refresh: true });
   assert.equal(profile.cellPresentation.support, 'supported');
   const session = await host.beginSession();
   assert.equal(session.initialState.bidiMode, 'unknown');
   assert.equal(session.initialState.cellPresentation, 'application-ordered');
-  assert.equal((await session.enableCellPresentation()).assurance, 'declared');
+  assert.equal((await session.enableCellPresentation()).assurance, 'assumed');
   await session.restore();
 });
 
-test('raw-input and verification failures carry precise evidence without a declaration remedy', async () => {
+test('raw-input and verification failures carry precise evidence without an assumption fallback', async () => {
   const host = await observedHost();
   const session = await host.beginSession();
   const raw = await session.enableCellPresentation();
@@ -412,12 +468,13 @@ test('raw-input and verification failures carry precise evidence without a decla
   await session.restore();
 });
 
-test('a supplied implicit raw baseline contradicts existing full-cell qualification', async () => {
-  const host = createMemoryTerminalHost({ cellPresentation: { qualification: 'existing' },
-    initialState: { bidiMode: 'implicit' } });
+test('a supplied implicit raw baseline cannot be overridden by default automatic admission', async () => {
+  const host = createMemoryTerminalHost({ initialState: { bidiMode: 'implicit' } });
   const session = await preparedSession(host);
+  assert.equal(session.initialState.bidiMode, 'implicit');
+  assert.equal(session.initialState.provenance.bidiMode, 'explicit');
   assert.equal(session.initialState.cellPresentation, 'unknown');
-  assert.equal((await session.enableCellPresentation()).diagnostic.code, 'HOST_CELL_PRESENTATION_CONTRADICTED');
+  assert.equal((await session.enableCellPresentation()).status, 'rejected');
   assert.deepEqual(modeWrites(host.output()), []);
   await session.restore();
 });
@@ -436,15 +493,15 @@ test('an unrecognized verification retains its exact raw report and remains inde
 });
 
 
-test('generic capability flags cannot masquerade as full physical-cell qualification', () => {
+test('generic capability flags cannot override physical-cell admission', () => {
   for (const capabilities of [{ probes: { cellPresentation: 'supported' } }, { overrides: { cellPresentation: true } }]) {
     assert.throws(() => createMemoryTerminalHost({ capabilities }), /cannot be supplied as generic capability support/u);
   }
 });
 
 
-test('the reset-qualified path refuses contradictory mutability reports even when both report explicit mode', async () => {
-  const host = createMemoryTerminalHost({ cellPresentation: { qualification: 'mode-8-reset' } });
+test('automatic admission refuses conflicting mutability reports even when both report explicit mode', async () => {
+  const host = createMemoryTerminalHost();
   host.input('\u001B[8;2$y\u001B[8;4$y\u001B[?1;2c');
   await detectModes(host);
   const session = await preparedSession(host);
@@ -455,5 +512,360 @@ test('the reset-qualified path refuses contradictory mutability reports even whe
   assert.equal(outcome.diagnostic.data.reason, 'mode-reports-conflicting');
   const restored = await session.restore();
   assert.equal(restored.status, 'restored');
+  assert.deepEqual(modeWrites(host.output()), []);
+});
+
+for (const state of [undefined, 0, 1, 2, 3, 4]) {
+  test(`strict policy rejects assumed full physical semantics (mode ${state ?? 'unreported'})`, async () => {
+    const options = { capabilities: { cellPresentation: { policy: 'strict' } } };
+    const host = state === undefined ? createMemoryTerminalHost(options) : await observedHost(state, options);
+    const session = await preparedSession(host);
+    assert.equal(session.initialState.cellPresentation, 'unknown');
+    const outcome = await session.enableCellPresentation();
+    assert.equal(outcome.status, 'rejected');
+    if (state === 2 || state === 4) {
+      assert.equal(session.initialState.bidiMode, 'explicit');
+      assert.equal(session.initialState.provenance.bidiMode, 'observed');
+    }
+    assert.equal((await session.restore()).status, 'restored');
+    assert.deepEqual(modeWrites(host.output()), []);
+  });
+}
+
+for (const [condition, env] of [
+  ['kitty-force-ltr', { TERM: 'xterm-kitty', KITTY_WINDOW_ID: '42' }],
+  ['konsole-bidi-disabled', { TERM: 'xterm-256color', KONSOLE_VERSION: '240800' }],
+]) {
+  test(`${condition} is blocked until its exact-context condition exception is supplied`, async () => {
+    const inspecting = createMemoryTerminalHost({ env });
+    const profile = await inspecting.getCapabilities();
+    const context = profile.cellPresentation.facts.find(fact => fact.name === 'cellPresentation.context')?.value;
+    const conditions = profile.cellPresentation.facts.find(fact => fact.name === 'cellPresentation.conditions')?.value;
+    assert.equal(typeof context, 'string');
+    assert.ok(Array.isArray(conditions) && conditions.includes(condition));
+    const unconfigured = await inspecting.beginSession();
+    assert.equal((await unconfigured.enableCellPresentation()).status, 'rejected');
+    await unconfigured.restore();
+    await inspecting.dispose();
+
+    for (const exception of [{ condition, context }, { condition, context: `${context}:different` },
+      { condition: condition === 'kitty-force-ltr' ? 'konsole-bidi-disabled' : 'kitty-force-ltr', context }]) {
+      const host = createMemoryTerminalHost({ env,
+        capabilities: { cellPresentation: { exceptions: [exception] } } });
+      const session = await host.beginSession();
+      const outcome = await session.enableCellPresentation();
+      const matching = exception.condition === condition && exception.context === context;
+      assert.equal(outcome.status, matching ? 'applied' : 'rejected');
+      if (matching) {
+        assert.equal(outcome.assurance, 'assumed');
+        assert.equal(session.initialState.provenance.cellPresentation, 'assumed');
+      }
+      await session.restore();
+      assert.deepEqual(modeWrites(host.output()), []);
+    }
+
+    const changed = createMemoryTerminalHost({ env: { ...env, TMUX: '/tmp/tmux-1000/default,1,0' },
+      capabilities: { cellPresentation: { exceptions: [{ condition, context }] } } });
+    const changedSession = await changed.beginSession();
+    assert.equal((await changedSession.enableCellPresentation()).status, 'rejected', 'exceptions do not cross transport contexts');
+    await changedSession.restore();
+    assert.deepEqual(modeWrites(changed.output()), []);
+  });
+
+  test(`${condition} exceptions do not override negative mode evidence or strict policy`, async () => {
+    const inspecting = createMemoryTerminalHost({ env });
+    const profile = await inspecting.getCapabilities();
+    const context = profile.cellPresentation.facts.find(fact => fact.name === 'cellPresentation.context').value;
+    await inspecting.dispose();
+    const exceptions = [{ condition, context }];
+    for (const state of [2, 3]) {
+      const host = await observedHost(state, { env, capabilities: { cellPresentation: {
+        ...(state === 2 ? { policy: 'strict' } : {}), exceptions,
+      } } });
+      const session = await preparedSession(host);
+      assert.equal((await session.enableCellPresentation()).status, 'rejected');
+      await session.restore();
+      assert.deepEqual(modeWrites(host.output()), []);
+    }
+    const conflicting = createMemoryTerminalHost({ env, capabilities: { cellPresentation: { exceptions } } });
+    conflicting.input('\u001B[8;2$y\u001B[8;1$y\u001B[?1;2c');
+    await detectModes(conflicting);
+    const conflictSession = await preparedSession(conflicting);
+    assert.equal((await conflictSession.enableCellPresentation()).status, 'rejected');
+    await conflictSession.restore();
+    assert.deepEqual(modeWrites(conflicting.output()), []);
+  });
+}
+
+for (const env of [
+  { TERM: 'xterm-kitty', KONSOLE_VERSION: '240800' },
+  { TERM: 'xterm-256color', TERM_PROGRAM: 'ghostty', KITTY_WINDOW_ID: '10' },
+]) {
+  test(`mixed terminal identity cannot bind a saved configuration exception (${JSON.stringify(env)})`, async () => {
+    const host = createMemoryTerminalHost({ env, capabilities: { cellPresentation: { exceptions: [
+      { condition: 'kitty-force-ltr', context: 'a-previously-saved-direct-context' },
+      { condition: 'konsole-bidi-disabled', context: 'a-previously-saved-direct-context' },
+    ] } } });
+    const profile = await host.getCapabilities();
+    assert.equal(profile.cellPresentation.facts.find(fact => fact.name === 'cellPresentation.context').value, null);
+    assert.ok(profile.cellPresentation.facts.find(fact => fact.name === 'cellPresentation.conditions').value.includes('kitty-force-ltr'));
+    const session = await host.beginSession();
+    const outcome = await session.enableCellPresentation();
+    assert.equal(outcome.status, 'rejected');
+    assert.equal(outcome.diagnostic.data.reason, 'terminal-configuration-required');
+    assert.equal(outcome.diagnostic.data.contextAvailable, false);
+    await session.restore();
+    assert.deepEqual(modeWrites(host.output()), []);
+  });
+}
+
+test('host creation snapshots policy, exception entries and environment before first admission', async () => {
+  const env = { TERM: 'xterm-kitty', KITTY_WINDOW_ID: '10', KITTY_VERSION: '0.43.0' };
+  const inspecting = createMemoryTerminalHost({ env });
+  const profile = await inspecting.getCapabilities();
+  const context = profile.cellPresentation.facts.find(fact => fact.name === 'cellPresentation.context').value;
+  await inspecting.dispose();
+
+  const strictPolicy = { policy: 'strict' };
+  const strict = createMemoryTerminalHost({ capabilities: { cellPresentation: strictPolicy } });
+  strictPolicy.policy = 'auto';
+  const strictSession = await strict.beginSession();
+  assert.equal((await strictSession.enableCellPresentation()).status, 'rejected');
+  assert.ok((await strict.getCapabilities()).cellPresentation.facts.some(fact => fact.name === 'cellPresentation.policy' && fact.value === 'strict'));
+  await strictSession.restore();
+
+  const exceptions = [];
+  const blocked = createMemoryTerminalHost({ env, capabilities: { cellPresentation: { exceptions } } });
+  exceptions.push({ condition: 'kitty-force-ltr', context });
+  delete env.KITTY_WINDOW_ID;
+  env.TERM = 'xterm-256color';
+  const blockedSession = await blocked.beginSession();
+  assert.equal((await blockedSession.enableCellPresentation()).status, 'rejected', 'later configuration cannot remove or satisfy a captured hazard');
+  assert.deepEqual((await blocked.getCapabilities()).cellPresentation.facts.find(fact => fact.name === 'cellPresentation.conditions').value, ['kitty-force-ltr']);
+  await blockedSession.restore();
+
+  const capturedEnv = { TERM: 'xterm-kitty', KITTY_WINDOW_ID: '10', KITTY_VERSION: '0.43.0' };
+  const capturedException = { condition: 'kitty-force-ltr', context };
+  const admitted = createMemoryTerminalHost({ env: capturedEnv,
+    capabilities: { cellPresentation: { exceptions: [capturedException] } } });
+  capturedException.context = 'different';
+  capturedException.condition = 'konsole-bidi-disabled';
+  capturedEnv.KITTY_VERSION = '0.44.0';
+  const admittedSession = await admitted.beginSession();
+  assert.equal((await admittedSession.enableCellPresentation()).assurance, 'assumed');
+  assert.equal((await admitted.getCapabilities()).cellPresentation.facts.find(fact => fact.name === 'cellPresentation.context').value, context);
+  await admittedSession.restore();
+  for (const host of [strict, blocked, admitted]) assert.deepEqual(modeWrites(host.output()), []);
+});
+
+test('Kitty context ignores transient window IDs but binds terminal version', async () => {
+  const env = { TERM: 'xterm-kitty', KITTY_WINDOW_ID: '10', KITTY_VERSION: '0.43.0' };
+  const inspecting = createMemoryTerminalHost({ env });
+  const profile = await inspecting.getCapabilities();
+  const context = profile.cellPresentation.facts.find(fact => fact.name === 'cellPresentation.context').value;
+  await inspecting.dispose();
+  for (const version of ['0.43.0', '0.44.0']) {
+    const host = createMemoryTerminalHost({ env: { ...env, KITTY_WINDOW_ID: '999', KITTY_VERSION: version },
+      capabilities: { cellPresentation: { exceptions: [{ condition: 'kitty-force-ltr', context }] } } });
+    const currentContext = (await host.getCapabilities()).cellPresentation.facts.find(fact => fact.name === 'cellPresentation.context').value;
+    assert.equal(currentContext === context, version === '0.43.0');
+    const session = await host.beginSession();
+    assert.equal((await session.enableCellPresentation()).status, version === '0.43.0' ? 'applied' : 'rejected');
+    await session.restore();
+    assert.deepEqual(modeWrites(host.output()), []);
+  }
+});
+
+for (const transport of [
+  { SSH_CONNECTION: '192.0.2.1 51234 198.51.100.1 22' },
+  { SSH_CLIENT: '192.0.2.1 51234 22' },
+  { SSH_TTY: '/dev/pts/1' },
+  { TMUX: '/tmp/tmux-1000/default,1,0' },
+  { STY: '1234.session' },
+  { ZELLIJ: '0' },
+  { ZELLIJ_SESSION_NAME: 'session' },
+  { TERM: 'screen-256color' },
+  { TERM: 'tmux-256color' },
+  { TERM_PROGRAM: 'tmux' },
+  { TERM_PROGRAM: 'screen' },
+  { TERM_PROGRAM: 'zellij' },
+]) {
+  test(`remote/shared contexts cannot reuse direct configuration exceptions (${JSON.stringify(transport)})`, async () => {
+    const env = { TERM: 'xterm-kitty', KITTY_WINDOW_ID: '10' };
+    const inspecting = createMemoryTerminalHost({ env });
+    const profile = await inspecting.getCapabilities();
+    const context = profile.cellPresentation.facts.find(fact => fact.name === 'cellPresentation.context').value;
+    await inspecting.dispose();
+    const host = createMemoryTerminalHost({ env: { ...env, ...transport },
+      capabilities: { cellPresentation: { exceptions: [{ condition: 'kitty-force-ltr', context }] } } });
+    const current = await host.getCapabilities();
+    assert.equal(current.cellPresentation.facts.find(fact => fact.name === 'cellPresentation.context').value, null);
+    const session = await host.beginSession();
+    const outcome = await session.enableCellPresentation();
+    assert.equal(outcome.status, 'rejected');
+    assert.equal(outcome.diagnostic.data.reason, 'terminal-configuration-required');
+    await session.restore();
+    assert.deepEqual(modeWrites(host.output()), []);
+  });
+}
+
+test('ordinary SSH admits the native-grid assumption without claiming an exception context', async () => {
+  const host = createMemoryTerminalHost({ env: { TERM: 'xterm-256color', SSH_CONNECTION: '192.0.2.1 51234 198.51.100.1 22' } });
+  const profile = await host.getCapabilities();
+  assert.equal(profile.cellPresentation.support, 'supported');
+  assert.equal(profile.cellPresentation.facts.find(fact => fact.name === 'cellPresentation.context').value, null);
+  assert.deepEqual(profile.cellPresentation.facts.find(fact => fact.name === 'cellPresentation.conditions').value, []);
+  const session = await host.beginSession();
+  assert.equal((await session.enableCellPresentation()).assurance, 'assumed');
+  assert.equal(session.initialState.bidiMode, 'unknown');
+  assert.equal(session.initialState.provenance.cellPresentation, 'assumed');
+  await session.restore();
+  assert.deepEqual(modeWrites(host.output()), []);
+});
+
+
+test('a failed initial mode query cannot fall back to an assumed presentation or be cleared by missing evidence', async () => {
+  const host = createMemoryTerminalHost();
+  const write = host.stdout.write.bind(host.stdout);
+  host.stdout.write = async (chunk, context) => {
+    if (String(chunk).includes('\u001B[8$p')) throw new Error('injected mode-query write failure');
+    return write(chunk, context);
+  };
+  await assert.rejects(detectModes(host));
+  host.stdout.write = write;
+  assert.equal(host.stdin.isRawModeEnabled(), false, 'failed probing restores temporary raw input');
+
+  for (const reply of [undefined, '\u001B[?1;2c', report(0)]) {
+    if (reply !== undefined) {
+      host.input(reply);
+      await detectModes(host, { refresh: true });
+    }
+    const profile = await host.getCapabilities();
+    assert.equal(profile.cellPresentation.support, 'unknown');
+    assert.ok(profile.cellPresentation.facts.some(fact => fact.name === 'cellPresentation.evidence' && fact.value === 'indeterminate'));
+    const session = await host.beginSession();
+    assert.equal(session.initialState.bidiMode, 'unknown', 'a failed query does not imply a mode mutation');
+    assert.equal(session.initialState.provenance.bidiMode, 'assumed');
+    assert.equal(session.initialState.cellPresentation, 'unknown');
+    assert.equal(session.initialState.provenance.cellPresentation, 'indeterminate');
+    const outcome = await session.enableCellPresentation();
+    assert.equal(outcome.status, 'rejected');
+    assert.equal(outcome.diagnostic.data.reason, 'presentation-indeterminate');
+    const restored = await session.restore();
+    assert.equal(restored.status, 'restored');
+    assert.equal(restored.attempted.some(item => item.kind === 'bidiMode'), false);
+    assert.deepEqual(modeWrites(host.output()), []);
+  }
+
+  host.input(report(2));
+  const recovered = await detectModes(host, { refresh: true });
+  assert.equal(recovered.cellPresentation.support, 'supported');
+  const session = await host.beginSession();
+  assert.equal(session.initialState.bidiMode, 'explicit');
+  assert.equal(session.initialState.provenance.bidiMode, 'observed');
+  assert.equal(session.initialState.cellPresentation, 'application-ordered');
+  assert.equal(session.initialState.provenance.cellPresentation, 'assumed');
+  assert.equal((await session.enableCellPresentation()).assurance, 'assumed');
+  const restored = await session.restore();
+  assert.equal(restored.status, 'restored');
+  assert.equal(restored.attempted.some(item => item.kind === 'bidiMode'), false);
+  assert.deepEqual(modeWrites(host.output()), []);
+});
+
+
+test('a current set-mode report always requires reset despite inconsistent derived implicit evidence', () => {
+  const result = resolveCellPresentation({
+    host: { inputIsTty: true, outputIsTty: true, supportsTerminalProtocols: true },
+  }, { report: 'set', implicit: false });
+  assert.equal(result.capability.support, 'supported');
+  assert.equal(result.resetRequired, true, 'a raw set report cannot be reinterpreted as already explicit');
+  assert.ok(result.capability.facts.some(fact => fact.name === 'cellPresentation.decision' && fact.value === 'reset-required'));
+});
+
+
+for (const earlyFence of [false, true]) {
+  test(`final restoration owns split DA and preserves concurrent user keys (early fence ${earlyFence})`, async () => {
+    const host = await observedHost();
+    const session = await preparedSession(host);
+    host.input(report(2));
+    assert.equal((await session.enableCellPresentation()).status, 'applied');
+    const queries = (host.output().match(/\u001B\[8\$p/gu) ?? []).length;
+    let settled = false;
+    const restoring = session.restore('success').finally(() => { settled = true; });
+    await waitUntil(() => (host.output().match(/\u001B\[8\$p/gu) ?? []).length > queries);
+    host.input(earlyFence ? 'before\u001B[?1;2c' : 'before\u001B[8;1$y\u001B[?1;');
+    await flushAsync();
+    assert.equal(settled, false, 'neither early DA nor an unfenced mode reply completes restoration');
+    assert.equal(host.stdin.isRawModeEnabled(), true, 'raw input stays owned until the requested responses are consumed');
+    host.input(earlyFence ? '\u001B[8;1$yafter' : '2cafter');
+    const restored = await restoring;
+    assert.equal(restored.status, 'restored');
+    assert.equal(host.stdin.isRawModeEnabled(), false);
+    assert.equal(restored.resultingState.bidiMode, 'implicit');
+    assert.equal(restored.resultingState.provenance.bidiMode, 'observed');
+    assert.equal(await readInputText(host, 'beforeafter'.length), 'beforeafter', 'no DA reply or partial tail leaks into ordinary input');
+    assert.deepEqual(modeWrites(host.output()), ['\u001B[8l', '\u001B[8h']);
+  });
+}
+
+for (const lateFence of [false, true]) {
+  test(`a missing restoration fence preserves valid mode evidence through bounded raw-input quarantine (late DA ${lateFence})`, async () => {
+    const host = await observedHost();
+    const session = await preparedSession(host);
+    host.input(report(2));
+    assert.equal((await session.enableCellPresentation()).status, 'applied');
+    const queries = (host.output().match(/\u001B\[8\$p/gu) ?? []).length;
+    let settled = false;
+    const restoring = session.restore('success').finally(() => { settled = true; });
+    await waitUntil(() => (host.output().match(/\u001B\[8\$p/gu) ?? []).length > queries);
+    host.input('before\u001B[8;1$y');
+    await flushAsync();
+    assert.equal(settled, false);
+    host.clock.advance(100);
+    await flushAsync();
+    assert.equal(settled, false, 'query timeout does not release raw input before its bounded drain');
+    assert.equal(host.stdin.isRawModeEnabled(), true);
+    host.input(lateFence ? 'after\u001B[?1;' : 'after');
+    host.clock.advance(99);
+    await flushAsync();
+    assert.equal(settled, false);
+    assert.equal(host.stdin.isRawModeEnabled(), true);
+    if (lateFence) {
+      host.input('2c');
+      await flushAsync();
+      assert.equal(settled, false, 'late split DA is consumed without shortening the bounded quarantine');
+    }
+    host.clock.advance(1);
+    await flushAsync();
+    assert.equal(settled, true, 'the existing 100ms quarantine deadline bounds the drain without a fence');
+    const restored = await restoring;
+    assert.equal(restored.status, 'restored');
+    assert.equal(restored.resultingState.bidiMode, 'implicit');
+    assert.equal(restored.resultingState.provenance.bidiMode, 'observed', 'valid mode evidence survives the missing DA fence');
+    assert.equal(host.stdin.isRawModeEnabled(), false);
+    assert.equal(await readInputText(host, 'beforeafter'.length), 'beforeafter');
+    assert.deepEqual(modeWrites(host.output()), ['\u001B[8l', '\u001B[8h']);
+  });
+}
+
+test('initial discovery consumes a split DA after all mode replies before releasing temporary raw input', async () => {
+  const host = createMemoryTerminalHost();
+  let settled = false;
+  const detecting = host.getCapabilities({ activeProbes: ['terminalModes'] }).finally(() => { settled = true; });
+  await waitUntil(() => host.output().includes('\u001B[8$p'));
+  const replies = queriedModes.map(mode => {
+    const [namespace, number] = mode.split(':');
+    return `\u001B[${namespace === 'private' ? '?' : ''}${number};${mode === 'standard:8' ? '2' : '0'}$y`;
+  }).join('');
+  host.input(`before${replies}\u001B[?1;`);
+  await flushAsync();
+  assert.equal(settled, false);
+  assert.equal(host.stdin.isRawModeEnabled(), true);
+  host.input('2cafter');
+  const profile = await detecting;
+  assert.equal(profile.cellPresentation.support, 'supported');
+  assert.equal(profile.cellPresentation.facts.find(fact => fact.name === 'terminalModes.collection').value.complete, true);
+  assert.equal(host.stdin.isRawModeEnabled(), false);
+  assert.equal(await readInputText(host, 'beforeafter'.length), 'beforeafter');
   assert.deepEqual(modeWrites(host.output()), []);
 });
