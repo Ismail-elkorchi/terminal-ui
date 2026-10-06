@@ -6,6 +6,7 @@ import type {
   ElementFocusScope,
   ElementKeyBindings,
   ElementLayer,
+  ElementPaint,
   ElementState,
   ElementStyles,
 } from '../element/metadata.ts';
@@ -607,7 +608,11 @@ export type ComponentMetadataOptions<
   ? { readonly focus?: Pick<ElementFocus, 'disabled' | 'order'> }
   : { readonly focus?: never })
   & ('layer' extends TCapabilities[number] ? { readonly layer?: ElementLayer } : { readonly layer?: never })
-  & { readonly accessibleName?: string };
+  & {
+    readonly accessibleName?: string;
+    /** Renderer-owned paint suppression is available regardless of component capabilities. */
+    readonly paint?: ElementPaint;
+  };
 
 export type ComponentStyleOptions<
   TCapabilities extends readonly ComponentMetadataCapability[],

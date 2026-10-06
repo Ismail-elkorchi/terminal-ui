@@ -118,11 +118,11 @@ function serializedStyle(
 }
 
 function serializedColor(
-  color: TerminalColor | undefined,
+  color: TerminalColor | null | undefined,
   capabilities: TerminalOutputCapabilityProfile,
   forceColor: boolean | undefined
 ): TerminalColor | undefined {
-  return color === undefined || color.kind === 'theme' || !colorsAvailable(capabilities, forceColor)
+  return color == null || color.kind === 'theme' || !colorsAvailable(capabilities, forceColor)
     ? undefined
     : color;
 }
@@ -261,24 +261,24 @@ function styleCodes(
 
 function colorTransitionCodes(
   target: 'fg' | 'bg',
-  previous: TerminalColor | undefined,
-  next: TerminalColor | undefined,
+  previous: TerminalColor | null | undefined,
+  next: TerminalColor | null | undefined,
   capabilities: TerminalOutputCapabilityProfile,
   forceColor: boolean | undefined
 ): readonly string[] {
   if (!colorsAvailable(capabilities, forceColor)) return [];
-  if (sameTerminalColor(previous, next)) return [];
-  if (next === undefined) return [target === 'fg' ? '39' : '49'];
+  if (sameTerminalColor(previous ?? undefined, next ?? undefined)) return [];
+  if (next == null) return [target === 'fg' ? '39' : '49'];
   return colorCodes(target, next, capabilities, forceColor);
 }
 
 function colorCodes(
   target: 'fg' | 'bg',
-  color: TerminalColor | undefined,
+  color: TerminalColor | null | undefined,
   capabilities: TerminalOutputCapabilityProfile,
   forceColor: boolean | undefined
 ): readonly string[] {
-  if (color === undefined || color.kind === 'theme') return [];
+  if (color == null || color.kind === 'theme') return [];
   if (color.kind === 'default') return [target === 'fg' ? '39' : '49'];
   const depth = forceColor === true ? Math.max(capabilities.color.depth, 8) : capabilities.color.depth;
   if (depth < 4) return [];

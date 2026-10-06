@@ -4,6 +4,7 @@ import type {
   ElementFocus,
   ElementKeyBindings,
   ElementLayer,
+  ElementPaint,
   ElementState,
   ElementStyles,
 } from '../../../element/metadata.ts';
@@ -18,6 +19,7 @@ interface RenderNodeBase<TMessage, TKind extends RenderNodeKind> {
   readonly kind: TKind;
   readonly props: RenderNodePropsByKind<TMessage>[TKind];
   readonly layer?: ElementLayer;
+  readonly paint?: ElementPaint;
   readonly focus?: ElementFocus;
   readonly styles?: ElementStyles<string, Exclude<ElementVisualState, 'default'>>;
   readonly children?: readonly RenderNode<TMessage>[];

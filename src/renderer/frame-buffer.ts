@@ -509,9 +509,10 @@ class CellFrameBuffer implements FrameBuffer {
     const requestedCanvasStyle = this.canvasStyleOverride === undefined
       ? options.canvasStyle
       : { ...options.canvasStyle, ...this.canvasStyleOverride };
-    const canvasStyle = requestedCanvasStyle === undefined
+    const admittedCanvasStyle = requestedCanvasStyle === undefined
       ? undefined
       : decodeTerminalStyle(requestedCanvasStyle, 'Frame canvas style');
+    const canvasStyle = admittedCanvasStyle?.bg === null ? withoutBackground(admittedCanvasStyle) : admittedCanvasStyle;
     const { cells, rowFingerprints, rowIndexes, work } = this.snapshotCellsAndFingerprints(canvasStyle);
     const cursor = options.cursor === undefined ? undefined : Object.freeze({
       ...options.cursor,
@@ -1070,8 +1071,20 @@ function backgroundStyle(background: TerminalColor): TerminalStyle {
 function inheritedCellStyle(
   inheritBackground: boolean, current: FrameCell | undefined, style: TerminalStyle | undefined,
 ): TerminalStyle | undefined {
-  const background = inheritBackground && style?.bg === undefined ? current?.style?.bg : undefined;
-  return background === undefined ? style : effectiveCellStyle(backgroundStyle(background), style);
+  const explicit = style?.bg === null;
+  const paintStyle = explicit ? withoutBackground(style) : style;
+  const background = explicit || inheritBackground && style?.bg === undefined ? current?.style?.bg : undefined;
+  return background == null ? paintStyle : effectiveCellStyle(backgroundStyle(background), paintStyle);
+}
+
+const backgroundlessStyles = new WeakMap<TerminalStyle, TerminalStyle | undefined>();
+
+function withoutBackground(style: TerminalStyle): TerminalStyle | undefined {
+  if (backgroundlessStyles.has(style)) return backgroundlessStyles.get(style);
+  const normalized = decodeTerminalStyle({ ...style, bg: undefined }, 'Frame inherited background request');
+  const result = Object.keys(normalized).length === 0 ? undefined : normalized;
+  backgroundlessStyles.set(style, result);
+  return result;
 }
 
 function effectiveCellStyle(canvasStyle: TerminalStyle, cellStyle: TerminalStyle | undefined): TerminalStyle {
@@ -1178,8 +1191,8 @@ function terminalStyleFingerprint(style: TerminalStyle): number {
   return next;
 }
 
-function hashTerminalColor(hash: number, color: TerminalColor | undefined): number {
-  if (color === undefined) return hashCodeUnit(hash, hashTagColorNone);
+function hashTerminalColor(hash: number, color: TerminalColor | null | undefined): number {
+  if (color == null) return hashCodeUnit(hash, hashTagColorNone);
   switch (color.kind) {
     case 'default':
       return hashCodeUnit(hash, hashTagColorNone);

@@ -1,4 +1,4 @@
-import type { ElementFocus, ElementLayer, ElementStyles } from '../../element/metadata.ts';
+import type { ElementFocus, ElementLayer, ElementPaint, ElementStyles } from '../../element/metadata.ts';
 import type { RenderNode } from '../../renderer/internal/render-tree/component-node.ts';
 import type {
   ComponentDefinition,
@@ -25,6 +25,7 @@ export interface ComponentInstanceOptions {
   readonly meta?: {
     readonly focus?: ElementFocus;
     readonly layer?: ElementLayer;
+    readonly paint?: ElementPaint;
     readonly accessibleName?: string;
   };
 }

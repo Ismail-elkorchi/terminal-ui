@@ -4,7 +4,7 @@ export type {
   ComponentInspectionValue,
   ComponentSemanticInspection,
 } from '../element/inspection-contracts.ts';
-export type { ElementStyles } from '../element/metadata.ts';
+export type { ElementPaint, ElementStyles } from '../element/metadata.ts';
 export { mergeElementStyles } from '../element/styles.ts';
 export type {
   Element,

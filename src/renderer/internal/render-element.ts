@@ -89,6 +89,7 @@ import { toRenderNode } from './render-tree/element.ts';
 import { renderNodeFactoryName } from './render-tree/node.ts';
 import { textPresentationForLayout } from './layout-text-context.ts';
 import type { RenderNode, RenderNodeRenderInput } from './render-tree/types.ts';
+import { paintSuppressed } from './paint-suppression.ts';
 import { createPaintRetention } from './retained-paint.ts';
 import {
   createClippedRenderTarget,
@@ -551,6 +552,14 @@ function renderRenderNodeToRegion<TMessage>(
 ): void {
   if (!node.visible) return;
   const path = nodePath(node, parentPath);
+  if (paintSuppressed(node)) {
+    // Keep traversal and interaction-only regions, but never invoke paint hooks.
+    renderRenderNodeChildrenToRegions(
+      renderNode, node, path, region, composer, theme, widthProfile,
+      focusPath, pointerVisuals, instrumentation,
+    );
+    return;
+  }
   const pointerState = pointerStateForOwner(
     pointerVisuals,
     hitTargetOwnerIdentity(path, node.identity),
@@ -743,7 +752,7 @@ function createRegionComposer<TMessage>(
     regionFor(renderNode, node, path) {
       budget.addRegions();
       instrumentation?.recordWork?.({ kind: 'region_allocations', count: 1 });
-      const backdropBounds = renderNode.layer?.backdrop === 'viewport'
+      const backdropBounds = !paintSuppressed(node) && renderNode.layer?.backdrop === 'viewport'
         ? { row: 1, column: 1, width: terminalSize.columns, height: terminalSize.rows }
         : undefined;
       const priorRegion = prior.get(regionIdForLayoutNode(node, path));
@@ -760,6 +769,7 @@ function createRegionComposer<TMessage>(
           height: 0
         },
         underlay: node.layer.underlay,
+        paintSuppressed: paintSuppressed(node),
         textPresentation: textPresentationForLayout(node),
         ...(priorRegion !== undefined && sameRect(priorRegion.bounds, bounds) ? { previous: priorRegion.metadata } : {}),
         ...(backdropBounds === undefined ? {} : { backdropBounds }),
@@ -790,6 +800,7 @@ function createRegionComposer<TMessage>(
             order: region.order,
             bounds: region.bounds,
             underlay: region.underlay,
+            paintSuppressed: region.paintSuppressed,
             ...(region.backdropBounds === undefined ? {} : { backdropBounds: region.backdropBounds }),
             graphics: snapshot.graphics,
             metadata,
@@ -872,6 +883,7 @@ function composeRegionsInto(
 ): void {
   let canvasBackdropActive = false;
   for (const region of regions) {
+    if (region.paintSuppressed) continue;
     if (region.backdropBounds !== undefined) {
       const bounds = damage ?? region.backdropBounds;
       buffer.occludeGraphics(bounds);
@@ -936,7 +948,8 @@ function compositionDamage(previous: readonly RenderRegion[], next: readonly Ren
 function addRegionDamage(damage: DirtyCoverageAccumulator, old: RenderRegion | undefined, region: RenderRegion): void {
   if (old === region) return;
   if (old?.order !== region.order || old.zIndex !== region.zIndex
-    || old.underlay !== region.underlay || !sameRect(old.bounds, region.bounds)) {
+    || old.underlay !== region.underlay || old.paintSuppressed !== region.paintSuppressed
+    || !sameRect(old.bounds, region.bounds)) {
     if (old !== undefined) damage.add(old.bounds);
     damage.add(region.bounds);
     return;
@@ -1091,6 +1104,6 @@ function cursorForFocusedRenderNode(
   focusPath: FocusPath | undefined
 ): { readonly row: number; readonly column: number } | undefined {
   const target = findRenderNodeFocusTarget(renderNode, layout, focusPath);
-  if (target?.hasVisibleGeometry !== true) return undefined;
+  if (target?.hasVisibleGeometry !== true || paintSuppressed(target)) return undefined;
   return target.cursor ?? { row: target.bounds.row, column: target.bounds.column };
 }

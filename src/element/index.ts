@@ -22,6 +22,7 @@ export type {
   ElementKeyTriggerBinding,
   ElementLayer,
   ElementMeta,
+  ElementPaint,
   ElementOptions,
   ElementOverflowPriority,
   ElementState,

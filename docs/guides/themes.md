@@ -88,6 +88,61 @@ Component `styles` customize the component's declared anatomy and visual states
 locally. They layer over that component's theme defaults and do not create a
 global cascade.
 
+## Inheriting painted backgrounds
+
+`TerminalStyle.bg` accepts either a color or `null`. Omitting `bg` leaves an
+earlier background unchanged during style composition. Setting `bg: null`
+explicitly clears that earlier background, including a component's theme
+background, and asks the frame buffer to use the destination cell's background
+when painting. The policy survives root, part, and visual-state style merging;
+a later explicit color overrides it. It does not change foregrounds, text,
+attributes, layout, input behavior, or accessibility.
+
+For a native text input, clear the ordinary parts that should show the backing
+surface. Keep focus and selection cues independently styled:
+
+```ts
+import { textInput } from '@ismail-elkorchi/terminal-ui/components';
+import { ignoreMessage } from '@ismail-elkorchi/terminal-ui/component';
+
+const editor = textInput({
+  id: 'editor',
+  state: { text: 'Across two background colors', cursor: 0 },
+  onTransition: () => ignoreMessage(),
+  styles: {
+    parts: {
+      border: { bg: null },
+      value: { bg: null },
+      placeholder: { bg: null }
+    },
+    states: {
+      focused: {
+        parts: { border: { bg: { kind: 'theme', token: 'focus.background' } } }
+      },
+      selected: {
+        parts: { selection: { bg: { kind: 'theme', token: 'selection.background' } } }
+      }
+    }
+  }
+});
+
+void editor;
+```
+
+Each painted cell inherits its own destination background, so the input can span
+differently colored cells without flattening them to one color. A wide glyph
+uses its leading cell's background for its continuation cells. Ordinary
+padding still writes spaces. `null` is a style policy, not a theme palette color:
+use it on `styles`, not in `tokens.colors`. A root-level override applies to every
+part, so prefer ordinary-part overrides when a component's selection or other
+semantic parts need their own backgrounds.
+
+A separately promoted layer or portal must also choose
+`meta: { layer: { underlay: 'inheritBackground' } }` when it needs backgrounds
+from a lower region. The style override does not change region underlay rules.
+`{ kind: 'default' }` requests the terminal's default background; it does not
+inherit the color of a destination cell.
+
 For renderer-facing behavior, see
 [Rendering internals](./rendering-internals.md). For state and slot guidance,
 see [Component definitions](./component-definitions.md).

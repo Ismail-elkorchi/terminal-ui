@@ -42,7 +42,7 @@ export function decodeTerminalStyle(value: unknown, subject = 'terminal style'):
   }
   const candidate = {
     ...(fg === undefined ? {} : { fg: decodeTerminalColor(fg, `${subject}.fg`) }),
-    ...(bg === undefined ? {} : { bg: decodeTerminalColor(bg, `${subject}.bg`) }),
+    ...(bg === undefined ? {} : { bg: bg === null ? null : decodeTerminalColor(bg, `${subject}.bg`) }),
     ...flags
   };
   const key = terminalStyleKey(candidate);
@@ -147,8 +147,9 @@ function terminalStyleKey(style: TerminalStyle): string {
   ]);
 }
 
-function terminalColorKey(color: TerminalColor | undefined): unknown {
+function terminalColorKey(color: TerminalColor | null | undefined): unknown {
   if (color === undefined) return null;
+  if (color === null) return ['inherit'];
   switch (color.kind) {
     case 'default': return ['default'];
     case 'ansi': return ['ansi', color.value];

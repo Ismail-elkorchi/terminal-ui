@@ -62,6 +62,7 @@ export function compileDefinition<
       metadataFieldSet: new Set([
         ...(definition.metadata ?? []).filter((field) => field !== 'styles'),
         'accessibleName',
+        'paint',
       ]),
       slots: normalizeSlots(definition.slots),
       partSet: new Set(definition.parts ?? []),

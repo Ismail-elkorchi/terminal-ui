@@ -92,7 +92,12 @@ export interface ElementFocus {
 
 export type ElementAccessibility = AccessibleNode | AccessibilityOptions;
 
+/** Suppresses subtree paint without changing layout, interaction, focus or accessibility. */
+export type ElementPaint = 'suppressed';
+
 export interface ElementMeta {
+  /** Inherited by all descendants, including portals; descendants cannot re-enable paint. */
+  readonly paint?: ElementPaint;
   readonly accessibility?: ElementAccessibility;
   readonly focus?: ElementFocus;
   readonly layer?: ElementLayer;

@@ -12,7 +12,8 @@ import { sameFrameCellSource } from './frame-source.ts';
 
 export interface TerminalStyle {
   readonly fg?: TerminalColor;
-  readonly bg?: TerminalColor;
+  /** null clears a base background and inherits the destination cell background at paint time. */
+  readonly bg?: TerminalColor | null;
   readonly bold?: boolean;
   readonly dim?: boolean;
   readonly italic?: boolean;
@@ -395,9 +396,9 @@ export function sameTerminalStyle(left: TerminalStyle | undefined, right: Termin
     && flag(left.hidden) === flag(right.hidden);
 }
 
-export function sameTerminalColor(left: TerminalColor | undefined, right: TerminalColor | undefined): boolean {
+export function sameTerminalColor(left: TerminalColor | null | undefined, right: TerminalColor | null | undefined): boolean {
   if (left === right) return true;
-  if (left === undefined || right === undefined) return left === right;
+  if (left == null || right == null) return left === right;
   if (left.kind !== right.kind) return false;
   switch (left.kind) {
     case 'default':

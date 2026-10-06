@@ -4,8 +4,10 @@ import type {
   ElementKeyBindings,
   ElementLayer,
   ElementMeta,
+  ElementPaint,
   ElementStyles,
 } from '../../../element/metadata.ts';
+import { decodeElementPaint } from '../../../element/metadata-normalization.ts';
 import type { ElementVisualState } from '../../../visual/frame-source.ts';
 import type { RenderNode } from './types.ts';
 
@@ -17,6 +19,7 @@ export function renderNodeInteraction<TMessage, TPart extends string = never>(op
   readonly styles?: ElementStyles<TPart, Exclude<ElementVisualState, 'default'>> | undefined;
 }): {
   readonly layer?: ElementLayer;
+  readonly paint?: ElementPaint;
   readonly focus?: ElementFocus;
   readonly styles?: ElementStyles<string, Exclude<ElementVisualState, 'default'>>;
   readonly keyMap?: ElementKeyBindings<TMessage>;
@@ -37,13 +40,16 @@ export function renderNodeMeta(options: {
   readonly styles?: ElementStyles<string, Exclude<ElementVisualState, 'default'>> | undefined;
 }): {
   readonly layer?: ElementLayer;
+  readonly paint?: ElementPaint;
   readonly focus?: ElementFocus;
   readonly styles?: ElementStyles<string, Exclude<ElementVisualState, 'default'>>;
   readonly accessibility?: ElementAccessibility;
 } {
   const meta = options.meta;
+  const paint = decodeElementPaint(meta?.paint);
   return {
     ...(meta?.layer === undefined ? {} : { layer: meta.layer }),
+    ...(paint === undefined ? {} : { paint }),
     ...(meta?.focus === undefined ? {} : { focus: meta.focus }),
     ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(meta?.accessibility === undefined ? {} : { accessibility: meta.accessibility })

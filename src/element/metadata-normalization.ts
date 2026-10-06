@@ -33,3 +33,9 @@ function uniqueTriggerBindings<TMessage>(
   }
   return bindings;
 }
+
+/** Validate renderer-owned paint metadata at every public element boundary. */
+export function decodeElementPaint(value: unknown): import('./metadata.ts').ElementPaint | undefined {
+  if (value === undefined || value === 'suppressed') return value;
+  throw new TypeError('Element meta.paint must be "suppressed" when provided.');
+}

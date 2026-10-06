@@ -1,4 +1,6 @@
+import { verifyBackgroundInheritance } from './background-inheritance.js';
 import { verifyChildComposition } from './child-composition.js';
+import { verifyPaintSuppression } from './paint-suppression.js';
 import {
   behavior,
   button,
@@ -331,5 +333,7 @@ if (
 }
 
 await verifyChildComposition();
+verifyPaintSuppression();
+verifyBackgroundInheritance();
 
 console.log('terminal-ui packed consumer passed');

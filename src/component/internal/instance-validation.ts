@@ -6,6 +6,7 @@ import type {
   ElementStyles,
 } from '../../element/metadata.ts';
 import { elementStateFields } from '../../element/metadata.ts';
+import { decodeElementPaint } from '../../element/metadata-normalization.ts';
 import { decodeElementStyles } from '../../element/styles.ts';
 import {
   findUnsupportedField,
@@ -163,6 +164,7 @@ function decodeComponentMetadata(
       `Component "${definition.name}" does not permit caller metadata field "${unsupported}".`
     );
   }
+  const paint = decodeElementPaint(value['paint']);
   const focusValue = value['focus'];
   const layerValue = value['layer'];
   const accessibleNameValue = value['accessibleName'];
@@ -172,6 +174,7 @@ function decodeComponentMetadata(
     ? undefined
     : cleanComponentAccessibleName(accessibleNameValue, definition.name);
   return Object.freeze({
+    ...(paint === undefined ? {} : { paint }),
     ...(focus === undefined ? {} : { focus }),
     ...(layer === undefined ? {} : { layer }),
     ...(accessibleName === undefined ? {} : { accessibleName }),

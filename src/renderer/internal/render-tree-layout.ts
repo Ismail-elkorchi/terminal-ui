@@ -1,3 +1,4 @@
+import { retainPaintSuppression } from './paint-suppression.ts';
 import { retainLayoutTextPresentation } from './layout-text-context.ts';
 import type { TextPresentation } from '../../text/presentation.ts';
 import type { LayerUnderlay } from '../../element/metadata.ts';
@@ -48,6 +49,7 @@ interface RetainedLayout {
   readonly parentIdentity: string;
   readonly ordinal: number;
   readonly ancestorInert: boolean;
+  readonly ancestorPaintSuppressed: boolean;
   readonly portalOwnerVisible: boolean;
 }
 const retainedLayouts = new WeakMap<LayoutNode, RetainedLayout>();
@@ -76,7 +78,7 @@ export function layoutRenderTree<TMessage>(
   const uniqueNodes = instrumentation?.recordWork === undefined ? undefined : new WeakSet<RenderNode>();
   const reusable = new WeakMap<RenderNode, boolean>();
   if (previous !== undefined) prepareRetention(renderNode, previous, reusable);
-  return layoutNode(renderNode, viewportBounds, viewportBounds, viewportBounds, theme, widthProfile, measurements, budget, 0, 0, 0, [], false, true, instrumentation, uniqueNodes, previous, reusable);
+  return layoutNode(renderNode, viewportBounds, viewportBounds, viewportBounds, theme, widthProfile, measurements, budget, 0, 0, 0, [], false, false, true, instrumentation, uniqueNodes, previous, reusable);
 }
 
 function layoutNode<TMessage>(
@@ -93,6 +95,7 @@ function layoutNode<TMessage>(
   parentZIndex: number,
   parentIdentity: readonly string[],
   ancestorInert: boolean,
+  ancestorPaintSuppressed: boolean,
   portalOwnerVisible: boolean,
   instrumentation?: Pick<RenderInstrumentation, 'recordWork'>,
   uniqueNodes?: WeakSet<RenderNode>,
@@ -102,7 +105,7 @@ function layoutNode<TMessage>(
   const descriptor: RetainedLayout = {
     node: renderNode, allocation, viewport, rootViewport, theme, widthProfile, parentZIndex,
     textPresentation: measurements.textPresentation,
-    parentIdentity: encodedIdentityPath(parentIdentity), ordinal, ancestorInert, portalOwnerVisible,
+    parentIdentity: encodedIdentityPath(parentIdentity), ordinal, ancestorInert, ancestorPaintSuppressed, portalOwnerVisible,
   };
   const retained = retainLayout(previous, descriptor, reusable, budget, depth);
   if (retained !== undefined) return { node: renderNode, layout: retained };
@@ -181,6 +184,7 @@ function layoutNode<TMessage>(
     zIndex,
     identityPath,
     inert,
+    ancestorPaintSuppressed || renderNode.paint === 'suppressed',
     portalOwnerVisibleForChild(renderNode, childBounds[index], portalOwnerVisible),
     instrumentation,
     uniqueNodes,
@@ -367,6 +371,7 @@ function sameLayoutDescriptor(a: RetainedLayout | undefined, b: RetainedLayout):
     && a.widthProfile.emoji === b.widthProfile.emoji && a.widthProfile.ambiguous === b.widthProfile.ambiguous
     && a.parentZIndex === b.parentZIndex && a.parentIdentity === b.parentIdentity
     && a.ordinal === b.ordinal && a.ancestorInert === b.ancestorInert
+    && a.ancestorPaintSuppressed === b.ancestorPaintSuppressed
     && a.portalOwnerVisible === b.portalOwnerVisible
     && sameNullableRect(a.allocation, b.allocation) && sameRect(a.viewport, b.viewport)
     && sameRect(a.rootViewport, b.rootViewport);
@@ -374,6 +379,7 @@ function sameLayoutDescriptor(a: RetainedLayout | undefined, b: RetainedLayout):
 
 function rememberLayout(layout: LayoutNode, descriptor: RetainedLayout, previous?: LayoutNode): void {
   retainedLayouts.set(layout, descriptor);
+  retainPaintSuppression(layout, descriptor.ancestorPaintSuppressed || descriptor.node.paint === 'suppressed');
   retainLayoutTextPresentation(layout, descriptor.textPresentation);
   if (previous !== undefined) layoutPredecessors.set(layout, new WeakRef(previous));
 }

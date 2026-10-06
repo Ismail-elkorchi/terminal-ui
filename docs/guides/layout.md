@@ -133,6 +133,47 @@ feedback, and accessibility behavior.
 See the executable [testing harness example](../../examples/testing/harness.mjs)
 for layout in a rendered frame.
 
+## Suppressing paint while keeping a live subtree
+
+Set `meta: { paint: 'suppressed' }` on any native component, custom component,
+or structural layout element to keep its geometry and behavior without
+painting it. Omit `paint` for the ordinary behavior. Suppression is inherited
+through the logical subtree, including portals and separately layered children;
+a descendant cannot reenable painting.
+
+```ts
+import { column, textInput } from '@ismail-elkorchi/terminal-ui';
+import { ignoreMessage } from '@ismail-elkorchi/terminal-ui/component';
+
+const retainedEditor = column([
+  textInput({
+    id: 'retained-editor',
+    meta: { accessibleName: 'Retained editor' },
+    state: { text: 'Still editable', cursor: 14 },
+    onTransition: () => ignoreMessage()
+  })
+], { meta: { paint: 'suppressed' } });
+```
+
+Measurement, layout allocation, focus and Tab traversal, keyboard/text/paste
+input, pointer targets, accessibility, controlled state, and accepted `onLayout`
+notifications continue normally. A focused suppressed input still receives
+input, but contributes neither its hardware cursor nor focus styling. Revealing
+it by removing the metadata paints the current controlled value.
+
+Suppressed nodes produce no cells, fills, clears, borders, shadows, graphics,
+region underlays, or viewport backdrops, and their component paint hooks do not
+run. Visible backing content is preserved. When an already painted subtree is
+suppressed, the next accepted frame removes its previous cells and graphics;
+revealing it restores the current content through the normal retained renderer.
+
+This is a visual-only policy, not a secrecy or input-blocking boundary: values
+remain in application state and accessibility output, and invisible hit targets
+remain active. Use ordinary state, focus, and accessibility policies when those
+behaviors should change. `meta.layer.visible: false`, inert subtrees, and a
+composite slot allocated `null` have different participation semantics; they
+are not substitutes for paint-only suppression.
+
 ## Viewport layers and clipping
 
 A viewport clips and scrolls content without introducing a stacking context.

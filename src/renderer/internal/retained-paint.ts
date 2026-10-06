@@ -1,3 +1,4 @@
+import { paintSuppressed } from './paint-suppression.ts';
 import { sameReuseDependencies } from '../../visual/reuse-dependencies.ts';
 import { sameStyleDependencies } from '../../visual/style-dependencies.ts';
 import { sameRect } from '../../geometry/rect.ts';
@@ -26,6 +27,7 @@ interface PaintDependencies {
   readonly busy: boolean;
   readonly readOnly: boolean;
   readonly inert: boolean;
+  readonly paintSuppressed: boolean;
   readonly emoji: string;
   readonly ambiguous: string;
   readonly focus: RenderNodeRenderInput['focus'];
@@ -40,6 +42,7 @@ function sameDependencies(a: PaintDependencies, b: PaintDependencies): boolean {
     && a.accessibleName === b.accessibleName && sameStyleDependencies(a.styles, b.styles) && a.theme === b.theme
     && sameRect(a.bounds, b.bounds) && sameRect(a.viewport, b.viewport)
     && a.disabled === b.disabled && a.busy === b.busy && a.readOnly === b.readOnly && a.inert === b.inert
+    && a.paintSuppressed === b.paintSuppressed
     && a.emoji === b.emoji && a.ambiguous === b.ambiguous && a.focus === b.focus
     && a.focusedTargetId === b.focusedTargetId && a.hoveredTargetId === b.hoveredTargetId
     && a.pressedTargetId === b.pressedTargetId;
@@ -75,6 +78,7 @@ export function createPaintRetention(previous?: readonly RenderRegion[]) {
         bounds: input.layoutNode.bounds, viewport: input.layoutNode.viewport,
         disabled: node.state?.disabled === true, busy: node.state?.busy === true,
         readOnly: node.state?.readOnly === true, inert: node.state?.inert === true,
+        paintSuppressed: paintSuppressed(input.layoutNode),
         emoji: input.widthProfile.emoji, ambiguous: input.widthProfile.ambiguous,
         focus: input.focus, focusedTargetId: input.focusedTargetId,
         hoveredTargetId: input.pointerState?.hoveredTargetId,

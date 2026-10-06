@@ -8,7 +8,7 @@ For signatures and public members, use the [API reference](./reference.md).
 
 | Import path | Declarations |
 | --- | ---: |
-| `@ismail-elkorchi/terminal-ui` | 603 |
+| `@ismail-elkorchi/terminal-ui` | 604 |
 | `@ismail-elkorchi/terminal-ui/host` | 87 |
 | `@ismail-elkorchi/terminal-ui/input` | 79 |
 | `@ismail-elkorchi/terminal-ui/interaction` | 95 |
@@ -27,8 +27,8 @@ For signatures and public members, use the [API reference](./reference.md).
 | `@ismail-elkorchi/terminal-ui/components/feedback` | 21 |
 | `@ismail-elkorchi/terminal-ui/components/patterns` | 34 |
 | `@ismail-elkorchi/terminal-ui/components/visualizations` | 28 |
-| `@ismail-elkorchi/terminal-ui/component` | 115 |
-| `@ismail-elkorchi/terminal-ui/layout` | 70 |
+| `@ismail-elkorchi/terminal-ui/component` | 116 |
+| `@ismail-elkorchi/terminal-ui/layout` | 71 |
 | `@ismail-elkorchi/terminal-ui/behavior` | 379 |
 | `@ismail-elkorchi/terminal-ui/renderer` | 162 |
 | `@ismail-elkorchi/terminal-ui/graphics` | 20 |

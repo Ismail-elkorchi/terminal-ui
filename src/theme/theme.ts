@@ -115,7 +115,7 @@ export function terminalStyleHasBackground(
   theme: TerminalTheme
 ): boolean {
   const background = style?.bg;
-  return background !== undefined
+  return background != null
     && (background.kind !== 'theme' || resolveThemeColor(theme, background.token) !== undefined);
 }
 

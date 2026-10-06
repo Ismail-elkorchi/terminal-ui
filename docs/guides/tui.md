@@ -44,6 +44,13 @@ write does not publish the candidate. If a write may have reached the
 terminal, the next commit rebuilds the output baseline. `dispatch()` and
 `dispatchMany()` resolve after their accepted commit.
 
+Paint-only visibility changes use that same commit boundary. Updating an
+existing element to `meta: { paint: 'suppressed' }` retains its state, focus,
+interaction, accessibility, and layout notifications, while removing its
+painted output and graphics. A rejected write does not publish the suppression
+candidate or deliver its layout notifications; a later successful update can
+retry it. See [paint suppression](./layout.md#suppressing-paint-while-keeping-a-live-subtree).
+
 `resizeMessage(state, context)` can turn a size change into an ordinary app
 message before the resized frame is built. Its context contains both
 `previousTerminalSize` and the new `terminalSize`; return `ignoreMessage()`

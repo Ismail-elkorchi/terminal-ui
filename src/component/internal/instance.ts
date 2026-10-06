@@ -351,6 +351,7 @@ function componentInstanceMeta<TModel extends object>(
   readonly accessibility?: { readonly decorative: true };
 } {
   const caller = value.meta;
+  const { accessibleName, paint } = caller ?? {};
   const requiredScope = focusScope === undefined
     ? undefined
     : executeComponentPhase(definition.name, value.id, 'metadata', () =>
@@ -377,7 +378,8 @@ function componentInstanceMeta<TModel extends object>(
   return Object.freeze({
     ...(focus === undefined ? {} : { focus }),
     ...(layer === undefined ? {} : { layer }),
-    ...(caller?.accessibleName === undefined ? {} : { accessibleName: caller.accessibleName }),
+    ...(accessibleName === undefined ? {} : { accessibleName }),
+    ...(paint === undefined ? {} : { paint }),
     ...(styles === undefined ? {} : { styles }),
     ...(definition.semantics === 'decorative'
       ? { accessibility: Object.freeze({ decorative: true as const }) }

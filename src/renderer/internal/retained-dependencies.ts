@@ -54,6 +54,7 @@ function sameRecord(a: unknown, b: unknown): boolean {
 
 function sameNodeMetadata(a: RenderNode, b: RenderNode): boolean {
   return sameStyleDependencies(a.styles, b.styles) && a.accessibility === b.accessibility
+    && a.paint === b.paint
     && sameRecord(a.layer, b.layer) && sameRecord(a.focus, b.focus)
     && sameRecord(a.focusNavigation, b.focusNavigation)
     && a.transparentFocusIdentity === b.transparentFocusIdentity

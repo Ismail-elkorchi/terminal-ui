@@ -223,13 +223,14 @@ See [API stability](../guides/api-stability.md) for stability labels.
 - [`ComponentReuseDependencies`](#component-componentreusedependencies), [`ComponentReuseSelector`](#component-componentreuseselector), [`ComponentScrollbarLayout`](#component-componentscrollbarlayout), [`ComponentScrollbarPlan`](#component-componentscrollbarplan), [`ComponentScrollbarThumb`](#component-componentscrollbarthumb), [`ComponentScrollbarTrack`](#component-componentscrollbartrack), [`ComponentSemanticInspection`](#component-componentsemanticinspection), [`ComponentSlotCardinality`](#component-componentslotcardinality)
 - [`ComponentSlotDefinition`](#component-componentslotdefinition), [`ComponentSlotLayout`](#component-componentslotlayout), [`ComponentSlotMessagePolicy`](#component-componentslotmessagepolicy), [`ComponentSlotOwner`](#component-componentslotowner), [`ComponentSlotShape`](#component-componentslotshape), [`ComponentSlotsDefinition`](#component-componentslotsdefinition), [`ComponentStateCapability`](#component-componentstatecapability), [`ComponentStyleInput`](#component-componentstyleinput)
 - [`ComponentStylePartMapping`](#component-componentstylepartmapping), [`ComponentTextInput`](#component-componenttextinput), [`ComponentVisualState`](#component-componentvisualstate), [`DecorativeLeafComponentDefinition`](#component-decorativeleafcomponentdefinition), [`DecorativeLeafComponentFactory`](#component-decorativeleafcomponentfactory), [`Element`](#component-element), [`ElementChildren`](#component-elementchildren), [`ElementChildrenMessage`](#component-elementchildrenmessage)
-- [`ElementMessage`](#component-elementmessage), [`ElementState`](#component-elementstate), [`ElementStyles`](#component-elementstyles), [`ElementVisualState`](#component-elementvisualstate), [`FocusLifecycleEvent`](#component-focuslifecycleevent), [`FocusNavigation`](#component-focusnavigation), [`FocusTargetLifecycleEvent`](#component-focustargetlifecycleevent), [`HitTarget`](#component-hittarget)
-- [`IgnoredMessage`](#component-ignoredmessage), [`IndexedQueryCandidate`](#component-indexedquerycandidate), [`KeyboardBinding`](#component-keyboardbinding), [`MessageResolution`](#component-messageresolution), [`PopupState`](#component-popupstate), [`PopupTransition`](#component-popuptransition), [`QueryCandidate`](#component-querycandidate), [`QueryMatch`](#component-querymatch)
-- [`QueryMatchRange`](#component-querymatchrange), [`RenderBlock`](#component-renderblock), [`RenderLine`](#component-renderline), [`RenderSpan`](#component-renderspan), [`SelectionState`](#component-selectionstate), [`SemanticComposedComponentDefinition`](#component-semanticcomposedcomponentdefinition), [`SemanticCompositeComponentDefinition`](#component-semanticcompositecomponentdefinition), [`SemanticCompositeComponentFactory`](#component-semanticcompositecomponentfactory)
-- [`SemanticLeafComponentDefinition`](#component-semanticleafcomponentdefinition), [`SemanticLeafComponentFactory`](#component-semanticleafcomponentfactory), [`StagedComponentFactory`](#component-stagedcomponentfactory), [`TerminalStyle`](#component-terminalstyle), [`clipRenderLine`](#component-cliprenderline), [`clipRenderSpans`](#component-cliprenderspans), [`collectionInteractionReducer`](#component-collectioninteractionreducer), [`compareCollectionText`](#component-comparecollectiontext)
-- [`compileCollectionQuery`](#component-compilecollectionquery), [`componentScrollbarHitTargets`](#component-componentscrollbarhittargets), [`decodeComponentScrollPolicy`](#component-decodecomponentscrollpolicy), [`decodeComponentScrollState`](#component-decodecomponentscrollstate), [`decodeComponentScrollbarOptions`](#component-decodecomponentscrollbaroptions), [`decodeTerminalStyle`](#component-decodeterminalstyle), [`defineComponent`](#component-definecomponent), [`formatKeyboardBinding`](#component-formatkeyboardbinding)
-- [`ignoreMessage`](#component-ignoremessage), [`layoutComponentScrollbar`](#component-layoutcomponentscrollbar), [`line`](#component-line), [`mapComponentStyles`](#component-mapcomponentstyles), [`matchCollectionQuery`](#component-matchcollectionquery), [`measureConstrainedBox`](#component-measureconstrainedbox), [`measureRenderSpans`](#component-measurerenderspans), [`mergeElementStyles`](#component-mergeelementstyles)
-- [`mergeTerminalStyles`](#component-mergeterminalstyles), [`normalizeCollectionInteraction`](#component-normalizecollectioninteraction), [`padRenderLine`](#component-padrenderline), [`paintComponentScrollbar`](#component-paintcomponentscrollbar), [`popupReducer`](#component-popupreducer), [`queryCandidates`](#component-querycandidates), [`span`](#component-span), [`wrapRenderSpans`](#component-wraprenderspans)
+- [`ElementMessage`](#component-elementmessage), [`ElementPaint`](#component-elementpaint), [`ElementState`](#component-elementstate), [`ElementStyles`](#component-elementstyles), [`ElementVisualState`](#component-elementvisualstate), [`FocusLifecycleEvent`](#component-focuslifecycleevent), [`FocusNavigation`](#component-focusnavigation), [`FocusTargetLifecycleEvent`](#component-focustargetlifecycleevent)
+- [`HitTarget`](#component-hittarget), [`IgnoredMessage`](#component-ignoredmessage), [`IndexedQueryCandidate`](#component-indexedquerycandidate), [`KeyboardBinding`](#component-keyboardbinding), [`MessageResolution`](#component-messageresolution), [`PopupState`](#component-popupstate), [`PopupTransition`](#component-popuptransition), [`QueryCandidate`](#component-querycandidate)
+- [`QueryMatch`](#component-querymatch), [`QueryMatchRange`](#component-querymatchrange), [`RenderBlock`](#component-renderblock), [`RenderLine`](#component-renderline), [`RenderSpan`](#component-renderspan), [`SelectionState`](#component-selectionstate), [`SemanticComposedComponentDefinition`](#component-semanticcomposedcomponentdefinition), [`SemanticCompositeComponentDefinition`](#component-semanticcompositecomponentdefinition)
+- [`SemanticCompositeComponentFactory`](#component-semanticcompositecomponentfactory), [`SemanticLeafComponentDefinition`](#component-semanticleafcomponentdefinition), [`SemanticLeafComponentFactory`](#component-semanticleafcomponentfactory), [`StagedComponentFactory`](#component-stagedcomponentfactory), [`TerminalStyle`](#component-terminalstyle), [`clipRenderLine`](#component-cliprenderline), [`clipRenderSpans`](#component-cliprenderspans), [`collectionInteractionReducer`](#component-collectioninteractionreducer)
+- [`compareCollectionText`](#component-comparecollectiontext), [`compileCollectionQuery`](#component-compilecollectionquery), [`componentScrollbarHitTargets`](#component-componentscrollbarhittargets), [`decodeComponentScrollPolicy`](#component-decodecomponentscrollpolicy), [`decodeComponentScrollState`](#component-decodecomponentscrollstate), [`decodeComponentScrollbarOptions`](#component-decodecomponentscrollbaroptions), [`decodeTerminalStyle`](#component-decodeterminalstyle), [`defineComponent`](#component-definecomponent)
+- [`formatKeyboardBinding`](#component-formatkeyboardbinding), [`ignoreMessage`](#component-ignoremessage), [`layoutComponentScrollbar`](#component-layoutcomponentscrollbar), [`line`](#component-line), [`mapComponentStyles`](#component-mapcomponentstyles), [`matchCollectionQuery`](#component-matchcollectionquery), [`measureConstrainedBox`](#component-measureconstrainedbox), [`measureRenderSpans`](#component-measurerenderspans)
+- [`mergeElementStyles`](#component-mergeelementstyles), [`mergeTerminalStyles`](#component-mergeterminalstyles), [`normalizeCollectionInteraction`](#component-normalizecollectioninteraction), [`padRenderLine`](#component-padrenderline), [`paintComponentScrollbar`](#component-paintcomponentscrollbar), [`popupReducer`](#component-popupreducer), [`queryCandidates`](#component-querycandidates), [`span`](#component-span)
+- [`wrapRenderSpans`](#component-wraprenderspans)
 
 ### @ismail-elkorchi/terminal-ui/layout
 
@@ -9226,10 +9227,12 @@ export type ComponentMetadataOptions<TCapabilities extends readonly ComponentMet
     readonly layer?: never;
 }) & {
     readonly accessibleName?: string;
+    /** Renderer-owned paint suppression is available regardless of component capabilities. */
+    readonly paint?: ElementPaint;
 };
 ```
 
-Related types: [`ElementFocus`](#layout-elementfocus), [`ElementLayer`](#layout-elementlayer)
+Related types: [`ElementPaint`](#component-elementpaint), [`ElementFocus`](#layout-elementfocus), [`ElementLayer`](#layout-elementlayer)
 
 <a id="component-componentmodelcontext"></a>
 ### ComponentModelContext
@@ -9838,6 +9841,19 @@ export type ElementMessage<TElement> = TElement extends Element<infer TMessage> 
 ```
 
 Related types: [`Element`](#component-element)
+
+<a id="component-elementpaint"></a>
+### ElementPaint
+
+type · beta · [source](../../src/element/metadata.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/component` (type only), `@ismail-elkorchi/terminal-ui/layout` (type only)
+
+Suppresses subtree paint without changing layout, interaction, focus or accessibility.
+
+```ts
+export type ElementPaint = 'suppressed';
+```
 
 <a id="component-elementstate"></a>
 ### ElementState
@@ -10547,8 +10563,10 @@ readonly fg?: TerminalColor;
 <a id="component-terminalstyle-bg"></a>
 #### bg
 
+null clears a base background and inherits the destination cell background at paint time.
+
 ```ts
-readonly bg?: TerminalColor;
+readonly bg?: TerminalColor | null;
 ```
 
 <a id="component-terminalstyle-bold"></a>
@@ -27835,6 +27853,15 @@ Import from: `@ismail-elkorchi/terminal-ui/layout` (type only)
 export interface ElementMeta { … }
 ```
 
+<a id="layout-elementmeta-paint"></a>
+#### paint
+
+Inherited by all descendants, including portals; descendants cannot re-enable paint.
+
+```ts
+readonly paint?: ElementPaint;
+```
+
 <a id="layout-elementmeta-accessibility"></a>
 #### accessibility
 
@@ -34757,7 +34784,7 @@ function · beta · [source](../../src/visual/render-content.ts)
 Import from: `@ismail-elkorchi/terminal-ui/renderer`
 
 ```ts
-export declare function sameTerminalColor(left: TerminalColor | undefined, right: TerminalColor | undefined): boolean;
+export declare function sameTerminalColor(left: TerminalColor | null | undefined, right: TerminalColor | null | undefined): boolean;
 ```
 
 Related types: [`TerminalColor`](#renderer-terminalcolor)

@@ -50,6 +50,35 @@ The buffer sanitizes control sequences, clips by terminal cell width, preserves
 Unicode grapheme boundaries, and clears stale continuation cells when content
 changes shape.
 
+## Explicit background inheritance
+
+`TerminalStyle.bg: null` removes an earlier background from style composition
+without dropping other style fields. It remains distinct from an omitted `bg`
+through validation, canonicalization, equality, and theme resolution. A later
+style can restore a concrete or semantic background color.
+
+At each frame-buffer write, `null` resolves to that destination cell's current
+background. A wide glyph and its continuation cells use the leading
+destination cell's background, preserving the buffer's wide-cell topology.
+Only the background is inherited: old foregrounds, attributes,
+text, and provenance do not leak into the new cell. With no destination
+background, the resulting cell has no explicit background rather than storing
+`null` as a color. Both `write()` and `writeCell()` honor the policy; a direct
+`createFrameBuffer()` still keeps its existing overwrite semantics for omitted
+backgrounds.
+
+This is cell-background inheritance, not paint suppression. Glyphs and padding
+continue to paint. It is also separate from region composition: a layer or portal
+needs `underlay: 'inheritBackground'` to receive backgrounds from a lower region.
+A style cannot bypass that boundary. Ordinary-part overrides can clear native
+control fills while later focused or selected styles retain meaningful cues;
+see [Themes](./themes.md#inheriting-painted-backgrounds).
+
+Frame snapshots and transcripts preserve the resolved cell colors. An unresolved
+`null` in a style sent directly to ANSI serialization has no destination to
+sample and behaves as no explicit background, including resetting a prior
+background when necessary. It is never interpreted as a terminal color.
+
 ## Source Metadata
 
 `FrameCellSource` is the renderer-produced provenance contract for visible

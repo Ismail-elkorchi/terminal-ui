@@ -34,6 +34,7 @@ export interface RenderRegion<TMessage = unknown> {
   readonly order: number;
   readonly bounds: Rect;
   readonly underlay: LayerUnderlay;
+  readonly paintSuppressed: boolean;
   readonly backdropBounds?: Rect;
   readonly cells: readonly FrameCell[];
   readonly graphics: readonly GraphicPlacement[];
@@ -85,6 +86,7 @@ export interface DraftRenderRegion {
   readonly order: number;
   readonly bounds: Rect;
   readonly underlay: LayerUnderlay;
+  readonly paintSuppressed: boolean;
   readonly backdropBounds?: Rect;
   readonly buffer: FrameBuffer;
 }
@@ -104,6 +106,7 @@ export function createDraftRenderRegion(
     readonly terminalSize: TerminalSize;
     readonly bounds: Rect;
     readonly underlay: LayerUnderlay;
+    readonly paintSuppressed: boolean;
     readonly backdropBounds?: Rect;
     readonly widthProfile: TextWidthProfile;
     readonly textPresentation?: TextPresentation | undefined;
@@ -119,6 +122,7 @@ export function createDraftRenderRegion(
     order,
     bounds: regionBounds,
     underlay,
+    paintSuppressed: input.paintSuppressed,
     ...(backdropBounds === undefined ? {} : { backdropBounds }),
     buffer: regionBuffer(terminalSize, regionBounds, widthProfile, instrumentation, input.previous, input.textPresentation)
   };

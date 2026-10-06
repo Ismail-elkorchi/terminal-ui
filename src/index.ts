@@ -36,7 +36,7 @@ export type {
   TerminalDiagnosticValue,
   TerminalSeverity,
 } from './diagnostics.ts';
-export type { ElementStyles } from './element/metadata.ts';
+export type { ElementPaint, ElementStyles } from './element/metadata.ts';
 export { mergeElementStyles } from './element/styles.ts';
 export { TerminalUiError } from './errors.ts';
 export type { TerminalUiErrorOptions } from './errors.ts';

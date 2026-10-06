@@ -66,6 +66,23 @@ contract. `style()` rejects undeclared slots at runtime, while TypeScript
 restricts the factory's top-level `styles.parts` and `styles.states` to those
 names.
 
+## Renderer-owned paint policy
+
+Every defined component accepts `meta: { paint: 'suppressed' }`, including
+components whose definition declares no `metadata` capabilities. Do not add
+`'paint'` to the capability list: the renderer owns this policy. The same
+metadata works on native components and structural layouts.
+
+Suppression skips `render`, `renderBeforeChildren`, and `renderAfterChildren`
+for the logical subtree, including composition-generated children and portals.
+Measurement, composition, layout, interaction, accessibility, focus lifecycle,
+and post-commit `onLayout` still run under their ordinary contracts. Keep
+application state and side effects outside paint hooks. Removing the metadata
+reveals the current state without remounting the component.
+
+See [paint suppression](./layout.md#suppressing-paint-while-keeping-a-live-subtree)
+for inheritance, graphics, backing content, and interaction implications.
+
 ## Leaf And Composite Components
 
 A leaf measures and draws one element. A composite additionally receives
