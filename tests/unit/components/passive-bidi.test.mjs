@@ -203,3 +203,16 @@ test('table retained rows use the current presentation identity', () => {
   assert.equal(renderFramePlain(logical), 'אבג');
   assert.deepEqual(applyRenderDiff(visual, diffFrames(visual, logical)).cells, logical.cells);
 });
+
+test('wrapped logical Unicode retains grapheme boundaries and styles without a presentation transform', () => {
+  const element = richText({ segments: [
+    inline('A界e\u0301 ', { style: { bold: true } }),
+    inline('👩‍💻 B', { style: { italic: true }, link: { href: 'https://example.com/source' } })
+  ], wrap: { preserveWords: false } });
+  const frame = renderElementFrame(element, { columns: 4, rows: 4 });
+  assert.equal(renderFramePlain(frame), 'A界e\u0301\n 👩‍💻\nB');
+  assert.equal(frame.cells.find(cell => cell.text === '界')?.style?.bold, true);
+  const emoji = frame.cells.find(cell => cell.text === '👩‍💻');
+  assert.equal(emoji?.style?.italic, true);
+  assert.equal(emoji?.link?.href, 'https://example.com/source');
+});

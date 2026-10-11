@@ -315,11 +315,18 @@ export function wrapRenderSpans(
         const from = Math.max(start, group.start);
         const to = Math.min(end, group.end);
         if (from >= to) continue;
-        const row = sliceTerminalTextIndex(group.index, from - group.start, to - group.start, { ...options,
-          textPresentation: group.visual ? undefined : options.textPresentation,
-          paragraph: { text: text.slice(group.start, group.end), startOffset: from - group.start } });
-        for (const grapheme of row.visualGraphemes) {
-          const offset = from + grapheme.startOffset;
+        // Logical runs already have canonical grapheme boundaries and cell widths.
+        // Rebuilding a visual map per wrapped row duplicates that work without a
+        // presentation transform. Explicit visual runs must not be transformed again.
+        const graphemes = options.textPresentation === undefined || group.visual
+          ? current.filter(grapheme => grapheme.startOffset >= from && grapheme.startOffset < to)
+              .map(grapheme => ({ text: grapheme.text, offset: grapheme.startOffset }))
+          : sliceTerminalTextIndex(group.index, from - group.start, to - group.start, {
+              ...options,
+              paragraph: { text: text.slice(group.start, group.end), startOffset: from - group.start },
+            }).visualGraphemes.map(grapheme => ({ text: grapheme.text, offset: from + grapheme.startOffset }));
+        for (const grapheme of graphemes) {
+          const offset = grapheme.offset;
           let low = 0;
           let high = ranges.length;
           while (low < high) {
