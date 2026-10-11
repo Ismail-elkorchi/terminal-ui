@@ -638,13 +638,6 @@ const disclosureSlots = {
   content: { cardinality: 'one', owner: 'caller', messages: 'bubble' },
 } as const;
 
-type DisclosureFactory = <
-  TChild extends Element<ComponentMessage>,
-  TMessage extends ComponentMessage = never,
->(
-  options: DisclosureOptions<TMessage, TChild>,
-) => Element<TMessage | ElementMessage<TChild>>;
-
 const instantiateDisclosure = defineComponent<{ readonly label: string; readonly summary?: InlineContent; readonly expanded: boolean }, import('../disclosure.ts').DisclosureTransition>()({
   emitsActions: true,
   name: 'terminal-ui/components/disclosure',
@@ -755,10 +748,15 @@ const instantiateDisclosure = defineComponent<{ readonly label: string; readonly
   },
 });
 
-export const disclosure: DisclosureFactory = (options) => {
+export function disclosure<
+  TChild extends Element<ComponentMessage>,
+  TMessage extends ComponentMessage = never,
+>(
+  options: DisclosureOptions<TMessage, TChild>,
+): Element<TMessage | ElementMessage<TChild>> {
   if (options.disabled === true && options.onTransition === undefined) {
     const rest = withoutTransitionCallback(options);
-    return instantiateDisclosure<typeof rest.slots>({ ...rest, disabled: true, onAction: () => ignoreMessage() });
+    return instantiateDisclosure<typeof rest.slots>({ ...rest, onAction: () => ignoreMessage() });
   }
   const { onTransition, ...input } = options;
   assertRequiredCallback(onTransition, 'disclosure onTransition');
@@ -766,7 +764,7 @@ export const disclosure: DisclosureFactory = (options) => {
     ...input,
     onAction: onTransition,
   });
-};
+}
 
 function disclosureMeasureHeader(
   model: DisclosureModel,

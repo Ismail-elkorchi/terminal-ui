@@ -87,13 +87,6 @@ const commandSlots = {
   suggestions: { cardinality: 'optional', owner: 'implementation', messages: 'bubble' },
 } as const;
 
-type CommandInputFactory = <
-  const TTransitionMessage extends ComponentMessage = never,
-  const TSubmitMessage extends ComponentMessage = never,
->(
-  options: CommandInputOptions<TTransitionMessage, TSubmitMessage>,
-) => Element<TTransitionMessage | TSubmitMessage>;
-
 type CommandInputComponentAction =
   | { readonly kind: 'transition'; readonly transition: CommandInputTransition }
   | { readonly kind: 'submit'; readonly event: CommandInputSubmitEvent }
@@ -342,7 +335,12 @@ const instantiateCommandInput = defineComponent<CommandInputComponentOptions, Co
   hitTargets: commandInputHitTargets,
 });
 
-export const commandInput: CommandInputFactory = (options) => {
+export function commandInput<
+  const TTransitionMessage extends ComponentMessage = never,
+  const TSubmitMessage extends ComponentMessage = never,
+>(
+  options: CommandInputOptions<TTransitionMessage, TSubmitMessage>,
+): Element<TTransitionMessage | TSubmitMessage> {
   const shared = {
     id: options.id,
     view: options.view,
@@ -362,9 +360,8 @@ export const commandInput: CommandInputFactory = (options) => {
   };
   assertOptionalCallback(options.onSubmit, 'command-input onSubmit');
   assertOptionalCallback(options.onContextMenu, 'command-input onContextMenu');
-  if (options.disabled === true && options.onTransition === undefined) return instantiateCommandInput<never>({ ...shared, disabled: true, onAction: () => ignoreMessage() });
+  if (options.disabled === true && options.onTransition === undefined) return instantiateCommandInput<never, TTransitionMessage | TSubmitMessage>({ ...shared, onAction: ignoreMessage });
   assertRequiredPropertyCallback(options, 'onTransition', 'commandInput onTransition');
-  assertOptionalCallback(options.onSubmit, 'commandInput onSubmit');
   return instantiateCommandInput({
     ...shared,
     onAction: (action) => {
@@ -373,7 +370,7 @@ export const commandInput: CommandInputFactory = (options) => {
       return options.onSubmit?.(action.event) ?? ignoreMessage();
     },
   });
-};
+}
 
 function commandTransition(transition: CommandInputTransition): CommandInputComponentAction {
   return { kind: 'transition', transition };

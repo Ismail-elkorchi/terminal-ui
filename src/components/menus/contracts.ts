@@ -9,7 +9,6 @@ import type {
   MenuView,
 } from '../../behavior/menu.ts';
 import type { ComponentMessage } from '../../component/message.ts';
-import type { Element } from '../../element/types.ts';
 import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
@@ -17,7 +16,6 @@ import type { InlineContent } from '../../visual/inline-content.ts';
 import type { MenuStylePart } from '../style-parts.ts';
 import type {
   ContextMenuOptions,
-  MenuBarOptions,
   MenuTriggerOptions,
 } from './options.ts';
 
@@ -94,10 +92,6 @@ export interface MenuBarOwnOptions {
   readonly scrollPolicy?: ScrollPolicy;
 }
 
-export type MenuBarFactory = <const TMessage extends ComponentMessage = never>(
-  options: MenuBarOptions<TMessage>,
-) => Element<TMessage>;
-
 export type MenuBarComponentAction =
   | { readonly kind: 'transition'; readonly transition: MenuBarTransition }
   | { readonly kind: 'activate'; readonly event: MenuActivateEvent };
@@ -123,10 +117,6 @@ export type ContextOwnOptions = Omit<
   'id' | 'onTransition' | 'onActivate' | 'styles' | 'meta' | 'disabled' | 'busy' | 'inert'
 >;
 
-export type ContextMenuFactory = <const TMessage extends ComponentMessage = never>(
-  options: ContextMenuOptions<TMessage>,
-) => Element<TMessage>;
-
 export type ContextMenuComponentAction =
   | { readonly kind: 'transition'; readonly transition: ContextMenuTransition }
   | { readonly kind: 'activate'; readonly event: MenuActivateEvent };
@@ -148,10 +138,6 @@ export type MenuTriggerOwnOptions = Omit<
   MenuTriggerOptions<ComponentMessage>,
   'id' | 'onTransition' | 'onActivate' | 'styles' | 'meta' | 'disabled' | 'busy' | 'inert'
 >;
-
-export type MenuTriggerFactory = <const TMessage extends ComponentMessage = never>(
-  options: MenuTriggerOptions<TMessage>,
-) => Element<TMessage>;
 
 export type MenuTriggerComponentAction =
   | { readonly kind: 'transition'; readonly transition: MenuTriggerTransition }

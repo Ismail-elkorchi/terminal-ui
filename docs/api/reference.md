@@ -14471,12 +14471,17 @@ Related types: [`TableColumnBuilder`](#components-collections-tablecolumnbuilder
 <a id="components-collections-tabs"></a>
 ### tabs
 
-value · beta · [source](../../src/components/tabs/definition.ts)
+function · beta · [source](../../src/components/tabs/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/collections`
 
 ```ts
-tabs: TabsFactory
+export declare function tabs<
+  const TId extends string,
+  const TMessage extends ComponentMessage = never
+>(
+  options: TabsOptions<TId, TMessage>
+): Element<TMessage>;
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`TabsOptions`](#components-collections-tabsoptions)
@@ -17548,12 +17553,16 @@ Related types: [`TextInputKeyAction`](#components-forms-textinputkeyaction), [`C
 <a id="components-forms-field"></a>
 ### field
 
-value · beta · [source](../../src/components/form-layout/definition.ts)
+function · beta · [source](../../src/components/form-layout/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
 ```ts
-field: FieldFactory
+export declare function field<
+  TChild extends Element<ComponentMessage>
+>(
+  options: FieldOptions<TChild>
+): Element<import('../../element/index.ts').ElementMessage<TChild>>;
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`ElementMessage`](#component-elementmessage), [`FieldOptions`](#components-forms-fieldoptions)
@@ -17715,12 +17724,12 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-textarea"></a>
 ### textArea
 
-value · beta · [source](../../src/components/text-area/definition.ts)
+function · beta · [source](../../src/components/text-area/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
 ```ts
-textArea: TextAreaFactory
+export declare function textArea<const TMessage extends ComponentMessage = never>(options: TextAreaOptions<TMessage>): Element<TMessage>;
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`TextAreaOptions`](#components-forms-textareaoptions)
@@ -18525,12 +18534,17 @@ Related types: [`Element`](#component-element), [`CanvasOptions`](#components-fo
 <a id="components-foundations-disclosure"></a>
 ### disclosure
 
-value · beta · [source](../../src/components/text-content/definition.ts)
+function · beta · [source](../../src/components/text-content/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/foundations`
 
 ```ts
-disclosure: DisclosureFactory
+export declare function disclosure<
+  TChild extends Element<ComponentMessage>,
+  TMessage extends ComponentMessage = never
+>(
+  options: DisclosureOptions<TMessage, TChild>
+): Element<TMessage | ElementMessage<TChild>>;
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`ElementMessage`](#component-elementmessage), [`DisclosureOptions`](#components-foundations-disclosureoptions)
@@ -19407,12 +19421,16 @@ readonly reason: 'pointer' | 'focus' | 'escape' | 'programmatic';
 <a id="components-overlays-contextmenu"></a>
 ### contextMenu
 
-value · beta · [source](../../src/components/menus/context-menu.ts)
+function · beta · [source](../../src/components/menus/context-menu.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/overlays`
 
 ```ts
-contextMenu: ContextMenuFactory
+export declare function contextMenu<
+  const TMessage extends ComponentMessage = never
+>(
+  options: ContextMenuOptions<TMessage>
+): Element<TMessage>;
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`ContextMenuOptions`](#components-overlays-contextmenuoptions)
@@ -19452,12 +19470,12 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-overlays-menubar"></a>
 ### menuBar
 
-value · beta · [source](../../src/components/menus/menu-bar.ts)
+function · beta · [source](../../src/components/menus/menu-bar.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/overlays`
 
 ```ts
-menuBar: MenuBarFactory
+export declare function menuBar<const TMessage extends ComponentMessage = never>(options: MenuBarOptions<TMessage>): Element<TMessage>;
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`MenuBarOptions`](#components-overlays-menubaroptions)
@@ -19465,12 +19483,16 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-overlays-menutrigger"></a>
 ### menuTrigger
 
-value · beta · [source](../../src/components/menus/menu-trigger.ts)
+function · beta · [source](../../src/components/menus/menu-trigger.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/overlays`
 
 ```ts
-menuTrigger: MenuTriggerFactory
+export declare function menuTrigger<
+  const TMessage extends ComponentMessage = never
+>(
+  options: MenuTriggerOptions<TMessage>
+): Element<TMessage>;
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`MenuTriggerOptions`](#components-overlays-menutriggeroptions)
@@ -20281,12 +20303,17 @@ readonly scroll?: never;
 <a id="components-patterns-commandinput"></a>
 ### commandInput
 
-value · beta · [source](../../src/components/command-input/definition.ts)
+function · beta · [source](../../src/components/command-input/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/patterns`
 
 ```ts
-commandInput: CommandInputFactory
+export declare function commandInput<
+  const TTransitionMessage extends ComponentMessage = never,
+  const TSubmitMessage extends ComponentMessage = never
+>(
+  options: CommandInputOptions<TTransitionMessage, TSubmitMessage>
+): Element<TTransitionMessage | TSubmitMessage>;
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`CommandInputOptions`](#components-patterns-commandinputoptions)

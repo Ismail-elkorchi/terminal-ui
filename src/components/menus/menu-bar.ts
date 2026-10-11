@@ -7,6 +7,7 @@ import type {
 } from '../../component/contracts.ts';
 import { defineComponent } from '../../component/definition.ts';
 import type { ComponentMessage } from '../../component/message.ts';
+import type { Element } from '../../element/types.ts';
 import {
   decodeComponentScrollbarOptions,
   decodeComponentScrollPolicy,
@@ -31,7 +32,6 @@ import { clipRenderSpans, layoutRenderSpans } from '../../visual/render-content.
 import type { MenuStylePart } from '../style-parts.ts';
 import type {
   MenuBarComponentAction,
-  MenuBarFactory,
   MenuBarModel,
   MenuBarOwnOptions,
   MenuComponentAction,
@@ -145,7 +145,9 @@ const instantiateMenuBar = defineComponent<MenuBarOwnOptions, MenuBarComponentAc
   accessibility: menuBarAccessibility,
 });
 
-export const menuBar: MenuBarFactory = (options) => {
+export function menuBar<const TMessage extends ComponentMessage = never>(
+  options: MenuBarOptions<TMessage>,
+): Element<TMessage> {
   const shared = menuBarInstanceOptions(options);
   const instance = {
     ...shared,
@@ -153,17 +155,17 @@ export const menuBar: MenuBarFactory = (options) => {
     ...(options.inert === undefined ? {} : { inert: options.inert }),
     ...(options.busy === undefined ? {} : { busy: options.busy }),
   };
-  assertOptionalCallback(options.onActivate, 'menuBar onActivate');
   if (options.onTransition === undefined) {
+    assertOptionalCallback(options.onActivate, 'menuBar onActivate');
     if (options.disabled !== true && options.inert !== true) assertMenuCallbacks(options, 'menuBar');
-    return instantiateMenuBar<never>({ ...instance, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }), onAction: () => ignoreMessage() });
+    return instantiateMenuBar<never, TMessage>({ ...instance, onAction: ignoreMessage });
   }
   assertMenuCallbacks(options, 'menuBar');
   return instantiateMenuBar({
     ...instance,
     onAction: (action) => routeMenuBarAction(action, options),
   });
-};
+}
 
 function menuBarComponentTransition(transition: MenuBarTransition): MenuBarComponentAction {
   return { kind: 'transition', transition };

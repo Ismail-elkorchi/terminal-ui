@@ -33,10 +33,6 @@ import { createTextAreaModel } from './model.ts';
 import type { ScrollableTextAreaOptions, TextAreaOptions } from './options.ts';
 import { paintTextArea } from './paint.ts';
 
-type TextAreaFactory = <const TMessage extends ComponentMessage = never>(
-  options: TextAreaOptions<TMessage>,
-) => Element<TMessage>;
-
 const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'busy' | 'onTransition' | 'onContextMenu' | 'styles' | 'meta'>, TextAreaComponentAction>()({
   emitsActions: true,
   name: 'terminal-ui/components/text-area',
@@ -263,14 +259,16 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
   },
 });
 
-export const textArea: TextAreaFactory = (options) => {
+export function textArea<const TMessage extends ComponentMessage = never>(
+  options: TextAreaOptions<TMessage>,
+): Element<TMessage> {
   assertOptionalCallback(options.onLayout, 'text-area onLayout');
   assertOptionalCallback(options.onLayoutRequest, 'text-area onLayoutRequest');
   assertOptionalCallback(options.onContextMenu, 'text-area onContextMenu');
   if (options.disabled === true && options.onTransition === undefined) {
     const { onContextMenu, ...rest } = withoutTransitionCallback(options);
     void onContextMenu;
-    return instantiateTextArea({ ...rest, disabled: true, onAction: (action) => action.kind === 'layoutRequest' ? options.onLayoutRequest?.(action.request) ?? ignoreMessage() : action.kind === 'layout' ? options.onLayout?.(action.snapshot) ?? ignoreMessage() : ignoreMessage() });
+    return instantiateTextArea({ ...rest, onAction: (action) => action.kind === 'layoutRequest' ? options.onLayoutRequest?.(action.request) ?? ignoreMessage() : action.kind === 'layout' ? options.onLayout?.(action.snapshot) ?? ignoreMessage() : ignoreMessage() });
   }
   assertRequiredPropertyCallback(options, 'onTransition', 'textArea onTransition');
   if (!isScrollableTextArea(options)) {
@@ -293,7 +291,7 @@ export const textArea: TextAreaFactory = (options) => {
       ? onContextMenu?.(action.event) ?? ignoreMessage()
       : onTransition(action),
   });
-};
+}
 
 function isScrollableTextArea<TMessage extends ComponentMessage>(
   options: Exclude<TextAreaOptions<TMessage>, { readonly disabled: true }>,

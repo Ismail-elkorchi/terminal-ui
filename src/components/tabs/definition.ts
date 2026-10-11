@@ -74,13 +74,6 @@ const tabsSlots = {
   panels: { cardinality: 'many', owner: 'caller', messages: 'bubble' },
 } as const;
 
-type TabsFactory = <
-  const TId extends string,
-  const TMessage extends ComponentMessage = never,
->(
-  options: TabsOptions<TId, TMessage>,
-) => Element<TMessage>;
-
 type TabsComponentAction =
   | { readonly kind: 'transition'; readonly transition: TabsTransition }
   | { readonly kind: 'close'; readonly event: TabCloseEvent };
@@ -231,10 +224,12 @@ const instantiateTabs = defineComponent<TabsOwnOptions, TabsComponentAction>()({
   },
 });
 
-export const tabs: TabsFactory = <
+export function tabs<
   const TId extends string,
   const TMessage extends ComponentMessage = never,
->(options: TabsOptions<TId, TMessage>) => {
+>(
+  options: TabsOptions<TId, TMessage>,
+): Element<TMessage> {
   const items = options.tabs;
   const shared = {
     id: options.id,
@@ -270,13 +265,10 @@ export const tabs: TabsFactory = <
   assertOptionalCallback(options.onClose, 'tabs onClose');
   if (options.disabled === true && options.onTransition === undefined) return instantiateTabs<typeof shared.slots>({
     ...shared,
-    disabled: true,
-    ...(options.inert === undefined ? {} : { inert: options.inert }),
     onAction: () => ignoreMessage(),
   });
-  if (options.inert === true && options.onTransition === undefined) return instantiateTabs<typeof shared.slots>({ ...shared, inert: true, onAction: () => ignoreMessage() });
+  if (options.inert === true && options.onTransition === undefined) return instantiateTabs<typeof shared.slots>({ ...shared, onAction: () => ignoreMessage() });
   assertRequiredPropertyCallback(options, 'onTransition', 'tabs onTransition');
-  assertOptionalCallback(options.onClose, 'tabs onClose');
   return instantiateTabs({
     ...shared,
     onAction: (action) => {
@@ -286,7 +278,7 @@ export const tabs: TabsFactory = <
       return options.onTransition(action.transition as TabsTransition<TId>);
     },
   });
-};
+}
 
 interface TabHeaderEntry {
   readonly tab: TabModelItem;

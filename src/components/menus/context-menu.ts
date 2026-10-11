@@ -2,6 +2,7 @@ import type { ContextMenuTransition, ContextMenuView } from '../../behavior/menu
 import type { ComponentAccessibilityResult, ComponentAccessibilityInput } from '../../component/contracts.ts';
 import { defineComponent } from '../../component/definition.ts';
 import type { ComponentMessage } from '../../component/message.ts';
+import type { Element } from '../../element/types.ts';
 import {
   decodeComponentScrollbarOptions,
   decodeComponentScrollPolicy,
@@ -22,7 +23,6 @@ import { portal, surface } from '../../layout/factories/surfaces.ts';
 import { text } from '../text-content/definition.ts';
 import type {
   ContextMenuComponentAction,
-  ContextMenuFactory,
   ContextMenuModel,
   ContextOwnOptions,
 } from './contracts.ts';
@@ -124,7 +124,9 @@ const instantiateContextMenu = defineComponent<ContextOwnOptions, ContextMenuCom
   accessibility: contextMenuAccessibility,
 });
 
-export const contextMenu: ContextMenuFactory = (options) => {
+export function contextMenu<const TMessage extends ComponentMessage = never>(
+  options: ContextMenuOptions<TMessage>,
+): Element<TMessage> {
   const shared = contextMenuInstanceOptions(options);
   const instance = {
     ...shared,
@@ -132,17 +134,17 @@ export const contextMenu: ContextMenuFactory = (options) => {
     ...(options.inert === undefined ? {} : { inert: options.inert }),
     ...(options.busy === undefined ? {} : { busy: options.busy }),
   };
-  assertOptionalCallback(options.onActivate, 'contextMenu onActivate');
   if (options.onTransition === undefined) {
+    assertOptionalCallback(options.onActivate, 'contextMenu onActivate');
     if (options.disabled !== true && options.inert !== true) assertMenuCallbacks(options, 'contextMenu');
-    return instantiateContextMenu<never>({ ...instance, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }), onAction: () => ignoreMessage() });
+    return instantiateContextMenu<never, TMessage>({ ...instance, onAction: ignoreMessage });
   }
   assertMenuCallbacks(options, 'contextMenu');
   return instantiateContextMenu({
     ...instance,
     onAction: (action) => routeContextMenuAction(action, options),
   });
-};
+}
 
 function contextMenuComponentTransition(
   transition: ContextMenuTransition,

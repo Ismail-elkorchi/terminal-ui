@@ -9,7 +9,6 @@ import {
 } from '../../foundation/validation.ts';
 import type { LayoutFlowOptions } from '../../geometry/types.ts';
 import type { InitialFocusSelector } from '../../interaction/focus.ts';
-import type { MessageResolution } from '../../interaction/message.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
 import type { PopupDismissalPolicy, PopupFocusPolicy } from '../../interaction/popup.ts';
 import { popupAllowsDismissal, popupFocusScope } from '../../interaction/popup.ts';
@@ -190,12 +189,7 @@ export function dialog<
   options: DialogOptions<TMessage, TContent, TActions>,
 ): Element<ElementMessage<TContent> | ElementMessage<NonNullable<TActions>> | TMessage> {
   if (options.dismissal === undefined) {
-    const ignoreDismissal = (): MessageResolution<TMessage> => ignoreMessage();
-    return instantiateDialog({
-      ...options,
-      slots: options.slots,
-      onAction: ignoreDismissal,
-    });
+    return instantiateDialog<typeof options.slots, TMessage>({ ...options, onAction: ignoreMessage });
   }
   const onDismiss = options.onDismiss;
   if (typeof onDismiss !== 'function') {
@@ -203,8 +197,7 @@ export function dialog<
   }
   return instantiateDialog({
     ...options,
-    slots: options.slots,
-    onAction: (event: DialogDismissEvent): MessageResolution<TMessage> => onDismiss(event),
+    onAction: onDismiss,
   });
 }
 

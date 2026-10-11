@@ -138,10 +138,6 @@ const fieldSlots = {
   control: { cardinality: 'one', owner: 'caller', messages: 'bubble' },
 } as const;
 
-type FieldFactory = <TChild extends Element<ComponentMessage>>(
-  options: FieldOptions<TChild>,
-) => Element<import('../../element/index.ts').ElementMessage<TChild>>;
-
 const instantiateField = defineComponent<{ readonly label: string; readonly description?: string } & LayoutFlowOptions>()({
   name: 'terminal-ui/components/field',
   identity: 'required',
@@ -264,10 +260,12 @@ const instantiateField = defineComponent<{ readonly label: string; readonly desc
   },
 });
 
-export const field: FieldFactory = (options) => {
+export function field<TChild extends Element<ComponentMessage>>(
+  options: FieldOptions<TChild>,
+): Element<import('../../element/index.ts').ElementMessage<TChild>> {
   const { control, ...rest } = options;
   return instantiateField({ ...rest, slots: { control } });
-};
+}
 
 function fieldHeader(model: FieldModel): readonly string[] {
   return [

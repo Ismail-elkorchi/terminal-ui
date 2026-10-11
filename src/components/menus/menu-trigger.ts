@@ -2,6 +2,7 @@ import type { MenuTriggerTransition, MenuTriggerView } from '../../behavior/menu
 import type { ComponentRenderInput } from '../../component/contracts.ts';
 import { defineComponent } from '../../component/definition.ts';
 import type { ComponentMessage } from '../../component/message.ts';
+import type { Element } from '../../element/types.ts';
 import {
   decodeComponentScrollbarOptions,
   decodeComponentScrollPolicy,
@@ -27,7 +28,6 @@ import type { MenuStylePart } from '../style-parts.ts';
 import type {
   MenuComponentAction,
   MenuTriggerComponentAction,
-  MenuTriggerFactory,
   MenuTriggerModel,
   MenuTriggerOwnOptions,
 } from './contracts.ts';
@@ -168,7 +168,9 @@ const instantiateMenuTrigger = defineComponent<MenuTriggerOwnOptions, MenuTrigge
   }),
 });
 
-export const menuTrigger: MenuTriggerFactory = (options) => {
+export function menuTrigger<const TMessage extends ComponentMessage = never>(
+  options: MenuTriggerOptions<TMessage>,
+): Element<TMessage> {
   const shared = menuTriggerInstanceOptions(options);
   const instance = {
     ...shared,
@@ -176,17 +178,17 @@ export const menuTrigger: MenuTriggerFactory = (options) => {
     ...(options.inert === undefined ? {} : { inert: options.inert }),
     ...(options.busy === undefined ? {} : { busy: options.busy }),
   };
-  assertOptionalCallback(options.onActivate, 'menuTrigger onActivate');
   if (options.onTransition === undefined) {
+    assertOptionalCallback(options.onActivate, 'menuTrigger onActivate');
     if (options.disabled !== true && options.inert !== true) assertMenuCallbacks(options, 'menuTrigger');
-    return instantiateMenuTrigger<never>({ ...instance, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }), onAction: () => ignoreMessage() });
+    return instantiateMenuTrigger<never, TMessage>({ ...instance, onAction: ignoreMessage });
   }
   assertMenuCallbacks(options, 'menuTrigger');
   return instantiateMenuTrigger({
     ...instance,
     onAction: (action) => routeMenuTriggerAction(action, options),
   });
-};
+}
 
 function menuTriggerComponentTransition(
   transition: MenuTriggerTransition,
