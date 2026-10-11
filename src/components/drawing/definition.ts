@@ -49,7 +49,6 @@ const semanticCanvas = defineComponent<CanvasOwnOptions>()({
   accessibility({ id, model, focused }) {
     return {
       id,
-      role: 'image',
       ...(model.label === undefined ? {} : { label: model.label }),
       scope: { kind: 'document' },
       ...(focused ? { focused: true } : {}),
@@ -110,7 +109,7 @@ const semanticImage = defineComponent<ImageOwnOptions>()({
   measure: ({ model }) => model.measurement,
   render: renderImage,
   accessibility({ id, model }) {
-    return { id, role: 'image', label: model.label, scope: { kind: 'document' } };
+    return { id, label: model.label, scope: { kind: 'document' } };
   },
 });
 

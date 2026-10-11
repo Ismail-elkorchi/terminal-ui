@@ -1,6 +1,6 @@
-import type { AccessibleNode } from '../../accessibility/types.ts';
 import type { MenuBarTransition, MenuBarView } from '../../behavior/menu.ts';
 import type {
+  ComponentAccessibilityResult,
   ComponentAccessibilityInput,
   ComponentInput,
   ComponentRenderInput,
@@ -50,6 +50,7 @@ import {
 } from './shared.ts';
 
 const instantiateMenuBar = defineComponent<MenuBarOwnOptions, MenuBarComponentAction>()({
+  emitsActions: true,
   name: 'terminal-ui/components/menu-bar',
   identity: 'required',
   structure: 'composite',
@@ -155,7 +156,7 @@ export const menuBar: MenuBarFactory = (options) => {
   assertOptionalCallback(options.onActivate, 'menuBar onActivate');
   if (options.onTransition === undefined) {
     if (options.disabled !== true && options.inert !== true) assertMenuCallbacks(options, 'menuBar');
-    return instantiateMenuBar({ ...instance, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }) });
+    return instantiateMenuBar<never>({ ...instance, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }), onAction: () => ignoreMessage() });
   }
   assertMenuCallbacks(options, 'menuBar');
   return instantiateMenuBar({
@@ -305,10 +306,9 @@ function menuBarHitTargets(
 
 function menuBarAccessibility(
   input: ComponentAccessibilityInput<MenuBarModel, typeof popupSlot>,
-): AccessibleNode {
+): ComponentAccessibilityResult {
   return {
     id: input.id,
-    role: 'menubar' as const,
     scope: { kind: 'menu' as const },
     ...(input.focused ? { focused: true } : {}),
     children: [

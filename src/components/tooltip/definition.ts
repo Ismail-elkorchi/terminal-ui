@@ -31,6 +31,7 @@ const instantiateTooltip = defineComponent<Pick<
     TooltipOptions<Element, ComponentMessage>,
     'content' | 'open' | 'title' | 'tone' | 'placement' | 'maxWidth' | 'border'
   >, TooltipTransition>()({
+  emitsActions: true,
   name: 'terminal-ui/components/tooltip',
   identity: 'required',
   structure: 'composed',
@@ -140,7 +141,6 @@ const instantiateTooltip = defineComponent<Pick<
       : triggerNode;
     return {
       id,
-      role: 'group',
       ...(focused ? { focused: true } : {}),
       children: [
         trigger,

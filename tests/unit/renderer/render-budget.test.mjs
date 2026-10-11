@@ -78,7 +78,6 @@ test('published hit targets and accessibility trees share the render budget', ()
       layout: ({ bounds }) => [bounds, bounds],
       accessibility: ({ id, children }) => ({
         id,
-        role: 'group',
         describedBy: ['first-description', 'second-description'],
         children,
       }),
@@ -94,7 +93,7 @@ test('published hit targets and accessibility trees share the render budget', ()
     definition: {
       ...compositeComponentDefinition,
       accessibleRole: 'group',
-      accessibility: ({ id }) => ({ id, role: 'group', description: 'x'.repeat(100) }),
+      accessibility: ({ id }) => ({ id, description: 'x'.repeat(100) }),
     },
   });
   assert.throws(

@@ -79,12 +79,14 @@ const passiveTable = defineComponent<TableModel>()({ ...tableBase, name: 'termin
 
 
 const scrollableTable = defineComponent<TableModel, { readonly kind: 'scroll'; readonly request: import('../../interaction/scroll.ts').ScrollRequest }>()({
+  emitsActions: true,
   ...tableBase,
   name: 'terminal-ui/components/table',
   hitTargets: tableScrollHitTargets,
 });
 
 const activeDataGrid = defineComponent<TableModel, DataGridComponentAction>()({
+  emitsActions: true,
   ...tableBase,
   name: 'terminal-ui/components/data-grid',
   accessibleRole: 'grid',
@@ -186,12 +188,13 @@ export function dataGrid<
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
   assertOptionalCallback(options.onActivate, 'data-table onActivate');
-  if (options.disabled === true && options.onTransition === undefined) return activeDataGrid({
+  if (options.disabled === true && options.onTransition === undefined) return activeDataGrid<TTransitionMessage | TActivateMessage>({
     ...shared,
     disabled: true,
     ...(options.inert === undefined ? {} : { inert: options.inert }),
+    onAction: () => ignoreMessage(),
   });
-  if (options.inert === true && options.onTransition === undefined) return activeDataGrid({ ...shared, inert: true });
+  if (options.inert === true && options.onTransition === undefined) return activeDataGrid<TTransitionMessage | TActivateMessage>({ ...shared, inert: true, onAction: () => ignoreMessage() });
   assertRequiredPropertyCallback(options, 'onTransition', 'dataGrid onTransition');
   assertOptionalCallback(options.onActivate, 'dataGrid onActivate');
   const onTransition = isScrollableDataGrid(options)

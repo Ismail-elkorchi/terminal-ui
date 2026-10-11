@@ -4,6 +4,7 @@ import { isNonArrayObject } from '../../foundation/validation.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 import type { RenderNode } from '../../renderer/internal/render-tree/component-node.ts';
 import {
+  beginSlotComposition,
   mapElementMessages,
   markImplementationStructure,
   toMappedRenderNodes,
@@ -14,14 +15,8 @@ import type {
   ComponentBehaviorInput,
   ComponentCallerSlotValues,
   ComponentCapturedMessageInput,
-  ComponentDefinition,
-  ComponentIdentity,
-  ComponentMetadataCapability,
   ComponentSlotsDefinition,
-  ComponentStateCapability,
   ComponentVisualState,
-  SemanticComposedComponentDefinition,
-  SemanticCompositeComponentDefinition,
 } from '../contracts.ts';
 import { executeComponentPhase, type ComponentDefinitionName } from '../execution-error.ts';
 import { mapComponentAction } from '../message.ts';
@@ -30,32 +25,13 @@ import type {
   ComponentRuntimeContract,
   ComponentSlotContent,
   ComponentSlotRange,
+  ComponentSlotDefinitionHooks,
   RuntimeComponentSlot,
 } from './runtime-contracts.ts';
 
-export function componentInstanceSlotContent<
-  TOptions extends object,
-  TModel extends object,
-  TAction,
-  TPart extends string,
-  TStates extends readonly ComponentStateCapability[],
-  TIdentity extends ComponentIdentity,
-  TMetadata extends readonly ComponentMetadataCapability[],
-  TSlots extends ComponentSlotsDefinition,
-  TVisualStates extends readonly ComponentVisualState[],
->(
+export function componentInstanceSlotContent<TModel extends object, TAction>(
   instance: ComponentInstanceOptions,
-  definition: ComponentDefinition<
-    TOptions,
-    TModel,
-    TAction,
-    TPart,
-    TStates,
-    TIdentity,
-    TMetadata,
-    TSlots,
-    TVisualStates
-  >,
+  definition: ComponentSlotDefinitionHooks<TModel, TAction>,
   contract: ComponentRuntimeContract,
   behavior: ComponentBehaviorInput<TModel>,
   toActionMessage: ((action: unknown) => unknown) | undefined,
@@ -85,39 +61,11 @@ const emptyComponentSlotContent: ComponentSlotContent = Object.freeze({
   ranges: Object.freeze([])
 });
 
-function componentSlotChildren<
-  TOptions extends object,
-  TModel extends object,
-  TAction,
-  TPart extends string,
-  TStates extends readonly ComponentStateCapability[],
-  TIdentity extends ComponentIdentity,
-  TMetadata extends readonly ComponentMetadataCapability[],
-  TSlots extends ComponentSlotsDefinition,
-  TVisualStates extends readonly ComponentVisualState[]
->(
+function componentSlotChildren<TModel extends object, TAction>(
   value: ComponentInstanceOptions,
-  definition: SemanticCompositeComponentDefinition<
-    TOptions,
-    TModel,
-    TAction,
-    TPart,
-    TStates,
-    TIdentity,
-    TMetadata,
-    TSlots,
-    TVisualStates
-  > | SemanticComposedComponentDefinition<
-    TOptions,
-    TModel,
-    TAction,
-    TPart,
-    TStates,
-    TIdentity,
-    TMetadata,
-    TSlots,
-    TVisualStates
-  >,
+  definition: Extract<ComponentSlotDefinitionHooks<TModel, TAction>, {
+    readonly structure: 'composite' | 'composed';
+  }>,
   contract: ComponentRuntimeContract,
   behavior: ComponentBehaviorInput<TModel>,
   toActionMessage: ((action: unknown) => unknown) | undefined,
@@ -127,6 +75,7 @@ function componentSlotChildren<
 ): ComponentSlotContent {
   if (definition.structure === 'composed') {
     const supplied = callerSlotInput(value, contract);
+    const suppliedRoots = new Set<object>();
     const mappedRecord = Object.freeze(Object.fromEntries(contract.slots.map((slot) => [
       slot.name,
       mappedComposedSlotValue(
@@ -136,41 +85,45 @@ function componentSlotChildren<
         definition.capture,
         behavior,
         toActionMessage,
-        value.id
+        value.id,
+        suppliedRoots
       )
     ])));
-    const mapped = mappedRecord as ComponentCallerSlotValues<TSlots>;
-    const inspectionChildren = contract.slots.flatMap((slot) =>
+    const mapped = mappedRecord as ComponentCallerSlotValues<ComponentSlotsDefinition>;
+    const slotRoots = contract.slots.map((slot) =>
       slotElements(mappedRecord[slot.name], slot, definition.name).map((element) => toRenderNode(element))
     );
-    const callerOwnedRoots = new Set<object>(inspectionChildren);
-    const composed = executeComponentPhase(definition.name, value.id, 'compose', () =>
-      definition.compose.call(undefined, {
-        ...behavior,
-        slots: mapped,
-        emit: (action) => mapComponentAction(action, toActionMessage),
-        ...(styles === undefined ? {} : { styles }),
-        ...(layer === undefined ? {} : { layer })
-      })
-    );
-    const children = toRenderNodes([composed]).map((node) =>
-      markImplementationStructure(node, callerOwnedRoots, disabled)
-    );
-    return Object.freeze({
-      children,
-      inspectionChildren: Object.freeze(inspectionChildren),
-      ranges: Object.freeze(contract.slots.map((slot) => Object.freeze({
-        name: slot.name,
-        start: 0,
-        count: 0,
-        accessiblePaths: renderNodePaths(
-          children,
-          new Set(slotElements(mappedRecord[slot.name], slot, definition.name)
-            .map((element) => toRenderNode(element)))
-        )
-      })))
-    });
+    const inspectionChildren = slotRoots.flat();
+    const composition = beginSlotComposition(slotRoots);
+    try {
+      const composed = executeComponentPhase(definition.name, value.id, 'compose', () =>
+        definition.compose.call(undefined, {
+          ...behavior,
+          slots: mapped,
+          emit: (action) => mapComponentAction(action, toActionMessage),
+          ...(styles === undefined ? {} : { styles }),
+          ...(layer === undefined ? {} : { layer })
+        })
+      );
+      const children = toRenderNodes([composed]).map((node) =>
+        markImplementationStructure(node, composition, disabled)
+      );
+      const paths = composition.paths(children);
+      return Object.freeze({
+        children: Object.freeze(children),
+        inspectionChildren: Object.freeze(inspectionChildren),
+        ranges: Object.freeze(contract.slots.map((slot, index) => Object.freeze({
+          name: slot.name,
+          start: 0,
+          count: 0,
+          accessiblePaths: paths[index] ?? Object.freeze([])
+        })))
+      });
+    } finally {
+      composition.close();
+    }
   }
+
   const suppliedValue = value.slots;
   const callerNames = new Set(contract.slots
     .filter((slot) => slot.owner === 'caller')
@@ -196,7 +149,7 @@ function componentSlotChildren<
     : executeComponentPhase(definition.name, value.id, 'compose', () =>
         definition.implementationSlots?.call(undefined, {
           ...behavior,
-          slots: Object.freeze({ ...(supplied ?? {}) }) as ComponentCallerSlotValues<TSlots>,
+          slots: Object.freeze({ ...(supplied ?? {}) }) as ComponentCallerSlotValues<ComponentSlotsDefinition>,
           emit: (action) => mapComponentAction(action, toActionMessage),
           ...(styles === undefined ? {} : { styles }),
           ...(layer === undefined ? {} : { layer })
@@ -257,25 +210,6 @@ function componentSlotChildren<
   });
 }
 
-function renderNodePaths(
-  roots: readonly RenderNode[],
-  targets: ReadonlySet<object>
-): readonly (readonly number[])[] {
-  const paths: (readonly number[])[] = [];
-  const visit = (
-    nodes: readonly RenderNode[],
-    parent: readonly number[]
-  ): void => {
-    nodes.forEach((node, index) => {
-      const path = Object.freeze([...parent, index]);
-      if (targets.has(node)) paths.push(path);
-      if (node.children !== undefined) visit(node.children, path);
-    });
-  };
-  visit(roots, []);
-  return Object.freeze(paths);
-}
-
 function callerSlotInput(
   value: ComponentInstanceOptions,
   contract: ComponentRuntimeContract
@@ -309,10 +243,17 @@ function mappedComposedSlotValue<TModel extends object, TAction>(
   ) => MessageResolution<TAction>) | undefined,
   behavior: ComponentBehaviorInput<TModel>,
   toActionMessage: ((action: unknown) => unknown) | undefined,
-  instanceId: string | undefined
+  instanceId: string | undefined,
+  suppliedRoots: Set<object>,
 ): unknown {
   const elements = slotElements(value, slot, component);
-  const mapped = elements.map((element) => slot.messages === 'bubble'
+  const mapped = elements.map((element) => {
+    const root = toRenderNode(element);
+    if (suppliedRoots.has(root)) {
+      throw new TypeError('A composed caller slot root must be supplied only once.');
+    }
+    suppliedRoots.add(root);
+    return slot.messages === 'bubble'
     ? element
     : mapElementMessages(element, (message) => {
         if (slot.messages === 'none') {
@@ -322,7 +263,8 @@ function mappedComposedSlotValue<TModel extends object, TAction>(
           capture?.call(undefined, { ...behavior, slot: slot.name, message }),
           toActionMessage
         ));
-      }));
+      });
+  });
   if (slot.cardinality === 'many') return Object.freeze(mapped);
   return mapped[0];
 }

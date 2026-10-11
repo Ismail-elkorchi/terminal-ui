@@ -1,6 +1,7 @@
 import type { AccessibleNode } from '../../accessibility/types.ts';
 import type { TabCloseEvent, TabsTransition } from '../../behavior/tabs.ts';
 import type {
+  ComponentAccessibilityResult,
   ComponentAccessibilityInput,
   ComponentInput,
   ComponentLayoutInput,
@@ -85,6 +86,7 @@ type TabsComponentAction =
   | { readonly kind: 'close'; readonly event: TabCloseEvent };
 
 const instantiateTabs = defineComponent<TabsOwnOptions, TabsComponentAction>()({
+  emitsActions: true,
   name: 'terminal-ui/components/tabs',
   identity: 'required',
   structure: 'composite',
@@ -266,12 +268,13 @@ export const tabs: TabsFactory = <
     slots: { panels: items.map((item) => item.panel) },
   };
   assertOptionalCallback(options.onClose, 'tabs onClose');
-  if (options.disabled === true && options.onTransition === undefined) return instantiateTabs({
+  if (options.disabled === true && options.onTransition === undefined) return instantiateTabs<typeof shared.slots>({
     ...shared,
     disabled: true,
     ...(options.inert === undefined ? {} : { inert: options.inert }),
+    onAction: () => ignoreMessage(),
   });
-  if (options.inert === true && options.onTransition === undefined) return instantiateTabs({ ...shared, inert: true });
+  if (options.inert === true && options.onTransition === undefined) return instantiateTabs<typeof shared.slots>({ ...shared, inert: true, onAction: () => ignoreMessage() });
   assertRequiredPropertyCallback(options, 'onTransition', 'tabs onTransition');
   assertOptionalCallback(options.onClose, 'tabs onClose');
   return instantiateTabs({
@@ -593,7 +596,7 @@ function measureSpans(spans: readonly RenderSpan[], input: TabsVisualInput): num
 
 function tabsAccessibility(
   input: ComponentAccessibilityInput<TabsModel, typeof tabsSlots>,
-): AccessibleNode {
+): ComponentAccessibilityResult {
   const tabNodes = input.model.tabs.map((tab, index): AccessibleNode => ({
     id: `${input.id}:${tab.id}`,
     role: 'tab',
@@ -627,7 +630,6 @@ function tabsAccessibility(
   }));
   return {
     id: input.id,
-    role: 'group',
     value: input.model.tabs[input.model.selectedIndex]?.id ?? '',
     ...(input.focused ? { focused: true } : {}),
     children: [{

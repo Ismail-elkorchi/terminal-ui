@@ -218,6 +218,7 @@ test('tab controls preserve one-cell geometry under ambiguous-wide profiles', ()
 test('inactive tab panels retain their model without running visible component hooks', () => {
   const calls = [];
   const panel = defineComponent({
+    emitsActions: true,
     name: 'terminal-ui-tests/components/tab-panel-probe',
     identity: 'required',
     structure: 'leaf',
@@ -239,7 +240,7 @@ test('inactive tab panels retain their model without running visible component h
     },
     accessibility({ id, model, focused }) {
       calls.push({ phase: 'accessibility', id, model });
-      return { id, role: 'button', label: model.value, ...(focused ? { focused } : {}) };
+      return { id, label: model.value, ...(focused ? { focused } : {}) };
     }
   });
   const panels = ['first', 'second'].map((id) => panel({

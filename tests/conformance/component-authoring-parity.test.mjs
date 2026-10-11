@@ -45,7 +45,7 @@ import {
 
 const externalButtonControl = ({ onPress, ...options }) => externalButton({
   ...options,
-  ...(onPress === undefined ? {} : { onAction: onPress })
+  onAction: onPress ?? (() => ignoreMessage())
 });
 
 runButtonConformance('built-in', button);
@@ -74,7 +74,7 @@ runEditableControlConformance('external', {
     id, label: 'Value', value,
     onAction: (action) => action.kind === 'insert' ? onInsert(action.text) : ignoreMessage()
   }),
-  disabled: ({ id, value }) => externalTextInput({ id, label: 'Value', value, disabled: true })
+  disabled: ({ id, value }) => externalTextInput({ id, label: 'Value', value, disabled: true, onAction: () => ignoreMessage() })
 });
 
 runVirtualCollectionConformance('built-in', {
@@ -104,7 +104,7 @@ runVirtualCollectionConformance('external', {
     id, items, offset: activeIndex, onAction: () => ignoreMessage()
   }),
   disabled: ({ id, items, activeIndex }) => externalVirtualList({
-    id, items, offset: activeIndex, disabled: true
+    id, items, offset: activeIndex, disabled: true, onAction: () => ignoreMessage()
   })
 });
 

@@ -58,6 +58,7 @@ void test('component key handlers run at dispatch time with the normalized event
     readonly event: { readonly input: InputEvent; readonly focusPath: readonly string[] };
   }
   const field = defineComponent<Record<never, never>, FieldAction>()({
+    emitsActions: true,
     name: 'terminal-ui-tests/components/deferred-key-field',
     identity: 'required',
     structure: 'leaf',
@@ -69,7 +70,6 @@ void test('component key handlers run at dispatch time with the normalized event
     keys: () => ({ enter: (event) => ({ kind: 'enter', event }) }),
     accessibility: ({ id, focused }) => ({
       id,
-      role: 'textbox',
       label: 'Field',
       ...(focused ? { focused } : {})
     })
@@ -114,6 +114,7 @@ void test('component focus lifecycle reports enter and leave transitions in orde
   interface Message { readonly event: string }
   const observed: string[] = [];
   const focusable = defineComponent<Record<never, never>, string>()({
+    emitsActions: true,
     name: 'terminal-ui-tests/components/focus-lifecycle',
     identity: 'required',
     structure: 'leaf',
@@ -125,7 +126,6 @@ void test('component focus lifecycle reports enter and leave transitions in orde
     onFocus: (event) => event.kind,
     accessibility: ({ id, focused }) => ({
       id,
-      role: 'button',
       label: id,
       ...(focused ? { focused: true } : {})
     })
@@ -168,6 +168,7 @@ void test('component focus-target lifecycle reports internal target transitions'
   interface Message { readonly event: string }
   const observed: string[] = [];
   const targets = defineComponent<Record<never, never>, string>()({
+    emitsActions: true,
     name: 'terminal-ui-tests/components/focus-target-lifecycle',
     identity: 'required',
     structure: 'leaf',
@@ -185,7 +186,6 @@ void test('component focus-target lifecycle reports internal target transitions'
     onFocusTarget: (event) => `target:${event.kind}:${event.targetId}`,
     accessibility: ({ id, focusedTargetId }) => ({
       id,
-      role: 'group',
       children: ['left', 'right'].map((targetId) => ({
         id: targetId,
         role: 'button' as const,
@@ -318,7 +318,6 @@ void test('tabs do not consume keys handled by the selected panel', async () => 
     render() {},
     accessibility: ({ id, focusedTargetId }) => ({
       id,
-      role: 'document',
       label: 'Panel',
       ...(focusedTargetId === 'action' ? { focused: true } : {})
     }),

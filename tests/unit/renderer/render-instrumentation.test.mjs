@@ -69,7 +69,7 @@ test('measurement calls and misses follow independent custom hooks and retained 
     identity: 'required', structure: 'leaf', semantics: 'semantic', accessibleRole: 'text',
     measure() { hooks += 1; return { minWidth: 1, minHeight: 1, preferredWidth: 2, preferredHeight: 1 }; },
     render() {},
-    accessibility: ({ id }) => ({ id, role: 'text', label: id })
+    accessibility: ({ id }) => ({ id, label: id })
   });
   const node = toRenderNode(leaf({ id: 'measured' }));
   const collected = collector();
@@ -96,7 +96,7 @@ test('retained repaint counts render hooks without claiming layout or measuremen
     identity: 'required', structure: 'leaf', semantics: 'semantic', accessibleRole: 'text',
     measure: () => ({ minWidth: 3, minHeight: 1, preferredWidth: 3, preferredHeight: 1 }),
     render({ target }) { hooks += 1; target.write(0, 0, [{ text: 'abc' }]); },
-    accessibility: ({ id }) => ({ id, role: 'text', label: id })
+    accessibility: ({ id }) => ({ id, label: id })
   });
   const initial = renderElementInternal(leaf({ id: 'painted' }), { columns: 10, rows: 2 });
   const collected = collector();
@@ -116,7 +116,7 @@ test('failed render candidates still report invoked hooks', () => {
     identity: 'required', structure: 'leaf', semantics: 'semantic', accessibleRole: 'text',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
     render() { throw new Error('candidate failed'); },
-    accessibility: ({ id }) => ({ id, role: 'text', label: id })
+    accessibility: ({ id }) => ({ id, label: id })
   });
   const collected = collector();
   assert.throws(() => renderElementFrame(leaf({ id: 'failure' }), { columns: 10, rows: 2 }, {

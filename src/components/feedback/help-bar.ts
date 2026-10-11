@@ -64,7 +64,6 @@ export const helpBar: SemanticLeafComponentFactory<
   accessibility({ id, model }) {
     return {
       id,
-      role: 'group',
       label: 'Keyboard shortcuts',
       children: model.groups.map((group) => ({
         id: `${id}:${group.id}`,

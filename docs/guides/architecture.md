@@ -211,7 +211,7 @@ const badge = defineComponent<{ readonly label: string }>()({
   },
   measure: ({ model }) => ({ minWidth: 0, minHeight: 1, preferredWidth: model.label.length, preferredHeight: 1 }),
   render: ({ model, target }) => { target.write(0, 0, [{ text: model.label }]); },
-  accessibility: ({ id, model }) => ({ id, role: 'status', label: model.label }),
+  accessibility: ({ id, model }) => ({ id, label: model.label }),
 });
 ```
 

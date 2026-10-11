@@ -24,7 +24,7 @@ const custom = defineComponent<{ readonly label: string }>()({
   name: 'packed-consumer/paint-suppression', identity: 'optional', structure: 'leaf', semantics: 'semantic', accessibleRole: 'status',
   measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 4, preferredHeight: 1 }),
   render: () => { throw new Error('Suppressed custom paint hook ran.'); },
-  accessibility: ({ id, model }) => ({ id, role: 'status', label: model.label }),
+  accessibility: ({ id, model }) => ({ id, label: model.label }),
 });
 const customHidden = custom({ label: 'Custom metadata without opt-in', meta });
 

@@ -63,23 +63,19 @@ export function componentElement({ definition, children, ...options }) {
         }
       : {})
   };
-  const emitsActions = normalized.hitTargets !== undefined
-    || normalized.keys !== undefined
-    || normalized.onInput !== undefined
-    || normalized.onPaste !== undefined
-    || normalized.pointer !== undefined;
   return defineComponent(normalized)({
     ...options,
     ...(definition.structure === 'composite'
       ? { slots: { content: children ?? [] } }
       : {}),
-    ...(emitsActions ? { onAction: (action) => action } : {})
+    ...(normalized.emitsActions === true ? { onAction: (action) => action } : {})
   });
 }
 
 export function testKeyInput(options) {
   const onTransition = options.onTransition;
   const definition = defineComponent({
+    emitsActions: true,
     name: 'terminal-ui-tests/components/key-input',
     identity: 'required',
     structure: 'leaf',
@@ -109,7 +105,6 @@ export function testKeyInput(options) {
     focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
     accessibility: ({ id, model, focused }) => ({
       id,
-      role: 'textbox',
       label: id,
       value: model.value,
       ...(focused ? { focused: true } : {})

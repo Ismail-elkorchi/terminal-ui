@@ -1,3 +1,4 @@
+import { ignoreMessage } from '../../interaction/message.ts';
 import type { SemanticLeafComponentFactory } from '../../component/contracts.ts';
 import { defineComponent } from '../../component/definition.ts';
 import type { ComponentMessage } from '../../component/message.ts';
@@ -25,10 +26,6 @@ interface CheckboxModel {
 
 type CheckboxComponentAction = CheckboxTransition;
 
-type CheckboxFactory = <const TMessage extends ComponentMessage = never>(
-  options: CheckboxOptions<TMessage>,
-) => Element<TMessage>;
-
 const instantiateCheckbox: SemanticLeafComponentFactory<
   Pick<CheckboxOptions<ComponentMessage>, 'label' | 'checked' | 'required' | 'error'>,
   CheckboxComponentAction,
@@ -38,6 +35,7 @@ const instantiateCheckbox: SemanticLeafComponentFactory<
   readonly ['focus', 'layer', 'styles'],
   readonly ['focused', 'hovered', 'pressed', 'disabled']
 > = defineComponent<Pick<CheckboxOptions<ComponentMessage>, 'label' | 'checked' | 'required' | 'error'>, CheckboxComponentAction>()({
+  emitsActions: true,
   name: 'terminal-ui/components/checkbox',
   identity: 'required',
   structure: 'leaf',
@@ -91,7 +89,6 @@ const instantiateCheckbox: SemanticLeafComponentFactory<
       .filter((value) => value.length > 0).join(' ');
     return {
       id,
-      role: 'checkbox',
       ...(model.label === '' ? {} : { label: model.label }),
       checked: model.checked,
       required: model.required,
@@ -106,7 +103,9 @@ const instantiateCheckbox: SemanticLeafComponentFactory<
   },
 });
 
-export const checkbox: CheckboxFactory = (options) => {
+export function checkbox<const TMessage extends ComponentMessage = never>(
+  options: CheckboxOptions<TMessage>,
+): Element<TMessage> {
   const own = {
     id: options.id,
     label: options.label,
@@ -117,13 +116,13 @@ export const checkbox: CheckboxFactory = (options) => {
     ...(options.meta === undefined ? {} : { meta: options.meta }),
     ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
   };
-  if (options.disabled === true && options.onTransition === undefined) return instantiateCheckbox({ ...own, disabled: true });
+  if (options.disabled === true && options.onTransition === undefined) return instantiateCheckbox<TMessage>({ ...own, disabled: true, onAction: () => ignoreMessage() });
   assertTransitionCallback(options, 'checkbox');
   return instantiateCheckbox({
     ...own,
     onAction: options.onTransition,
   });
-};
+}
 
 interface ToggleModel {
   readonly label: string;
@@ -134,10 +133,6 @@ interface ToggleModel {
 }
 
 type SwitchComponentAction = SwitchTransition;
-
-type SwitchFactory = <const TMessage extends ComponentMessage = never>(
-  options: SwitchOptions<TMessage>,
-) => Element<TMessage>;
 
 const instantiateSwitch: SemanticLeafComponentFactory<
   Pick<
@@ -154,6 +149,7 @@ const instantiateSwitch: SemanticLeafComponentFactory<
     SwitchOptions<ComponentMessage>,
     'label' | 'checked' | 'onLabel' | 'offLabel' | 'error'
   >, SwitchComponentAction>()({
+  emitsActions: true,
   name: 'terminal-ui/components/switch',
   identity: 'required',
   structure: 'leaf',
@@ -211,7 +207,6 @@ const instantiateSwitch: SemanticLeafComponentFactory<
   accessibility({ id, model, focused }) {
     return {
       id,
-      role: 'switch',
       ...(model.label === '' ? {} : { label: model.label }),
       value: model.checked ? model.onLabel : model.offLabel,
       checked: model.checked,
@@ -225,7 +220,9 @@ const instantiateSwitch: SemanticLeafComponentFactory<
   },
 });
 
-export const switchControl: SwitchFactory = (options) => {
+export function switchControl<const TMessage extends ComponentMessage = never>(
+  options: SwitchOptions<TMessage>,
+): Element<TMessage> {
   const own = {
     id: options.id,
     label: options.label,
@@ -237,13 +234,13 @@ export const switchControl: SwitchFactory = (options) => {
     ...(options.meta === undefined ? {} : { meta: options.meta }),
     ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
   };
-  if (options.disabled === true && options.onTransition === undefined) return instantiateSwitch({ ...own, disabled: true });
+  if (options.disabled === true && options.onTransition === undefined) return instantiateSwitch<TMessage>({ ...own, disabled: true, onAction: () => ignoreMessage() });
   assertTransitionCallback(options, 'switchControl');
   return instantiateSwitch({
     ...own,
     onAction: options.onTransition,
   });
-};
+}
 
 interface ControlVisualInput<TModel extends object, TPart extends string> {
   readonly id?: string;

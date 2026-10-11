@@ -70,6 +70,7 @@ for (const depth of [0, 1, 2]) {
 
 const image = rasterImage({ width: 1, height: 1, format: 'rgb8', data: new Uint8Array([240, 0, 60]) });
 const painting = defineComponent({
+  emitsActions: true,
   name: 'terminal-ui-tests/viewport-regions', identity: 'required', structure: 'leaf', semantics: 'semantic',
   accessibleRole: 'text', metadata: ['layer', 'styles'], reuse: { paint: model => [model] },
   createModel: options => options.model,
@@ -85,7 +86,7 @@ const painting = defineComponent({
     if (model.fail) throw new Error('rejected paint');
   },
   hitTargets: ({ bounds }) => [{ id: 'paint', bounds, accepts: ['click'], message: () => 'activate' }],
-  accessibility: ({ id, model }) => ({ id, role: 'text', label: model.name }),
+  accessibility: ({ id, model }) => ({ id, label: model.name }),
 });
 function paint(model, zIndex = 0, underlay = 'preserve') {
   return painting({ id: model.name, model, onAction: action => action, meta: { layer: { zIndex, underlay } } });

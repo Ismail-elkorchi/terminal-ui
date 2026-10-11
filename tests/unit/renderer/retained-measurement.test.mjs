@@ -18,7 +18,7 @@ test('retained measurements survive sibling updates and invalidate on constraint
       return { minWidth: 0, minHeight: 0, preferredWidth: 40, preferredHeight: Math.ceil(40 / constraints.width) };
     },
     render: () => {},
-    accessibility: ({ id }) => ({ id, role: 'text' }),
+    accessibility: ({ id }) => ({ id }),
   } });
   const make = (sibling) => column([
     measuredViewport([entry], { id: 'retained-viewport', onScroll: () => 'scroll', scrollbar: { axis: 'vertical', visible: 'always' } }),

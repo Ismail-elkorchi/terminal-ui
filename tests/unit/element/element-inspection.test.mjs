@@ -80,7 +80,7 @@ test('element inspection identifies defined components without exposing their de
     definition: {
       ...leafComponentDefinition,
       render() {},
-      accessibility: ({ id }) => ({ id, role: 'text', label: 'Plug-in' })
+      accessibility: ({ id }) => ({ id, label: 'Plug-in' })
     }
   });
 
@@ -139,7 +139,7 @@ test('element inspection adopts explicit definition-owned semantic descriptions'
       createModel: (value) => ({ renamedPrivateField: value.secret }),
       inspection: () => ({ active }),
       render() {},
-      accessibility: ({ id }) => ({ id, role: 'text', label: id })
+      accessibility: ({ id }) => ({ id, label: id })
     }
   });
 
@@ -160,7 +160,7 @@ test('element inspection validates hook output at the component boundary', () =>
         ...leafComponentDefinition,
         inspection: () => ({ details: cyclic }),
         render() {},
-        accessibility: ({ id }) => ({ id, role: 'text', label: id })
+        accessibility: ({ id }) => ({ id, label: id })
       }
     }),
     /inspection.*cycles/u
@@ -175,7 +175,7 @@ test('element inspection validates hook output at the component boundary', () =>
         ...leafComponentDefinition,
         inspection: () => ({ details }),
         render() {},
-        accessibility: ({ id }) => ({ id, role: 'text', label: id })
+        accessibility: ({ id }) => ({ id, label: id })
       }
     }),
     /inspection.*levels/u
@@ -195,7 +195,7 @@ test('element inspection keeps factory category independent from diagnostic name
       ...compositeComponentDefinition,
       name: 'terminal-ui-tests/components/row',
       layout: () => [],
-      accessibility: ({ id }) => ({ id, role: 'group', label: id })
+      accessibility: ({ id }) => ({ id, label: id })
     }
   });
   const layoutRow = row([], { id: 'same' });
@@ -218,7 +218,7 @@ test('element inspection reports factory-declared focus capability instead of ge
     definition: {
       ...leafComponentDefinition,
       render() {},
-      accessibility: ({ id }) => ({ id, role: 'text', label: id })
+      accessibility: ({ id }) => ({ id, label: id })
     }
   });
   const passiveComposite = componentElement({
@@ -227,7 +227,7 @@ test('element inspection reports factory-declared focus capability instead of ge
     definition: {
       ...compositeComponentDefinition,
       layout: () => [],
-      accessibility: ({ id }) => ({ id, role: 'group', label: id })
+      accessibility: ({ id }) => ({ id, label: id })
     }
   });
   const passiveChart = barChart({
@@ -283,7 +283,6 @@ test('element inspection reports factory-declared focus capability instead of ge
       render() {},
       accessibility: ({ id, focused }) => ({
         id,
-        role: 'button',
         label: id,
         ...(focused ? { focused } : {})
       }),
@@ -313,7 +312,7 @@ test('element inspection reports factory-declared focus capability instead of ge
       ...compositeComponentDefinition,
       layout: ({ bounds }) => [bounds],
       focusScope: () => ({ kind: 'contain' }),
-      accessibility: ({ id, children }) => ({ id, role: 'group', label: id, children })
+      accessibility: ({ id, children }) => ({ id, label: id, children })
     }
   });
   assert.equal(inspectElement(focusScope).inputs.focus, 'scope');

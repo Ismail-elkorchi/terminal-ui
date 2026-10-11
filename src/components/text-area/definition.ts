@@ -38,6 +38,7 @@ type TextAreaFactory = <const TMessage extends ComponentMessage = never>(
 ) => Element<TMessage>;
 
 const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'busy' | 'onTransition' | 'onContextMenu' | 'styles' | 'meta'>, TextAreaComponentAction>()({
+  emitsActions: true,
   name: 'terminal-ui/components/text-area',
   identity: 'required',
   structure: 'leaf',
@@ -184,7 +185,7 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
   },
   accessibility(input) {
     const { id, model, focused } = input;
-    if (textAreaLayoutPending(input)) return { id, role: 'textbox', value: '', busy: true,
+    if (textAreaLayoutPending(input)) return { id, value: '', busy: true,
       description: 'Preparing editor layout', required: model.required, ...(focused ? { focused: true } : {}) };
     const geometry = textAreaGeometry(input);
     const scroll = geometry.scrollbar.scroll;
@@ -238,7 +239,6 @@ const instantiateTextArea = defineComponent<Omit<TextAreaOptions<ComponentMessag
         );
     return {
       id,
-      role: 'textbox',
       value: accessibilityWindow?.text ?? textDocumentText(model.document),
       ...(accessibilityWindow === undefined ? {} : {
         textWindow: {

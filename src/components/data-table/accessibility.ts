@@ -1,3 +1,4 @@
+import type { ComponentAccessibilityResult } from '../../component/contracts.ts';
 import type { AccessibleNode } from '../../accessibility/types.ts';
 import { adoptedAccessibleNode } from '../../accessibility/validate.ts';
 import type { ComponentAccessibilityInput } from '../../component/index.ts';
@@ -27,7 +28,7 @@ interface HeaderAccessibility {
 }
 const headerAccessibility = new WeakMap<TableModel['columns'], HeaderAccessibility>();
 
-export function tableAccessibility(input: TableAccessibilityInput): AccessibleNode {
+export function tableAccessibility(input: TableAccessibilityInput): ComponentAccessibilityResult {
   const plan = tablePlan(input);
   const rowCount = input.model.totalCount + (input.model.hasHeader ? 1 : 0);
   const header = input.model.hasHeader ? [tableAccessibleHeader(input, rowCount)] : [];
@@ -36,7 +37,6 @@ export function tableAccessibility(input: TableAccessibilityInput): AccessibleNo
     plan.rows.some((row) => row.id === input.model.activeRowId);
   return {
     id: input.id,
-    role: input.model.semanticRole,
     description: `Showing ${String(plan.startIndex + 1)}-${String(plan.endIndexExclusive)} of ${String(input.model.totalCount)} rows.`,
     ...(input.focused ? { focused: true } : {}),
     ...(input.model.semanticRole === 'grid' && input.model.selectionMode === 'multiple'

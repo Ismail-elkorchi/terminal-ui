@@ -138,7 +138,6 @@ export const progressBar: SemanticLeafComponentFactory<
   accessibility({ id, model }) {
     return {
       id,
-      role: 'progressbar',
       ...(model.label === '' ? {} : { label: model.label }),
       numericValue: model.indeterminate
         ? { indeterminate: true }

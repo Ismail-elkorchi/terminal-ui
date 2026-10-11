@@ -23,46 +23,23 @@ import { renderNodeFrameSource } from '../../visual/frame-source.ts';
 import { decodeComponentHitTargets, mappedKeyBindings } from '../action-routing.ts';
 import type {
   ComponentAccessibleSlotValues,
-  ComponentIdentity,
   ComponentInput,
   ComponentInteractionInput,
-  ComponentMetadataCapability,
   ComponentRenderInput,
   ComponentSlotMeasurements,
-  ComponentSlotShape,
   ComponentSlotsDefinition,
-  ComponentStateCapability,
-  ComponentVisualState,
 } from '../contracts.ts';
 import { executeComponentPhase } from '../execution-error.ts';
 import type {
-  CompiledComponentDefinition,
+  ComponentRendererHooks,
   ComponentRuntimeContract,
   ComponentSlotRange,
 } from './runtime-contracts.ts';
 
-export function adaptDefinition<
-  TOptions extends object,
-  TModel extends object,
-  TAction,
-  TPart extends string,
-  TStates extends readonly ComponentStateCapability[],
-  TIdentity extends ComponentIdentity,
-  TMetadata extends readonly ComponentMetadataCapability[],
-  TSlots extends ComponentSlotsDefinition,
-  TVisualStates extends readonly ComponentVisualState[]
->(compiled: CompiledComponentDefinition<
-  TOptions,
-  TModel,
-  TAction,
-  TPart,
-  TStates,
-  TIdentity,
-  TMetadata,
-  TSlots,
-  TVisualStates
->): RenderNodeRenderer<unknown, 'component'> {
-  const { contract, definition } = compiled;
+export function adaptDefinition<TModel extends object, TAction>(
+  definition: ComponentRendererHooks<TModel, TAction>,
+  contract: ComponentRuntimeContract,
+): RenderNodeRenderer<unknown, 'component'> {
   const onLayout = definition.semantics === 'decorative' ? undefined : definition.onLayout;
   const renderer: RenderNodeRenderer<unknown, 'component'> = {
     ...(onLayout === undefined ? {} : {
@@ -134,7 +111,7 @@ export function adaptDefinition<
       )
     }),
     render: (input) => {
-      const renderInput = componentRenderInput<TModel, TPart>(contract, input);
+      const renderInput = componentRenderInput<TModel, string>(contract, input);
       if (definition.structure === 'leaf') {
         executeComponentPhase(definition.name, input.renderNode.id, 'paint', () => {
           executeSynchronousRenderCallback(definition.render, renderInput, 'Component render');
@@ -179,16 +156,28 @@ export function adaptDefinition<
             focus: input.focus,
             ...(input.focusedTargetId === undefined ? {} : { focusedTargetId: input.focusedTargetId }),
             children: input.children,
-            slots: accessibleSlotValues<TSlots>(
+            slots: accessibleSlotValues(
               input.renderNode.props.slots,
               input.renderNode.children ?? [],
               input.layoutNode.children,
               input.accessibleNodes
             )
           });
-          return input.renderNode.props.accessibleName === undefined
-            ? accessible
-            : { ...accessible, label: input.renderNode.props.accessibleName };
+          if (!isNonArrayObject(accessible)) {
+            throw new TypeError(`Component "${definition.name}" accessibility() must return an object.`);
+          }
+          if ('role' in accessible) {
+            throw new TypeError(`Component "${definition.name}" accessibility() must not return a root role; declare accessibleRole instead.`);
+          }
+          const role = input.renderNode.props.accessibleRole;
+          if (role === undefined) throw new TypeError(`Component "${definition.name}" is missing its resolved accessibleRole.`);
+          return {
+            ...accessible,
+            role,
+            ...(input.renderNode.props.accessibleName === undefined
+              ? {}
+              : { label: input.renderNode.props.accessibleName }),
+          };
         },
       ),
       ...(definition.focusTargets === undefined ? {} : {
@@ -227,12 +216,12 @@ export function adaptDefinition<
   return Object.freeze(renderer);
 }
 
-function accessibleSlotValues<TSlots extends ComponentSlotShape>(
+function accessibleSlotValues(
   ranges: readonly ComponentSlotRange[],
   roots: readonly RenderNode[],
   layouts: readonly LayoutNode[],
   accessibleNodes: ReadonlyMap<RenderNode, AccessibleNode>
-): ComponentAccessibleSlotValues<TSlots> {
+): ComponentAccessibleSlotValues<ComponentSlotsDefinition> {
   return Object.freeze(Object.fromEntries(ranges.map((range) => [
     range.name,
     Object.freeze(range.accessiblePaths.flatMap((path) => {
@@ -240,7 +229,7 @@ function accessibleSlotValues<TSlots extends ComponentSlotShape>(
       const accessible = root === undefined ? undefined : accessibleNodes.get(root);
       return accessible === undefined ? [] : [accessible];
     }))
-  ]))) as ComponentAccessibleSlotValues<TSlots>;
+  ])));
 }
 
 function renderNodeAtPath(

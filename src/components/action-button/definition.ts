@@ -1,7 +1,6 @@
 import type {
   ComponentMeasureInput,
   ComponentRenderInput,
-  SemanticLeafComponentFactory,
 } from '../../component/contracts.ts';
 import { defineComponent } from '../../component/definition.ts';
 import type { ComponentMessage } from '../../component/message.ts';
@@ -45,137 +44,114 @@ export interface ButtonOwnOptions {
 
 type ButtonComponentAction = ButtonPressEvent;
 
-type ButtonFactory = <const TMessage extends ComponentMessage = never>(
-  options: ButtonOptions<TMessage>,
-) => Element<TMessage>;
-
-type ActionButtonComponentFactory = SemanticLeafComponentFactory<
-  ButtonOwnOptions,
-  ButtonComponentAction,
-  ButtonStylePart,
-  readonly ['disabled', 'busy', 'inert'],
-  'required',
-  readonly ['styles', 'layer', 'focus'],
-  readonly ['focused', 'hovered', 'pressed', 'disabled', 'busy']
->;
-
 const instantiateButton = defineActionButtonComponent('terminal-ui/components/button');
 export const instantiateToggleButton = defineActionButtonComponent('terminal-ui/components/toggle-button');
 
-function defineActionButtonComponent(name: `${string}/${string}`): ActionButtonComponentFactory {
+function defineActionButtonComponent(name: `${string}/${string}`) {
   return defineComponent<ButtonOwnOptions, ButtonComponentAction>()({
-  name,
-  identity: 'required',
-  structure: 'leaf',
-  semantics: 'semantic',
-  accessibleRole: 'button',
-  states: ['disabled', 'busy', 'inert'],
-  metadata: ['styles', 'layer', 'focus'],
-  parts: ['frame', 'marker', 'leading', 'label', 'trailing'],
-  visualStates: ['focused', 'hovered', 'pressed', 'disabled', 'busy'],
-  createModel(value) {
-    const label = value.label ?? '';
-    const suppliedAccessibleName: unknown = value.accessibleName;
-    const accessibleName = suppliedAccessibleName === undefined ? label : suppliedAccessibleName;
-    const leading = value.leading;
-    const trailing = value.trailing;
-    const tone = value.tone;
-    const density = value.density;
-    const pressed = value.pressed;
-    if (typeof label !== 'string') throw new TypeError('button label must be a string.');
-    if (typeof accessibleName !== 'string' || (value.accessibleName === undefined && sanitizeTerminalText(accessibleName).text.trim() === '')) {
-      throw new TypeError('button requires a visible label or an explicit accessibleName string.');
-    }
-    if (tone !== undefined && !isButtonTone(tone)) throw new TypeError('button tone is invalid.');
-    assertOptionalEnum(density, ['compact', 'regular'], 'button density');
-    if (pressed !== undefined && typeof pressed !== 'boolean') {
-      throw new TypeError('button pressed must be a boolean.');
-    }
-    return {
-      label: sanitizeTerminalText(label).text,
-      accessibleName: sanitizeTerminalText(accessibleName).text,
-      ...(leading === undefined
-        ? {}
-        : { leading: normalizeInlineContent(leading) }),
-      ...(trailing === undefined
-        ? {}
-        : { trailing: normalizeInlineContent(trailing) }),
-      tone: tone ?? 'default',
-      density: density ?? 'regular',
-      ...(pressed === undefined ? {} : { pressed }),
-    };
-  },
-  measure(input) {
-    const spans = buttonSpans(input, false);
-    return {
-      minWidth: 1,
-      minHeight: 1,
-      preferredWidth: measureSpans(spans, input.widthProfile),
-      preferredHeight: 1,
-    };
-  },
-  render(input) {
-    const spans = buttonSpans(input, input.focus === 'self');
-    const used = measureSpans(spans, input.widthProfile);
-    const visualStates = buttonVisualStates(input, input.focus === 'self');
-    const frameStyle = input.style({
-      part: 'frame',
-      ...(visualStates.length === 0 ? {} : { states: visualStates }),
-      base: buttonToneStyle(input.model.tone, true, input.busy),
-    });
-    input.target.write(0, 0, spans);
-    paintControlPadding(input, 0, used, input.target.width - used, {
-      ...(frameStyle === undefined ? {} : { style: frameStyle }),
-      source: input.frameSource({ partName: 'frame.fill', partType: 'frame', cellRole: 'content' }),
-    });
-  },
-  keys: () => ({
-    enter: () => ({ kind: 'press' }),
-    space: () => ({ kind: 'press' }),
-  }),
-  focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
-  hitTargets: ({ id, bounds }) => [{
-    id: `${id ?? 'button'}:control`,
-    bounds,
-    focus: { kind: 'target', targetId: 'self' },
-    accepts: ['click'],
-    message: (event) => event.kind === 'click' ? { kind: 'press' } : ignoreMessage(),
-    cursor: 'pointer',
-  }],
-  accessibility({ id, model, focused, busy }) {
-    return {
-      id,
-      role: 'button',
-      label: model.accessibleName,
-      ...(model.pressed === undefined ? {} : { pressed: model.pressed }),
-      ...(busy ? { description: 'Busy.' } : {}),
-      ...(focused ? { focused: true } : {}),
-    };
-  },
+    emitsActions: true,
+    name,
+    identity: 'required',
+    structure: 'leaf',
+    semantics: 'semantic',
+    accessibleRole: 'button',
+    states: ['disabled', 'busy', 'inert'],
+    metadata: ['styles', 'layer', 'focus'],
+    parts: ['frame', 'marker', 'leading', 'label', 'trailing'],
+    visualStates: ['focused', 'hovered', 'pressed', 'disabled', 'busy'],
+    createModel(value) {
+      const label = value.label ?? '';
+      const suppliedAccessibleName: unknown = value.accessibleName;
+      const accessibleName = suppliedAccessibleName === undefined ? label : suppliedAccessibleName;
+      const leading = value.leading;
+      const trailing = value.trailing;
+      const tone = value.tone;
+      const density = value.density;
+      const pressed = value.pressed;
+      if (typeof label !== 'string') throw new TypeError('button label must be a string.');
+      if (typeof accessibleName !== 'string' || (value.accessibleName === undefined && sanitizeTerminalText(accessibleName).text.trim() === '')) {
+        throw new TypeError('button requires a visible label or an explicit accessibleName string.');
+      }
+      if (tone !== undefined && !isButtonTone(tone)) throw new TypeError('button tone is invalid.');
+      assertOptionalEnum(density, ['compact', 'regular'], 'button density');
+      if (pressed !== undefined && typeof pressed !== 'boolean') {
+        throw new TypeError('button pressed must be a boolean.');
+      }
+      return {
+        label: sanitizeTerminalText(label).text,
+        accessibleName: sanitizeTerminalText(accessibleName).text,
+        ...(leading === undefined
+          ? {}
+          : { leading: normalizeInlineContent(leading) }),
+        ...(trailing === undefined
+          ? {}
+          : { trailing: normalizeInlineContent(trailing) }),
+        tone: tone ?? 'default',
+        density: density ?? 'regular',
+        ...(pressed === undefined ? {} : { pressed }),
+      };
+    },
+    measure(input) {
+      const spans = buttonSpans(input, false);
+      return {
+        minWidth: 1,
+        minHeight: 1,
+        preferredWidth: measureSpans(spans, input.widthProfile),
+        preferredHeight: 1,
+      };
+    },
+    render(input) {
+      const spans = buttonSpans(input, input.focus === 'self');
+      const used = measureSpans(spans, input.widthProfile);
+      const visualStates = buttonVisualStates(input, input.focus === 'self');
+      const frameStyle = input.style({
+        part: 'frame',
+        ...(visualStates.length === 0 ? {} : { states: visualStates }),
+        base: buttonToneStyle(input.model.tone, true, input.busy),
+      });
+      input.target.write(0, 0, spans);
+      paintControlPadding(input, 0, used, input.target.width - used, {
+        ...(frameStyle === undefined ? {} : { style: frameStyle }),
+        source: input.frameSource({ partName: 'frame.fill', partType: 'frame', cellRole: 'content' }),
+      });
+    },
+    keys: () => ({
+      enter: () => ({ kind: 'press' }),
+      space: () => ({ kind: 'press' }),
+    }),
+    focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
+    hitTargets: ({ id, bounds }) => [{
+      id: `${id ?? 'button'}:control`,
+      bounds,
+      focus: { kind: 'target', targetId: 'self' },
+      accepts: ['click'],
+      message: (event) => event.kind === 'click' ? { kind: 'press' } : ignoreMessage(),
+      cursor: 'pointer',
+    }],
+    accessibility({ id, model, focused, busy }) {
+      return {
+        id,
+        label: model.accessibleName,
+        ...(model.pressed === undefined ? {} : { pressed: model.pressed }),
+        ...(busy ? { description: 'Busy.' } : {}),
+        ...(focused ? { focused: true } : {}),
+      };
+    },
   });
 }
 
-export const button: ButtonFactory = (options) => {
-  const own = {
-    id: options.id,
-    ...(options.label === undefined ? {} : { label: options.label }),
-    ...(options.accessibleName === undefined ? {} : { accessibleName: options.accessibleName }),
-    ...(options.leading === undefined ? {} : { leading: options.leading }),
-    ...(options.trailing === undefined ? {} : { trailing: options.trailing }),
-    ...(options.tone === undefined ? {} : { tone: options.tone }),
-    ...(options.density === undefined ? {} : { density: options.density }),
-    ...(options.busy === undefined ? {} : { busy: options.busy }),
-    ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
-    ...(options.styles === undefined ? {} : { styles: options.styles }),
-    ...(options.meta === undefined ? {} : { meta: options.meta }),
-  };
-  if (options.disabled === true && options.onPress === undefined) return instantiateButton({ ...own, disabled: true });
+export function button<const TMessage extends ComponentMessage = never>(
+  options: ButtonOptions<TMessage>,
+): Element<TMessage> {
+  const { onPress, ...own } = options;
+  Reflect.deleteProperty(own, 'inert');
+  Reflect.deleteProperty(own, 'pressed');
+  if (options.disabled === true && onPress === undefined) {
+    return instantiateButton<TMessage>({ ...own, onAction: () => ignoreMessage() });
+  }
   assertPressCallback(options, 'button');
-  return instantiateButton({
-    ...own,
-    onAction: options.onPress,
-  });
-};
+  return instantiateButton({ ...own, onAction: options.onPress });
+}
 
 type ButtonVisualInput =
   | ComponentMeasureInput<ButtonModel>

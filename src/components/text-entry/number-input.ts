@@ -48,11 +48,8 @@ interface NumberModel {
   readonly error: string;
 }
 
-type NumberInputFactory = <const TMessage extends ComponentMessage = never>(
-  options: NumberInputOptions<TMessage>,
-) => Element<TMessage>;
-
 const instantiateNumberInput = defineComponent<Omit<NumberInputOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onTransition' | 'onContextMenu' | 'styles' | 'meta'>, NumberInputComponentAction>()({
+  emitsActions: true,
   name: 'terminal-ui/components/number-input',
   identity: 'required',
   structure: 'leaf',
@@ -128,7 +125,6 @@ const instantiateNumberInput = defineComponent<Omit<NumberInputOptions<Component
     ].filter(Boolean).join(' ');
     return {
       id,
-      role: 'spinbutton',
       value: model.state.value,
       textPosition: {
         caretOffset: model.state.cursor,
@@ -157,12 +153,14 @@ const instantiateNumberInput = defineComponent<Omit<NumberInputOptions<Component
   },
 });
 
-export const numberInput: NumberInputFactory = (options) => {
+export function numberInput<const TMessage extends ComponentMessage = never>(
+  options: NumberInputOptions<TMessage>,
+): Element<TMessage> {
   assertOptionalCallback(options.onContextMenu, 'numberInput onContextMenu');
   if (options.onTransition === undefined) {
     if (options.disabled !== true) assertTransitionCallback(options, 'numberInput');
     const rest = withoutTransitionCallback(options);
-    return instantiateNumberInput({ ...rest, disabled: true });
+    return instantiateNumberInput<TMessage>({ ...rest, disabled: true, onAction: () => ignoreMessage() });
   }
   assertTransitionCallback(options, 'numberInput');
   const { onTransition, onContextMenu, ...rest } = options;
@@ -172,7 +170,7 @@ export const numberInput: NumberInputFactory = (options) => {
       ? onContextMenu?.(action.event) ?? ignoreMessage()
       : onTransition(action),
   });
-};
+}
 
 type NumberInputComponentAction = NumberInputControlTransition | {
   readonly kind: 'contextMenu';

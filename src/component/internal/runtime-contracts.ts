@@ -1,13 +1,12 @@
 import type { ElementFocus, ElementLayer, ElementPaint, ElementStyles } from '../../element/metadata.ts';
 import type { RenderNode } from '../../renderer/internal/render-tree/component-node.ts';
 import type {
-  ComponentDefinition,
+  ComponentDefinitionShape,
   ComponentIdentity,
   ComponentMetadataCapability,
   ComponentSlotCardinality,
   ComponentSlotMessagePolicy,
   ComponentSlotOwner,
-  ComponentSlotsDefinition,
   ComponentStateCapability,
   ComponentVisualState,
 } from '../contracts.ts';
@@ -55,7 +54,7 @@ export interface ComponentRuntimeContract {
   readonly slots: readonly RuntimeComponentSlot[];
   readonly partSet: ReadonlySet<string>;
   readonly visualStateSet: ReadonlySet<ComponentVisualState>;
-  readonly actionful: boolean;
+  readonly emitsActions: boolean;
 }
 
 export interface RuntimeComponentSlot {
@@ -65,27 +64,44 @@ export interface RuntimeComponentSlot {
   readonly messages: ComponentSlotMessagePolicy;
 }
 
-export interface CompiledComponentDefinition<
-  TOptions extends object,
-  TModel extends object,
-  TAction,
-  TPart extends string,
-  TStates extends readonly ComponentStateCapability[],
-  TIdentity extends ComponentIdentity,
-  TMetadata extends readonly ComponentMetadataCapability[],
-  TSlots extends ComponentSlotsDefinition,
-  TVisualStates extends readonly ComponentVisualState[]
-> {
-  readonly definition: ComponentDefinition<
-    TOptions,
-    TModel,
-    TAction,
-    TPart,
-    TStates,
-    TIdentity,
-    TMetadata,
-    TSlots,
-    TVisualStates
-  >;
+/** Only the authoring boundary sees the complete public definition. Capability
+ * literals are checked there; normalized capability sets own runtime policy. */
+export type AuthoredComponentDefinition<TOptions extends object, TModel extends object, TAction> =
+  ComponentDefinitionShape<TOptions, TModel, TAction>;
+
+// The phase projections share the public hook signatures without maintaining
+// a second schema, and copy only the fields that each consumer can execute.
+export const instanceHookFields = [
+  'name', 'structure', 'semantics', 'createModel', 'reuse', 'layer',
+  'inspection', 'accessibleRole', 'focusScope', 'focusNavigation',
+  'onFocus', 'onFocusTarget', 'onInput', 'onPaste',
+] as const;
+export const rendererHookFields = [
+  'name', 'structure', 'semantics', 'onLayout', 'keys', 'clipChildren',
+  'measure', 'layout', 'render', 'renderBeforeChildren', 'renderAfterChildren',
+  'accessibility', 'focusTargets', 'hitTargets',
+] as const;
+export const slotHookFields = [
+  'name', 'structure', 'capture', 'compose', 'implementationSlots',
+] as const;
+
+export type PhaseHooks<T, K extends PropertyKey> = T extends object ? Pick<T, Extract<keyof T, K>> : never;
+
+export type ComponentInstanceHooks<TOptions extends object, TModel extends object, TAction> =
+  PhaseHooks<AuthoredComponentDefinition<TOptions, TModel, TAction>, typeof instanceHookFields[number]>;
+
+export type ComponentRendererHooks<TModel extends object, TAction> =
+  PhaseHooks<AuthoredComponentDefinition<TModel, TModel, TAction>, typeof rendererHookFields[number]>;
+
+export type ComponentSlotDefinitionHooks<TModel extends object, TAction> =
+  PhaseHooks<AuthoredComponentDefinition<TModel, TModel, TAction>, typeof slotHookFields[number]>;
+
+export interface CompiledComponentDefinition<TOptions extends object, TModel extends object, TAction> {
+  readonly instance: ComponentInstanceHooks<TOptions, TModel, TAction>;
+  readonly renderer: ComponentRendererHooks<TModel, TAction>;
+  readonly slots: ComponentSlotDefinitionHooks<TModel, TAction>;
   readonly contract: ComponentRuntimeContract;
+  readonly sensitiveInput: boolean;
+  readonly actions: readonly ('keyboard' | 'input' | 'paste' | 'focus' | 'pointer')[];
+  readonly accessibleRole?: import('../../accessibility/types.ts').AccessibleRole;
 }

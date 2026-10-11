@@ -40,6 +40,7 @@ const instantiatePagination: SemanticLeafComponentFactory<
   readonly ['focus', 'layer', 'styles'],
   readonly ['focused', 'hovered', 'pressed', 'disabled']
 > = defineComponent<Pick<PaginationOptions<ComponentMessage>, 'pageNumber' | 'pageCount' | 'label'>, PaginationControlTransition>()({
+  emitsActions: true,
   name: 'terminal-ui/components/pagination',
   identity: 'required',
   structure: 'leaf',
@@ -133,7 +134,6 @@ const instantiatePagination: SemanticLeafComponentFactory<
     const controls = paginationVisual(input.model, input.widthProfile, input.id).controls;
     return {
       id: input.id,
-      role: 'navigation',
       ...(input.model.label === '' ? {} : { label: input.model.label }),
       value: `Page ${String(input.model.pageNumber)} of ${String(input.model.pageCount)}`,
       ...(input.focused ? { focused: true } : {}),

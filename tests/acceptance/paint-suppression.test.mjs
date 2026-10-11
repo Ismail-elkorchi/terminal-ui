@@ -96,6 +96,7 @@ test('suppressed native text input and checkbox retain focus, keyboard, paste, p
 test('renderer-owned suppression skips custom composite paint hooks while retaining layout and actions', async () => {
   const calls = { before: 0, after: 0, leaf: 0, layout: [] };
   const leaf = defineComponent({
+    emitsActions: true,
     name: 'paint-suppression/custom-leaf', identity: 'required', structure: 'leaf',
     semantics: 'semantic', accessibleRole: 'button',
     // No metadata capability is needed for renderer-owned paint suppression.
@@ -107,7 +108,7 @@ test('renderer-owned suppression skips custom composite paint hooks while retain
     onInput: ({ text }) => ({ kind: 'input', text }),
     onPaste: ({ text }) => ({ kind: 'paste', text }),
     onLayout(input) { calls.layout.push(input.allocatedBounds); return ignoreMessage(); },
-    accessibility: ({ id, focused }) => ({ id, role: 'button', label: 'Custom', focused }),
+    accessibility: ({ id, focused }) => ({ id, label: 'Custom', focused }),
   });
   const composite = defineComponent({
     name: 'paint-suppression/custom-composite', identity: 'required', structure: 'composite',
@@ -117,7 +118,7 @@ test('renderer-owned suppression skips custom composite paint hooks while retain
     layout: ({ bounds }) => ({ content: { row: 0, column: 0, width: bounds.width, height: bounds.height } }),
     renderBeforeChildren({ target }) { calls.before++; target.clear(); },
     renderAfterChildren({ target }) { calls.after++; target.write(0, 0, [span('AFTER')]); },
-    accessibility: ({ id }) => ({ id, role: 'group' }),
+    accessibility: ({ id }) => ({ id }),
   });
   const harness = createTerminalHarness({ terminalSize });
   const app = defineTui({
@@ -216,12 +217,13 @@ for (const receipt of [failedTerminalWrite, indeterminateTerminalWrite]) {
   test(`a ${receipt.name} suppression candidate cannot publish state, graphics, focus or layout notifications`, async () => {
   const layouts = [];
   const observer = defineComponent({
+    emitsActions: true,
     name: 'paint-suppression/commit-observer', identity: 'required', structure: 'leaf', semantics: 'semantic', accessibleRole: 'status',
     createModel: ({ revision }) => ({ revision }),
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 2, preferredHeight: 1 }),
     render: ({ target, model }) => { target.write(0, 0, [span(String(model.revision))]); },
     onLayout({ model }) { layouts.push(model.revision); return ignoreMessage(); },
-    accessibility: ({ id }) => ({ id, role: 'status', label: 'Layout observer' }),
+    accessibility: ({ id }) => ({ id, label: 'Layout observer' }),
   });
   const graphicView = retainedGraphicView();
   const harness = createTerminalHarness({ terminalSize });

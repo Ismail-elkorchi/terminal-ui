@@ -314,7 +314,7 @@ test('component definitions and border title slots expose usable structural cont
       accessibleRole: 'button',
       measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
       render: () => undefined,
-      accessibility: ({ id, focused }) => ({ id, role: 'button', label: id, ...(focused ? { focused } : {}) }),
+      accessibility: ({ id, focused }) => ({ id, label: id, ...(focused ? { focused } : {}) }),
       focusTargets: focusTarget
     });
     const element = surface(text({ content: 'Title' }), {
@@ -397,7 +397,6 @@ test('component packages can use the narrow authoring entrypoint', () => {
       },
       accessibility: ({ id, model }) => ({
         id,
-        role: 'meter',
         label: 'Usage',
         numericValue: { current: model.value, minimum: 0, maximum: 100 }
       })
@@ -446,7 +445,6 @@ test('component packages can use the narrow authoring entrypoint', () => {
       }),
       accessibility: ({ id, children }) => ({
         id,
-        role: 'group',
         label: 'Panel',
         children
       })
@@ -476,6 +474,7 @@ test('canonical component authoring preserves leaf options and actions', () => {
       { readonly kind: 'activate' }
     >({
       name: 'terminal-ui-tests/components/status',
+      emitsActions: true,
       structure: 'leaf',
       semantics: 'semantic',
       identity: 'required',
@@ -483,7 +482,8 @@ test('canonical component authoring preserves leaf options and actions', () => {
       createModel: (value) => ({ label: value.label }),
       measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
       render: () => undefined,
-      accessibility: ({ id, model }) => ({ id, role: 'status', label: model.label }),
+      accessibility: ({ id, model }) => ({ id, label: model.label }),
+      focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
       keys: () => ({ enter: () => ({ kind: 'activate' }) })
     });
     const spacer = defineComponent({

@@ -10,6 +10,7 @@ import type {
 } from '../../behavior/notification.ts';
 import { assertStableIds } from '../../collection/identity.ts';
 import type {
+  ComponentAccessibilityResult,
   ComponentAccessibilityInput,
   ComponentInput,
   ComponentMeasureInput,
@@ -102,6 +103,7 @@ const passiveRegion = defineComponent<Omit<NotificationOwnOptions, 'selectedId'>
 });
 
 const activeRegion = defineComponent<Omit<NotificationOwnOptions, 'selectedId'>, NotificationRegionComponentAction>()({
+  emitsActions: true,
   name: 'terminal-ui/components/notification-region',
   identity: 'required',
   structure: 'leaf',
@@ -120,6 +122,7 @@ const activeRegion = defineComponent<Omit<NotificationOwnOptions, 'selectedId'>,
 });
 
 const history = defineComponent<NotificationOwnOptions, NotificationHistoryComponentAction>()({
+  emitsActions: true,
   name: 'terminal-ui/components/notification-history',
   identity: 'required',
   structure: 'leaf',
@@ -883,11 +886,10 @@ function accessibleNotifications(
   input: ComponentAccessibilityInput<NotificationModel>,
   kind: 'region' | 'history',
   dismissible: boolean,
-): AccessibleNode {
+): ComponentAccessibilityResult {
   const visibleItems = notificationLayout(input).cards.map(({ card }) => card.item);
   return {
     id: input.id,
-    role: kind === 'history' ? 'listbox' : 'status',
     label: 'Notifications',
     description: kind === 'history'
       ? `${String(visibleItems.length)} of ${String(input.model.items.length)} notifications visible.`

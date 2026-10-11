@@ -21,7 +21,7 @@ function probe(reuse, counts = { measurement: 0, layout: 0, paint: 0, accessibil
     render: ({ model, target }) => { counts.paint += 1; target.write(0, 0, [{ text: model.text }]); },
     accessibility: ({ id, model, focused }) => {
       counts.accessibility += 1;
-      return { id, role: 'text', label: model.label, ...(focused ? { focused: true } : {}) };
+      return { id, label: model.label, ...(focused ? { focused: true } : {}) };
     },
   });
   return { component, counts };
@@ -82,7 +82,7 @@ test('composite parent reuse includes child phases and named slot topology', () 
     reuse: { measurement: () => [], layout: () => [], accessibility: () => [] },
     measure: ({ slots }) => slots.measure('content'),
     layout: ({ bounds }) => { layouts += 1; return { content: bounds }; },
-    accessibility: ({ id, slots }) => ({ id, role: 'group', children: slots.content }),
+    accessibility: ({ id, slots }) => ({ id, children: slots.content }),
   });
   const { component } = probe({ ...declared, layout: () => [] });
   const view = height => wrap(parent({ id: 'parent', slots: {
@@ -105,7 +105,7 @@ test('accessibility reuse observes current focus-target declarations even withou
     accessibleRole: 'text', reuse: { accessibility: () => [] },
     measure: () => measure(1), render() {},
     focusTargets: ({ bounds }) => [{ id: 'self', bounds }, ...(extra ? [{ id: 'other', bounds }] : [])],
-    accessibility: ({ id, focused, focusedTargetId }) => { calls += 1; return { id, role: 'text', label: 'focus targets', ...(focused || focusedTargetId !== undefined ? { focused: true } : {}) }; },
+    accessibility: ({ id, focused, focusedTargetId }) => { calls += 1; return { id, label: 'focus targets', ...(focused || focusedTargetId !== undefined ? { focused: true } : {}) }; },
   });
   const element = component({ id: 'probe' });
   const first = renderElementInternal(element, size);
@@ -143,12 +143,13 @@ test('retained phases still run accepted-layout notifications with current model
   const { ignoreMessage } = await import('../../../dist/component/index.js');
   const seen = [];
   const component = defineComponent({
+    emitsActions: true,
     name: 'external-fixture/current-layout-callback', identity: 'required', structure: 'leaf', semantics: 'semantic',
     accessibleRole: 'text',
     reuse: { measurement: () => [], layout: () => [], paint: () => [], accessibility: () => [] },
     measure: () => measure(1), render() {},
     onLayout: ({ model }) => { model.notify(); return ignoreMessage(); },
-    accessibility: ({ id }) => ({ id, role: 'text', label: 'stable' }),
+    accessibility: ({ id }) => ({ id, label: 'stable' }),
   });
   const runtime = createTuiRuntime({ host: createMemoryTerminalHost({ terminalSize: size }), app: defineTui({
     init: () => ({ state: 0 }), update: state => ({ state: state + 1 }),

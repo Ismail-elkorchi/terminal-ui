@@ -47,6 +47,7 @@ test('a simultaneous state and focus change refreshes other layers', () => {
 
 function retentionProbe(reusePaint, painted = () => {}) {
   return defineComponent({
+    emitsActions: true,
     name: 'terminal-ui-tests/paint-dependencies',
     identity: 'required', structure: 'leaf', semantics: 'semantic', accessibleRole: 'text',
     metadata: ['styles', 'layer', 'focus'],
@@ -58,7 +59,7 @@ function retentionProbe(reusePaint, painted = () => {}) {
       target.write(0, 0, [{ text: `${model.label ?? model.values?.[0] ?? '-'}${disabled ? 'D' : ''}${pointerState?.hoveredTargetId ? 'H' : ''}${widthProfile.emoji === 'narrow' ? 'N' : ''}` }]);
     },
     hitTargets: ({ bounds }) => [{ id: 'press', bounds, accepts: ['pointerDown'], message: () => ({ kind: 'press' }) }],
-    accessibility: ({ id }) => ({ id, role: 'text', label: 'probe' })
+    accessibility: ({ id }) => ({ id, label: 'probe' })
   });
 }
 

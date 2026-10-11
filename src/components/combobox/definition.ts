@@ -11,6 +11,7 @@ import { readListboxSource } from '../../behavior/listbox-source.ts';
 import { matchingListboxView } from '../../behavior/listbox-view.ts';
 import { ownCollectionQueryRequest, type CollectionQuery } from '../../text/query.ts';
 import type {
+  ComponentAccessibilityResult,
   ComponentAccessibilityInput,
   ComponentRenderInput,
 } from '../../component/contracts.ts';
@@ -148,6 +149,7 @@ type ComboboxComponentAction =
   | { readonly kind: 'contextMenu'; readonly event: TextContextMenuEvent };
 
 const instantiateCombobox = defineComponent<ComboboxModel, ComboboxComponentAction>()({
+  emitsActions: true,
   name: 'terminal-ui/components/combobox',
   identity: 'required',
   structure: 'composite',
@@ -482,12 +484,12 @@ function createSelectCombobox<TValue, TMessage extends ComponentMessage>(
   };
   assertOptionalCallback(options.onCommit, 'combobox onCommit');
   assertOptionalCallback(options.onContextMenu, 'combobox onContextMenu');
-  if (options.disabled === true && options.onTransition === undefined) return instantiateCombobox({ ...common, disabled: true });
+  if (options.disabled === true && options.onTransition === undefined) return instantiateCombobox<never>({ ...common, disabled: true, onAction: () => ignoreMessage() });
   const shared = {
     ...common,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
   };
-  if (options.inert === true && options.onTransition === undefined) return instantiateCombobox({ ...shared, inert: true });
+  if (options.inert === true && options.onTransition === undefined) return instantiateCombobox<never>({ ...shared, inert: true, onAction: () => ignoreMessage() });
   assertRequiredPropertyCallback(options, 'onTransition', 'combobox onTransition');
   assertOptionalCallback(options.onCommit, 'combobox onCommit');
   return instantiateCombobox({
@@ -515,9 +517,9 @@ function createAutocompleteCombobox<TValue, TMessage extends ComponentMessage>(
   };
   assertOptionalCallback(options.onCommit, 'combobox onCommit');
   assertOptionalCallback(options.onContextMenu, 'combobox onContextMenu');
-  if (options.disabled === true && options.onTransition === undefined) return instantiateCombobox({ ...common, disabled: true });
+  if (options.disabled === true && options.onTransition === undefined) return instantiateCombobox<never>({ ...common, disabled: true, onAction: () => ignoreMessage() });
   const shared = { ...common, ...(options.busy === undefined ? {} : { busy: options.busy }) };
-  if (options.inert === true && options.onTransition === undefined) return instantiateCombobox({ ...shared, inert: true });
+  if (options.inert === true && options.onTransition === undefined) return instantiateCombobox<never>({ ...shared, inert: true, onAction: () => ignoreMessage() });
   assertRequiredPropertyCallback(options, 'onTransition', 'combobox onTransition');
   assertOptionalCallback(options.onCommit, 'combobox onCommit');
   return instantiateCombobox({
@@ -770,7 +772,7 @@ function comboboxSpan(
 
 function comboboxAccessibility(
   input: ComponentAccessibilityInput<ComboboxModel, typeof comboboxSlots>,
-): import('../../accessibility/index.ts').AccessibleNode {
+): ComponentAccessibilityResult {
   const selected = selectedComboboxOption(input.model);
   const description = [input.model.required ? 'Required.' : '', input.model.error ?? '']
     .filter((part) => part.length > 0)
@@ -784,7 +786,6 @@ function comboboxAccessibility(
   const relationship = popupRelationship(input.id);
   return {
     id: input.id,
-    role: 'combobox',
     label: input.model.label,
     required: input.model.required,
     invalid: input.model.error !== undefined,

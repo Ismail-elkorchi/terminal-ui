@@ -1,6 +1,5 @@
-import type { AccessibleNode } from '../../accessibility/types.ts';
 import type { ContextMenuTransition, ContextMenuView } from '../../behavior/menu.ts';
-import type { ComponentAccessibilityInput } from '../../component/contracts.ts';
+import type { ComponentAccessibilityResult, ComponentAccessibilityInput } from '../../component/contracts.ts';
 import { defineComponent } from '../../component/definition.ts';
 import type { ComponentMessage } from '../../component/message.ts';
 import {
@@ -39,6 +38,7 @@ import {
 } from './shared.ts';
 
 const instantiateContextMenu = defineComponent<ContextOwnOptions, ContextMenuComponentAction>()({
+  emitsActions: true,
   name: 'terminal-ui/components/context-menu',
   identity: 'required',
   structure: 'composed',
@@ -135,7 +135,7 @@ export const contextMenu: ContextMenuFactory = (options) => {
   assertOptionalCallback(options.onActivate, 'contextMenu onActivate');
   if (options.onTransition === undefined) {
     if (options.disabled !== true && options.inert !== true) assertMenuCallbacks(options, 'contextMenu');
-    return instantiateContextMenu({ ...instance, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }) });
+    return instantiateContextMenu<never>({ ...instance, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }), onAction: () => ignoreMessage() });
   }
   assertMenuCallbacks(options, 'contextMenu');
   return instantiateContextMenu({
@@ -177,7 +177,7 @@ function routeContextMenuAction<TMessage extends ComponentMessage>(
 
 function contextMenuAccessibility(
   input: ComponentAccessibilityInput<ContextMenuModel>,
-): AccessibleNode {
+): ComponentAccessibilityResult {
   const children = input.model.view.kind === 'closed' ? [] : menuAccessibleItems(
     `${input.id}:popup:menu`,
     flattenMenu(input.model.view.menu.items),
@@ -186,7 +186,6 @@ function contextMenuAccessibility(
   );
   return {
     id: input.id,
-    role: 'menu',
     ...(input.model.title === undefined ? {} : { label: input.model.title }),
     scope: { kind: 'menu' },
     children,

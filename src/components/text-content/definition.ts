@@ -118,7 +118,6 @@ export const text: SemanticLeafComponentFactory<
     const heading = model.textRole === 'heading' || model.textRole === 'title';
     return {
       id,
-      role: heading ? 'heading' : 'text',
       value: content,
       ...(heading ? { label: content, position: { level: model.headingLevel ?? (model.textRole === 'title' ? 1 : 2) } } : {}),
     };
@@ -177,6 +176,7 @@ interface RichTextComponentAction {
 }
 
 const instantiateRichText = defineComponent<Pick<RichTextOptions, 'segments' | 'wrap'> & { readonly interactive: boolean }, RichTextComponentAction>()({
+  emitsActions: true,
   name: 'terminal-ui/components/rich-text',
   identity: 'optional',
   structure: 'leaf',
@@ -298,7 +298,6 @@ const instantiateRichText = defineComponent<Pick<RichTextOptions, 'segments' | '
     }));
     return {
       id,
-      role: 'text',
       value: sanitizeTerminalText(inlineContentAccessibleText(model.segments), { widthProfile }).text,
       ...(children.length === 0 ? {} : { children }),
     };
@@ -647,6 +646,7 @@ type DisclosureFactory = <
 ) => Element<TMessage | ElementMessage<TChild>>;
 
 const instantiateDisclosure = defineComponent<{ readonly label: string; readonly summary?: InlineContent; readonly expanded: boolean }, import('../disclosure.ts').DisclosureTransition>()({
+  emitsActions: true,
   name: 'terminal-ui/components/disclosure',
   identity: 'required',
   structure: 'composite',
@@ -730,7 +730,6 @@ const instantiateDisclosure = defineComponent<{ readonly label: string; readonly
       : inlineContentAccessibleText(model.summary);
     return {
       id,
-      role: 'group',
       label: model.label,
       children: [
         {
@@ -759,7 +758,7 @@ const instantiateDisclosure = defineComponent<{ readonly label: string; readonly
 export const disclosure: DisclosureFactory = (options) => {
   if (options.disabled === true && options.onTransition === undefined) {
     const rest = withoutTransitionCallback(options);
-    return instantiateDisclosure({ ...rest, disabled: true });
+    return instantiateDisclosure<typeof rest.slots>({ ...rest, disabled: true, onAction: () => ignoreMessage() });
   }
   const { onTransition, ...input } = options;
   assertRequiredCallback(onTransition, 'disclosure onTransition');

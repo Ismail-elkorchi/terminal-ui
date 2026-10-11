@@ -100,6 +100,7 @@ type CommandInputComponentAction =
   | { readonly kind: 'contextMenu'; readonly event: TextContextMenuEvent };
 
 const instantiateCommandInput = defineComponent<CommandInputComponentOptions, CommandInputComponentAction>()({
+  emitsActions: true,
   name: 'terminal-ui/components/command-input',
   identity: 'required',
   structure: 'composite',
@@ -237,7 +238,6 @@ const instantiateCommandInput = defineComponent<CommandInputComponentOptions, Co
     ];
     return {
       id: input.id,
-      role: 'combobox',
       ...(input.model.prompt === '' ? {} : { label: input.model.prompt }),
       value: input.model.value,
       textPosition: {
@@ -362,7 +362,7 @@ export const commandInput: CommandInputFactory = (options) => {
   };
   assertOptionalCallback(options.onSubmit, 'command-input onSubmit');
   assertOptionalCallback(options.onContextMenu, 'command-input onContextMenu');
-  if (options.disabled === true && options.onTransition === undefined) return instantiateCommandInput({ ...shared, disabled: true });
+  if (options.disabled === true && options.onTransition === undefined) return instantiateCommandInput<never>({ ...shared, disabled: true, onAction: () => ignoreMessage() });
   assertRequiredPropertyCallback(options, 'onTransition', 'commandInput onTransition');
   assertOptionalCallback(options.onSubmit, 'commandInput onSubmit');
   return instantiateCommandInput({

@@ -49,6 +49,7 @@ const dialogSlots = {
 } as const;
 
 const instantiateDialog = defineComponent<DialogComponentOptions, DialogDismissEvent>()({
+  emitsActions: true,
   name: 'terminal-ui/components/dialog',
   identity: 'required',
   structure: 'composed',
@@ -172,7 +173,6 @@ const instantiateDialog = defineComponent<DialogComponentOptions, DialogDismissE
   accessibility({ id, model, children }) {
     return {
       id,
-      role: 'dialog',
       label: model.label,
       ...(model.modal
         ? { scope: { kind: 'modal' as const, trapsFocus: true, obscuresBackground: true } }

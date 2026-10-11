@@ -475,7 +475,6 @@ test('ambiguous initial element focus is diagnosed instead of selecting an arbit
     ],
     accessibility: ({ id, focusedTargetId }) => ({
       id,
-      role: 'group',
       label: id,
       children: [
         { id: 'first', role: 'button', label: 'First', ...(focusedTargetId === 'first' ? { focused: true } : {}) },
@@ -910,7 +909,6 @@ test('TUI runtime traverses multiple defined focus targets within one element', 
       accessibleTargets.push(focusedTargetId);
       return {
         id,
-        role: 'application',
         label: 'Custom focus regions',
         children: ['left', 'right'].map((targetId) => ({
           id: targetId,
@@ -965,7 +963,6 @@ test('TUI updates can focus a specific component target after rendering new stat
     accessibility({ id, focusedTargetId }) {
       return {
         id,
-        role: 'group',
         children: ['left', 'right'].map((targetId) => ({
           id: targetId,
           role: 'button',
@@ -1020,7 +1017,6 @@ test('TUI frame accessibility uses element metadata and marks only the active fo
           focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
           accessibility: ({ id, model, focused }) => ({
             id,
-            role: 'textbox',
             label: 'First field',
             description: 'Primary input',
             value: model.label,

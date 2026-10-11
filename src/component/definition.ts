@@ -1,6 +1,5 @@
 import type { Element } from '../element/types.ts';
 import type {
-  ComponentDefinition,
   ComponentIdentity,
   ComponentMetadataCapability,
   ComponentSlotsDefinition,
@@ -16,6 +15,7 @@ import type {
   StagedComponentFactory,
 } from './contracts.ts';
 import { compileDefinition, runtimeDefinition } from './internal/compile-definition.ts';
+import type { AuthoredComponentDefinition } from './internal/runtime-contracts.ts';
 import { assertDefinition } from './internal/definition-validation.ts';
 import { createDefinedComponentElement } from './internal/instance.ts';
 
@@ -80,40 +80,19 @@ export function defineComponent<
   >
 ): SemanticCompositeComponentFactory<TOptions, TAction, TPart, TStates, TIdentity, TMetadata, TSlots, TVisualStates>;
 
-export function defineComponent<
-  TOptions extends object,
-  TModel extends object,
-  TAction,
-  TPart extends string,
-  TStates extends readonly ComponentStateCapability[],
-  TIdentity extends ComponentIdentity,
-  TMetadata extends readonly ComponentMetadataCapability[],
-  TSlots extends ComponentSlotsDefinition,
-  TVisualStates extends readonly ComponentVisualState[]
->(
+export function defineComponent<TOptions extends object, TModel extends object, TAction>(
   definition?: unknown
 ): unknown {
   if (arguments.length === 0) return defineComponent;
   assertDefinition(definition);
-  const suppliedDefinition = definition as ComponentDefinition<
-    TOptions,
-    TModel,
-    TAction,
-    TPart,
-    TStates,
-    TIdentity,
-    TMetadata,
-    TSlots,
-    TVisualStates
-  >;
+  // The public overloads establish literal capabilities and hook relationships.
+  // Runtime validation above handles untyped callers; erase only capabilities here.
+  const suppliedDefinition = definition as AuthoredComponentDefinition<TOptions, TModel, TAction>;
   const compiled = compileDefinition(suppliedDefinition);
-  const { contract } = compiled;
-  const ownedDefinition = compiled.definition;
   const runtime = runtimeDefinition(compiled);
   const component = (value: unknown): Element<unknown> => createDefinedComponentElement(
     value,
-    contract,
-    ownedDefinition,
+    compiled,
     runtime,
   );
   return Object.freeze(component);

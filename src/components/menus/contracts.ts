@@ -18,7 +18,6 @@ import type { MenuStylePart } from '../style-parts.ts';
 import type {
   ContextMenuOptions,
   MenuBarOptions,
-  MenuOptions,
   MenuTriggerOptions,
 } from './options.ts';
 
@@ -71,10 +70,6 @@ export interface MenuOwnOptions {
 export type MenuComponentAction =
   | { readonly kind: 'transition'; readonly transition: MenuTransition }
   | { readonly kind: 'activate'; readonly event: MenuActivateEvent };
-
-export type MenuFactory = <const TMessage extends ComponentMessage = never>(
-  options: MenuOptions<TMessage>,
-) => Element<TMessage>;
 
 export interface MenuBarModel {
   readonly items: readonly MenuItemModel[];

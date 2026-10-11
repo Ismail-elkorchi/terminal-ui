@@ -47,11 +47,8 @@ interface CalendarDayModel extends CalendarDay {
   readonly hidden: boolean;
 }
 
-type CalendarFactory = <const TMessage extends ComponentMessage = never>(
-  options: CalendarOptions<TMessage>,
-) => Element<TMessage>;
-
 const instantiateCalendar = defineComponent<Omit<CalendarOptions<ComponentMessage>, 'id' | 'disabled' | 'onTransition' | 'styles' | 'meta'>, CalendarTransition>()({
+  emitsActions: true,
   name: 'terminal-ui/components/calendar',
   identity: 'required',
   structure: 'leaf',
@@ -86,7 +83,6 @@ const instantiateCalendar = defineComponent<Omit<CalendarOptions<ComponentMessag
     const rowCount = Math.ceil(days.length / 7);
     return {
       id,
-      role: 'grid',
       label: model.label || model.monthLabel,
       invalid: model.error !== '',
       ...(model.error === '' ? {} : { errorMessage: `${id}:error` }),
@@ -117,10 +113,12 @@ const instantiateCalendar = defineComponent<Omit<CalendarOptions<ComponentMessag
   },
 });
 
-export const calendar: CalendarFactory = (options) => {
+export function calendar<const TMessage extends ComponentMessage = never>(
+  options: CalendarOptions<TMessage>,
+): Element<TMessage> {
   if (options.disabled === true && options.onTransition === undefined) {
     const rest = withoutTransitionCallback(options);
-    return instantiateCalendar({ ...rest, disabled: true });
+    return instantiateCalendar<TMessage>({ ...rest, disabled: true, onAction: () => ignoreMessage() });
   }
   assertTransitionCallback(options, 'calendar');
   const { onTransition, ...rest } = options;
@@ -131,7 +129,7 @@ export const calendar: CalendarFactory = (options) => {
       return onTransition(action);
     },
   });
-};
+}
 
 function createCalendarModel(
   value: Readonly<Omit<CalendarOptions<ComponentMessage>, 'id' | 'disabled' | 'onTransition' | 'styles' | 'meta'>>,

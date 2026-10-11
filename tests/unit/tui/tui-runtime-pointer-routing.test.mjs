@@ -130,13 +130,14 @@ test('disabled controls expose neither activation nor synthetic pointer lifecycl
 
 test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages', async () => {
   const renderer = {
+    emitsActions: true,
     ...leafComponentDefinition,
     accessibleRole: 'button',
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'pointer lifecycle' }]);
     },
     accessibility({ id }) {
-      return { id, role: 'button', label: 'pointer lifecycle' };
+      return { id, label: 'pointer lifecycle' };
     },
     hitTargets({ bounds }) {
       return [{
@@ -191,13 +192,14 @@ test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages',
 
 test('TUI pointer click counts use clock, stable target identity, and cross-target reset', async () => {
   const renderer = {
+    emitsActions: true,
     ...leafComponentDefinition,
     accessibleRole: 'group',
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'left right' }]);
     },
     accessibility({ id }) {
-      return { id, role: 'group', label: 'click targets' };
+      return { id, label: 'click targets' };
     },
     hitTargets({ bounds }) {
       return [
@@ -254,13 +256,14 @@ test('TUI pointer click counts use clock, stable target identity, and cross-targ
 
 test('TUI pointer hover emits enter leave and hover when crossing targets', async () => {
   const renderer = {
+    emitsActions: true,
     ...leafComponentDefinition,
     accessibleRole: 'group',
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'left  right' }]);
     },
     accessibility({ id }) {
-      return { id, role: 'group', label: 'hover lifecycle' };
+      return { id, label: 'hover lifecycle' };
     },
     hitTargets({ bounds }) {
       const accepts = ['enter', 'leave', 'hover'];
@@ -321,13 +324,14 @@ test('TUI pointer hover emits enter leave and hover when crossing targets', asyn
 
 test('TUI pointer targets receive event-aware messages and horizontal wheel deltas', async () => {
   const renderer = {
+    emitsActions: true,
     ...leafComponentDefinition,
     accessibleRole: 'button',
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'pointer target' }]);
     },
     accessibility({ id }) {
-      return { id, role: 'button', label: 'pointer target' };
+      return { id, label: 'pointer target' };
     },
     hitTargets({ bounds }) {
       return [{
@@ -374,13 +378,14 @@ test('TUI pointer targets receive event-aware messages and horizontal wheel delt
 
 test('TUI pointer drag routes to the captured origin target', async () => {
   const renderer = {
+    emitsActions: true,
     ...leafComponentDefinition,
     accessibleRole: 'button',
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'drag target' }]);
     },
     accessibility({ id }) {
-      return { id, role: 'button', label: 'drag target' };
+      return { id, label: 'drag target' };
     },
     hitTargets({ bounds }) {
       return [{
@@ -424,13 +429,14 @@ test('TUI pointer drag routes to the captured origin target', async () => {
 
 test('TUI pointer motion drops stale drag samples before routing release', async () => {
   const renderer = {
+    emitsActions: true,
     ...leafComponentDefinition,
     accessibleRole: 'button',
     render({ model, target }) {
       target.write(0, 0, [{ text: `events ${String(model.eventCount)}` }]);
     },
     accessibility({ id }) {
-      return { id, role: 'button', label: 'coalesced drag target' };
+      return { id, label: 'coalesced drag target' };
     },
     hitTargets({ bounds }) {
       return [{
@@ -489,13 +495,14 @@ test('TUI pointer motion drops stale drag samples before routing release', async
 
 test('pointer capture resolves the latest target callback after a render', async () => {
   const definition = {
+    emitsActions: true,
     ...leafComponentDefinition,
     accessibleRole: 'button',
     render({ model, target }) {
       target.write(0, 0, [{ text: `v${String(model.version)}` }]);
     },
     accessibility({ id }) {
-      return { id, role: 'button', label: 'versioned pointer' };
+      return { id, label: 'versioned pointer' };
     },
     hitTargets({ bounds, model }) {
       return [{
@@ -537,13 +544,14 @@ test('pointer capture resolves the latest target callback after a render', async
 
 test('pointer identity includes the owning element when local target ids collide', async () => {
   const definition = {
+    emitsActions: true,
     ...leafComponentDefinition,
     accessibleRole: 'button',
     render({ model, target }) {
       target.write(0, 0, [{ text: model.label }]);
     },
     accessibility({ id, model }) {
-      return { id, role: 'button', label: model.label };
+      return { id, label: model.label };
     },
     hitTargets({ bounds, model }) {
       return [{
@@ -575,13 +583,14 @@ test('pointer identity includes the owning element when local target ids collide
 
 test('wheel batches retain their ingestion target across intervening renders', async () => {
   const definition = {
+    emitsActions: true,
     ...leafComponentDefinition,
     accessibleRole: 'group',
     render({ model, target }) {
       target.write(0, 0, [{ text: model.owner }]);
     },
     accessibility({ id, model }) {
-      return { id, role: 'group', label: model.owner };
+      return { id, label: model.owner };
     },
     hitTargets({ bounds, model }) {
       return [{
@@ -649,12 +658,13 @@ test('terminal focus loss cancels pressed and hovered pointer state', async () =
 
 test('an abandoned second click clears the previous double-click candidate', async () => {
   const definition = {
+    emitsActions: true,
     ...leafComponentDefinition,
     accessibleRole: 'button',
     render({ target }) {
       target.write(0, 0, [{ text: 'click' }]);
     },
-    accessibility: ({ id }) => ({ id, role: 'button', label: 'click' }),
+    accessibility: ({ id }) => ({ id, label: 'click' }),
     hitTargets: ({ bounds }) => [{
       id: 'control',
       bounds: { ...bounds, width: 1 },

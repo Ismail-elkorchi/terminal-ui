@@ -22,7 +22,7 @@ const stagedBadge = defineComponent<StagedBadgeOptions>()({
   metadata: ['styles'],
   measure: ({ model }) => ({ minWidth: 1, minHeight: 1, preferredWidth: model.label.length, preferredHeight: 1 }),
   render: ({ model, target }) => { target.write(0, 0, [span(model.label)]); },
-  accessibility: ({ id, model }) => ({ id, role: 'status', label: model.label }),
+  accessibility: ({ id, model }) => ({ id, label: model.label }),
 });
 stagedBadge({ label: 'Ready', styles: { parts: { value: { bold: true } } } });
 // @ts-expect-error staged inference keeps the declared part set closed
@@ -35,7 +35,7 @@ const normalizedBadge = defineComponent<NormalizedOptions>()({
   createModel: ({ raw }) => ({ label: raw.trim(), width: raw.trim().length }),
   measure: ({ model }) => ({ minWidth: 0, minHeight: 1, preferredWidth: model.width, preferredHeight: 1 }),
   render: ({ model, target }) => { target.write(0, 0, [span(model.label)]); },
-  accessibility: ({ id, model }) => ({ id, role: 'status', label: model.label }),
+  accessibility: ({ id, model }) => ({ id, label: model.label }),
 });
 normalizedBadge({ raw: ' Ready ' });
 // @ts-expect-error model-only fields do not leak into factory options
@@ -75,7 +75,7 @@ const actionRow = defineComponent<Record<never, never>, never>()({
       height: bounds.height
     }))
   }),
-  accessibility: ({ id, children }) => ({ id, role: 'group', label: 'Actions', children })
+  accessibility: ({ id, children }) => ({ id, label: 'Actions', children })
 });
 
 const save = button({ id: 'save', label: 'Save', onPress: () => ({ kind: 'save' } as const) });
@@ -94,6 +94,7 @@ type InteractiveAction =
   | { readonly kind: 'key' };
 
 const interactive = defineComponent<Record<never, never>, InteractiveAction>()({
+  emitsActions: true,
   name: 'terminal-ui-tests/components/interactive',
   identity: 'required',
   structure: 'leaf',
@@ -108,7 +109,6 @@ const interactive = defineComponent<Record<never, never>, InteractiveAction>()({
   onPaste: () => ({ kind: 'paste' }),
   accessibility: ({ id, focused }) => ({
     id,
-    role: 'button',
     label: 'Interactive',
     ...(focused ? { focused } : {})
   })
@@ -124,6 +124,7 @@ const instanceHandlerMessageType: Assert<Equal<
 void instanceHandlerMessageType;
 
 const stagedInteractive = defineComponent<Record<never, never>, InteractiveAction>()({
+  emitsActions: true,
   name: 'terminal-ui-tests/components/staged-interactive',
   identity: 'required',
   structure: 'leaf',
@@ -134,7 +135,7 @@ const stagedInteractive = defineComponent<Record<never, never>, InteractiveActio
   render: () => undefined,
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   keys: () => ({ enter: () => ({ kind: 'key' }) }),
-  accessibility: ({ id }) => ({ id, role: 'button', label: 'Staged' }),
+  accessibility: ({ id }) => ({ id, label: 'Staged' }),
 });
 const stagedAction = stagedInteractive({
   id: 'staged', disabled: false,
@@ -159,7 +160,7 @@ const stagedActionRow = defineComponent<Record<never, never>>()({
   layout: ({ bounds, slots }) => ({
     actions: Array.from({ length: slots.count('actions') }, () => bounds),
   }),
-  accessibility: ({ id, children }) => ({ id, role: 'group', label: 'Actions', children }),
+  accessibility: ({ id, children }) => ({ id, label: 'Actions', children }),
 });
 const stagedComposite = stagedActionRow({ id: 'staged-row', slots: { actions: [save, cancel] as const } });
 const stagedCompositeType: Assert<Equal<
@@ -169,6 +170,7 @@ const stagedCompositeType: Assert<Equal<
 void stagedCompositeType;
 
 const inertInteractive = defineComponent<Record<never, never>, { readonly kind: 'activate' }>()({
+  emitsActions: true,
   name: 'terminal-ui-tests/components/inert-interactive',
   identity: 'required',
   states: ['inert'],
@@ -179,8 +181,9 @@ const inertInteractive = defineComponent<Record<never, never>, { readonly kind: 
   render: () => undefined,
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   keys: () => ({ enter: () => ({ kind: 'activate' }) }),
-  accessibility: ({ id }) => ({ id, role: 'button', label: 'Action' })
+  accessibility: ({ id }) => ({ id, label: 'Action' })
 });
+// @ts-expect-error inert instances still require their declared action mapper
 inertInteractive({ id: 'inert', inert: true });
 const inertFlag = Boolean(Date.now());
 const retainedInert = inertInteractive({
@@ -193,7 +196,7 @@ const retainedInertMessage: Assert<Equal<
   { readonly kind: 'mapped'; readonly action: { readonly kind: 'activate' } }
 >> = true;
 void retainedInertMessage;
-// @ts-expect-error inert components cannot route actions
+// @ts-expect-error domain-specific callbacks do not replace the canonical mapper
 inertInteractive({ id: 'inert-with-handler', inert: true, onTransition: () => ({ kind: 'mapped' }) });
 // @ts-expect-error available actionful components require an action mapper
 inertInteractive({ id: 'available-without-handler' });
@@ -226,7 +229,7 @@ const badge = defineComponent<BadgeOptions, never>()({
   render: ({ target, model }) => {
     target.write(0, 0, [span(model.label)]);
   },
-  accessibility: ({ id, model }) => ({ id, role: 'status', label: model.label })
+  accessibility: ({ id, model }) => ({ id, label: model.label })
 });
 badge({ label: 'Ready' });
 badge({ id: 'identified-badge', label: 'Ready' });
@@ -265,7 +268,7 @@ const instantiateGenericBox = defineComponent<GenericBoxOptions, never>()({
       target.write(index, 0, [span(value)]);
     });
   },
-  accessibility: ({ id, model }) => ({ id, role: 'list', label: `${String(model.values.length)} values` })
+  accessibility: ({ id, model }) => ({ id, label: `${String(model.values.length)} values` })
 });
 
 const genericBox: GenericBoxFactory = (options) => instantiateGenericBox({
@@ -283,7 +286,7 @@ const noFactoryBuilderDefinition = {
   accessibleRole: 'text',
   measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
   render: () => undefined,
-  accessibility: ({ id }: { readonly id: string }) => ({ id, role: 'text' })
+  accessibility: ({ id }: { readonly id: string }) => ({ id })
 } as const;
 // @ts-expect-error factory adapters wrap the canonical factory instead of replacing its result type
 defineComponent(noFactoryBuilderDefinition, () => () => 'not an element');
@@ -298,7 +301,7 @@ const optionalSlotComponent = defineComponent({
     note: { cardinality: 'optional', owner: 'caller', messages: 'bubble' }
   } as const,
   compose: ({ slots }) => slots.note ?? text({ content: '' }),
-  accessibility: ({ id, slots }) => ({ id, role: 'group', children: slots.note })
+  accessibility: ({ id, slots }) => ({ id, children: slots.note })
 });
 optionalSlotComponent({ id: 'optional-slot' });
 
@@ -309,7 +312,7 @@ const composed = defineComponent({
   semantics: 'semantic',
   accessibleRole: 'group',
   compose: () => row([text({ content: 'ordinary public child' })]),
-  accessibility: ({ id, children }) => ({ id, role: 'group', label: 'Composed', children })
+  accessibility: ({ id, children }) => ({ id, label: 'Composed', children })
 });
 composed({ id: 'composed' });
 
@@ -319,6 +322,7 @@ const targetlessLifecycle: SemanticComposedComponentDefinition<
   Record<never, never>,
   { readonly kind: 'target-focus' }
 > = {
+  emitsActions: true,
   name: 'terminal-ui-tests/components/targetless-lifecycle',
   identity: 'required',
   structure: 'composed',
@@ -326,7 +330,7 @@ const targetlessLifecycle: SemanticComposedComponentDefinition<
   accessibleRole: 'group',
   compose: () => text({ content: 'Child' }),
   onFocusTarget: () => ({ kind: 'target-focus' } as const),
-  accessibility: ({ id, children }) => ({ id, role: 'group', label: id, children }),
+  accessibility: ({ id, children }) => ({ id, label: id, children }),
 };
 void targetlessLifecycle;
 
@@ -334,6 +338,7 @@ const captureSlots = {
   content: { cardinality: 'one', owner: 'caller', messages: 'capture' }
 } as const;
 const capturing = defineComponent<Record<never, never>, { readonly kind: 'captured'; readonly message: unknown }>()({
+  emitsActions: true,
   name: 'terminal-ui-tests/components/capturing',
   identity: 'required',
   structure: 'composite',
@@ -343,7 +348,7 @@ const capturing = defineComponent<Record<never, never>, { readonly kind: 'captur
   capture: ({ message }) => ({ kind: 'captured', message }),
   measure: ({ slots }) => slots.measure('content'),
   layout: ({ bounds }) => ({ content: bounds }),
-  accessibility: ({ id, children }) => ({ id, role: 'group', label: id, children })
+  accessibility: ({ id, children }) => ({ id, label: id, children })
 });
 const captured = capturing({
   id: 'capturing',
@@ -368,7 +373,7 @@ const nonInteractiveWrapper = defineComponent<Record<never, never>, never>()({
   slots: noneSlots,
   measure: ({ slots }) => slots.measure('content'),
   layout: ({ bounds }) => ({ content: bounds }),
-  accessibility: ({ id, children }) => ({ id, role: 'group', label: id, children })
+  accessibility: ({ id, children }) => ({ id, label: id, children })
 });
 nonInteractiveWrapper({ id: 'passive', slots: { content: text({ content: 'passive' }) } });
 // @ts-expect-error a none-policy slot accepts only message-free children
@@ -422,7 +427,7 @@ const obsoletePreparation: SemanticLeafComponentDefinition<StagedBadgeOptions> =
   prepare: async () => undefined,
   measure: () => ({ minWidth: 0, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
   render: ({ model, target }) => { target.write(0, 0, [span(model.label)]); },
-  accessibility: ({ id, model }) => ({ id, role: 'status', label: model.label }),
+  accessibility: ({ id, model }) => ({ id, label: model.label }),
 };
 void obsoletePreparation;
 
@@ -450,7 +455,7 @@ const retiredPaintFlag: SemanticLeafComponentDefinition<StagedBadgeOptions> = {
   // @ts-expect-error retainPaint has been replaced by per-phase reuse
   retainPaint: true,
   measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),
-  render() { return undefined; }, accessibility: ({ id }) => ({ id, role: 'text' }),
+  render() { return undefined; }, accessibility: ({ id }) => ({ id }),
 };
 void retiredPaintFlag;
 const compositeReuse: SemanticComposedComponentDefinition<StagedBadgeOptions> = {
@@ -462,6 +467,6 @@ const compositeReuse: SemanticComposedComponentDefinition<StagedBadgeOptions> = 
     paint: model => [model.label],
   },
   compose: ({ model }) => text({ content: model.label }),
-  accessibility: ({ id }) => ({ id, role: 'group' }),
+  accessibility: ({ id }) => ({ id }),
 };
 void compositeReuse;

@@ -96,6 +96,7 @@ type ListboxComponentAction =
   | { readonly kind: 'activate'; readonly event: ListboxActivateEvent };
 
 const instantiateListbox = defineComponent<ListboxModel, ListboxComponentAction>()({
+  emitsActions: true,
   ...listboxDefinitionBase,
   keys({ model, busy }) {
     if (busy) return {};
@@ -172,21 +173,23 @@ export function listbox<TValue, const TMessage extends ComponentMessage = never>
   options: ListboxOptions<TValue, TMessage>,
 ): Element<TMessage> {
   const model = createListboxModel(options);
-  if (options.disabled === true && options.onTransition === undefined) return instantiateListbox({
+  if (options.disabled === true && options.onTransition === undefined) return instantiateListbox<TMessage>({
     ...model,
     id: options.id,
     disabled: true,
     ...(options.inert === undefined ? {} : { inert: options.inert }),
     ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
+    onAction: () => ignoreMessage(),
   });
-  if (options.inert === true && options.onTransition === undefined) return instantiateListbox({
+  if (options.inert === true && options.onTransition === undefined) return instantiateListbox<TMessage>({
     ...model,
     id: options.id,
     inert: true,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
     ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
+    onAction: () => ignoreMessage(),
   });
   assertRequiredPropertyCallback(options, 'onTransition', 'listbox onTransition');
   assertOptionalCallback(options.onActivate, 'listbox onActivate');
@@ -442,7 +445,6 @@ function accessibleListbox(
   const plan = listPlan(input.model, input.bounds);
   return {
     id: input.id,
-    role: 'listbox' as const,
     description: input.model.totalCount === 0
       ? 'Showing 0 items.'
       : `Showing ${String(plan.startIndex + 1)}-${String(plan.startIndex + plan.rows.length)} of ${

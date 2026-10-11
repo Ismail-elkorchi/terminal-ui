@@ -51,11 +51,8 @@ type RangeSliderComponentOptions = Omit<
   RangeSliderOptions<ComponentMessage>,
   'id' | 'disabled' | 'onTransition' | 'styles' | 'meta'
 >;
-type SliderFactory = <const TMessage extends ComponentMessage = never>(
-  options: SliderOptions<TMessage>,
-) => Element<TMessage>;
-
 const instantiateSlider = defineComponent<SliderComponentOptions, SliderTransition>()({
+  emitsActions: true,
   name: 'terminal-ui/components/slider',
   identity: 'required',
   structure: 'leaf',
@@ -85,7 +82,6 @@ const instantiateSlider = defineComponent<SliderComponentOptions, SliderTransiti
   hitTargets: sliderHitTargets,
   accessibility: ({ id, model, focused }) => ({
     id,
-    role: 'slider',
     ...(model.label === '' ? {} : { label: model.label }),
     numericValue: { current: model.value, minimum: model.min, maximum: model.max },
     invalid: model.error !== '',
@@ -97,10 +93,12 @@ const instantiateSlider = defineComponent<SliderComponentOptions, SliderTransiti
   }),
 });
 
-export const slider: SliderFactory = (options) => {
+export function slider<const TMessage extends ComponentMessage = never>(
+  options: SliderOptions<TMessage>,
+): Element<TMessage> {
   if (options.disabled === true && options.onTransition === undefined) {
     const rest = withoutTransitionCallback(options);
-    return instantiateSlider({ ...rest, disabled: true });
+    return instantiateSlider<TMessage>({ ...rest, disabled: true, onAction: () => ignoreMessage() });
   }
   assertTransitionCallback(options, 'slider');
   const { onTransition, ...rest } = options;
@@ -108,7 +106,7 @@ export const slider: SliderFactory = (options) => {
     ...rest,
     onAction: onTransition,
   });
-};
+}
 
 interface RangeModel extends Omit<SliderModel, 'value'> {
   readonly start: number;
@@ -116,11 +114,8 @@ interface RangeModel extends Omit<SliderModel, 'value'> {
   readonly activeHandle: RangeSliderHandle;
 }
 
-type RangeSliderFactory = <const TMessage extends ComponentMessage = never>(
-  options: RangeSliderOptions<TMessage>,
-) => Element<TMessage>;
-
 const instantiateRangeSlider = defineComponent<RangeSliderComponentOptions, RangeSliderTransition>()({
+  emitsActions: true,
   name: 'terminal-ui/components/range-slider',
   identity: 'required',
   structure: 'leaf',
@@ -156,7 +151,6 @@ const instantiateRangeSlider = defineComponent<RangeSliderComponentOptions, Rang
   },
   accessibility: ({ id, model, focused, disabled }) => ({
     id,
-    role: 'group',
     ...(model.label === '' ? {} : { label: model.label }),
     ...(focused ? { focused: true } : {}),
     ...(focused ? { activeDescendant: `${id}:${model.activeHandle}` } : {}),
@@ -186,10 +180,12 @@ const instantiateRangeSlider = defineComponent<RangeSliderComponentOptions, Rang
   }),
 });
 
-export const rangeSlider: RangeSliderFactory = (options) => {
+export function rangeSlider<const TMessage extends ComponentMessage = never>(
+  options: RangeSliderOptions<TMessage>,
+): Element<TMessage> {
   if (options.disabled === true && options.onTransition === undefined) {
     const rest = withoutTransitionCallback(options);
-    return instantiateRangeSlider({ ...rest, disabled: true });
+    return instantiateRangeSlider<TMessage>({ ...rest, disabled: true, onAction: () => ignoreMessage() });
   }
   assertTransitionCallback(options, 'rangeSlider');
   const { onTransition, ...rest } = options;
@@ -197,7 +193,7 @@ export const rangeSlider: RangeSliderFactory = (options) => {
     ...rest,
     onAction: onTransition,
   });
-};
+}
 
 function createNumericSliderModel(
   value: Readonly<Pick<

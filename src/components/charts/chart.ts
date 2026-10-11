@@ -83,6 +83,7 @@ const chartBase = {
 const passiveChart = defineComponent<ChartComponentOptions>()({ ...chartBase, createModel: createChartModel });
 
 const activeChart = defineComponent<ChartComponentOptions, ChartComponentAction>()({
+  emitsActions: true,
   ...chartBase,
   states: ['disabled', 'busy', 'inert'],
   createModel: createChartModel,
@@ -117,7 +118,7 @@ export function chart<const TMessage extends ComponentMessage = never>(
   assertOptionalCallback(options.onActivate, 'chart onActivate');
   if (options.onTransition === undefined) {
     if (!visualizationUnavailable(options)) assertVisualizationCallbacks(options, 'chart');
-    return activeChart({ ...componentOptions, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }) });
+    return activeChart<TMessage>({ ...componentOptions, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }), onAction: () => ignoreMessage() });
   }
   assertVisualizationCallbacks(options, 'chart');
   return activeChart({
@@ -497,7 +498,6 @@ function paintChartSeries(
 function chartAccessibility(input: ComponentAccessibilityInput<ChartModel>) {
   return {
     id: input.id,
-    role: 'listbox' as const,
     label: input.model.label,
     description: `${String(input.model.series.length)} chart series.`,
     disabled: input.disabled,

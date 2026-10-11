@@ -44,7 +44,7 @@ test('measured viewport uses one scrollbar decision even for non-monotonic entry
     measure: ({ constraints }) => ({ minWidth: 0, minHeight: 0,
       preferredWidth: constraints.width, preferredHeight: constraints.width >= 5 ? 6 : 1 }),
     render: () => {},
-    accessibility: ({ id }) => ({ id, role: 'text' }),
+    accessibility: ({ id }) => ({ id }),
   } });
   const result = renderElementInternal(measuredViewport([entry], {
     id: 'responsive-viewport', scrollbar: { visible: 'auto' }, onScroll: () => 'scroll',

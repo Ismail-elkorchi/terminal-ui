@@ -185,7 +185,7 @@ const packedComponent = defineComponent({
   render({ target }) {
     target.write(0, 0, [{ text: 'Defined' }]);
   },
-  accessibility: ({ id }) => ({ id, role: 'text', label: 'Defined' })
+  accessibility: ({ id }) => ({ id, label: 'Defined' })
 });
 const packedPanel = defineComponent({
   name: 'terminal-ui-consumer/components/packedPanel',
@@ -221,7 +221,6 @@ const packedPanel = defineComponent({
   }),
   accessibility: ({ id, children }) => ({
     id,
-    role: 'group',
     label: 'Defined panel',
     children
   })

@@ -66,6 +66,7 @@ const barChartBase = {
 const passiveBarChart = defineComponent<BarChartComponentOptions>()({ ...barChartBase, createModel: createBarChartModel });
 
 const activeBarChart = defineComponent<BarChartComponentOptions, BarChartComponentAction>()({
+  emitsActions: true,
   ...barChartBase,
   states: ['disabled', 'busy', 'inert'],
   createModel: createBarChartModel,
@@ -116,7 +117,7 @@ export function barChart<const TMessage extends ComponentMessage = never>(
   assertOptionalCallback(options.onActivate, 'barChart onActivate');
   if (options.onTransition === undefined) {
     if (!visualizationUnavailable(options)) assertVisualizationCallbacks(options, 'barChart');
-    return activeBarChart({ ...componentOptions, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }) });
+    return activeBarChart<TMessage>({ ...componentOptions, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }), onAction: () => ignoreMessage() });
   }
   assertVisualizationCallbacks(options, 'barChart');
   return activeBarChart({
@@ -264,7 +265,6 @@ function barChartAccessibility(input: ComponentAccessibilityInput<BarChartModel>
   const plan = barChartPlan(input.model, input.bounds.height);
   return {
     id: input.id,
-    role: 'listbox' as const,
     label: input.model.label,
     description: `${String(input.model.items.length)} bars. Showing ${String(plan.start + 1)}-${
       String(plan.end)

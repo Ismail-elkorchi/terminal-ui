@@ -21,7 +21,7 @@ const canvas = defineComponent({
     { row: 2, column: Math.min(95, model.width - 20), width: 20, height: 1 },
     { row: 2, column: 0, width: 10, height: 1 },
   ] }),
-  accessibility: ({ id, slots }) => ({ id, role: 'group', children: slots.fields }),
+  accessibility: ({ id, slots }) => ({ id, children: slots.fields }),
 });
 const initial = { text: 'retained', cursor: 8 };
 function scene(editor = initial, width = 120, extra = {}) {

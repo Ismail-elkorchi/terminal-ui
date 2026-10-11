@@ -45,6 +45,7 @@ import {
 } from './shared.ts';
 
 const instantiateMenuTrigger = defineComponent<MenuTriggerOwnOptions, MenuTriggerComponentAction>()({
+  emitsActions: true,
   name: 'terminal-ui/components/menu-trigger',
   identity: 'required',
   structure: 'composite',
@@ -151,7 +152,6 @@ const instantiateMenuTrigger = defineComponent<MenuTriggerOwnOptions, MenuTrigge
   }],
   accessibility: ({ id, model, focused, children, accessibleName }) => ({
     id,
-    role: 'group',
     ...(model.label === ''
       ? accessibleName === undefined ? {} : { label: accessibleName }
       : { label: model.label }),
@@ -179,7 +179,7 @@ export const menuTrigger: MenuTriggerFactory = (options) => {
   assertOptionalCallback(options.onActivate, 'menuTrigger onActivate');
   if (options.onTransition === undefined) {
     if (options.disabled !== true && options.inert !== true) assertMenuCallbacks(options, 'menuTrigger');
-    return instantiateMenuTrigger({ ...instance, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }) });
+    return instantiateMenuTrigger<never>({ ...instance, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }), onAction: () => ignoreMessage() });
   }
   assertMenuCallbacks(options, 'menuTrigger');
   return instantiateMenuTrigger({

@@ -24,14 +24,8 @@ import {
 } from '../../renderer/internal/render-tree/component-node.ts';
 import type {
   ComponentBehaviorInput,
-  ComponentDefinition,
   ComponentDefinitionIdentity,
-  ComponentIdentity,
-  ComponentMetadataCapability,
-  ComponentOptionsDefinition,
   ComponentReservedOption,
-  ComponentSlotsDefinition,
-  ComponentStateCapability,
   ComponentVisualState,
 } from '../contracts.ts';
 import { executeComponentPhase } from '../execution-error.ts';
@@ -42,36 +36,16 @@ import {
   extractComponentOptions,
   normalizeComponentState,
 } from './instance-validation.ts';
-import type { ComponentInstanceOptions, ComponentRuntimeContract } from './runtime-contracts.ts';
+import type { CompiledComponentDefinition, ComponentInstanceHooks, ComponentInstanceOptions, ComponentRuntimeContract } from './runtime-contracts.ts';
 import { componentInstanceSlotContent } from './slots.ts';
 import { componentReuse } from './reuse.ts';
 
-export function createDefinedComponentElement<
-  TOptions extends object,
-  TModel extends object,
-  TAction,
-  TPart extends string,
-  TStates extends readonly ComponentStateCapability[],
-  TIdentity extends ComponentIdentity,
-  TMetadata extends readonly ComponentMetadataCapability[],
-  TSlots extends ComponentSlotsDefinition,
-  TVisualStates extends readonly ComponentVisualState[],
->(
+export function createDefinedComponentElement<TOptions extends object, TModel extends object, TAction>(
   value: unknown,
-  contract: ComponentRuntimeContract,
-  ownedDefinition: ComponentDefinition<
-    TOptions,
-    TModel,
-    TAction,
-    TPart,
-    TStates,
-    TIdentity,
-    TMetadata,
-    TSlots,
-    TVisualStates
-  >,
+  compiled: CompiledComponentDefinition<TOptions, TModel, TAction>,
   runtime: RuntimeComponentDefinition,
 ): Element<unknown> {
+    const { contract, instance: ownedDefinition } = compiled;
     const instance = extractComponentOptions(value, contract);
     const state = ownedDefinition.semantics === 'decorative'
       ? emptyComponentState
@@ -97,7 +71,7 @@ export function createDefinedComponentElement<
     const focusNavigation = componentFocusNavigation(ownedDefinition, behavior, instance.id);
     const slotContent = componentInstanceSlotContent(
       instance,
-      ownedDefinition,
+      compiled.slots,
       contract,
       behavior,
       toActionMessage,
@@ -268,7 +242,7 @@ function createComponentModel<
   TModel extends object
 >(
   value: ComponentInstanceOptions,
-  definition: ComponentDefinitionIdentity & ComponentOptionsDefinition<TOptions, TModel>,
+  definition: Pick<ComponentInstanceHooks<TOptions, TModel, never>, 'name' | 'createModel'>,
   state: Readonly<ElementState>
 ): Readonly<TModel> {
   const customEntries = Object.entries(value)
@@ -276,11 +250,12 @@ function createComponentModel<
   // This is the one type-erasure boundary between framework-owned fields and
   // the component's statically declared options.
   const custom = Object.freeze(Object.fromEntries(customEntries)) as Readonly<TOptions & TModel>;
-  if (definition.createModel === undefined) {
+  const createModel = definition.createModel;
+  if (createModel === undefined) {
     return custom;
   }
   const model = executeComponentPhase(definition.name, value.id, 'createModel', () =>
-    definition.createModel.call(undefined, custom, {
+    createModel.call(undefined, custom, {
       ...(value.id === undefined ? {} : { id: value.id }),
       disabled: state.disabled === true,
       busy: state.busy === true,

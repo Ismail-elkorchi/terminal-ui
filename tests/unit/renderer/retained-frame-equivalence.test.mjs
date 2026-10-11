@@ -9,6 +9,7 @@ import { createTuiRuntime, defineTui } from '../../../dist/tui/index.js';
 
 const picture = rasterImage({ width: 1, height: 1, format: 'rgb8', data: new Uint8Array([255, 0, 80]) });
 const paint = defineComponent({
+  emitsActions: true,
   name: 'terminal-ui-tests/retained-frame-equivalence',
   identity: 'required', structure: 'leaf', semantics: 'semantic', accessibleRole: 'text',
   metadata: ['styles', 'layer'], reuse: { paint: model => [model] },
@@ -25,7 +26,7 @@ const paint = defineComponent({
       bounds: { row: 1, column: 3, width: 4, height: 2 }, fit: 'fill' });
   },
   hitTargets: ({ bounds }) => [{ id: 'activate', bounds, accepts: ['pointerDown'], message: () => ({ kind: 'activate' }) }],
-  accessibility: ({ id, model }) => ({ id, role: 'text', label: model.source }),
+  accessibility: ({ id, model }) => ({ id, label: model.source }),
 });
 const base = Object.freeze({ lines: [{ row: 0, column: 0, text: 'base 界 abc 👩🏽‍💻 tail' },
   { row: 1, column: 0, text: 'second background row' }, { row: 3, column: 0, text: 'bottom row' }], bold: false, source: 'base' });

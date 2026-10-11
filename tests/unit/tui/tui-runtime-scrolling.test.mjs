@@ -32,13 +32,14 @@ const emptySourceMetrics = Object.freeze({
 
 test('TUI wheel routing skips non-scroll child targets and reaches the scroll target', async () => {
   const renderer = {
+    emitsActions: true,
     ...leafComponentDefinition,
     accessibleRole: 'group',
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'child inside scroll target' }]);
     },
     accessibility({ id }) {
-      return { id, role: 'group', label: 'scroll target' };
+      return { id, label: 'scroll target' };
     },
     hitTargets({ bounds }) {
       return [
@@ -465,7 +466,7 @@ test('viewport wheel bursts and thumb dragging keep scrolled composite children 
           }));
         },
         accessibility({ id, children: accessibleChildren }) {
-          return { id, role: 'group', label: 'Scrolling composite', children: accessibleChildren };
+          return { id, label: 'Scrolling composite', children: accessibleChildren };
         }
       }
     }), {

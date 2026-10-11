@@ -25,6 +25,7 @@ interface LinkComponentAction {
 }
 
 const instantiateLink = defineComponent<LinkModel, LinkComponentAction>()({
+  emitsActions: true,
   name: 'terminal-ui/components/link',
   identity: 'required',
   structure: 'leaf',
@@ -78,7 +79,6 @@ const instantiateLink = defineComponent<LinkModel, LinkComponentAction>()({
   }],
   accessibility: ({ id, model, focused }) => ({
     id,
-    role: 'link',
     label: model.accessibleName,
     value: model.href,
     ...(focused ? { focused: true } : {}),
@@ -102,12 +102,13 @@ export function link<const TMessage extends ComponentMessage = never>(
     ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
-  if (options.disabled === true && options.onActivate === undefined) return instantiateLink({
+  if (options.disabled === true && options.onActivate === undefined) return instantiateLink<TMessage>({
     ...model,
     disabled: true,
     ...(options.inert === undefined ? {} : { inert: options.inert }),
+    onAction: () => ignoreMessage(),
   });
-  if (options.inert === true && options.onActivate === undefined) return instantiateLink({ ...model, inert: true });
+  if (options.inert === true && options.onActivate === undefined) return instantiateLink<TMessage>({ ...model, inert: true, onAction: () => ignoreMessage() });
   assertRequiredPropertyCallback(options, 'onActivate', 'link onActivate');
   return instantiateLink({
     ...model,
@@ -133,12 +134,13 @@ export function toggleButton<const TMessage extends ComponentMessage = never>(
     ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
-  if (options.disabled === true && options.onTransition === undefined) return instantiateToggleButton({
+  if (options.disabled === true && options.onTransition === undefined) return instantiateToggleButton<TMessage>({
     ...model,
     disabled: true,
     ...(options.inert === undefined ? {} : { inert: options.inert }),
+    onAction: () => ignoreMessage(),
   });
-  if (options.inert === true && options.onTransition === undefined) return instantiateToggleButton({ ...model, inert: true });
+  if (options.inert === true && options.onTransition === undefined) return instantiateToggleButton<TMessage>({ ...model, inert: true, onAction: () => ignoreMessage() });
   assertRequiredPropertyCallback(options, 'onTransition', 'toggleButton onTransition');
   return instantiateToggleButton({
     ...model,
@@ -174,7 +176,6 @@ const instantiateToolbar = defineComponent<ToolbarModel>()({
   focusTargets: () => [],
   accessibility: ({ id, model, slots }) => ({
     id,
-    role: 'toolbar',
     label: model.label,
     orientation: model.orientation,
     children: slots.content,

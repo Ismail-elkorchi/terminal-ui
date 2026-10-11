@@ -92,7 +92,7 @@ test('external labels satisfy names and renderer errors identify the source comp
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
     render() {},
     accessibility: ({ id }) => ({
-      id, role: 'group', children: [
+      id, children: [
         { id: 'name-label', role: 'text', value: 'Name', controls: 'name-field' },
         { id: 'name-field', role: 'textbox', value: sensitive }
       ]
@@ -104,7 +104,7 @@ test('external labels satisfy names and renderer errors identify the source comp
   const invalid = {
     ...definition,
     accessibility: ({ id }) => ({
-      id, role: 'group', children: [{ id: 'nested', role: 'group', children: [
+      id, children: [{ id: 'nested', role: 'group', children: [
         { id: 'missing-name-field', role: 'textbox', value: sensitive }
       ] }]
     })
@@ -122,7 +122,7 @@ test('external labels satisfy names and renderer errors identify the source comp
   const missingControl = {
     ...definition,
     accessibility: ({ id }) => ({
-      id, role: 'group', children: [{ id: 'name-label', role: 'text', value: 'Name', controls: 'missing-control' }]
+      id, children: [{ id: 'name-label', role: 'text', value: 'Name', controls: 'missing-control' }]
     })
   };
   assert.throws(
@@ -134,7 +134,7 @@ test('external labels satisfy names and renderer errors identify the source comp
     }
   );
 
-  const invalidRoot = { ...definition, accessibility: () => ({ id: '', role: 'group' }) };
+  const invalidRoot = { ...definition, accessibility: () => ({ id: '',  }) };
   assert.throws(
     () => renderElementFrame(componentElement({ id: 'form-instance', definition: invalidRoot }), { columns: 12, rows: 2 }),
     /component "test\/form" \(instance "form-instance"\).*node id at root/u,

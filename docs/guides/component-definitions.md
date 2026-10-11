@@ -1,7 +1,8 @@
 # Component Definitions
 
-Use `defineComponent()` when the built-in catalog does not express the UI you
-need. Defined and built-in components return the same opaque `Element` values,
+Use ordinary functions returning elements to reuse arrangements of existing UI.
+Use `defineComponent()` when a control needs its own rendering, interaction,
+semantic, or inspection boundary. Defined and built-in components return the same opaque `Element` values,
 compose with the same layouts, and use the same focus, pointer, accessibility,
 and frame pipeline.
 
@@ -46,7 +47,6 @@ const badge = defineComponent<BadgeOptions>()({
   },
   accessibility: ({ id, model }) => ({
     id,
-    role: 'status',
     label: model.label
   })
 });
@@ -131,7 +131,6 @@ const stack = defineComponent({
   },
   accessibility: ({ id, children }) => ({
     id,
-    role: 'group',
     label: 'Stack',
     children
   })
@@ -166,6 +165,21 @@ Child rectangles must stay inside the allocated component rectangle. Use
 that intentionally escapes normal flow. That authority belongs to layout, not
 to application components.
 
+## Composed Components
+
+Use `structure: 'composed'` when a semantic component owns focus, interaction,
+inspection, or accessibility but delegates geometry to an element tree returned
+by `compose()`. Ordinary arrangement functions need no definition.
+
+Caller slots preserve their correspondence through message mapping and identity
+scoping, including previously constructed content derived from the actual
+supplied slot. A cached wrapper built from an unmapped ancestor does not stand in
+for a captured or non-bubbling slot: it bypasses that slot's message policy and
+remains implementation content. Omitted slot content has no
+rendered accessibility entry; omission does not remove an application child or
+cancel its work. Repeated placement or ambiguous supplied slot ancestry is
+rejected instead of silently assigning one occurrence to another slot.
+
 ## Drawing Boundary
 
 The render hook receives a frozen, write-only `RenderTarget`. Writes are
@@ -188,8 +202,11 @@ viewport so large content can be windowed.
 
 Semantic definitions require an exact `accessibleRole` and an accessibility
 hook. Use a role resolver when the component model changes the root role, as
-`text()` does for headings. Rendering rejects a hook whose root role disagrees
-with the declaration, so inspection and rendered accessibility cannot drift.
+`text()` does for headings. The hook returns `ComponentAccessibilityResult`: root
+content without a `role`. The adapter inserts the already resolved role, so
+inspection and rendered accessibility share one authority. JavaScript hooks that
+supply an obsolete root `role` are rejected; descendant nodes retain their own
+roles.
 Decorative definitions are
 leaf components for non-semantic drawing. They use `semantics: 'decorative'`
 and cannot define accessibility, children, focus targets, hit targets, keys,
@@ -198,8 +215,18 @@ several decorative leaves with a layout factory. The same rules are checked
 for JavaScript callers at runtime.
 
 Semantic definitions declare keyboard, text, paste, pointer, and hit-target
-behavior in terms of one reusable action type. Each instance supplies
-`onAction`, which maps that action into its application's message type. Return
+behavior in terms of one reusable local action type. Declare `emitsActions: true`
+when that type is not `never`. Every instance then supplies `onAction`, which maps
+the local action into its application's message type, including when the instance
+is disabled or inert: layout and focus notifications may still need the binding.
+Availability suppresses activation, not the entire output channel. Domain controls
+may explicitly ignore optional outputs in their adapters.
+
+An actionless definition omits `emitsActions` or sets it to `false`, and cannot
+accept `onAction`. It may have hooks that only return `ignoreMessage()`, and its
+caller slots may still bubble application messages. Those descendant messages do
+not become local component actions. Composition and implementation-slot hooks use
+the same local `emit()` binding as direct interaction and lifecycle hooks. Return
 `ignoreMessage()` from the same `/component` entrypoint when an action is
 intentionally ignored. Component messages are non-null values; returning
 `undefined` or `null` is rejected so ignored actions are always explicit.

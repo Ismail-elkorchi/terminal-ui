@@ -107,7 +107,7 @@ const writeOnly = defineComponent({
     const readCell = target.readCell;
     void readCell;
   },
-  accessibility: ({ id }) => ({ id, role: 'text', label: 'write only' })
+  accessibility: ({ id }) => ({ id, label: 'write only' })
 });
 writeOnly({ id: 'write-only-component' });
 writeOnly({ id: 'inert-component', inert: true });
@@ -129,7 +129,7 @@ const rendererWithUnsupportedPlacement: SemanticLeafComponentDefinition = {
   accessibleRole: 'text',
   measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),
   render: () => undefined,
-  accessibility: ({ id }) => ({ id, role: 'text', label: id }),
+  accessibility: ({ id }) => ({ id, label: id }),
   // @ts-expect-error components cannot take ownership of layout placement
   place: ({ bounds }: { readonly bounds: Rect }) => bounds
 };

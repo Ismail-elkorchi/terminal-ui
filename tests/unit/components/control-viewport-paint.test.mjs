@@ -78,7 +78,7 @@ function guardedPaint(element, bounds, visible) {
 
 const logicalWrapper = defineComponent()({
   name: 'terminal-ui-tests/huge-control', identity: 'required', structure: 'composite', semantics: 'semantic',
-  accessibleRole: 'group', accessibility: ({ id, slots }) => ({ id, role: 'group', children: slots.control }),
+  accessibleRole: 'group', accessibility: ({ id, slots }) => ({ id, children: slots.control }),
   slots: { control: { cardinality: 'one', owner: 'caller', messages: 'bubble' } },
   measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: huge, preferredHeight: 4 }),
   layout: ({ bounds }) => ({ control: bounds }),

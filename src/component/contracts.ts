@@ -279,7 +279,7 @@ type ComponentDefinitionBase<
   TIdentity extends ComponentIdentity,
   TPart extends string,
   TVisualStates extends readonly ComponentVisualState[]
-> = ComponentDefinitionIdentity & ComponentOptionsDefinition<TOptions, TModel> & {
+> = ComponentDefinitionIdentity & Partial<ComponentModelDefinition<TOptions, TModel>> & {
   readonly identity: TIdentity;
   readonly states?: TStates;
   readonly parts?: readonly TPart[];
@@ -353,12 +353,21 @@ type InteractiveDefinition<TModel extends object, TAction, TPart extends string>
   ) => FocusNavigation;
 };
 
+/** Root role is supplied by the definition; descendants remain ordinary accessible nodes. */
+export type ComponentAccessibilityResult = Omit<AccessibleNode, 'role'> & { readonly role?: never };
+
+/** Runtime witness for the action type, independent of installed hooks and availability. */
+type ComponentActionDefinition<TAction> = [TAction] extends [never]
+  ? { readonly emitsActions?: false }
+  : { readonly emitsActions: true };
+
 type SemanticDefinition<
   TModel extends object,
   TAction,
   TSlots extends ComponentSlotShape,
   TPart extends string
 > = InteractiveDefinition<TModel, TAction, TPart> & {
+  readonly emitsActions?: boolean;
   readonly semantics: 'semantic';
   readonly accessibleRole:
     | import('../accessibility/types.ts').AccessibleRole
@@ -373,7 +382,7 @@ type SemanticDefinition<
   readonly accessibility: (
     this: undefined,
     input: ComponentAccessibilityInput<TModel, TSlots>
-  ) => AccessibleNode;
+  ) => ComponentAccessibilityResult;
   readonly inspection?: (
     this: undefined,
     input: ComponentInspectionInput<TModel>
@@ -381,6 +390,7 @@ type SemanticDefinition<
 };
 
 interface DecorativeDefinition {
+  readonly emitsActions?: false;
   readonly semantics: 'decorative';
   readonly accessibleRole?: never;
   readonly accessibility?: never;
@@ -396,7 +406,7 @@ interface DecorativeDefinition {
 
 export type ComponentMetadataCapability = 'focus' | 'layer' | 'styles';
 
-export type SemanticLeafComponentDefinition<
+type SemanticLeafComponentDefinitionShape<
   TOptions extends object = Readonly<Record<never, never>>,
   TModel extends object = TOptions,
   TAction = never,
@@ -425,7 +435,7 @@ export type SemanticLeafComponentDefinition<
     ) => undefined;
   };
 
-export type DecorativeLeafComponentDefinition<
+type DecorativeLeafComponentDefinitionShape<
   TOptions extends object = Readonly<Record<never, never>>,
   TModel extends object = TOptions,
   TPart extends string = never,
@@ -452,7 +462,7 @@ export type DecorativeLeafComponentDefinition<
     ) => undefined;
   };
 
-export type SemanticCompositeComponentDefinition<
+type SemanticCompositeComponentDefinitionShape<
   TOptions extends object = Readonly<Record<never, never>>,
   TModel extends object = TOptions,
   TAction = never,
@@ -493,7 +503,7 @@ export type SemanticCompositeComponentDefinition<
     ) => undefined;
   };
 
-export type SemanticComposedComponentDefinition<
+type SemanticComposedComponentDefinitionShape<
   TOptions extends object = Readonly<Record<never, never>>,
   TModel extends object = TOptions,
   TAction = never,
@@ -521,6 +531,51 @@ export type SemanticComposedComponentDefinition<
     readonly clipChildren?: boolean;
   };
 
+export type SemanticLeafComponentDefinition<
+  TOptions extends object = Readonly<Record<never, never>>,
+  TModel extends object = TOptions,
+  TAction = never,
+  TPart extends string = never,
+  TStates extends readonly ComponentStateCapability[] = readonly [],
+  TIdentity extends ComponentIdentity = 'required',
+  TMetadata extends readonly ComponentMetadataCapability[] = readonly [],
+  TVisualStates extends readonly ComponentVisualState[] = readonly [],
+> = SemanticLeafComponentDefinitionShape<TOptions, TModel, TAction, TPart, TStates, TIdentity, TMetadata, TVisualStates> & ComponentActionDefinition<TAction> & ComponentOptionsDefinition<TOptions, TModel>;
+
+export type SemanticCompositeComponentDefinition<
+  TOptions extends object = Readonly<Record<never, never>>,
+  TModel extends object = TOptions,
+  TAction = never,
+  TPart extends string = never,
+  TStates extends readonly ComponentStateCapability[] = readonly [],
+  TIdentity extends ComponentIdentity = 'required',
+  TMetadata extends readonly ComponentMetadataCapability[] = readonly [],
+  TSlots extends ComponentSlotsDefinition = Readonly<Record<never, never>>,
+  TVisualStates extends readonly ComponentVisualState[] = readonly [],
+> = SemanticCompositeComponentDefinitionShape<TOptions, TModel, TAction, TPart, TStates, TIdentity, TMetadata, TSlots, TVisualStates> & ComponentActionDefinition<TAction> & ComponentOptionsDefinition<TOptions, TModel>;
+
+export type SemanticComposedComponentDefinition<
+  TOptions extends object = Readonly<Record<never, never>>,
+  TModel extends object = TOptions,
+  TAction = never,
+  TPart extends string = never,
+  TStates extends readonly ComponentStateCapability[] = readonly [],
+  TIdentity extends ComponentIdentity = 'required',
+  TMetadata extends readonly ComponentMetadataCapability[] = readonly [],
+  TSlots extends ComponentSlotsDefinition = Readonly<Record<never, never>>,
+  TVisualStates extends readonly ComponentVisualState[] = readonly [],
+> = SemanticComposedComponentDefinitionShape<TOptions, TModel, TAction, TPart, TStates, TIdentity, TMetadata, TSlots, TVisualStates> & ComponentActionDefinition<TAction> & ComponentOptionsDefinition<TOptions, TModel>;
+
+export type DecorativeLeafComponentDefinition<
+  TOptions extends object = Readonly<Record<never, never>>,
+  TModel extends object = TOptions,
+  TPart extends string = never,
+  TIdentity extends ComponentIdentity = 'optional',
+  TMetadata extends readonly Extract<ComponentMetadataCapability, 'layer' | 'styles'>[] = readonly [],
+  TVisualStates extends readonly ComponentVisualState[] = readonly [],
+> = DecorativeLeafComponentDefinitionShape<TOptions, TModel, TPart, TIdentity, TMetadata, TVisualStates>
+  & ComponentOptionsDefinition<TOptions, TModel>;
+
 export type ComponentDefinition<
   TOptions extends object = Readonly<Record<never, never>>,
   TModel extends object = TOptions,
@@ -536,6 +591,19 @@ export type ComponentDefinition<
   | DecorativeLeafComponentDefinition<TOptions, TModel, TPart, TIdentity, Extract<TMetadata, readonly ('layer' | 'styles')[]>, TVisualStates>
   | SemanticCompositeComponentDefinition<TOptions, TModel, TAction, TPart, TStates, TIdentity, TMetadata, TSlots, TVisualStates>
   | SemanticComposedComponentDefinition<TOptions, TModel, TAction, TPart, TStates, TIdentity, TMetadata, TSlots, TVisualStates>;
+
+/** Internal hook compilation shape; public authoring aliases additionally require action advertisement. */
+export type ComponentDefinitionShape<TOptions extends object, TModel extends object, TAction> =
+  | SemanticLeafComponentDefinitionShape<TOptions, TModel, TAction, string,
+      readonly ComponentStateCapability[], ComponentIdentity, readonly ComponentMetadataCapability[], readonly ComponentVisualState[]>
+  | DecorativeLeafComponentDefinitionShape<TOptions, TModel, string, ComponentIdentity,
+      readonly ('layer' | 'styles')[], readonly ComponentVisualState[]>
+  | SemanticCompositeComponentDefinitionShape<TOptions, TModel, TAction, string,
+      readonly ComponentStateCapability[], ComponentIdentity, readonly ComponentMetadataCapability[],
+      ComponentSlotsDefinition, readonly ComponentVisualState[]>
+  | SemanticComposedComponentDefinitionShape<TOptions, TModel, TAction, string,
+      readonly ComponentStateCapability[], ComponentIdentity, readonly ComponentMetadataCapability[],
+      ComponentSlotsDefinition, readonly ComponentVisualState[]>;
 
 export type ComponentReservedOption =
   | 'id'
@@ -631,29 +699,6 @@ type StateOptions<TStates extends readonly ComponentStateCapability[]> = Readonl
   Partial<Pick<Required<ElementState>, TStates[number]>>
 >;
 
-type AvailableActionState<TStates extends readonly ComponentStateCapability[]> =
-  Omit<StateOptions<TStates>, 'disabled' | 'inert'>
-  & ('disabled' extends TStates[number]
-      ? { readonly disabled?: boolean }
-      : Record<never, never>)
-  & ('inert' extends TStates[number]
-      ? { readonly inert?: boolean }
-      : Record<never, never>);
-
-type UnavailableActionState<TStates extends readonly ComponentStateCapability[]> =
-  | ('disabled' extends TStates[number]
-      ? Omit<StateOptions<TStates>, 'disabled' | 'inert'> & {
-          readonly disabled: true;
-          readonly inert?: boolean;
-        }
-      : never)
-  | ('inert' extends TStates[number]
-      ? Omit<StateOptions<TStates>, 'disabled' | 'inert'> & {
-          readonly inert: true;
-          readonly disabled?: boolean;
-        }
-      : never);
-
 type ActionMapper<TAction, TMessage> = [TAction] extends [never]
   ? { readonly onAction?: never }
   : { readonly onAction: (action: TAction) => MessageResolution<TMessage> };
@@ -662,23 +707,7 @@ type StatefulActionOptions<
   TAction,
   TMessage,
   TStates extends readonly ComponentStateCapability[]
-> = [TAction] extends [never]
-  ? StateOptions<TStates> & { readonly onAction?: never }
-  : 'disabled' extends TStates[number]
-    ? (UnavailableActionState<TStates> & {
-        readonly onAction?: (action: TAction) => MessageResolution<TMessage>;
-      })
-      | (AvailableActionState<TStates> & {
-          readonly onAction: (action: TAction) => MessageResolution<TMessage>;
-        })
-    : 'inert' extends TStates[number]
-      ? (UnavailableActionState<TStates> & {
-          readonly onAction?: (action: TAction) => MessageResolution<TMessage>;
-        })
-        | (AvailableActionState<TStates> & {
-            readonly onAction: (action: TAction) => MessageResolution<TMessage>;
-          })
-    : StateOptions<TStates> & ActionMapper<TAction, TMessage>;
+> = StateOptions<TStates> & ActionMapper<TAction, TMessage>;
 
 type SemanticInstanceOptions<
   TOptions extends object,

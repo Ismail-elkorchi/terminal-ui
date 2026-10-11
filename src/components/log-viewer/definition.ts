@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/unified-signatures -- passive and scrollable overloads preserve contextual action inference */
-import type { AccessibleNode } from '../../accessibility/types.ts';
 import type { LogHistory, LogHistoryRecord, LogSearchMatch } from '../../behavior/log-history.ts';
 import {
   assertLogHistory,
@@ -20,6 +19,7 @@ import {
   visibleWindowFromScroll,
 } from '../../behavior/scroll.ts';
 import type {
+  ComponentAccessibilityResult,
   ComponentAccessibilityInput,
   ComponentInput,
   ComponentLayoutCommitInput,
@@ -167,9 +167,10 @@ const baseDefinition = {
   },
 };
 
-const passiveLogViewer = defineComponent<LogViewerComponentOptions, Extract<LogViewerComponentAction, { readonly kind: 'layout' }>>()({ ...baseDefinition, createModel: createLogViewerModel });
+const passiveLogViewer = defineComponent<LogViewerComponentOptions, Extract<LogViewerComponentAction, { readonly kind: 'layout' }>>()({ emitsActions: true, ...baseDefinition, createModel: createLogViewerModel });
 
 const activeLogViewer = defineComponent<LogViewerComponentOptions, LogViewerComponentAction>()({
+  emitsActions: true,
   ...baseDefinition,
   createModel: createLogViewerModel,
   keys: (input) => {
@@ -341,11 +342,10 @@ function renderLogViewer(input: ComponentRenderInput<LogViewerModel, LogViewerSt
 
 function logViewerAccessibility(
   input: ComponentAccessibilityInput<LogViewerModel>,
-): AccessibleNode {
+): ComponentAccessibilityResult {
   const window = logViewerWindow(input, false);
   return {
     id: input.id,
-    role: 'text',
     description: logViewerDescription(input.model, window),
     ...(input.focused ? { focused: true } : {}),
     children: window.rows.map((row) => ({

@@ -1,7 +1,6 @@
 import { textPresentationForLayout } from './layout-text-context.ts';
 import type { TextPresentation } from '../../text/presentation.ts';
 import type { AccessibleNode } from '../../accessibility/types.ts';
-import { isAccessibleRole } from '../../accessibility/types.ts';
 import { intersectRects } from '../../geometry/rect.ts';
 import type { Rect } from '../../geometry/types.ts';
 import type { TextWidthProfile } from '../../text/types.ts';
@@ -272,14 +271,6 @@ export function accessibilityForRenderNode(
     theme,
     widthProfile
   });
-  const declaredRole = renderNode.kind === 'component'
-    ? (renderNode.props as { readonly accessibleRole?: AccessibleNode['role'] }).accessibleRole
-    : undefined;
-  if (declaredRole !== undefined && isAccessibleRole(accessible.role) && accessible.role !== declaredRole) {
-    throw new Error(
-      `RenderNode "${id}" declared accessibility role "${declaredRole}" but produced "${accessible.role}".`
-    );
-  }
   return {
     ...accessible,
     ...(renderNode.state?.disabled === true ? { disabled: true } : {}),

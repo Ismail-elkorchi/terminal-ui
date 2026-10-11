@@ -50,10 +50,11 @@ export const externalText = defineComponent({
       source: frameSource({ partName: 'content', partType: 'content', cellRole: 'text' })
     })]));
   },
-  accessibility: ({ id, model }) => ({ id, role: 'text', value: model.content })
+  accessibility: ({ id, model }) => ({ id, value: model.content })
 });
 
 export const externalButton = defineComponent({
+  emitsActions: true,
   name: 'terminal-ui-parity/components/button',
   identity: 'required',
   structure: 'leaf',
@@ -96,7 +97,6 @@ export const externalButton = defineComponent({
   }),
   accessibility: ({ id, model, focused, disabled, busy }) => ({
     id,
-    role: 'button',
     label: model.label,
     ...(focused ? { focused: true } : {}),
     ...(disabled ? { disabled: true } : {}),
@@ -105,6 +105,7 @@ export const externalButton = defineComponent({
 });
 
 export const externalTextInput = defineComponent({
+  emitsActions: true,
   name: 'terminal-ui-parity/components/text-input',
   identity: 'required',
   structure: 'leaf',
@@ -158,7 +159,6 @@ export const externalTextInput = defineComponent({
   onPaste: ({ text, readOnly }) => readOnly ? ignoreMessage() : { kind: 'insert', text },
   accessibility: ({ id, model, focused, disabled, readOnly }) => ({
     id,
-    role: 'textbox',
     label: model.label,
     value: model.value,
     ...(focused ? { focused: true } : {}),
@@ -168,6 +168,7 @@ export const externalTextInput = defineComponent({
 });
 
 export const externalVirtualList = defineComponent({
+  emitsActions: true,
   name: 'terminal-ui-parity/components/virtual-list',
   identity: 'required',
   structure: 'leaf',
@@ -239,7 +240,6 @@ export const externalVirtualList = defineComponent({
     const end = Math.min(input.model.items.length, input.model.offset + height);
     return {
       id: input.id,
-      role: 'list',
       label: 'Items',
       ...(input.focused ? { focused: true } : {}),
       window: {
@@ -275,6 +275,7 @@ function virtualListPlan(input) {
 }
 
 export const externalCombobox = defineComponent({
+  emitsActions: true,
   name: 'terminal-ui-parity/components/combobox',
   identity: 'required',
   structure: 'composed',
@@ -333,7 +334,6 @@ export const externalCombobox = defineComponent({
   }],
   accessibility: ({ id, model, disabled, focused, focusedTargetId }) => ({
     id,
-    role: 'combobox',
     label: model.label,
     value: model.selectedId,
     expanded: model.open,
@@ -358,6 +358,7 @@ const externalDialogSlots = {
 };
 
 export const externalDialog = defineComponent({
+  emitsActions: true,
   name: 'terminal-ui-parity/components/dialog',
   identity: 'required',
   structure: 'composed',
@@ -392,7 +393,6 @@ export const externalDialog = defineComponent({
   },
   accessibility: ({ id, model, children }) => ({
     id,
-    role: 'dialog',
     label: model.title,
     ...(model.modal ? { scope: { kind: 'modal', trapsFocus: true, obscuresBackground: true } } : {}),
     children
@@ -432,7 +432,6 @@ export const externalTooltip = defineComponent({
   },
   accessibility: ({ id, model, children }) => ({
     id,
-    role: 'group',
     label: 'Tooltip owner',
     children: [
       ...children,
@@ -474,7 +473,6 @@ export const externalChart = defineComponent({
   },
   accessibility: ({ id, model }) => ({
     id,
-    role: 'group',
     label: model.label,
     description: model.values.join(', ')
   })

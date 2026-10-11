@@ -14,7 +14,7 @@ const custom = defineComponent<{ readonly label: string }>()({
   name: 'contract/paint-suppression', identity: 'optional', structure: 'leaf', semantics: 'semantic', accessibleRole: 'status',
   measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
   render: () => undefined,
-  accessibility: ({ id, model }) => ({ id, role: 'status', label: model.label }),
+  accessibility: ({ id, model }) => ({ id, label: model.label }),
 });
 custom({ label: 'No metadata capability declaration', meta: { paint } });
 

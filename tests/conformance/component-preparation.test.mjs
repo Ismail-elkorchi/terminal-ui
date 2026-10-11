@@ -11,7 +11,7 @@ function component(overrides = {}) {
     name: 'external/prepared-label', identity: 'required', accessibleRole: 'status',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 16, preferredHeight: 1 }),
     render: ({ model, target }) => target.write(0, 0, [span(model.label)]),
-    accessibility: ({ id, model }) => ({ id, role: 'status', label: model.label }),
+    accessibility: ({ id, model }) => ({ id, label: model.label }),
     ...overrides,
   });
 }

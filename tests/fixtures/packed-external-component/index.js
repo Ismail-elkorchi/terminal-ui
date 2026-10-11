@@ -30,7 +30,7 @@ const badge = defineComponent({
     paints += 1;
     target.write(0, 0, [span(model.label)]);
   },
-  accessibility: ({ id, model }) => { semantics += 1; return { id, role: 'status', label: model.label }; }
+  accessibility: ({ id, model }) => { semantics += 1; return { id, label: model.label }; }
 });
 
 export function peerBadge(options) {

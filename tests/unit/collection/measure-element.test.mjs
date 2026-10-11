@@ -25,7 +25,7 @@ test('prepared height-dependent items render with their measured constraints thr
     measure: ({ constraints }) => ({ minWidth: 1, minHeight: 1,
       preferredWidth: 1, preferredHeight: constraints.height }),
     render: ({ target }) => target.write(0, 0, [{ text: 'Measured' }]),
-    accessibility: ({ id }) => ({ id, role: 'text' }),
+    accessibility: ({ id }) => ({ id }),
   });
   // The built-in vertical flow depends on the row constraint too.
   const entries = [heightDependent({ id: 'custom' }),

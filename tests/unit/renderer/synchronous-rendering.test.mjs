@@ -24,7 +24,7 @@ function leaf(render) {
     accessibleRole: 'text',
     measure: () => measurement,
     render,
-    accessibility: ({ id }) => ({ id, role: 'text', label: 'leaf' }),
+    accessibility: ({ id }) => ({ id, label: 'leaf' }),
   });
   return create({ id: 'leaf-1' });
 }
@@ -40,7 +40,7 @@ function composite(phase, hook) {
     measure: () => measurement,
     layout: ({ bounds }) => ({ body: bounds }),
     [phase]: hook,
-    accessibility: ({ id, children }) => ({ id, role: 'group', label: 'composite', children }),
+    accessibility: ({ id, children }) => ({ id, label: 'composite', children }),
   });
   return create({ id: 'composite-1', slots: { body: text({ content: 'X' }) } });
 }

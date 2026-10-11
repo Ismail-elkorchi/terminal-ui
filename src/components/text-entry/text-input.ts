@@ -72,7 +72,7 @@ export function textInput<const TMessage extends ComponentMessage = never>(
   if (options.onTransition === undefined) {
     if (options.disabled !== true) assertTransitionCallback(options, 'textInput');
     const rest = withoutTransitionCallback(options);
-    return textInputDefinition({ ...rest, disabled: true });
+    return textInputDefinition<TMessage>({ ...rest, disabled: true, onAction: () => ignoreMessage() });
   }
   assertTransitionCallback(options, 'textInput');
   const { onTransition, onSubmit, onContextMenu, ...rest } = options;
@@ -94,7 +94,7 @@ export function passwordInput<const TMessage extends ComponentMessage = never>(
   if (options.onTransition === undefined) {
     if (options.disabled !== true) assertTransitionCallback(options, 'passwordInput');
     const rest = withoutTransitionCallback(options);
-    return passwordInputDefinition({ ...rest, disabled: true });
+    return passwordInputDefinition<TMessage>({ ...rest, disabled: true, onAction: () => ignoreMessage() });
   }
   assertTransitionCallback(options, 'passwordInput');
   const { onTransition, onSubmit, onContextMenu, ...rest } = options;
@@ -140,6 +140,7 @@ function textEntryDefinition<
   password: boolean,
 ): TextEntryFactory<TOptions> {
   return defineComponent<TOptions, TextEntryComponentAction>()({
+    emitsActions: true,
     name: `terminal-ui/components/${name}`,
     identity: 'required',
     structure: 'leaf',
@@ -263,7 +264,6 @@ function textEntryDefinition<
       model = profiledTextEntryModel(model, widthProfile);
       return {
         id,
-        role: 'textbox',
         required: model.required,
         invalid: model.error !== '',
         ...(model.error === '' ? {} : {

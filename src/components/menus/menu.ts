@@ -2,6 +2,7 @@ import type { AccessibleNode } from '../../accessibility/types.ts';
 import type { MenuTransition, MenuView, MenuViewItem } from '../../behavior/menu.ts';
 import { createScrollState } from '../../behavior/scroll.ts';
 import type {
+  ComponentAccessibilityResult,
   ComponentAccessibilityInput,
   ComponentInput,
   ComponentMeasureInput,
@@ -9,6 +10,7 @@ import type {
 } from '../../component/contracts.ts';
 import { defineComponent } from '../../component/definition.ts';
 import type { ComponentMessage } from '../../component/message.ts';
+import type { Element } from '../../element/types.ts';
 import {
   componentScrollbarHitTargets,
   decodeComponentScrollbarOptions,
@@ -38,7 +40,6 @@ import type { MenuStylePart } from '../style-parts.ts';
 import type {
   MenuComponentAction,
   MenuContentModel,
-  MenuFactory,
   MenuItemModel,
   MenuItemModelBase,
   MenuModel,
@@ -60,6 +61,7 @@ import {
 } from './shared.ts';
 
 const instantiateMenu = defineComponent<MenuOwnOptions, MenuComponentAction>()({
+  emitsActions: true,
   name: 'terminal-ui/components/menu',
   identity: 'required',
   structure: 'leaf',
@@ -108,7 +110,9 @@ const instantiateMenu = defineComponent<MenuOwnOptions, MenuComponentAction>()({
   accessibility: menuAccessibility,
 });
 
-export const menu: MenuFactory = (options) => {
+export function menu<const TMessage extends ComponentMessage = never>(
+  options: MenuOptions<TMessage>,
+): Element<TMessage> {
   const shared = menuInstanceOptions(options);
   const instance = {
     ...shared,
@@ -119,14 +123,14 @@ export const menu: MenuFactory = (options) => {
   assertOptionalCallback(options.onActivate, 'menu onActivate');
   if (options.onTransition === undefined) {
     if (options.disabled !== true && options.inert !== true) assertMenuCallbacks(options, 'menu');
-    return instantiateMenu({ ...instance, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }) });
+    return instantiateMenu<TMessage>({ ...instance, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }), onAction: () => ignoreMessage() });
   }
   assertMenuCallbacks(options, 'menu');
   return instantiateMenu({
     ...instance,
     onAction: (action) => routeMenuComponentAction(action, options),
   });
-};
+}
 
 export function menuComponentTransition(transition: MenuTransition): MenuComponentAction {
   return { kind: 'transition', transition };
@@ -580,10 +584,9 @@ function menuHitTargets(
   ];
 }
 
-function menuAccessibility(input: ComponentAccessibilityInput<MenuModel>): AccessibleNode {
+function menuAccessibility(input: ComponentAccessibilityInput<MenuModel>): ComponentAccessibilityResult {
   return {
     id: input.id,
-    role: 'menu',
     scope: { kind: 'menu' },
     children: menuAccessibleItems(
       input.id,

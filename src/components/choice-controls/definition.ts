@@ -1,4 +1,3 @@
-import type { AccessibleNode } from '../../accessibility/types.ts';
 import type {
   CheckboxGroupTransition,
   ColorSwatchPickerTransition,
@@ -6,6 +5,7 @@ import type {
 } from '../../behavior/choice-controls.ts';
 import type { ChoiceItem } from '../../collection/item.ts';
 import type {
+  ComponentAccessibilityResult,
   ComponentInput,
   ComponentMeasureInput,
   ComponentRenderInput,
@@ -81,11 +81,8 @@ interface ChoiceModelItem {
   readonly disabled: boolean;
 }
 
-type CheckboxGroupFactory = <TValue, const TMessage extends ComponentMessage = never>(
-  options: CheckboxGroupOptions<TValue, TMessage>,
-) => Element<TMessage>;
-
 const instantiateCheckboxGroup = defineComponent<CheckboxGroupComponentOptions, CheckboxGroupTransition>()({
+  emitsActions: true,
   ...choiceDefinitionBase('checkbox-group'),
   accessibleRole: 'group',
   createModel: (value) => createChoiceModel(value, 'checkboxGroup', true),
@@ -98,10 +95,12 @@ const instantiateCheckboxGroup = defineComponent<CheckboxGroupComponentOptions, 
   accessibility: (input) => choiceAccessibility(input, 'checkbox'),
 });
 
-export const checkboxGroup: CheckboxGroupFactory = (options) => {
+export function checkboxGroup<TValue, const TMessage extends ComponentMessage = never>(
+  options: CheckboxGroupOptions<TValue, TMessage>,
+): Element<TMessage> {
   if (options.disabled === true && options.onTransition === undefined) {
     const rest = withoutTransitionCallback(options);
-    return instantiateCheckboxGroup({ ...rest, disabled: true });
+    return instantiateCheckboxGroup<TMessage>({ ...rest, disabled: true, onAction: () => ignoreMessage() });
   }
   assertTransitionCallback(options, 'checkboxGroup');
   const { onTransition, ...rest } = options;
@@ -116,13 +115,10 @@ export const checkboxGroup: CheckboxGroupFactory = (options) => {
       return onTransition(action);
     },
   });
-};
-
-type RadioGroupFactory = <TValue, const TMessage extends ComponentMessage = never>(
-  options: RadioGroupOptions<TValue, TMessage>,
-) => Element<TMessage>;
+}
 
 const instantiateRadioGroup = defineComponent<RadioGroupComponentOptions, RadioGroupTransition>()({
+  emitsActions: true,
   ...choiceDefinitionBase('radio-group'),
   accessibleRole: 'radiogroup',
   createModel: (value) => createChoiceModel(value, 'radioGroup', false),
@@ -135,10 +131,12 @@ const instantiateRadioGroup = defineComponent<RadioGroupComponentOptions, RadioG
   accessibility: (input) => choiceAccessibility(input, 'radio'),
 });
 
-export const radioGroup: RadioGroupFactory = (options) => {
+export function radioGroup<TValue, const TMessage extends ComponentMessage = never>(
+  options: RadioGroupOptions<TValue, TMessage>,
+): Element<TMessage> {
   if (options.disabled === true && options.onTransition === undefined) {
     const rest = withoutTransitionCallback(options);
-    return instantiateRadioGroup({ ...rest, disabled: true });
+    return instantiateRadioGroup<TMessage>({ ...rest, disabled: true, onAction: () => ignoreMessage() });
   }
   assertTransitionCallback(options, 'radioGroup');
   const { onTransition, ...rest } = options;
@@ -151,7 +149,7 @@ export const radioGroup: RadioGroupFactory = (options) => {
       return onTransition(action);
     },
   });
-};
+}
 
 interface SwatchModel {
   readonly label: string;
@@ -166,14 +164,8 @@ interface SwatchModelItem extends ChoiceModelItem {
   readonly swatchStyle?: TerminalStyle;
 }
 
-type ColorSwatchPickerFactory = <
-  TValue,
-  const TMessage extends ComponentMessage = never,
->(
-  options: ColorSwatchPickerOptions<TValue, TMessage>,
-) => Element<TMessage>;
-
 const instantiateColorSwatchPicker = defineComponent<Omit<ColorSwatchPickerOptions<unknown, ComponentMessage>, 'id' | 'disabled' | 'onTransition' | 'styles' | 'meta'>, ColorSwatchPickerTransition>()({
+  emitsActions: true,
   name: 'terminal-ui/components/color-swatch-picker',
   identity: 'required',
   structure: 'leaf',
@@ -212,7 +204,6 @@ const instantiateColorSwatchPicker = defineComponent<Omit<ColorSwatchPickerOptio
     const selected = selectedSwatch(model);
     return {
       id,
-      role: 'listbox',
       ...(model.label === '' ? {} : { label: model.label }),
       ...(selected === undefined ? {} : { value: selected.label }),
       invalid: model.error !== '',
@@ -233,10 +224,15 @@ const instantiateColorSwatchPicker = defineComponent<Omit<ColorSwatchPickerOptio
   },
 });
 
-export const colorSwatchPicker: ColorSwatchPickerFactory = (options) => {
+export function colorSwatchPicker<
+  TValue,
+  const TMessage extends ComponentMessage = never,
+>(
+  options: ColorSwatchPickerOptions<TValue, TMessage>,
+): Element<TMessage> {
   if (options.disabled === true && options.onTransition === undefined) {
     const rest = withoutTransitionCallback(options);
-    return instantiateColorSwatchPicker({ ...rest, disabled: true });
+    return instantiateColorSwatchPicker<TMessage>({ ...rest, disabled: true, onAction: () => ignoreMessage() });
   }
   assertTransitionCallback(options, 'colorSwatchPicker');
   const { onTransition, ...rest } = options;
@@ -249,7 +245,7 @@ export const colorSwatchPicker: ColorSwatchPickerFactory = (options) => {
       return onTransition(action);
     },
   });
-};
+}
 
 interface ChoiceDefinitionBase<TName extends 'checkbox-group' | 'radio-group'> {
   readonly name: `terminal-ui/components/${TName}`;
@@ -558,11 +554,10 @@ function choiceRows(input: ComponentInput<ChoiceModel>) {
 function choiceAccessibility(
   input: import('../../component/index.ts').ComponentAccessibilityInput<ChoiceModel>,
   kind: 'checkbox' | 'radio',
-): AccessibleNode {
+): ComponentAccessibilityResult {
   const selected = new Set(choiceSelectedIds(input.model.interaction.selection));
   return {
     id: input.id,
-    role: kind === 'radio' ? 'radiogroup' as const : 'group' as const,
     ...(input.model.label === '' ? {} : { label: input.model.label }),
     ...(input.model.error === '' ? {} : { description: input.model.error }),
     ...(input.focused ? { focused: true } : {}),

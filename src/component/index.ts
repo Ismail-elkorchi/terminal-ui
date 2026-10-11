@@ -69,6 +69,7 @@ export type {
 export { decodeTerminalStyle, mergeTerminalStyles } from '../visual/terminal-style.ts';
 export type {
   ComponentAccessibilityInput,
+  ComponentAccessibilityResult,
   ComponentCallerSlotValues,
   ComponentCapturedMessageInput,
   ComponentCompositionInput,

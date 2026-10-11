@@ -99,7 +99,7 @@ test('reparenting, ID reuse, visibility and custom invalid output are checked af
   let invalid = false;
   const custom = defineComponent({ name: 'test/warm-invalid', identity: 'required', structure: 'leaf', semantics: 'semantic',
     accessibleRole: 'text', measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
-    render() {}, accessibility: ({ id }) => ({ id, role: 'text', ...(invalid ? { unknownField: true } : {}) }) });
+    render() {}, accessibility: ({ id }) => ({ id, ...(invalid ? { unknownField: true } : {}) }) });
   const element = custom({ id: 'custom' });
   const first = renderElementInternal(element, size);
   invalid = true;

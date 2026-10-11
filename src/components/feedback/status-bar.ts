@@ -60,7 +60,6 @@ export const statusBar: SemanticLeafComponentFactory<
   accessibility({ id, model }) {
     return {
       id,
-      role: 'status',
       value: [model.leading, model.center, model.trailing]
         .flatMap((section) => section.map(statusItemAccessibleText))
         .join('  '),

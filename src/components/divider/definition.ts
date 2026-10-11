@@ -36,7 +36,6 @@ const labelledDivider = defineComponent<Omit<DividerOptions, 'id' | 'styles' | '
   accessibleRole: 'separator',
   accessibility: ({ id, model }) => ({
     id,
-    role: 'separator',
     label: model.label,
     orientation: model.orientation,
   }),

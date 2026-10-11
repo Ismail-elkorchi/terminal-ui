@@ -26,11 +26,12 @@ const owner = defineComponent({
     optional: slots.count('optional') === 0 ? undefined : null,
     items: Array.from({ length: slots.count('items') }, () => null)
   }),
-  accessibility: ({ id, children }) => ({ id, role: 'group', children })
+  accessibility: ({ id, children }) => ({ id, children })
 });
 
 function forbiddenChild(id, phase) {
   return defineComponent({
+    emitsActions: true,
     name: 'terminal-ui-tests/components/forbidden-hidden-child',
     identity: 'required',
     structure: 'composite',
@@ -74,6 +75,7 @@ test('hidden slots resume the same child model and post-commit lifecycle when sh
   const commits = [];
   const models = [];
   const child = defineComponent({
+    emitsActions: true,
     name: 'terminal-ui-tests/components/retained-slot-child',
     identity: 'required',
     structure: 'leaf',
@@ -82,7 +84,7 @@ test('hidden slots resume the same child model and post-commit lifecycle when sh
     measure: () => measurement,
     render: ({ model, target }) => { models.push(model); target.write(0, 0, [{ text: model.value }]); },
     onLayout: ({ model, allocatedBounds }) => { commits.push({ model, allocatedBounds }); return ignoreMessage(); },
-    accessibility: ({ id, model }) => ({ id, role: 'text', label: model.value })
+    accessibility: ({ id, model }) => ({ id, label: model.value })
   })({ id: 'retained-child', value: 'preserved', onAction: (action) => action });
   const runtime = createTuiRuntime({
     host: createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 3 } }),
@@ -123,7 +125,7 @@ test('visible empty allocations and genuine component errors are not hidden', ()
     structure: 'leaf', semantics: 'semantic', accessibleRole: 'text',
     measure: () => measurement,
     render() { throw failure; },
-    accessibility: ({ id }) => ({ id, role: 'text' })
+    accessibility: ({ id }) => ({ id })
   })({ id: 'faulty-child' });
   for (const size of [{ columns: 10, rows: 2 }, { columns: 0, rows: 2 }]) {
     const element = owner({ id: 'visible-owner', hidden: false, slots: { content: faulty, items: [] } });
@@ -154,7 +156,7 @@ test('hidden slot paths do not reuse accessibility output from an active occurre
     structure: 'composite', semantics: 'semantic', accessibleRole: 'group', slots,
     measure: () => measurement,
     layout: ({ bounds }) => ({ content: bounds, optional: undefined, items: [null] }),
-    accessibility: ({ id, slots }) => ({ id, role: 'group', children: [...slots.content, ...slots.items] }),
+    accessibility: ({ id, slots }) => ({ id, children: [...slots.content, ...slots.items] }),
   });
   const frame = renderElementFrame(withAccessibleSlots({
     id: 'shared-owner', slots: { content: shared, items: [shared] },

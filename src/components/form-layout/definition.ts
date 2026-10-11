@@ -99,7 +99,6 @@ export const form: FormFactory = defineComponent<FormOwnOptions>()({
   accessibility(input) {
     return {
       id: input.id,
-      role: 'form',
       ...(input.model.title === '' ? {} : { label: input.model.title }),
       ...(input.focused ? { focused: true } : {}),
       children: input.slots.content,
@@ -245,7 +244,6 @@ const instantiateField = defineComponent<{ readonly label: string; readonly desc
     };
     return {
       id: input.id,
-      role: 'group',
       labelledBy: labelId,
       ...(input.focused ? { focused: true } : {}),
       children: [
@@ -336,7 +334,6 @@ export const label: SemanticLeafComponentFactory<
   accessibility({ id, model }) {
     return {
       id,
-      role: 'text',
       ...(model.text === '' ? {} : { label: model.text }),
       controls: model.forId,
     };

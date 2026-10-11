@@ -131,9 +131,10 @@ const createSearchPicker: SearchPickerFactory = <
     if (options.disabled !== true && options.inert !== true) {
       throw new TypeError('searchPicker onTransition must be a function.');
     }
-    return instantiateSearchPicker({
+    return instantiateSearchPicker<TTransitionMessage | TAcceptMessage>({
       ...withoutSearchPickerCallbacks(options),
       ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }),
+      onAction: () => ignoreMessage(),
     });
   }
   assertRequiredPropertyCallback(options, 'onTransition', 'searchPicker onTransition');
@@ -173,6 +174,7 @@ function withoutSearchPickerCallbacks<TOptions extends {
 }
 
 const instantiateSearchPicker = defineComponent<SearchPickerComponentOptions, SearchPickerComponentAction>()({
+  emitsActions: true,
   name: 'terminal-ui/components/search-picker',
   identity: 'required',
   structure: 'leaf',
@@ -234,7 +236,6 @@ const instantiateSearchPicker = defineComponent<SearchPickerComponentOptions, Se
   accessibility(input) {
     return {
       id: input.id,
-      role: 'combobox',
       ...(input.model.title === '' ? {} : { label: input.model.title }),
       value: input.model.input.text,
       textPosition: {

@@ -86,7 +86,9 @@ test('focused foundations import loads only its implementation dependencies', as
   `]);
   assert.equal(result.code, 0, result.output);
   const loaded = JSON.parse(result.output);
-  assert.ok(loaded.length <= 70, `foundations loaded ${loaded.length} modules: ${loaded.join(', ')}`);
+  // Component compilation now owns runtime phase projections and slot provenance.
+  // Both are shared component dependencies; no catalog or editor barrel is loaded.
+  assert.ok(loaded.length <= 72, `foundations loaded ${loaded.length} modules: ${loaded.join(', ')}`);
   for (const unrelated of [
     'text/document.js', 'text/document-edit.js', 'text/edit-history.js', 'text/query.js',
     'renderer/internal/render-element.js',

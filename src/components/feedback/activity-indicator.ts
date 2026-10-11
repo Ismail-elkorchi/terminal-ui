@@ -85,7 +85,6 @@ export const activityIndicator: ActivityIndicatorFactory = defineComponent<Activ
   accessibility({ id, model }) {
     return {
       id,
-      role: 'status',
       value: `${model.label} (${model.status})`,
       live: 'polite',
     };

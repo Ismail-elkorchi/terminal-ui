@@ -217,21 +217,21 @@ See [API stability](../guides/api-stability.md) for stability labels.
 
 ### @ismail-elkorchi/terminal-ui/component
 
-- [`CollectionInteractionOptions`](#component-collectioninteractionoptions), [`CollectionInteractionState`](#component-collectioninteractionstate), [`CollectionInteractionTransition`](#component-collectioninteractiontransition), [`CollectionQuery`](#component-collectionquery), [`CompiledCollectionQuery`](#component-compiledcollectionquery), [`ComponentAccessibilityInput`](#component-componentaccessibilityinput), [`ComponentCallerSlotValues`](#component-componentcallerslotvalues), [`ComponentCapturedMessageInput`](#component-componentcapturedmessageinput)
-- [`ComponentCompositionInput`](#component-componentcompositioninput), [`ComponentDefinition`](#component-componentdefinition), [`ComponentDefinitionName`](#component-componentdefinitionname), [`ComponentExecutionError`](#component-componentexecutionerror), [`ComponentExecutionPhase`](#component-componentexecutionphase), [`ComponentFrameSourceInput`](#component-componentframesourceinput), [`ComponentIdentity`](#component-componentidentity), [`ComponentImplementationSlotValues`](#component-componentimplementationslotvalues)
-- [`ComponentInput`](#component-componentinput), [`ComponentInspectionInput`](#component-componentinspectioninput), [`ComponentInspectionRecord`](#component-componentinspectionrecord), [`ComponentInspectionValue`](#component-componentinspectionvalue), [`ComponentInteractionInput`](#component-componentinteractioninput), [`ComponentKeyInput`](#component-componentkeyinput), [`ComponentLayoutCommitInput`](#component-componentlayoutcommitinput), [`ComponentLayoutInput`](#component-componentlayoutinput)
-- [`ComponentMeasureConstraints`](#component-componentmeasureconstraints), [`ComponentMeasureInput`](#component-componentmeasureinput), [`ComponentMessage`](#component-componentmessage), [`ComponentMetadataCapability`](#component-componentmetadatacapability), [`ComponentMetadataOptions`](#component-componentmetadataoptions), [`ComponentModelContext`](#component-componentmodelcontext), [`ComponentRenderInput`](#component-componentrenderinput), [`ComponentReuse`](#component-componentreuse)
-- [`ComponentReuseDependencies`](#component-componentreusedependencies), [`ComponentReuseSelector`](#component-componentreuseselector), [`ComponentScrollbarLayout`](#component-componentscrollbarlayout), [`ComponentScrollbarPlan`](#component-componentscrollbarplan), [`ComponentScrollbarThumb`](#component-componentscrollbarthumb), [`ComponentScrollbarTrack`](#component-componentscrollbartrack), [`ComponentSemanticInspection`](#component-componentsemanticinspection), [`ComponentSlotCardinality`](#component-componentslotcardinality)
-- [`ComponentSlotDefinition`](#component-componentslotdefinition), [`ComponentSlotLayout`](#component-componentslotlayout), [`ComponentSlotMessagePolicy`](#component-componentslotmessagepolicy), [`ComponentSlotOwner`](#component-componentslotowner), [`ComponentSlotShape`](#component-componentslotshape), [`ComponentSlotsDefinition`](#component-componentslotsdefinition), [`ComponentStateCapability`](#component-componentstatecapability), [`ComponentStyleInput`](#component-componentstyleinput)
-- [`ComponentStylePartMapping`](#component-componentstylepartmapping), [`ComponentTextInput`](#component-componenttextinput), [`ComponentVisualState`](#component-componentvisualstate), [`DecorativeLeafComponentDefinition`](#component-decorativeleafcomponentdefinition), [`DecorativeLeafComponentFactory`](#component-decorativeleafcomponentfactory), [`Element`](#component-element), [`ElementChildren`](#component-elementchildren), [`ElementChildrenMessage`](#component-elementchildrenmessage)
-- [`ElementMessage`](#component-elementmessage), [`ElementPaint`](#component-elementpaint), [`ElementState`](#component-elementstate), [`ElementStyles`](#component-elementstyles), [`ElementVisualState`](#component-elementvisualstate), [`FocusLifecycleEvent`](#component-focuslifecycleevent), [`FocusNavigation`](#component-focusnavigation), [`FocusTargetLifecycleEvent`](#component-focustargetlifecycleevent)
-- [`HitTarget`](#component-hittarget), [`IgnoredMessage`](#component-ignoredmessage), [`IndexedQueryCandidate`](#component-indexedquerycandidate), [`KeyboardBinding`](#component-keyboardbinding), [`MessageResolution`](#component-messageresolution), [`PopupState`](#component-popupstate), [`PopupTransition`](#component-popuptransition), [`QueryCandidate`](#component-querycandidate)
-- [`QueryMatch`](#component-querymatch), [`QueryMatchRange`](#component-querymatchrange), [`RenderBlock`](#component-renderblock), [`RenderLine`](#component-renderline), [`RenderSpan`](#component-renderspan), [`SelectionState`](#component-selectionstate), [`SemanticComposedComponentDefinition`](#component-semanticcomposedcomponentdefinition), [`SemanticCompositeComponentDefinition`](#component-semanticcompositecomponentdefinition)
-- [`SemanticCompositeComponentFactory`](#component-semanticcompositecomponentfactory), [`SemanticLeafComponentDefinition`](#component-semanticleafcomponentdefinition), [`SemanticLeafComponentFactory`](#component-semanticleafcomponentfactory), [`StagedComponentFactory`](#component-stagedcomponentfactory), [`TerminalStyle`](#component-terminalstyle), [`clipRenderLine`](#component-cliprenderline), [`clipRenderSpans`](#component-cliprenderspans), [`collectionInteractionReducer`](#component-collectioninteractionreducer)
-- [`compareCollectionText`](#component-comparecollectiontext), [`compileCollectionQuery`](#component-compilecollectionquery), [`componentScrollbarHitTargets`](#component-componentscrollbarhittargets), [`decodeComponentScrollPolicy`](#component-decodecomponentscrollpolicy), [`decodeComponentScrollState`](#component-decodecomponentscrollstate), [`decodeComponentScrollbarOptions`](#component-decodecomponentscrollbaroptions), [`decodeTerminalStyle`](#component-decodeterminalstyle), [`defineComponent`](#component-definecomponent)
-- [`formatKeyboardBinding`](#component-formatkeyboardbinding), [`ignoreMessage`](#component-ignoremessage), [`layoutComponentScrollbar`](#component-layoutcomponentscrollbar), [`line`](#component-line), [`mapComponentStyles`](#component-mapcomponentstyles), [`matchCollectionQuery`](#component-matchcollectionquery), [`measureConstrainedBox`](#component-measureconstrainedbox), [`measureRenderSpans`](#component-measurerenderspans)
-- [`mergeElementStyles`](#component-mergeelementstyles), [`mergeTerminalStyles`](#component-mergeterminalstyles), [`normalizeCollectionInteraction`](#component-normalizecollectioninteraction), [`padRenderLine`](#component-padrenderline), [`paintComponentScrollbar`](#component-paintcomponentscrollbar), [`popupReducer`](#component-popupreducer), [`queryCandidates`](#component-querycandidates), [`span`](#component-span)
-- [`wrapRenderSpans`](#component-wraprenderspans)
+- [`CollectionInteractionOptions`](#component-collectioninteractionoptions), [`CollectionInteractionState`](#component-collectioninteractionstate), [`CollectionInteractionTransition`](#component-collectioninteractiontransition), [`CollectionQuery`](#component-collectionquery), [`CompiledCollectionQuery`](#component-compiledcollectionquery), [`ComponentAccessibilityInput`](#component-componentaccessibilityinput), [`ComponentAccessibilityResult`](#component-componentaccessibilityresult), [`ComponentCallerSlotValues`](#component-componentcallerslotvalues)
+- [`ComponentCapturedMessageInput`](#component-componentcapturedmessageinput), [`ComponentCompositionInput`](#component-componentcompositioninput), [`ComponentDefinition`](#component-componentdefinition), [`ComponentDefinitionName`](#component-componentdefinitionname), [`ComponentExecutionError`](#component-componentexecutionerror), [`ComponentExecutionPhase`](#component-componentexecutionphase), [`ComponentFrameSourceInput`](#component-componentframesourceinput), [`ComponentIdentity`](#component-componentidentity)
+- [`ComponentImplementationSlotValues`](#component-componentimplementationslotvalues), [`ComponentInput`](#component-componentinput), [`ComponentInspectionInput`](#component-componentinspectioninput), [`ComponentInspectionRecord`](#component-componentinspectionrecord), [`ComponentInspectionValue`](#component-componentinspectionvalue), [`ComponentInteractionInput`](#component-componentinteractioninput), [`ComponentKeyInput`](#component-componentkeyinput), [`ComponentLayoutCommitInput`](#component-componentlayoutcommitinput)
+- [`ComponentLayoutInput`](#component-componentlayoutinput), [`ComponentMeasureConstraints`](#component-componentmeasureconstraints), [`ComponentMeasureInput`](#component-componentmeasureinput), [`ComponentMessage`](#component-componentmessage), [`ComponentMetadataCapability`](#component-componentmetadatacapability), [`ComponentMetadataOptions`](#component-componentmetadataoptions), [`ComponentModelContext`](#component-componentmodelcontext), [`ComponentRenderInput`](#component-componentrenderinput)
+- [`ComponentReuse`](#component-componentreuse), [`ComponentReuseDependencies`](#component-componentreusedependencies), [`ComponentReuseSelector`](#component-componentreuseselector), [`ComponentScrollbarLayout`](#component-componentscrollbarlayout), [`ComponentScrollbarPlan`](#component-componentscrollbarplan), [`ComponentScrollbarThumb`](#component-componentscrollbarthumb), [`ComponentScrollbarTrack`](#component-componentscrollbartrack), [`ComponentSemanticInspection`](#component-componentsemanticinspection)
+- [`ComponentSlotCardinality`](#component-componentslotcardinality), [`ComponentSlotDefinition`](#component-componentslotdefinition), [`ComponentSlotLayout`](#component-componentslotlayout), [`ComponentSlotMessagePolicy`](#component-componentslotmessagepolicy), [`ComponentSlotOwner`](#component-componentslotowner), [`ComponentSlotShape`](#component-componentslotshape), [`ComponentSlotsDefinition`](#component-componentslotsdefinition), [`ComponentStateCapability`](#component-componentstatecapability)
+- [`ComponentStyleInput`](#component-componentstyleinput), [`ComponentStylePartMapping`](#component-componentstylepartmapping), [`ComponentTextInput`](#component-componenttextinput), [`ComponentVisualState`](#component-componentvisualstate), [`DecorativeLeafComponentDefinition`](#component-decorativeleafcomponentdefinition), [`DecorativeLeafComponentFactory`](#component-decorativeleafcomponentfactory), [`Element`](#component-element), [`ElementChildren`](#component-elementchildren)
+- [`ElementChildrenMessage`](#component-elementchildrenmessage), [`ElementMessage`](#component-elementmessage), [`ElementPaint`](#component-elementpaint), [`ElementState`](#component-elementstate), [`ElementStyles`](#component-elementstyles), [`ElementVisualState`](#component-elementvisualstate), [`FocusLifecycleEvent`](#component-focuslifecycleevent), [`FocusNavigation`](#component-focusnavigation)
+- [`FocusTargetLifecycleEvent`](#component-focustargetlifecycleevent), [`HitTarget`](#component-hittarget), [`IgnoredMessage`](#component-ignoredmessage), [`IndexedQueryCandidate`](#component-indexedquerycandidate), [`KeyboardBinding`](#component-keyboardbinding), [`MessageResolution`](#component-messageresolution), [`PopupState`](#component-popupstate), [`PopupTransition`](#component-popuptransition)
+- [`QueryCandidate`](#component-querycandidate), [`QueryMatch`](#component-querymatch), [`QueryMatchRange`](#component-querymatchrange), [`RenderBlock`](#component-renderblock), [`RenderLine`](#component-renderline), [`RenderSpan`](#component-renderspan), [`SelectionState`](#component-selectionstate), [`SemanticComposedComponentDefinition`](#component-semanticcomposedcomponentdefinition)
+- [`SemanticCompositeComponentDefinition`](#component-semanticcompositecomponentdefinition), [`SemanticCompositeComponentFactory`](#component-semanticcompositecomponentfactory), [`SemanticLeafComponentDefinition`](#component-semanticleafcomponentdefinition), [`SemanticLeafComponentFactory`](#component-semanticleafcomponentfactory), [`StagedComponentFactory`](#component-stagedcomponentfactory), [`TerminalStyle`](#component-terminalstyle), [`clipRenderLine`](#component-cliprenderline), [`clipRenderSpans`](#component-cliprenderspans)
+- [`collectionInteractionReducer`](#component-collectioninteractionreducer), [`compareCollectionText`](#component-comparecollectiontext), [`compileCollectionQuery`](#component-compilecollectionquery), [`componentScrollbarHitTargets`](#component-componentscrollbarhittargets), [`decodeComponentScrollPolicy`](#component-decodecomponentscrollpolicy), [`decodeComponentScrollState`](#component-decodecomponentscrollstate), [`decodeComponentScrollbarOptions`](#component-decodecomponentscrollbaroptions), [`decodeTerminalStyle`](#component-decodeterminalstyle)
+- [`defineComponent`](#component-definecomponent), [`formatKeyboardBinding`](#component-formatkeyboardbinding), [`ignoreMessage`](#component-ignoremessage), [`layoutComponentScrollbar`](#component-layoutcomponentscrollbar), [`line`](#component-line), [`mapComponentStyles`](#component-mapcomponentstyles), [`matchCollectionQuery`](#component-matchcollectionquery), [`measureConstrainedBox`](#component-measureconstrainedbox)
+- [`measureRenderSpans`](#component-measurerenderspans), [`mergeElementStyles`](#component-mergeelementstyles), [`mergeTerminalStyles`](#component-mergeterminalstyles), [`normalizeCollectionInteraction`](#component-normalizecollectioninteraction), [`padRenderLine`](#component-padrenderline), [`paintComponentScrollbar`](#component-paintcomponentscrollbar), [`popupReducer`](#component-popupreducer), [`queryCandidates`](#component-querycandidates)
+- [`span`](#component-span), [`wrapRenderSpans`](#component-wraprenderspans)
 
 ### @ismail-elkorchi/terminal-ui/layout
 
@@ -8782,6 +8782,23 @@ readonly children: readonly AccessibleNode[];
 readonly slots: ComponentAccessibleSlotValues<TSlots>;
 ```
 
+<a id="component-componentaccessibilityresult"></a>
+### ComponentAccessibilityResult
+
+type · beta · [source](../../src/component/contracts.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
+
+Root role is supplied by the definition; descendants remain ordinary accessible nodes.
+
+```ts
+export type ComponentAccessibilityResult = Omit<AccessibleNode, 'role'> & {
+    readonly role?: never;
+};
+```
+
+Related types: [`AccessibleNode`](#accessibility-accessiblenode)
+
 <a id="component-componentcallerslotvalues"></a>
 ### ComponentCallerSlotValues
 
@@ -9822,16 +9839,8 @@ type · beta · [source](../../src/component/contracts.ts)
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
 ```ts
-export type DecorativeLeafComponentDefinition<TOptions extends object = Readonly<Record<never, never>>, TModel extends object = TOptions, TPart extends string = never, TIdentity extends ComponentIdentity = 'optional', TMetadata extends readonly Extract<ComponentMetadataCapability, 'layer' | 'styles'>[] = readonly [], TVisualStates extends readonly ComponentVisualState[] = readonly []> = ComponentDefinitionBase<TOptions, TModel, readonly [], TIdentity, TPart, TVisualStates> & MeasuredComponentDefinition<TModel, Readonly<Record<never, never>>> & DecorativeDefinition & {
-    readonly metadata?: TMetadata;
-    readonly slots?: never;
-    readonly structure: 'leaf';
-    readonly reuse?: ComponentReuse<TModel>;
-    readonly render: (this: undefined, input: ComponentRenderInput<TModel, TPart>) => undefined;
-};
+export type DecorativeLeafComponentDefinition<TOptions extends object = Readonly<Record<never, never>>, TModel extends object = TOptions, TPart extends string = never, TIdentity extends ComponentIdentity = 'optional', TMetadata extends readonly Extract<ComponentMetadataCapability, 'layer' | 'styles'>[] = readonly [], TVisualStates extends readonly ComponentVisualState[] = readonly []> = DecorativeLeafComponentDefinitionShape<TOptions, TModel, TPart, TIdentity, TMetadata, TVisualStates> & ComponentOptionsDefinition<TOptions, TModel>;
 ```
-
-Related types: [`ComponentRenderInput`](#component-componentrenderinput), [`ComponentReuse`](#component-componentreuse), [`input`](#prompts-input)
 
 <a id="component-decorativeleafcomponentfactory"></a>
 ### DecorativeLeafComponentFactory
@@ -10456,20 +10465,8 @@ type · beta · [source](../../src/component/contracts.ts)
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
 ```ts
-export type SemanticComposedComponentDefinition<TOptions extends object = Readonly<Record<never, never>>, TModel extends object = TOptions, TAction = never, TPart extends string = never, TStates extends readonly ComponentStateCapability[] = readonly [], TIdentity extends ComponentIdentity = 'required', TMetadata extends readonly ComponentMetadataCapability[] = readonly [], TSlots extends ComponentSlotsDefinition = Readonly<Record<never, never>>, TVisualStates extends readonly ComponentVisualState[] = readonly []> = ComponentDefinitionBase<TOptions, TModel, TStates, TIdentity, TPart, TVisualStates> & SemanticDefinition<TModel, TAction, TSlots, TPart> & {
-    readonly metadata?: TMetadata;
-    readonly slots?: TSlots;
-    readonly structure: 'composed';
-    readonly reuse?: Omit<ComponentReuse<TModel>, 'paint'> & {
-        readonly paint?: never;
-    };
-    readonly capture?: (this: undefined, input: ComponentCapturedMessageInput<TModel>) => MessageResolution<TAction>;
-    readonly compose: (this: undefined, input: ComponentCompositionInput<TModel, TSlots, TAction, TPart, TVisualStates[number]>) => Element<ComponentMessage>;
-    readonly clipChildren?: boolean;
-};
+export type SemanticComposedComponentDefinition<TOptions extends object = Readonly<Record<never, never>>, TModel extends object = TOptions, TAction = never, TPart extends string = never, TStates extends readonly ComponentStateCapability[] = readonly [], TIdentity extends ComponentIdentity = 'required', TMetadata extends readonly ComponentMetadataCapability[] = readonly [], TSlots extends ComponentSlotsDefinition = Readonly<Record<never, never>>, TVisualStates extends readonly ComponentVisualState[] = readonly []> = SemanticComposedComponentDefinitionShape<TOptions, TModel, TAction, TPart, TStates, TIdentity, TMetadata, TSlots, TVisualStates> & ComponentActionDefinition<TAction> & ComponentOptionsDefinition<TOptions, TModel>;
 ```
-
-Related types: [`ComponentCapturedMessageInput`](#component-componentcapturedmessageinput), [`ComponentCompositionInput`](#component-componentcompositioninput), [`ComponentMessage`](#component-componentmessage), [`ComponentReuse`](#component-componentreuse), [`Element`](#component-element), [`MessageResolution`](#component-messageresolution), [`input`](#prompts-input)
 
 <a id="component-semanticcompositecomponentdefinition"></a>
 ### SemanticCompositeComponentDefinition
@@ -10479,23 +10476,8 @@ type · beta · [source](../../src/component/contracts.ts)
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
 ```ts
-export type SemanticCompositeComponentDefinition<TOptions extends object = Readonly<Record<never, never>>, TModel extends object = TOptions, TAction = never, TPart extends string = never, TStates extends readonly ComponentStateCapability[] = readonly [], TIdentity extends ComponentIdentity = 'required', TMetadata extends readonly ComponentMetadataCapability[] = readonly [], TSlots extends ComponentSlotsDefinition = Readonly<Record<never, never>>, TVisualStates extends readonly ComponentVisualState[] = readonly []> = ComponentDefinitionBase<TOptions, TModel, TStates, TIdentity, TPart, TVisualStates> & MeasuredComponentDefinition<TModel, TSlots> & SemanticDefinition<TModel, TAction, TSlots, TPart> & {
-    readonly metadata?: TMetadata;
-    readonly slots: TSlots;
-    readonly structure: 'composite';
-    readonly reuse?: Omit<ComponentReuse<TModel>, 'paint'> & {
-        readonly paint?: never;
-    };
-    readonly capture?: (this: undefined, input: ComponentCapturedMessageInput<TModel>) => MessageResolution<TAction>;
-    readonly implementationSlots?: (this: undefined, input: ComponentCompositionInput<TModel, TSlots, TAction, TPart, TVisualStates[number]>) => ComponentImplementationSlotValues<TSlots>;
-    readonly clipChildren?: boolean;
-    readonly layout: (this: undefined, input: ComponentLayoutInput<TModel, TSlots>) => ComponentSlotLayout<TSlots>;
-    readonly renderBeforeChildren?: (this: undefined, input: ComponentRenderInput<TModel, TPart>) => undefined;
-    readonly renderAfterChildren?: (this: undefined, input: ComponentRenderInput<TModel, TPart>) => undefined;
-};
+export type SemanticCompositeComponentDefinition<TOptions extends object = Readonly<Record<never, never>>, TModel extends object = TOptions, TAction = never, TPart extends string = never, TStates extends readonly ComponentStateCapability[] = readonly [], TIdentity extends ComponentIdentity = 'required', TMetadata extends readonly ComponentMetadataCapability[] = readonly [], TSlots extends ComponentSlotsDefinition = Readonly<Record<never, never>>, TVisualStates extends readonly ComponentVisualState[] = readonly []> = SemanticCompositeComponentDefinitionShape<TOptions, TModel, TAction, TPart, TStates, TIdentity, TMetadata, TSlots, TVisualStates> & ComponentActionDefinition<TAction> & ComponentOptionsDefinition<TOptions, TModel>;
 ```
-
-Related types: [`ComponentCapturedMessageInput`](#component-componentcapturedmessageinput), [`ComponentCompositionInput`](#component-componentcompositioninput), [`ComponentImplementationSlotValues`](#component-componentimplementationslotvalues), [`ComponentLayoutInput`](#component-componentlayoutinput), [`ComponentRenderInput`](#component-componentrenderinput), [`ComponentReuse`](#component-componentreuse), [`ComponentSlotLayout`](#component-componentslotlayout), [`MessageResolution`](#component-messageresolution), [`input`](#prompts-input)
 
 <a id="component-semanticcompositecomponentfactory"></a>
 ### SemanticCompositeComponentFactory
@@ -10518,16 +10500,8 @@ type · beta · [source](../../src/component/contracts.ts)
 Import from: `@ismail-elkorchi/terminal-ui/component` (type only)
 
 ```ts
-export type SemanticLeafComponentDefinition<TOptions extends object = Readonly<Record<never, never>>, TModel extends object = TOptions, TAction = never, TPart extends string = never, TStates extends readonly ComponentStateCapability[] = readonly [], TIdentity extends ComponentIdentity = 'required', TMetadata extends readonly ComponentMetadataCapability[] = readonly [], TVisualStates extends readonly ComponentVisualState[] = readonly []> = ComponentDefinitionBase<TOptions, TModel, TStates, TIdentity, TPart, TVisualStates> & MeasuredComponentDefinition<TModel, Readonly<Record<never, never>>> & SemanticDefinition<TModel, TAction, Readonly<Record<never, never>>, TPart> & {
-    readonly metadata?: TMetadata;
-    readonly slots?: never;
-    readonly structure: 'leaf';
-    readonly reuse?: ComponentReuse<TModel>;
-    readonly render: (this: undefined, input: ComponentRenderInput<TModel, TPart>) => undefined;
-};
+export type SemanticLeafComponentDefinition<TOptions extends object = Readonly<Record<never, never>>, TModel extends object = TOptions, TAction = never, TPart extends string = never, TStates extends readonly ComponentStateCapability[] = readonly [], TIdentity extends ComponentIdentity = 'required', TMetadata extends readonly ComponentMetadataCapability[] = readonly [], TVisualStates extends readonly ComponentVisualState[] = readonly []> = SemanticLeafComponentDefinitionShape<TOptions, TModel, TAction, TPart, TStates, TIdentity, TMetadata, TVisualStates> & ComponentActionDefinition<TAction> & ComponentOptionsDefinition<TOptions, TModel>;
 ```
-
-Related types: [`ComponentRenderInput`](#component-componentrenderinput), [`ComponentReuse`](#component-componentreuse), [`input`](#prompts-input)
 
 <a id="component-semanticleafcomponentfactory"></a>
 ### SemanticLeafComponentFactory
@@ -17432,12 +17406,12 @@ readonly decorations: readonly TextAreaDecoration[];
 <a id="components-forms-button"></a>
 ### button
 
-value · beta · [source](../../src/components/action-button/definition.ts)
+function · beta · [source](../../src/components/action-button/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
 ```ts
-button: ButtonFactory
+export declare function button<const TMessage extends ComponentMessage = never>(options: ButtonOptions<TMessage>): Element<TMessage>;
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`ButtonOptions`](#components-forms-buttonoptions)
@@ -17445,12 +17419,12 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-calendar"></a>
 ### calendar
 
-value · beta · [source](../../src/components/calendar/definition.ts)
+function · beta · [source](../../src/components/calendar/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
 ```ts
-calendar: CalendarFactory
+export declare function calendar<const TMessage extends ComponentMessage = never>(options: CalendarOptions<TMessage>): Element<TMessage>;
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`CalendarOptions`](#components-forms-calendaroptions)
@@ -17458,12 +17432,12 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-checkbox"></a>
 ### checkbox
 
-value · beta · [source](../../src/components/boolean-controls/definition.ts)
+function · beta · [source](../../src/components/boolean-controls/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
 ```ts
-checkbox: CheckboxFactory
+export declare function checkbox<const TMessage extends ComponentMessage = never>(options: CheckboxOptions<TMessage>): Element<TMessage>;
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`CheckboxOptions`](#components-forms-checkboxoptions)
@@ -17471,12 +17445,17 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-checkboxgroup"></a>
 ### checkboxGroup
 
-value · beta · [source](../../src/components/choice-controls/definition.ts)
+function · beta · [source](../../src/components/choice-controls/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
 ```ts
-checkboxGroup: CheckboxGroupFactory
+export declare function checkboxGroup<
+  TValue,
+  const TMessage extends ComponentMessage = never
+>(
+  options: CheckboxGroupOptions<TValue, TMessage>
+): Element<TMessage>;
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`CheckboxGroupOptions`](#components-forms-checkboxgroupoptions)
@@ -17484,12 +17463,17 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-colorswatchpicker"></a>
 ### colorSwatchPicker
 
-value · beta · [source](../../src/components/choice-controls/definition.ts)
+function · beta · [source](../../src/components/choice-controls/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
 ```ts
-colorSwatchPicker: ColorSwatchPickerFactory
+export declare function colorSwatchPicker<
+  TValue,
+  const TMessage extends ComponentMessage = never
+>(
+  options: ColorSwatchPickerOptions<TValue, TMessage>
+): Element<TMessage>;
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`ColorSwatchPickerOptions`](#components-forms-colorswatchpickeroptions)
@@ -17616,12 +17600,16 @@ Related types: [`Element`](#component-element), [`LabelOptions`](#components-for
 <a id="components-forms-numberinput"></a>
 ### numberInput
 
-value · beta · [source](../../src/components/text-entry/number-input.ts)
+function · beta · [source](../../src/components/text-entry/number-input.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
 ```ts
-numberInput: NumberInputFactory
+export declare function numberInput<
+  const TMessage extends ComponentMessage = never
+>(
+  options: NumberInputOptions<TMessage>
+): Element<TMessage>;
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`NumberInputOptions`](#components-forms-numberinputoptions)
@@ -17666,12 +17654,17 @@ Related types: [`CooperativeWorkContext`](#behavior-cooperativeworkcontext), [`P
 <a id="components-forms-radiogroup"></a>
 ### radioGroup
 
-value · beta · [source](../../src/components/choice-controls/definition.ts)
+function · beta · [source](../../src/components/choice-controls/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
 ```ts
-radioGroup: RadioGroupFactory
+export declare function radioGroup<
+  TValue,
+  const TMessage extends ComponentMessage = never
+>(
+  options: RadioGroupOptions<TValue, TMessage>
+): Element<TMessage>;
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`RadioGroupOptions`](#components-forms-radiogroupoptions)
@@ -17679,12 +17672,16 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-rangeslider"></a>
 ### rangeSlider
 
-value · beta · [source](../../src/components/range-controls/definition.ts)
+function · beta · [source](../../src/components/range-controls/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
 ```ts
-rangeSlider: RangeSliderFactory
+export declare function rangeSlider<
+  const TMessage extends ComponentMessage = never
+>(
+  options: RangeSliderOptions<TMessage>
+): Element<TMessage>;
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`RangeSliderOptions`](#components-forms-rangeslideroptions)
@@ -17692,12 +17689,12 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-slider"></a>
 ### slider
 
-value · beta · [source](../../src/components/range-controls/definition.ts)
+function · beta · [source](../../src/components/range-controls/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
 ```ts
-slider: SliderFactory
+export declare function slider<const TMessage extends ComponentMessage = never>(options: SliderOptions<TMessage>): Element<TMessage>;
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`SliderOptions`](#components-forms-slideroptions)
@@ -17705,12 +17702,12 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-forms-switchcontrol"></a>
 ### switchControl
 
-value · beta · [source](../../src/components/boolean-controls/definition.ts)
+function · beta · [source](../../src/components/boolean-controls/definition.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/forms`
 
 ```ts
-switchControl: SwitchFactory
+export declare function switchControl<const TMessage extends ComponentMessage = never>(options: SwitchOptions<TMessage>): Element<TMessage>;
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`SwitchOptions`](#components-forms-switchoptions)
@@ -19442,12 +19439,12 @@ Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#c
 <a id="components-overlays-menu"></a>
 ### menu
 
-value · beta · [source](../../src/components/menus/menu.ts)
+function · beta · [source](../../src/components/menus/menu.ts)
 
 Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/components`, `@ismail-elkorchi/terminal-ui/components/overlays`
 
 ```ts
-menu: MenuFactory
+export declare function menu<const TMessage extends ComponentMessage = never>(options: MenuOptions<TMessage>): Element<TMessage>;
 ```
 
 Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`MenuOptions`](#components-overlays-menuoptions)

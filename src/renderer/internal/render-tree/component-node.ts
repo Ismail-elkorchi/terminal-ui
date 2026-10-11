@@ -1,3 +1,4 @@
+export { beginSlotComposition } from './slot-provenance.ts';
 export { resolveRenderNodeStyle } from '../../style-resolution.ts';
 export {
   componentElementFromRenderNode,

@@ -73,6 +73,7 @@ const heatmapBase = {
 const passiveHeatmap = defineComponent<HeatmapComponentOptions>()({ ...heatmapBase, createModel: createHeatmapModel });
 
 const activeHeatmap = defineComponent<HeatmapComponentOptions, HeatmapComponentAction>()({
+  emitsActions: true,
   ...heatmapBase,
   states: ['disabled', 'busy', 'inert'],
   createModel: createHeatmapModel,
@@ -136,7 +137,7 @@ export function heatmap<TValue, const TMessage extends ComponentMessage = never>
   assertOptionalCallback(options.onActivate, 'heatmap onActivate');
   if (options.onTransition === undefined) {
     if (!visualizationUnavailable(options)) assertVisualizationCallbacks(options, 'heatmap');
-    return activeHeatmap({ ...componentOptions, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }) });
+    return activeHeatmap<TMessage>({ ...componentOptions, ...(options.disabled === true ? { disabled: true as const } : { inert: true as const }), onAction: () => ignoreMessage() });
   }
   assertVisualizationCallbacks(options, 'heatmap');
   return activeHeatmap({
@@ -321,7 +322,6 @@ function heatmapAccessibility(input: ComponentAccessibilityInput<HeatmapModel>) 
   const columnCount = Math.max(0, ...input.model.rows.map((row) => row.length));
   return {
     id: input.id,
-    role: 'grid' as const,
     label: input.model.label,
     description: `${String(input.model.rows.length)} heatmap rows. Showing ${
       String(plan.start + 1)

@@ -138,7 +138,6 @@ const instantiateList = defineComponent<{ readonly items: readonly SemanticListI
   accessibility(input) {
     return {
       id: input.id,
-      role: 'list',
       children: input.model.items.map((item, index) => ({
         id: `${input.id}:item:${item.id}`,
         role: 'listitem' as const,
@@ -195,6 +194,7 @@ interface ListViewLayout {
 const listViewLayouts = new WeakMap<ListViewModel, ListViewLayout>();
 
 const instantiateListView = defineComponent<ListViewModel, ListViewComponentAction>()({
+  emitsActions: true,
   name: 'terminal-ui/components/list-view',
   identity: 'required',
   structure: 'composite',
@@ -429,7 +429,6 @@ const instantiateListView = defineComponent<ListViewModel, ListViewComponentActi
     });
     return {
       id: input.id,
-      role: 'list',
       ...(input.focused ? { focused: true } : {}),
       ...(input.model.activeId === undefined || !input.model.items.some((item, index) =>
         item.id === input.model.activeId && visible.has(index))
@@ -528,12 +527,13 @@ export function listView<
     slots: { items: items.map((item) => item.content) },
   };
   assertOptionalCallback(options.onActivate, 'collections onActivate');
-  if (options.disabled === true && options.onTransition === undefined) return instantiateListView({
+  if (options.disabled === true && options.onTransition === undefined) return instantiateListView<typeof shared.slots>({
     ...shared,
     disabled: true,
     ...(options.inert === undefined ? {} : { inert: options.inert }),
+    onAction: () => ignoreMessage(),
   });
-  if (options.inert === true && options.onTransition === undefined) return instantiateListView({ ...shared, inert: true });
+  if (options.inert === true && options.onTransition === undefined) return instantiateListView<typeof shared.slots>({ ...shared, inert: true, onAction: () => ignoreMessage() });
   assertRequiredPropertyCallback(options, 'onTransition', 'listView onTransition');
   assertOptionalCallback(options.onActivate, 'listView onActivate');
   return instantiateListView({

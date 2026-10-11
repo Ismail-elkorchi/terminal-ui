@@ -121,6 +121,7 @@ type TreeComponentAction =
   | { readonly kind: 'activate'; readonly event: TreeActivateEvent };
 
 const activeTree = defineComponent<TreeModel, TreeComponentAction>()({
+  emitsActions: true,
   ...treeBase,
   keys: ({ model, busy }) => {
     if (busy) return {};
@@ -183,12 +184,13 @@ export function tree<
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
   assertOptionalCallback(options.onActivate, 'tree onActivate');
-  if (options.disabled === true && options.onTransition === undefined) return activeTree({
+  if (options.disabled === true && options.onTransition === undefined) return activeTree<TTransitionMessage | TActivateMessage>({
     ...shared,
     disabled: true,
     ...(options.inert === undefined ? {} : { inert: options.inert }),
+    onAction: () => ignoreMessage(),
   });
-  if (options.inert === true && options.onTransition === undefined) return activeTree({ ...shared, inert: true });
+  if (options.inert === true && options.onTransition === undefined) return activeTree<TTransitionMessage | TActivateMessage>({ ...shared, inert: true, onAction: () => ignoreMessage() });
   assertRequiredPropertyCallback(options, 'onTransition', 'tree onTransition');
   assertOptionalCallback(options.onActivate, 'tree onActivate');
   return activeTree({
@@ -723,7 +725,6 @@ function treeAccessibility(
   const plan = treePlan(input);
   return {
     id: input.id,
-    role: 'tree' as const,
     description: input.model.pending ? 'Tree not ready.' : `Showing ${String(plan.startIndex + 1)}-${String(plan.endIndexExclusive)} of ${
       String(input.model.collection.count)
     } tree rows.`,

@@ -27,7 +27,7 @@ For signatures and public members, use the [API reference](./reference.md).
 | `@ismail-elkorchi/terminal-ui/components/feedback` | 21 |
 | `@ismail-elkorchi/terminal-ui/components/patterns` | 34 |
 | `@ismail-elkorchi/terminal-ui/components/visualizations` | 28 |
-| `@ismail-elkorchi/terminal-ui/component` | 116 |
+| `@ismail-elkorchi/terminal-ui/component` | 117 |
 | `@ismail-elkorchi/terminal-ui/layout` | 71 |
 | `@ismail-elkorchi/terminal-ui/behavior` | 381 |
 | `@ismail-elkorchi/terminal-ui/renderer` | 162 |

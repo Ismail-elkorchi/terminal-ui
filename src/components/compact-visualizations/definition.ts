@@ -125,7 +125,6 @@ export const sparkline: SemanticLeafComponentFactory<
   accessibility({ id, model }) {
     return {
       id,
-      role: 'text',
       label: model.label,
       ...(model.values.length === 0 ? {} : { value: `${String(model.values.length)} points` }),
       description: `${String(model.values.length)} sparkline points.`,
@@ -314,7 +313,6 @@ export const meter: SemanticLeafComponentFactory<
   accessibility({ id, model }) {
     return {
       id,
-      role: 'meter',
       ...(model.label === '' ? {} : { label: model.label }),
       value: model.value,
       numericValue: { current: model.value, minimum: model.min, maximum: model.max },

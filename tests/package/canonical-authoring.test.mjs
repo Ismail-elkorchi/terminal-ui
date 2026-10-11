@@ -7,10 +7,10 @@ test('canonical component authoring infers semantic and decorative leaf capabili
     import { defineComponent, type Element } from '@ismail-elkorchi/terminal-ui/component';
     const badge = defineComponent<{ readonly label: string }, { readonly kind: 'activate' }>()({
       name: 'tests/canonical-badge', identity: 'optional', structure: 'leaf', semantics: 'semantic',
-      accessibleRole: 'status', parts: ['value'], metadata: ['styles'], visualStates: ['hovered'],
+      emitsActions: true, accessibleRole: 'status', parts: ['value'], metadata: ['styles'], visualStates: ['hovered'],
       measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
       render: () => undefined,
-      accessibility: ({ id, model }) => ({ id, role: 'status', label: model.label })
+      accessibility: ({ id, model }) => ({ id, label: model.label })
     });
     const element: Element<'activate'> = badge({ label: 'Ready', onAction: action => action.kind,
       styles: { parts: { value: { bold: true } }, states: { hovered: { parts: { value: { italic: true } } } } }

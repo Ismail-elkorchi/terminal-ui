@@ -111,12 +111,11 @@ function adoptComponentActionMapping(
   instance: Record<string, unknown>,
   definition: ComponentRuntimeContract,
 ): void {
-  const actionful = definition.actionful;
-  const unavailable = instance['disabled'] === true || instance['inert'] === true;
+  const actionful = definition.emitsActions;
   if (instance['onAction'] !== undefined && typeof instance['onAction'] !== 'function') {
     throw new TypeError(`Component "${definition.name}" onAction must be a function when provided.`);
   }
-  if (actionful && !unavailable && typeof instance['onAction'] !== 'function') {
+  if (actionful && typeof instance['onAction'] !== 'function') {
     throw new TypeError(`Component "${definition.name}" requires onAction to map its semantic actions.`);
   }
   if (!actionful && instance['onAction'] !== undefined) {

@@ -18,6 +18,7 @@ import type {
 import { renderNodeId } from '../../../foundation/identity.ts';
 import type { RenderNodeKind } from '../../contracts.ts';
 import { renderNodeFocusUnavailable } from './node.ts';
+import { copySlotProvenance } from './slot-provenance.ts';
 import type { RenderNode, RenderNodeOfKind } from './types.ts';
 
 const renderNodeInspections = new WeakMap<object, ElementInspection>();
@@ -72,44 +73,32 @@ export function toRenderNodes<const TChildren extends ElementChildren>(
  */
 export function markImplementationStructure<TMessage>(
   node: RenderNode<TMessage>,
-  callerOwnedRoots: ReadonlySet<object> = new Set(),
+  callerOwnedRoots: { has(node: object): boolean } = new Set(),
   disabled = false,
 ): RenderNode<TMessage> {
-  if (callerOwnedRoots.has(node)) return node;
-  if (node.kind === 'component') {
-    if (!disabled) return node;
-    const unavailable = {
-      ...node,
-      state: { ...node.state, disabled: true },
-      ...(node.children === undefined
-        ? {}
-        : {
-            children: node.children.map((child) =>
-              markImplementationStructure(child, callerOwnedRoots, true)
-            ),
-          }),
+  const pending: { source: RenderNode<TMessage>; children: RenderNode<TMessage>[] }[] = [];
+  const mark = (source: RenderNode<TMessage>): RenderNode<TMessage> => {
+    if (callerOwnedRoots.has(source) || source.kind === 'component' && !disabled) return source;
+    const children: RenderNode<TMessage>[] | undefined = source.children === undefined ? undefined : [];
+    const marked = {
+      ...source,
+      ...(source.kind === 'component' ? {} : { transparentFocusIdentity: true as const }),
+      ...(disabled ? { state: { ...source.state, disabled: true } } : {}),
+      ...(children === undefined ? {} : { children }),
     } as RenderNode<TMessage>;
-    const componentInspection = renderNodeInspections.get(node);
-    if (componentInspection !== undefined) {
-      renderNodeInspections.set(unavailable, componentInspection);
-    }
-    return unavailable;
+    copySlotProvenance(source, marked);
+    const inspection = renderNodeInspections.get(source);
+    if (inspection !== undefined) renderNodeInspections.set(marked, inspection);
+    if (children !== undefined) pending.push({ source, children });
+    return marked;
+  };
+  const result = mark(node);
+  while (pending.length > 0) {
+    const entry = pending.pop();
+    if (entry === undefined) break;
+    for (const child of entry.source.children ?? []) entry.children.push(mark(child));
   }
-  const marked = {
-    ...node,
-    transparentFocusIdentity: true as const,
-    ...(disabled ? { state: { ...node.state, disabled: true } } : {}),
-    ...(node.children === undefined
-      ? {}
-      : {
-          children: node.children.map((child) =>
-            markImplementationStructure(child, callerOwnedRoots, disabled)
-          )
-        })
-  } as RenderNode<TMessage>;
-  const inspection = renderNodeInspections.get(node);
-  if (inspection !== undefined) renderNodeInspections.set(marked, inspection);
-  return marked;
+  return result;
 }
 
 export function toMappedRenderNodes(
@@ -156,6 +145,7 @@ function scopeRenderNode(node: RenderNode, identity: (id: string) => string): Re
     } }),
     ...(node.children === undefined ? {} : { children: node.children.map((child) => scopeRenderNode(child, identity)) }),
   } as RenderNode;
+  copySlotProvenance(node, mapped);
   const inspection = renderNodeInspections.get(node);
   if (inspection !== undefined) renderNodeInspections.set(mapped, inspectRenderNode(mapped, inspection.factory));
   return mapped;
@@ -175,6 +165,7 @@ function mapRenderNodeMessages<TMessage>(
       ? {}
       : { children: node.children.map((child) => mapRenderNodeMessages(child, mapper)) })
   } as RenderNode;
+  copySlotProvenance(node, mapped);
   const inspection = renderNodeInspections.get(node);
   if (inspection !== undefined) renderNodeInspections.set(mapped, inspection);
   return mapped;

@@ -42,6 +42,7 @@ test('visual spans delimit mapped runs and are never reordered a second time', (
 });
 
 const probe = defineComponent({
+  emitsActions: true,
   name: 'terminal-ui-tests/text-presentation-context', identity: 'required', structure: 'leaf',
   semantics: 'semantic', accessibleRole: 'textbox', metadata: ['focus'],
   createModel: options => options.model,
@@ -56,7 +57,7 @@ const probe = defineComponent({
     const index = createTerminalTextIndex(input.model.text, input);
     return [{ id: 'text', bounds: input.bounds, accepts: ['pointerDown'], message: event => ({ offset: index.visualColumnToPosition((event.localColumn ?? 1) - 1).offset }) }];
   },
-  accessibility: ({ id, model, focused }) => ({ id, role: 'textbox', value: model.text, focused, label: 'Mapped text' }),
+  accessibility: ({ id, model, focused }) => ({ id, value: model.text, focused, label: 'Mapped text' }),
 });
 
 test('provider identity invalidates layout and paint retention, while source values stay logical', () => {

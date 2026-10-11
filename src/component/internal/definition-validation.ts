@@ -36,6 +36,12 @@ export function assertDefinition(value: unknown): void {
   if (semantics !== 'semantic' && semantics !== 'decorative') {
     throw new TypeError('Component definition semantics must be "semantic" or "decorative".');
   }
+  if (value['emitsActions'] !== undefined && typeof value['emitsActions'] !== 'boolean') {
+    throw new TypeError('Component definition emitsActions must be a boolean.');
+  }
+  if (semantics === 'decorative' && value['emitsActions'] === true) {
+    throw new TypeError('Decorative component definitions cannot emit actions.');
+  }
   assertDefinitionIdentityAndAnatomy(value);
   assertDefinitionSlots(value, structure);
   assertDefinitionHooks(value, structure);
