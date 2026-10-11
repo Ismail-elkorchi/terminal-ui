@@ -19,6 +19,7 @@ import {
 import type { NavigationPolicy } from '../interaction/navigation.ts';
 import { popupReducer } from '../interaction/popup.ts';
 import type {
+  AutocompleteComboboxControlTransition,
   AutocompleteComboboxState,
   AutocompleteComboboxTransition,
   AutocompleteComboboxView,
@@ -26,7 +27,11 @@ import type {
   ComboboxControlTransition,
   ComboboxState,
   ComboboxTransition,
+  ScrollableAutocompleteComboboxState,
+  ScrollableAutocompleteComboboxView,
   ScrollableComboboxState,
+  UnscrolledAutocompleteComboboxState,
+  UnscrolledAutocompleteComboboxView,
   UnscrolledComboboxState,
 } from './combobox.ts';
 import { applyScrollRequest, scrollReducer } from './scroll.ts';
@@ -57,6 +62,18 @@ export interface AutocompleteComboboxCommitOptions
 }
 
 export function createAutocompleteComboboxState(
+  input: CreateAutocompleteComboboxStateInput & { readonly scroll: import('../interaction/scroll.ts').ScrollState },
+  index: CollectionInteractionIndex,
+): ScrollableAutocompleteComboboxState;
+export function createAutocompleteComboboxState(
+  input: CreateAutocompleteComboboxStateInput & { readonly scroll?: never },
+  index: CollectionInteractionIndex,
+): UnscrolledAutocompleteComboboxState;
+export function createAutocompleteComboboxState(
+  input: CreateAutocompleteComboboxStateInput,
+  index: CollectionInteractionIndex,
+): AutocompleteComboboxState;
+export function createAutocompleteComboboxState(
   input: CreateAutocompleteComboboxStateInput,
   index: CollectionInteractionIndex,
 ): AutocompleteComboboxState {
@@ -73,6 +90,15 @@ export function createAutocompleteComboboxState(
 }
 
 export function autocompleteComboboxView(
+  state: ScrollableAutocompleteComboboxState,
+): ScrollableAutocompleteComboboxView;
+export function autocompleteComboboxView(
+  state: UnscrolledAutocompleteComboboxState,
+): UnscrolledAutocompleteComboboxView;
+export function autocompleteComboboxView(
+  state: AutocompleteComboboxState,
+): AutocompleteComboboxView;
+export function autocompleteComboboxView(
   state: AutocompleteComboboxState,
 ): AutocompleteComboboxView {
   return Object.freeze({
@@ -85,6 +111,23 @@ export function autocompleteComboboxView(
   });
 }
 
+export function autocompleteComboboxReducer(
+  state: ScrollableAutocompleteComboboxState,
+  transition: AutocompleteComboboxTransition,
+  options: AutocompleteComboboxReducerOptions,
+): ScrollableAutocompleteComboboxState;
+export function autocompleteComboboxReducer(
+  state: UnscrolledAutocompleteComboboxState,
+  transition: AutocompleteComboboxControlTransition,
+  options: AutocompleteComboboxReducerOptions,
+): UnscrolledAutocompleteComboboxState;
+export function autocompleteComboboxReducer<TState extends AutocompleteComboboxState>(
+  state: TState,
+  transition: NoInfer<TState> extends UnscrolledAutocompleteComboboxState
+    ? AutocompleteComboboxControlTransition
+    : AutocompleteComboboxTransition,
+  options: AutocompleteComboboxReducerOptions,
+): AutocompleteComboboxState;
 export function autocompleteComboboxReducer(
   state: AutocompleteComboboxState,
   transition: AutocompleteComboboxTransition,
@@ -123,6 +166,21 @@ export function autocompleteComboboxReducer(
   };
 }
 
+export function commitAutocompleteCombobox(
+  state: ScrollableAutocompleteComboboxState,
+  event: ComboboxCommitEvent,
+  options: AutocompleteComboboxCommitOptions,
+): ScrollableAutocompleteComboboxState;
+export function commitAutocompleteCombobox(
+  state: UnscrolledAutocompleteComboboxState,
+  event: ComboboxCommitEvent,
+  options: AutocompleteComboboxCommitOptions,
+): UnscrolledAutocompleteComboboxState;
+export function commitAutocompleteCombobox(
+  state: AutocompleteComboboxState,
+  event: ComboboxCommitEvent,
+  options: AutocompleteComboboxCommitOptions,
+): AutocompleteComboboxState;
 export function commitAutocompleteCombobox(
   state: AutocompleteComboboxState,
   event: ComboboxCommitEvent,

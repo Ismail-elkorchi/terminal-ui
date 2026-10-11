@@ -84,8 +84,10 @@ export type {
   ComboboxState,
   ComboboxTransition,
   ScrollableAutocompleteComboboxView,
+  ScrollableAutocompleteComboboxState,
   ScrollableComboboxState,
   UnscrolledAutocompleteComboboxView,
+  UnscrolledAutocompleteComboboxState,
   UnscrolledComboboxState,
 } from './combobox.ts';
 export {

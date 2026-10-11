@@ -56,6 +56,14 @@ export interface AutocompleteComboboxState {
   readonly scroll?: ScrollState;
 }
 
+export interface UnscrolledAutocompleteComboboxState extends AutocompleteComboboxState {
+  readonly scroll?: never;
+}
+
+export interface ScrollableAutocompleteComboboxState extends AutocompleteComboboxState {
+  readonly scroll: ScrollState;
+}
+
 interface AutocompleteComboboxViewBase extends PopupState {
   readonly kind: 'autocomplete';
   readonly input: EditablePopupInputState['input'];

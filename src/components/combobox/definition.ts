@@ -56,6 +56,8 @@ import type {
   ActiveComboboxOptions,
   AnyComboboxOptions,
   AutocompleteComboboxOptions,
+  ScrollableAutocompleteComboboxOptions,
+  UnscrolledAutocompleteComboboxOptions,
   ComboboxOptions,
   ScrollableComboboxOptions,
   UnscrolledComboboxOptions,
@@ -85,15 +87,58 @@ const comboboxSlots = {
 
 /* eslint-disable @typescript-eslint/unified-signatures -- overloads preserve mode-specific transition inference */
 interface ComboboxFactory {
-  <TValue, const TMessage extends ComponentMessage = never>(
-    options: AutocompleteComboboxOptions<TValue, TMessage>,
-  ): Element<TMessage>;
-  <TValue, const TMessage extends ComponentMessage = never>(
-    options: ScrollableComboboxOptions<TValue, TMessage>,
-  ): Element<TMessage>;
-  <TValue, const TMessage extends ComponentMessage = never>(
-    options: UnscrolledComboboxOptions<TValue, TMessage>,
-  ): Element<TMessage>;
+  <
+    TValue,
+    const TMessage extends ComponentMessage = never,
+    const TCommitMessage extends ComponentMessage = TMessage,
+    const TContextMessage extends ComponentMessage = TMessage,
+  >(
+    options: UnscrolledAutocompleteComboboxOptions<TValue, TMessage, TCommitMessage, TContextMessage>,
+  ): Element<TMessage | TCommitMessage | TContextMessage>;
+  <
+    TValue,
+    const TMessage extends ComponentMessage = never,
+    const TCommitMessage extends ComponentMessage = TMessage,
+    const TContextMessage extends ComponentMessage = TMessage,
+  >(
+    options: ScrollableAutocompleteComboboxOptions<TValue, TMessage, TCommitMessage, TContextMessage>,
+  ): Element<TMessage | TCommitMessage | TContextMessage>;
+  <
+    TValue,
+    const TMessage extends ComponentMessage = never,
+    const TCommitMessage extends ComponentMessage = TMessage,
+    const TContextMessage extends ComponentMessage = TMessage,
+  >(
+    options: Exclude<
+      AutocompleteComboboxOptions<TValue, TMessage, TCommitMessage, TContextMessage>,
+      | UnscrolledAutocompleteComboboxOptions<TValue, TMessage, TCommitMessage, TContextMessage>
+      | ScrollableAutocompleteComboboxOptions<TValue, TMessage, TCommitMessage, TContextMessage>
+    >,
+  ): Element<TMessage | TCommitMessage | TContextMessage>;
+  <
+    TValue,
+    const TMessage extends ComponentMessage = never,
+    const TCommitMessage extends ComponentMessage = TMessage,
+    const TContextMessage extends ComponentMessage = TMessage,
+  >(
+    options: AutocompleteComboboxOptions<TValue, TMessage, TCommitMessage, TContextMessage>,
+  ): Element<TMessage | TCommitMessage | TContextMessage>;
+  <
+    TValue,
+    const TMessage extends ComponentMessage = never,
+    const TCommitMessage extends ComponentMessage = TMessage,
+    const TContextMessage extends ComponentMessage = TMessage,
+  >(
+    options: ScrollableComboboxOptions<TValue, TMessage, TCommitMessage, TContextMessage>,
+  ): Element<TMessage | TCommitMessage | TContextMessage>;
+  <
+    TValue,
+    const TMessage extends ComponentMessage = never,
+    const TCommitMessage extends ComponentMessage = TMessage,
+    const TContextMessage extends ComponentMessage = TMessage,
+  >(
+    options: UnscrolledComboboxOptions<TValue, TMessage, TCommitMessage, TContextMessage>,
+  ): Element<TMessage | TCommitMessage | TContextMessage>;
 }
 /* eslint-enable @typescript-eslint/unified-signatures */
 
@@ -405,10 +450,16 @@ const instantiateCombobox = defineComponent<ComboboxModel, ComboboxComponentActi
   },
 });
 
-export const combobox: ComboboxFactory = (options) => {
-  return isAutocompleteComboboxOptions(options)
-    ? createAutocompleteCombobox(options)
-    : createSelectCombobox(options);
+export const combobox: ComboboxFactory = <
+  TValue,
+  TMessage extends ComponentMessage,
+  TCommitMessage extends ComponentMessage,
+  TContextMessage extends ComponentMessage,
+>(options: AnyComboboxOptions<TValue, TMessage, TCommitMessage, TContextMessage>) => {
+  const combined: AnyComboboxOptions<TValue, TMessage | TCommitMessage | TContextMessage> = options;
+  return isAutocompleteComboboxOptions(combined)
+    ? createAutocompleteCombobox(combined)
+    : createSelectCombobox(combined);
 };
 
 function isAutocompleteComboboxOptions<TValue, TMessage extends ComponentMessage>(

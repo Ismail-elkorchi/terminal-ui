@@ -26,7 +26,9 @@ export type {
   ComboboxControlTransition,
   ComboboxState,
   ComboboxTransition,
+  ScrollableAutocompleteComboboxState,
   ScrollableComboboxState,
+  UnscrolledAutocompleteComboboxState,
   UnscrolledComboboxState,
 } from '../behavior/combobox.ts';
 export { createCommandSuggestions } from '../behavior/command-input-operations.ts';
@@ -232,7 +234,9 @@ export type {
   ComboboxOptions,
   DisabledComboboxOptions,
   InertComboboxOptions,
+  ScrollableAutocompleteComboboxOptions,
   ScrollableComboboxOptions,
+  UnscrolledAutocompleteComboboxOptions,
   UnscrolledComboboxOptions,
 } from './combobox/options.ts';
 export type { CommandInputDisplay, CommandInputValidation } from './command-input.ts';

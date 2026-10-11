@@ -159,14 +159,15 @@ See [API stability](../guides/api-stability.md) for stability labels.
 - [`DisabledCheckboxGroupOptions`](#components-forms-disabledcheckboxgroupoptions), [`DisabledCheckboxOptions`](#components-forms-disabledcheckboxoptions), [`DisabledColorSwatchPickerOptions`](#components-forms-disabledcolorswatchpickeroptions), [`DisabledComboboxOptions`](#components-forms-disabledcomboboxoptions), [`DisabledNumberInputOptions`](#components-forms-disablednumberinputoptions), [`DisabledRadioGroupOptions`](#components-forms-disabledradiogroupoptions), [`DisabledRangeSliderOptions`](#components-forms-disabledrangeslideroptions), [`DisabledSliderOptions`](#components-forms-disabledslideroptions)
 - [`DisabledSwitchOptions`](#components-forms-disabledswitchoptions), [`DisabledTextAreaOptions`](#components-forms-disabledtextareaoptions), [`DisabledTextInputOptions`](#components-forms-disabledtextinputoptions), [`FieldOptions`](#components-forms-fieldoptions), [`FormOptions`](#components-forms-formoptions), [`InertComboboxOptions`](#components-forms-inertcomboboxoptions), [`LabelOptions`](#components-forms-labeloptions), [`NumberInputControlTransition`](#components-forms-numberinputcontroltransition)
 - [`NumberInputOptions`](#components-forms-numberinputoptions), [`NumberInputTransition`](#components-forms-numberinputtransition), [`NumberInputValidity`](#components-forms-numberinputvalidity), [`NumericRange`](#components-forms-numericrange), [`PasswordInputOptions`](#components-forms-passwordinputoptions), [`PointerSelectionTransition`](#components-forms-pointerselectiontransition), [`PreparedTextAreaLayout`](#components-forms-preparedtextarealayout), [`RadioGroupOptions`](#components-forms-radiogroupoptions)
-- [`RadioGroupTransition`](#components-forms-radiogrouptransition), [`RangeSliderHandle`](#components-forms-rangesliderhandle), [`RangeSliderOptions`](#components-forms-rangeslideroptions), [`RangeSliderState`](#components-forms-rangesliderstate), [`RangeSliderStepDirection`](#components-forms-rangesliderstepdirection), [`RangeSliderTransition`](#components-forms-rangeslidertransition), [`RangeSliderValue`](#components-forms-rangeslidervalue), [`ScrollableComboboxOptions`](#components-forms-scrollablecomboboxoptions)
-- [`ScrollableComboboxState`](#components-forms-scrollablecomboboxstate), [`ScrollableTextAreaControlState`](#components-forms-scrollabletextareacontrolstate), [`ScrollableTextAreaOptions`](#components-forms-scrollabletextareaoptions), [`SliderOptions`](#components-forms-slideroptions), [`SliderTransition`](#components-forms-slidertransition), [`SwitchOptions`](#components-forms-switchoptions), [`SwitchTransition`](#components-forms-switchtransition), [`TextAreaConcealDecoration`](#components-forms-textareaconcealdecoration)
-- [`TextAreaControlState`](#components-forms-textareacontrolstate), [`TextAreaControlTransition`](#components-forms-textareacontroltransition), [`TextAreaDecoration`](#components-forms-textareadecoration), [`TextAreaDecorations`](#components-forms-textareadecorations), [`TextAreaKeyAction`](#components-forms-textareakeyaction), [`TextAreaLayoutRequest`](#components-forms-textarealayoutrequest), [`TextAreaLayoutSnapshot`](#components-forms-textarealayoutsnapshot), [`TextAreaOptions`](#components-forms-textareaoptions)
-- [`TextAreaReplacementDecoration`](#components-forms-textareareplacementdecoration), [`TextAreaRowOffsetMapOptions`](#components-forms-textarearowoffsetmapoptions), [`TextAreaStyleDecoration`](#components-forms-textareastyledecoration), [`TextAreaTransition`](#components-forms-textareatransition), [`TextEditingKeyAction`](#components-forms-texteditingkeyaction), [`TextInputKeyAction`](#components-forms-textinputkeyaction), [`TextInputOptions`](#components-forms-textinputoptions), [`TextInputTransition`](#components-forms-textinputtransition)
-- [`TextPointerTransition`](#components-forms-textpointertransition), [`UnscrolledComboboxOptions`](#components-forms-unscrolledcomboboxoptions), [`UnscrolledComboboxState`](#components-forms-unscrolledcomboboxstate), [`UnscrolledTextAreaControlState`](#components-forms-unscrolledtextareacontrolstate), [`UnscrolledTextAreaOptions`](#components-forms-unscrolledtextareaoptions), [`UpdateTextAreaDecorationsInput`](#components-forms-updatetextareadecorationsinput), [`button`](#components-forms-button), [`calendar`](#components-forms-calendar)
-- [`checkbox`](#components-forms-checkbox), [`checkboxGroup`](#components-forms-checkboxgroup), [`colorSwatchPicker`](#components-forms-colorswatchpicker), [`combobox`](#components-forms-combobox), [`createTextAreaDecorations`](#components-forms-createtextareadecorations), [`createTextAreaKeymap`](#components-forms-createtextareakeymap), [`createTextAreaRowOffsetMap`](#components-forms-createtextarearowoffsetmap), [`createTextInputKeymap`](#components-forms-createtextinputkeymap)
-- [`field`](#components-forms-field), [`form`](#components-forms-form), [`isValidationLevel`](#components-forms-isvalidationlevel), [`label`](#components-forms-label), [`numberInput`](#components-forms-numberinput), [`passwordInput`](#components-forms-passwordinput), [`prepareTextAreaLayout`](#components-forms-preparetextarealayout), [`radioGroup`](#components-forms-radiogroup)
-- [`rangeSlider`](#components-forms-rangeslider), [`slider`](#components-forms-slider), [`switchControl`](#components-forms-switchcontrol), [`textArea`](#components-forms-textarea), [`textInput`](#components-forms-textinput), [`updateTextAreaDecorations`](#components-forms-updatetextareadecorations)
+- [`RadioGroupTransition`](#components-forms-radiogrouptransition), [`RangeSliderHandle`](#components-forms-rangesliderhandle), [`RangeSliderOptions`](#components-forms-rangeslideroptions), [`RangeSliderState`](#components-forms-rangesliderstate), [`RangeSliderStepDirection`](#components-forms-rangesliderstepdirection), [`RangeSliderTransition`](#components-forms-rangeslidertransition), [`RangeSliderValue`](#components-forms-rangeslidervalue), [`ScrollableAutocompleteComboboxOptions`](#components-forms-scrollableautocompletecomboboxoptions)
+- [`ScrollableAutocompleteComboboxState`](#components-forms-scrollableautocompletecomboboxstate), [`ScrollableComboboxOptions`](#components-forms-scrollablecomboboxoptions), [`ScrollableComboboxState`](#components-forms-scrollablecomboboxstate), [`ScrollableTextAreaControlState`](#components-forms-scrollabletextareacontrolstate), [`ScrollableTextAreaOptions`](#components-forms-scrollabletextareaoptions), [`SliderOptions`](#components-forms-slideroptions), [`SliderTransition`](#components-forms-slidertransition), [`SwitchOptions`](#components-forms-switchoptions)
+- [`SwitchTransition`](#components-forms-switchtransition), [`TextAreaConcealDecoration`](#components-forms-textareaconcealdecoration), [`TextAreaControlState`](#components-forms-textareacontrolstate), [`TextAreaControlTransition`](#components-forms-textareacontroltransition), [`TextAreaDecoration`](#components-forms-textareadecoration), [`TextAreaDecorations`](#components-forms-textareadecorations), [`TextAreaKeyAction`](#components-forms-textareakeyaction), [`TextAreaLayoutRequest`](#components-forms-textarealayoutrequest)
+- [`TextAreaLayoutSnapshot`](#components-forms-textarealayoutsnapshot), [`TextAreaOptions`](#components-forms-textareaoptions), [`TextAreaReplacementDecoration`](#components-forms-textareareplacementdecoration), [`TextAreaRowOffsetMapOptions`](#components-forms-textarearowoffsetmapoptions), [`TextAreaStyleDecoration`](#components-forms-textareastyledecoration), [`TextAreaTransition`](#components-forms-textareatransition), [`TextEditingKeyAction`](#components-forms-texteditingkeyaction), [`TextInputKeyAction`](#components-forms-textinputkeyaction)
+- [`TextInputOptions`](#components-forms-textinputoptions), [`TextInputTransition`](#components-forms-textinputtransition), [`TextPointerTransition`](#components-forms-textpointertransition), [`UnscrolledAutocompleteComboboxOptions`](#components-forms-unscrolledautocompletecomboboxoptions), [`UnscrolledAutocompleteComboboxState`](#components-forms-unscrolledautocompletecomboboxstate), [`UnscrolledComboboxOptions`](#components-forms-unscrolledcomboboxoptions), [`UnscrolledComboboxState`](#components-forms-unscrolledcomboboxstate), [`UnscrolledTextAreaControlState`](#components-forms-unscrolledtextareacontrolstate)
+- [`UnscrolledTextAreaOptions`](#components-forms-unscrolledtextareaoptions), [`UpdateTextAreaDecorationsInput`](#components-forms-updatetextareadecorationsinput), [`button`](#components-forms-button), [`calendar`](#components-forms-calendar), [`checkbox`](#components-forms-checkbox), [`checkboxGroup`](#components-forms-checkboxgroup), [`colorSwatchPicker`](#components-forms-colorswatchpicker), [`combobox`](#components-forms-combobox)
+- [`createTextAreaDecorations`](#components-forms-createtextareadecorations), [`createTextAreaKeymap`](#components-forms-createtextareakeymap), [`createTextAreaRowOffsetMap`](#components-forms-createtextarearowoffsetmap), [`createTextInputKeymap`](#components-forms-createtextinputkeymap), [`field`](#components-forms-field), [`form`](#components-forms-form), [`isValidationLevel`](#components-forms-isvalidationlevel), [`label`](#components-forms-label)
+- [`numberInput`](#components-forms-numberinput), [`passwordInput`](#components-forms-passwordinput), [`prepareTextAreaLayout`](#components-forms-preparetextarealayout), [`radioGroup`](#components-forms-radiogroup), [`rangeSlider`](#components-forms-rangeslider), [`slider`](#components-forms-slider), [`switchControl`](#components-forms-switchcontrol), [`textArea`](#components-forms-textarea)
+- [`textInput`](#components-forms-textinput), [`updateTextAreaDecorations`](#components-forms-updatetextareadecorations)
 
 ### @ismail-elkorchi/terminal-ui/components/collections
 
@@ -703,7 +704,7 @@ export type { CheckboxGroupState, ColorSwatchPickerState, RadioGroupState, } fro
 export type { CheckboxGroupTransition, ColorSwatchPickerTransition, RadioGroupTransition, } from './choice-controls.ts';
 export { autocompleteComboboxReducer, autocompleteComboboxView, comboboxReducer, commitAutocompleteCombobox, commitCombobox, createAutocompleteComboboxState, } from './combobox-operations.ts';
 export type { AutocompleteComboboxCommitOptions, AutocompleteComboboxReducerOptions, ComboboxReducerOptions, CreateAutocompleteComboboxStateInput, } from './combobox-operations.ts';
-export type { AutocompleteComboboxControlTransition, AutocompleteComboboxState, AutocompleteComboboxTransition, AutocompleteComboboxView, ComboboxCommitEvent, ComboboxControlTransition, ComboboxState, ComboboxTransition, ScrollableAutocompleteComboboxView, ScrollableComboboxState, UnscrolledAutocompleteComboboxView, UnscrolledComboboxState, } from './combobox.ts';
+export type { AutocompleteComboboxControlTransition, AutocompleteComboboxState, AutocompleteComboboxTransition, AutocompleteComboboxView, ComboboxCommitEvent, ComboboxControlTransition, ComboboxState, ComboboxTransition, ScrollableAutocompleteComboboxView, ScrollableAutocompleteComboboxState, ScrollableComboboxState, UnscrolledAutocompleteComboboxView, UnscrolledAutocompleteComboboxState, UnscrolledComboboxState, } from './combobox.ts';
 export { commandInputReducer, commandInputView, createCommandInputState, createCommandSuggestions, } from './command-input-operations.ts';
 export type { CommandInputState, CreateCommandInputStateInput, } from './command-input-operations.ts';
 export type { CommandCompletion, CommandInputSubmitEvent, CommandInputTransition, CommandInputView, CommandSuggestion, } from './command-input.ts';
@@ -5256,13 +5257,31 @@ Import from: `@ismail-elkorchi/terminal-ui/behavior`
 
 ```ts
 export declare function autocompleteComboboxReducer(
-  state: AutocompleteComboboxState,
+  state: ScrollableAutocompleteComboboxState,
   transition: AutocompleteComboboxTransition,
+  options: AutocompleteComboboxReducerOptions
+): ScrollableAutocompleteComboboxState;
+```
+
+```ts
+export declare function autocompleteComboboxReducer(
+  state: UnscrolledAutocompleteComboboxState,
+  transition: AutocompleteComboboxControlTransition,
+  options: AutocompleteComboboxReducerOptions
+): UnscrolledAutocompleteComboboxState;
+```
+
+```ts
+export declare function autocompleteComboboxReducer<
+  TState extends AutocompleteComboboxState
+>(
+  state: TState,
+  transition: NoInfer<TState> extends UnscrolledAutocompleteComboboxState ? AutocompleteComboboxControlTransition : AutocompleteComboboxTransition,
   options: AutocompleteComboboxReducerOptions
 ): AutocompleteComboboxState;
 ```
 
-Related types: [`AutocompleteComboboxReducerOptions`](#behavior-autocompletecomboboxreduceroptions), [`AutocompleteComboboxState`](#components-forms-autocompletecomboboxstate), [`AutocompleteComboboxTransition`](#components-forms-autocompletecomboboxtransition)
+Related types: [`AutocompleteComboboxReducerOptions`](#behavior-autocompletecomboboxreduceroptions), [`AutocompleteComboboxControlTransition`](#components-forms-autocompletecomboboxcontroltransition), [`AutocompleteComboboxState`](#components-forms-autocompletecomboboxstate), [`AutocompleteComboboxTransition`](#components-forms-autocompletecomboboxtransition), [`ScrollableAutocompleteComboboxState`](#components-forms-scrollableautocompletecomboboxstate), [`UnscrolledAutocompleteComboboxState`](#components-forms-unscrolledautocompletecomboboxstate)
 
 <a id="behavior-autocompletecomboboxview"></a>
 ### autocompleteComboboxView
@@ -5272,10 +5291,18 @@ function · beta · [source](../../src/behavior/combobox-operations.ts)
 Import from: `@ismail-elkorchi/terminal-ui/behavior`
 
 ```ts
+export declare function autocompleteComboboxView(state: ScrollableAutocompleteComboboxState): ScrollableAutocompleteComboboxView;
+```
+
+```ts
+export declare function autocompleteComboboxView(state: UnscrolledAutocompleteComboboxState): UnscrolledAutocompleteComboboxView;
+```
+
+```ts
 export declare function autocompleteComboboxView(state: AutocompleteComboboxState): AutocompleteComboboxView;
 ```
 
-Related types: [`AutocompleteComboboxState`](#components-forms-autocompletecomboboxstate), [`AutocompleteComboboxView`](#components-forms-autocompletecomboboxview)
+Related types: [`ScrollableAutocompleteComboboxView`](#behavior-scrollableautocompletecomboboxview), [`UnscrolledAutocompleteComboboxView`](#behavior-unscrolledautocompletecomboboxview), [`AutocompleteComboboxState`](#components-forms-autocompletecomboboxstate), [`AutocompleteComboboxView`](#components-forms-autocompletecomboboxview), [`ScrollableAutocompleteComboboxState`](#components-forms-scrollableautocompletecomboboxstate), [`UnscrolledAutocompleteComboboxState`](#components-forms-unscrolledautocompletecomboboxstate)
 
 <a id="behavior-barchartreducer"></a>
 ### barChartReducer
@@ -5454,13 +5481,29 @@ Import from: `@ismail-elkorchi/terminal-ui/behavior`
 
 ```ts
 export declare function commitAutocompleteCombobox(
+  state: ScrollableAutocompleteComboboxState,
+  event: ComboboxCommitEvent,
+  options: AutocompleteComboboxCommitOptions
+): ScrollableAutocompleteComboboxState;
+```
+
+```ts
+export declare function commitAutocompleteCombobox(
+  state: UnscrolledAutocompleteComboboxState,
+  event: ComboboxCommitEvent,
+  options: AutocompleteComboboxCommitOptions
+): UnscrolledAutocompleteComboboxState;
+```
+
+```ts
+export declare function commitAutocompleteCombobox(
   state: AutocompleteComboboxState,
   event: ComboboxCommitEvent,
   options: AutocompleteComboboxCommitOptions
 ): AutocompleteComboboxState;
 ```
 
-Related types: [`AutocompleteComboboxCommitOptions`](#behavior-autocompletecomboboxcommitoptions), [`AutocompleteComboboxState`](#components-forms-autocompletecomboboxstate), [`ComboboxCommitEvent`](#components-forms-comboboxcommitevent)
+Related types: [`AutocompleteComboboxCommitOptions`](#behavior-autocompletecomboboxcommitoptions), [`AutocompleteComboboxState`](#components-forms-autocompletecomboboxstate), [`ComboboxCommitEvent`](#components-forms-comboboxcommitevent), [`ScrollableAutocompleteComboboxState`](#components-forms-scrollableautocompletecomboboxstate), [`UnscrolledAutocompleteComboboxState`](#components-forms-unscrolledautocompletecomboboxstate)
 
 <a id="behavior-commitcombobox"></a>
 ### commitCombobox
@@ -5539,12 +5582,30 @@ Import from: `@ismail-elkorchi/terminal-ui/behavior`
 
 ```ts
 export declare function createAutocompleteComboboxState(
+  input: CreateAutocompleteComboboxStateInput & {
+    readonly scroll: import('../interaction/scroll.ts').ScrollState;
+},
+  index: CollectionInteractionIndex
+): ScrollableAutocompleteComboboxState;
+```
+
+```ts
+export declare function createAutocompleteComboboxState(
+  input: CreateAutocompleteComboboxStateInput & {
+    readonly scroll?: never;
+},
+  index: CollectionInteractionIndex
+): UnscrolledAutocompleteComboboxState;
+```
+
+```ts
+export declare function createAutocompleteComboboxState(
   input: CreateAutocompleteComboboxStateInput,
   index: CollectionInteractionIndex
 ): AutocompleteComboboxState;
 ```
 
-Related types: [`CreateAutocompleteComboboxStateInput`](#behavior-createautocompletecomboboxstateinput), [`AutocompleteComboboxState`](#components-forms-autocompletecomboboxstate), [`CollectionInteractionIndex`](#interaction-collectioninteractionindex), [`input`](#prompts-input)
+Related types: [`CreateAutocompleteComboboxStateInput`](#behavior-createautocompletecomboboxstateinput), [`ScrollState`](#behavior-scrollstate), [`AutocompleteComboboxState`](#components-forms-autocompletecomboboxstate), [`ScrollableAutocompleteComboboxState`](#components-forms-scrollableautocompletecomboboxstate), [`UnscrolledAutocompleteComboboxState`](#components-forms-unscrolledautocompletecomboboxstate), [`CollectionInteractionIndex`](#interaction-collectioninteractionindex), [`input`](#prompts-input)
 
 <a id="behavior-createcommandinputstate"></a>
 ### createCommandInputState
@@ -14995,7 +15056,7 @@ type · beta · [source](../../src/components/combobox/options.ts)
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
 ```ts
-export type ActiveAutocompleteComboboxOptions<TValue, TMessage extends ComponentMessage> = UnscrolledAutocompleteComboboxBase<TValue> & ActiveComboboxCallbacks<AutocompleteComboboxControlTransition, TMessage> | ScrollableAutocompleteComboboxBase<TValue> & ActiveComboboxCallbacks<AutocompleteComboboxTransition, TMessage>;
+export type ActiveAutocompleteComboboxOptions<TValue, TMessage extends ComponentMessage, TCommitMessage extends ComponentMessage = TMessage, TContextMessage extends ComponentMessage = TMessage> = UnscrolledAutocompleteComboboxBase<TValue> & ActiveComboboxCallbacks<AutocompleteComboboxControlTransition, TMessage, TCommitMessage, TContextMessage> | ScrollableAutocompleteComboboxBase<TValue> & ActiveComboboxCallbacks<AutocompleteComboboxTransition, TMessage, TCommitMessage, TContextMessage> | DynamicAutocompleteComboboxBase<TValue> & ActiveComboboxCallbacks<AutocompleteComboboxTransition, TMessage, TCommitMessage, TContextMessage>;
 ```
 
 Related types: [`AutocompleteComboboxControlTransition`](#components-forms-autocompletecomboboxcontroltransition), [`AutocompleteComboboxTransition`](#components-forms-autocompletecomboboxtransition)
@@ -15108,7 +15169,7 @@ type · beta · [source](../../src/components/combobox/options.ts)
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
 ```ts
-export type ActiveComboboxOptions<TValue, TMessage extends ComponentMessage> = UnscrolledComboboxBase<TValue> & ActiveComboboxCallbacks<ComboboxControlTransition, TMessage> | ScrollableComboboxBase<TValue> & ActiveComboboxCallbacks<ComboboxTransition, TMessage>;
+export type ActiveComboboxOptions<TValue, TMessage extends ComponentMessage, TCommitMessage extends ComponentMessage = TMessage, TContextMessage extends ComponentMessage = TMessage> = UnscrolledComboboxBase<TValue> & ActiveComboboxCallbacks<ComboboxControlTransition, TMessage, TCommitMessage, TContextMessage> | ScrollableComboboxBase<TValue> & ActiveComboboxCallbacks<ComboboxTransition, TMessage, TCommitMessage, TContextMessage>;
 ```
 
 Related types: [`ComboboxControlTransition`](#components-forms-comboboxcontroltransition), [`ComboboxTransition`](#components-forms-comboboxtransition)
@@ -15278,7 +15339,7 @@ type · beta · [source](../../src/components/combobox/options.ts)
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
 ```ts
-export type AnyComboboxOptions<TValue = string, TMessage extends ComponentMessage = never> = ComboboxOptions<TValue, TMessage> | AutocompleteComboboxOptions<TValue, TMessage>;
+export type AnyComboboxOptions<TValue = string, TMessage extends ComponentMessage = never, TCommitMessage extends ComponentMessage = TMessage, TContextMessage extends ComponentMessage = TMessage> = ComboboxOptions<TValue, TMessage, TCommitMessage, TContextMessage> | AutocompleteComboboxOptions<TValue, TMessage, TCommitMessage, TContextMessage>;
 ```
 
 Related types: [`AutocompleteComboboxOptions`](#components-forms-autocompletecomboboxoptions), [`ComboboxOptions`](#components-forms-comboboxoptions)
@@ -15306,22 +15367,10 @@ type · beta · [source](../../src/components/combobox/options.ts)
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
 ```ts
-export type AutocompleteComboboxOptions<TValue = string, TMessage extends ComponentMessage = never> = ActiveAutocompleteComboboxOptions<TValue, TMessage> | UnscrolledAutocompleteComboboxBase<TValue> & InertComboboxAvailability<AutocompleteComboboxControlTransition, TMessage> | ScrollableAutocompleteComboboxBase<TValue> & InertComboboxAvailability<AutocompleteComboboxTransition, TMessage> | UnscrolledAutocompleteComboboxBase<TValue> & DisabledComboboxAvailability<AutocompleteComboboxControlTransition, TMessage> & {
-    readonly view: Extract<AutocompleteComboboxView, {
-        readonly scroll?: never;
-    }> & {
-        readonly open: false;
-    };
-} | ScrollableAutocompleteComboboxBase<TValue> & DisabledComboboxAvailability<AutocompleteComboboxTransition, TMessage> & {
-    readonly view: Extract<AutocompleteComboboxView, {
-        readonly scroll: unknown;
-    }> & {
-        readonly open: false;
-    };
-};
+export type AutocompleteComboboxOptions<TValue = string, TMessage extends ComponentMessage = never, TCommitMessage extends ComponentMessage = TMessage, TContextMessage extends ComponentMessage = TMessage> = UnscrolledAutocompleteComboboxOptions<TValue, TMessage, TCommitMessage, TContextMessage> | ScrollableAutocompleteComboboxOptions<TValue, TMessage, TCommitMessage, TContextMessage> | DynamicAutocompleteComboboxOptions<TValue, TMessage, TCommitMessage, TContextMessage>;
 ```
 
-Related types: [`ActiveAutocompleteComboboxOptions`](#components-forms-activeautocompletecomboboxoptions), [`AutocompleteComboboxControlTransition`](#components-forms-autocompletecomboboxcontroltransition), [`AutocompleteComboboxTransition`](#components-forms-autocompletecomboboxtransition), [`AutocompleteComboboxView`](#components-forms-autocompletecomboboxview)
+Related types: [`ScrollableAutocompleteComboboxOptions`](#components-forms-scrollableautocompletecomboboxoptions), [`UnscrolledAutocompleteComboboxOptions`](#components-forms-unscrolledautocompletecomboboxoptions)
 
 <a id="components-forms-autocompletecomboboxstate"></a>
 ### AutocompleteComboboxState
@@ -15761,7 +15810,7 @@ type · beta · [source](../../src/components/combobox/options.ts)
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
 ```ts
-export type ComboboxOptions<TValue = string, TMessage extends ComponentMessage = never> = UnscrolledComboboxOptions<TValue, TMessage> | ScrollableComboboxOptions<TValue, TMessage>;
+export type ComboboxOptions<TValue = string, TMessage extends ComponentMessage = never, TCommitMessage extends ComponentMessage = TMessage, TContextMessage extends ComponentMessage = TMessage> = UnscrolledComboboxOptions<TValue, TMessage, TCommitMessage, TContextMessage> | ScrollableComboboxOptions<TValue, TMessage, TCommitMessage, TContextMessage>;
 ```
 
 Related types: [`ScrollableComboboxOptions`](#components-forms-scrollablecomboboxoptions), [`UnscrolledComboboxOptions`](#components-forms-unscrolledcomboboxoptions)
@@ -15908,11 +15957,11 @@ type · beta · [source](../../src/components/combobox/options.ts)
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
 ```ts
-export type DisabledComboboxOptions<TValue, TMessage extends ComponentMessage = never> = UnscrolledComboboxBase<TValue> & DisabledComboboxAvailability<ComboboxControlTransition, TMessage> & {
+export type DisabledComboboxOptions<TValue, TMessage extends ComponentMessage = never, TCommitMessage extends ComponentMessage = TMessage, TContextMessage extends ComponentMessage = TMessage> = UnscrolledComboboxBase<TValue> & DisabledComboboxAvailability<ComboboxControlTransition, TMessage, TCommitMessage, TContextMessage> & {
     readonly state: UnscrolledComboboxState & {
         readonly open: false;
     };
-} | ScrollableComboboxBase<TValue> & DisabledComboboxAvailability<ComboboxTransition, TMessage> & {
+} | ScrollableComboboxBase<TValue> & DisabledComboboxAvailability<ComboboxTransition, TMessage, TCommitMessage, TContextMessage> & {
     readonly state: ScrollableComboboxState & {
         readonly open: false;
     };
@@ -16153,7 +16202,7 @@ type · beta · [source](../../src/components/combobox/options.ts)
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
 ```ts
-export type InertComboboxOptions<TValue, TMessage extends ComponentMessage = never> = UnscrolledComboboxBase<TValue> & InertComboboxAvailability<ComboboxControlTransition, TMessage> | ScrollableComboboxBase<TValue> & InertComboboxAvailability<ComboboxTransition, TMessage>;
+export type InertComboboxOptions<TValue, TMessage extends ComponentMessage = never, TCommitMessage extends ComponentMessage = TMessage, TContextMessage extends ComponentMessage = TMessage> = UnscrolledComboboxBase<TValue> & InertComboboxAvailability<ComboboxControlTransition, TMessage, TCommitMessage, TContextMessage> | ScrollableComboboxBase<TValue> & InertComboboxAvailability<ComboboxTransition, TMessage, TCommitMessage, TContextMessage>;
 ```
 
 Related types: [`ComboboxControlTransition`](#components-forms-comboboxcontroltransition), [`ComboboxTransition`](#components-forms-comboboxtransition)
@@ -16537,6 +16586,37 @@ readonly start: number;
 readonly end: number;
 ```
 
+<a id="components-forms-scrollableautocompletecomboboxoptions"></a>
+### ScrollableAutocompleteComboboxOptions
+
+type · beta · [source](../../src/components/combobox/options.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
+
+```ts
+export type ScrollableAutocompleteComboboxOptions<TValue = string, TMessage extends ComponentMessage = never, TCommitMessage extends ComponentMessage = TMessage, TContextMessage extends ComponentMessage = TMessage> = ScrollableAutocompleteComboboxBase<TValue> & AutocompleteComboboxAvailability<AutocompleteComboboxTransition, TMessage, TCommitMessage, TContextMessage>;
+```
+
+Related types: [`AutocompleteComboboxTransition`](#components-forms-autocompletecomboboxtransition)
+
+<a id="components-forms-scrollableautocompletecomboboxstate"></a>
+### ScrollableAutocompleteComboboxState
+
+interface · beta · [source](../../src/behavior/combobox.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/behavior` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
+
+```ts
+export interface ScrollableAutocompleteComboboxState extends AutocompleteComboboxState { … }
+```
+
+<a id="components-forms-scrollableautocompletecomboboxstate-scroll"></a>
+#### scroll
+
+```ts
+readonly scroll: ScrollState;
+```
+
 <a id="components-forms-scrollablecomboboxoptions"></a>
 ### ScrollableComboboxOptions
 
@@ -16545,7 +16625,7 @@ type · beta · [source](../../src/components/combobox/options.ts)
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
 ```ts
-export type ScrollableComboboxOptions<TValue = string, TMessage extends ComponentMessage = never> = ScrollableComboboxBase<TValue> & (ActiveComboboxCallbacks<ComboboxTransition, TMessage> | InertComboboxAvailability<ComboboxTransition, TMessage> | DisabledComboboxAvailability<ComboboxTransition, TMessage> & {
+export type ScrollableComboboxOptions<TValue = string, TMessage extends ComponentMessage = never, TCommitMessage extends ComponentMessage = TMessage, TContextMessage extends ComponentMessage = TMessage> = ScrollableComboboxBase<TValue> & (ActiveComboboxCallbacks<ComboboxTransition, TMessage, TCommitMessage, TContextMessage> | InertComboboxAvailability<ComboboxTransition, TMessage, TCommitMessage, TContextMessage> | DisabledComboboxAvailability<ComboboxTransition, TMessage, TCommitMessage, TContextMessage> & {
     readonly state: ScrollableComboboxState & {
         readonly open: false;
     };
@@ -17213,6 +17293,37 @@ export type TextPointerTransition = {
 
 Related types: [`text`](#components-foundations-text), [`TextAffinity`](#text-textaffinity)
 
+<a id="components-forms-unscrolledautocompletecomboboxoptions"></a>
+### UnscrolledAutocompleteComboboxOptions
+
+type · beta · [source](../../src/components/combobox/options.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
+
+```ts
+export type UnscrolledAutocompleteComboboxOptions<TValue = string, TMessage extends ComponentMessage = never, TCommitMessage extends ComponentMessage = TMessage, TContextMessage extends ComponentMessage = TMessage> = UnscrolledAutocompleteComboboxBase<TValue> & AutocompleteComboboxAvailability<AutocompleteComboboxControlTransition, TMessage, TCommitMessage, TContextMessage>;
+```
+
+Related types: [`AutocompleteComboboxControlTransition`](#components-forms-autocompletecomboboxcontroltransition)
+
+<a id="components-forms-unscrolledautocompletecomboboxstate"></a>
+### UnscrolledAutocompleteComboboxState
+
+interface · beta · [source](../../src/behavior/combobox.ts)
+
+Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/behavior` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
+
+```ts
+export interface UnscrolledAutocompleteComboboxState extends AutocompleteComboboxState { … }
+```
+
+<a id="components-forms-unscrolledautocompletecomboboxstate-scroll"></a>
+#### scroll
+
+```ts
+readonly scroll?: never;
+```
+
 <a id="components-forms-unscrolledcomboboxoptions"></a>
 ### UnscrolledComboboxOptions
 
@@ -17221,7 +17332,7 @@ type · beta · [source](../../src/components/combobox/options.ts)
 Import from: `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/components` (type only), `@ismail-elkorchi/terminal-ui/components/forms` (type only)
 
 ```ts
-export type UnscrolledComboboxOptions<TValue = string, TMessage extends ComponentMessage = never> = UnscrolledComboboxBase<TValue> & (ActiveComboboxCallbacks<ComboboxControlTransition, TMessage> | InertComboboxAvailability<ComboboxControlTransition, TMessage> | DisabledComboboxAvailability<ComboboxControlTransition, TMessage> & {
+export type UnscrolledComboboxOptions<TValue = string, TMessage extends ComponentMessage = never, TCommitMessage extends ComponentMessage = TMessage, TContextMessage extends ComponentMessage = TMessage> = UnscrolledComboboxBase<TValue> & (ActiveComboboxCallbacks<ComboboxControlTransition, TMessage, TCommitMessage, TContextMessage> | InertComboboxAvailability<ComboboxControlTransition, TMessage, TCommitMessage, TContextMessage> | DisabledComboboxAvailability<ComboboxControlTransition, TMessage, TCommitMessage, TContextMessage> & {
     readonly state: UnscrolledComboboxState & {
         readonly open: false;
     };
@@ -17394,7 +17505,7 @@ Import from: `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/compo
 combobox: ComboboxFactory
 ```
 
-Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`AutocompleteComboboxOptions`](#components-forms-autocompletecomboboxoptions), [`ScrollableComboboxOptions`](#components-forms-scrollablecomboboxoptions), [`UnscrolledComboboxOptions`](#components-forms-unscrolledcomboboxoptions)
+Related types: [`ComponentMessage`](#component-componentmessage), [`Element`](#component-element), [`AutocompleteComboboxOptions`](#components-forms-autocompletecomboboxoptions), [`ScrollableAutocompleteComboboxOptions`](#components-forms-scrollableautocompletecomboboxoptions), [`ScrollableComboboxOptions`](#components-forms-scrollablecomboboxoptions), [`UnscrolledAutocompleteComboboxOptions`](#components-forms-unscrolledautocompletecomboboxoptions), [`UnscrolledComboboxOptions`](#components-forms-unscrolledcomboboxoptions)
 
 <a id="components-forms-createtextareadecorations"></a>
 ### createTextAreaDecorations

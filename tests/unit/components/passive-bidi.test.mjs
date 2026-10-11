@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createLogHistory, createLogViewerView, createScrollState, createTableCollection, menuBarView } from '../../../dist/behavior/index.js';
 import { divider, logViewer, menuBar, pagination, richText, table, tableColumn, tabs, text } from '../../../dist/components/index.js';
-import { diffFrames, renderElementFrame, renderFramePlain } from '../../../dist/renderer/index.js';
+import { diffFrames, renderElementFrame, renderFramePlain, wrapRenderSpans } from '../../../dist/renderer/index.js';
 import { renderElementRegions } from '../../../dist/renderer/internal/render-element.js';
 import { applyRenderDiff } from '../../../dist/renderer/internal/diff-interpreter.js';
 import { defaultTextWidthProfile } from '../../../dist/text/index.js';
@@ -215,4 +215,37 @@ test('wrapped logical Unicode retains grapheme boundaries and styles without a p
   const emoji = frame.cells.find(cell => cell.text === '👩‍💻');
   assert.equal(emoji?.style?.italic, true);
   assert.equal(emoji?.link?.href, 'https://example.com/source');
+});
+
+test('wrapped mixed runs retain visual order and logical paragraph offsets with source styles', () => {
+  const { presentation, requests } = fixturePresentation();
+  const chrome = { elementId: 'chrome', elementKind: 'token' };
+  const first = { elementId: 'first', elementKind: 'token' };
+  const second = { elementId: 'second', elementKind: 'token' };
+  const bold = { bold: true };
+  const italic = { italic: true };
+  const wrapped = wrapRenderSpans([
+    { text: 'בא', textOrder: 'visual', source: chrome },
+    { text: 'אב', style: bold, source: first },
+    { text: 'גדה', style: italic, source: second },
+    { text: 'דג', textOrder: 'visual', source: chrome }
+  ], 5, { textPresentation: presentation });
+
+  assert.deepEqual(wrapped, [
+    { spans: [
+      { text: 'בא', textOrder: 'visual', source: chrome },
+      { text: 'ג', textOrder: 'visual', style: italic, source: second },
+      { text: 'בא', textOrder: 'visual', style: bold, source: first }
+    ] },
+    { spans: [
+      { text: 'הד', textOrder: 'visual', style: italic, source: second },
+      { text: 'דג', textOrder: 'visual', source: chrome }
+    ] }
+  ]);
+  assert.deepEqual(requests.map(request => ({
+    text: request.text, startOffset: request.startOffset, endOffsetExclusive: request.endOffsetExclusive
+  })), [
+    { text: 'אבגדה', startOffset: 0, endOffsetExclusive: 3 },
+    { text: 'אבגדה', startOffset: 3, endOffsetExclusive: 5 }
+  ]);
 });
